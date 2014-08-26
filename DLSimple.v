@@ -21,7 +21,7 @@ Inductive Term :=
 
 (* Programs containing discrete and continuous parts. *)
 Inductive HybridProg :=
-(* A discrete progam constructor *)
+(* A discrete progam constructor for assignment *)
 | Assign : Var -> Term -> HybridProg
 (* A continuous program constructor that takes a list
    of differential equations. Each differential equation
@@ -65,7 +65,10 @@ Fixpoint eval_term (t:Term) (st:state) : R :=
   | DivideT t1 t2 => (eval_term t1 st) / (eval_term t2 st)
   end.
 
-(* Semantics of hybrid programs. *)
+(* Semantics of hybrid programs. Intuitively,
+   Transition p st1 st2 should hold if, starting in
+   state st1, the system specified by p can evolve to
+   state st2. *)
 Inductive Transition :
   HybridProg -> state -> state -> Prop :=
 
@@ -111,7 +114,10 @@ Inductive Transition :
    Transition p2 s2 s3 ->
    Transition (Seq p1 p2) s1 s3.
 
-(* Semantics of formulas. *)
+(* Semantics of formulas. A formula valid with respect
+   to a given state. Below, when we state correctness
+   properties of programs, we will quantify over the
+   state.  *)
 Fixpoint eval_formula (f:Formula) (st:state) : Prop :=
   match f with
   (* Semantics of comparison. Nothing special here. *)
@@ -143,6 +149,8 @@ Notation "5" := (RealT (INR 5)) (at level 10) : HP_scope.
 Notation "6" := (RealT (INR 6)) (at level 10) : HP_scope.
 Infix "+" := (PlusT) : HP_scope.
 Infix "-" := (MinusT) : HP_scope.
+Notation "-- x" := (MinusT (RealT R0) x)
+                     (at level 9) : HP_scope.
 Infix "*" := (MultT) : HP_scope.
 Infix "/" := (DivideT) : HP_scope.
 Fixpoint pow (t : Term) (n : nat) :=
@@ -182,6 +190,19 @@ Lemma imp_intro : forall f f' st,
   eval_formula (f --> f') st.
 Proof. auto. Qed.
 
+(* The following three functions will be used to state
+   the differential induction rule (diff_ind) below.
+   Essentially, an invariant inv is a differential
+   invariant of a system of differential equations
+   diffeqs at some state st if
+     1) inv holds at st
+     2) if one takes the "derivative" of inv
+        and substitutes the right hand sides of diffeqs
+        into this derivative to form inv', then inv'
+        holds on any state st'
+   The derivative of a formula and substitution of
+   differential equations right hand sides is implemented
+   in the following three functions. *)
 (* Takes a var x and list of differential equations
    and returns Some t if (x' := t) is in the list of
    differential equations. Returns None otherwise. *)
@@ -231,7 +252,7 @@ Fixpoint deriv_formula (f:Formula) (eqs:list (Var * Term))
 (* Differential induction *)
 Lemma diff_ind : forall diffeqs inv st,
   eval_formula inv st ->
-  eval_formula (deriv_formula inv diffeqs) st ->
+  (forall st, eval_formula (deriv_formula inv diffeqs) st) ->
   eval_formula ([DiffEq diffeqs]inv) st.
 Admitted.
 
@@ -245,7 +266,9 @@ Open Scope HP_scope.
 Open Scope DL_scope.
 Open Scope string_scope.
 
-(* Example 3.14 on page 171 of Platzer's textbook. *)
+(* Example 3.14 on page 171 of Platzer's textbook. This
+   example includes the following three programs and
+   their corresponding differential invariants. *)
 Definition quartic1 := |["x"' ::= `"x"^^4]|.
 
 Definition inv_quartic1 := `"x" >= 1/4.
@@ -254,7 +277,6 @@ Theorem inv_quartic1_ok : forall st,
   eval_formula (inv_quartic1 --> [quartic1] inv_quartic1) st.
 Proof.
   intro st.
-  Arguments string_dec !s1 !s2.
   repeat (intros; match goal with
                     | [ |- _ ] => apply imp_intro
                     | [ |- _ ] => apply diff_ind
@@ -272,7 +294,6 @@ Theorem inv_quartic2_ok : forall st,
   eval_formula (inv_quartic2 --> [quartic2] inv_quartic2) st.
 Proof.
   intro st.
-  Arguments string_dec !s1 !s2.
   repeat (intros; match goal with
                     | [ |- _ ] => apply imp_intro
                     | [ |- _ ] => apply diff_ind
@@ -282,15 +303,14 @@ field_simplify.
    forall x, 3(x^4 + x^2) >= 0 *)
 Admitted.
 
-Definition quartic3 := |["x"' ::= `"x"^^2 - (4*`"x") + 6]|.
+Definition quad := |["x"' ::= `"x"^^2 - (4*`"x") + 6]|.
 
-Definition inv_quartic3 := 3*`"x" >= 1/4.
+Definition inv_quad := 3*`"x" >= 1/4.
 
-Theorem inv_quartic3_ok : forall st,
-  eval_formula (inv_quartic3 --> [quartic3] inv_quartic3) st.
+Theorem inv_quad_ok : forall st,
+  eval_formula (inv_quad --> [quad] inv_quad) st.
 Proof.
   intro st.
-  Arguments string_dec !s1 !s2.
   repeat (intros; match goal with
                     | [ |- _ ] => apply imp_intro
                     | [ |- _ ] => apply diff_ind
@@ -299,3 +319,48 @@ field_simplify.
 (* We're essentially left with the goal
    forall x, 3(x^2 - 4x + 6) >= 0 *)
 Admitted.
+
+Definition cubic := |["x"' ::= `"x"^^3]|.
+
+Definition inv_cubic := 5*(`"x"^^2) >= 1/3.
+
+Theorem inv_cubic_ok : forall st,
+  eval_formula (inv_cubic --> [cubic] inv_cubic) st.
+Proof.
+  intro st.
+  repeat (intros; match goal with
+                    | [ |- _ ] => apply imp_intro
+                    | [ |- _ ] => apply diff_ind
+                  end); auto; simpl in *; intros.
+field_simplify.
+(* We're essentially left with the goal
+   forall x, 10x^4 >= 0 *)
+Admitted.
+
+(* Here's a more challenging example from section
+   12 Assuming Invariants of Platzer's lecture notes
+   http://symbolaris.com/course/fcps13/11-diffcut.pdf.
+   We'll start with a formula that is not an invariant
+   of the system to make sure our proof rules don't
+   allow us to prove stuff that's wrong. Eventually,
+   I'll implement something that does work. *)
+Definition system :=
+  |["x"' ::= `"d", "y"' ::= `"e", "d"' ::= `"e",
+    "e"' ::= --`"d"]|.
+
+Definition bad_inv p :=
+  ((`"x"-1)^^2) + (`"y"-2)^^2 >= (RealT p)^^2.
+
+Theorem bad_inv_ok : forall st p,
+  eval_formula ((bad_inv p) --> [system] (bad_inv p)) st.
+Proof.
+  intros st p.
+  repeat (intros; match goal with
+                    | [ |- _ ] => apply imp_intro
+                    | [ |- _ ] => apply diff_ind
+                  end); auto; simpl in *; intros.
+field_simplify.
+(* We're left with the goal
+   forall x y d e, 2(x-1)d + 2(y-2)e >= 0
+   which is unprovable, as it should be. *)
+Abort.
