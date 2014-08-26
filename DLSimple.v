@@ -256,6 +256,12 @@ Lemma diff_ind : forall diffeqs inv st,
   eval_formula ([DiffEq diffeqs]inv) st.
 Admitted.
 
+Ltac apply_proof_rules :=
+  repeat (intros; match goal with
+                    | [ |- _ ] => apply imp_intro
+                    | [ |- _ ] => apply diff_ind
+                  end).
+
 Close Scope DL_scope.
 
 (************************************************)
@@ -276,14 +282,10 @@ Definition inv_quartic1 := `"x" >= 1/4.
 Theorem inv_quartic1_ok : forall st,
   eval_formula (inv_quartic1 --> [quartic1] inv_quartic1) st.
 Proof.
-  intro st.
-  repeat (intros; match goal with
-                    | [ |- _ ] => apply imp_intro
-                    | [ |- _ ] => apply diff_ind
-                  end); auto; simpl in *; intros.
-field_simplify.
- (* We're essentially left with the goal
-    forall x, x^4 >= 0 *)
+  intro st; apply_proof_rules; auto; simpl in *; intros.
+  field_simplify.
+  (* We're essentially left with the goal
+     forall x, x^4 >= 0 *)
 Admitted.
 
 Definition quartic2 := |["x"' ::= `"x"^^4 + `"x"^^2]|.
@@ -293,14 +295,10 @@ Definition inv_quartic2 := 3*`"x" >= 1/4.
 Theorem inv_quartic2_ok : forall st,
   eval_formula (inv_quartic2 --> [quartic2] inv_quartic2) st.
 Proof.
-  intro st.
-  repeat (intros; match goal with
-                    | [ |- _ ] => apply imp_intro
-                    | [ |- _ ] => apply diff_ind
-                  end); auto; simpl in *; intros.
-field_simplify.
-(* We're essentially left with the goal
-   forall x, 3(x^4 + x^2) >= 0 *)
+  intro st; apply_proof_rules; auto; simpl in *; intros.
+  field_simplify.
+  (* We're essentially left with the goal
+     forall x, 3(x^4 + x^2) >= 0 *)
 Admitted.
 
 Definition quad := |["x"' ::= `"x"^^2 - (4*`"x") + 6]|.
@@ -310,14 +308,10 @@ Definition inv_quad := 3*`"x" >= 1/4.
 Theorem inv_quad_ok : forall st,
   eval_formula (inv_quad --> [quad] inv_quad) st.
 Proof.
-  intro st.
-  repeat (intros; match goal with
-                    | [ |- _ ] => apply imp_intro
-                    | [ |- _ ] => apply diff_ind
-                  end); auto; simpl in *; intros.
-field_simplify.
-(* We're essentially left with the goal
-   forall x, 3(x^2 - 4x + 6) >= 0 *)
+  intro st; apply_proof_rules; auto; simpl in *; intros.
+  field_simplify.
+  (* We're essentially left with the goal
+     forall x, 3(x^2 - 4x + 6) >= 0 *)
 Admitted.
 
 Definition cubic := |["x"' ::= `"x"^^3]|.
@@ -327,14 +321,10 @@ Definition inv_cubic := 5*(`"x"^^2) >= 1/3.
 Theorem inv_cubic_ok : forall st,
   eval_formula (inv_cubic --> [cubic] inv_cubic) st.
 Proof.
-  intro st.
-  repeat (intros; match goal with
-                    | [ |- _ ] => apply imp_intro
-                    | [ |- _ ] => apply diff_ind
-                  end); auto; simpl in *; intros.
-field_simplify.
-(* We're essentially left with the goal
-   forall x, 10x^4 >= 0 *)
+  intro st; apply_proof_rules; auto; simpl in *; intros.
+  field_simplify.
+  (* We're essentially left with the goal
+     forall x, 10x^4 >= 0 *)
 Admitted.
 
 (* Here's a more challenging example from section
@@ -354,13 +344,9 @@ Definition bad_inv p :=
 Theorem bad_inv_ok : forall st p,
   eval_formula ((bad_inv p) --> [system] (bad_inv p)) st.
 Proof.
-  intros st p.
-  repeat (intros; match goal with
-                    | [ |- _ ] => apply imp_intro
-                    | [ |- _ ] => apply diff_ind
-                  end); auto; simpl in *; intros.
-field_simplify.
-(* We're left with the goal
-   forall x y d e, 2(x-1)d + 2(y-2)e >= 0
-   which is unprovable, as it should be. *)
+  intros st p; apply_proof_rules; auto; simpl in *; intros.
+  field_simplify.
+  (* We're essentially left with the goal
+     forall x y d e, 2(x-1)d + 2(y-2)e >= 0
+     which is unprovable, as it should be. *)
 Abort.
