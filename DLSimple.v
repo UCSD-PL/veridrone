@@ -3,6 +3,7 @@ Require Import Coq.Reals.Ranalysis1.
 Require Import String.
 Require Import List.
 Require Import Sumbool.
+Require Import Coq.Reals.MVT.
 
 (************************************************)
 (* The syntax of differential dynamic logic.    *)
@@ -16,8 +17,8 @@ Inductive Term :=
 | RealT : R -> Term
 | PlusT : Term -> Term -> Term
 | MinusT : Term -> Term -> Term
-| MultT : Term -> Term -> Term
-| DivideT : Term -> Term -> Term.
+| MultT : Term -> Term -> Term.
+(*| DivideT : Term -> Term -> Term.*)
 
 (* Programs containing discrete and continuous parts. *)
 Inductive HybridProg :=
@@ -62,8 +63,24 @@ Fixpoint eval_term (t:Term) (st:state) : R :=
   | PlusT t1 t2 => (eval_term t1 st) + (eval_term t2 st)
   | MinusT t1 t2 => (eval_term t1 st) - (eval_term t2 st)
   | MultT t1 t2 => (eval_term t1 st) * (eval_term t2 st)
-  | DivideT t1 t2 => (eval_term t1 st) / (eval_term t2 st)
+(*  | DivideT t1 t2 => (eval_term t1 st) / (eval_term t2 st)*)
   end.
+
+Definition solves_diffeqs (f : R -> state)
+  (diffeqs : list (Var * Term)) (r : R)
+  (is_derivable : forall x, derivable (fun t => f t x)) :=
+  forall x d,
+      List.In (x, d) diffeqs ->
+      forall z, R0 < z < r ->
+        derive (fun t => f t x) (is_derivable x) z =
+        eval_term d (f z).
+
+Definition vars_unchanged (f : R -> state)
+  (diffeqs : list (Var * Term)) (r : R) (s : state) :=
+  forall x,
+      ~(exists d, List.In (x, d) diffeqs) ->
+      forall z, R0 < z < r ->
+        f z x = s x.
 
 (* Semantics of hybrid programs. Intuitively,
    Transition p st1 st2 should hold if, starting in
@@ -90,22 +107,17 @@ Inductive Transition :
      3) only changes values of variables whose
         derivative is specified in diffeqs
 *)
-| Continuous : forall s1 s2 diffeqs f r,
+| Continuous : forall s1 s2 diffeqs f r is_derivable, 
    (* (1) f is equal to s1 at time 0 and equal to
           s2 at some later time r *)
+   (* Should it be R0 < r or R0 <= r ? *)
+   R0 < r ->
    f R0 = s1 -> f r = s2 ->
    (* TODO f is continuous on [0,r] *)
    (* (2) f is a solution to diffeqs *)
-   (forall x d pr,
-      In (x, d) diffeqs ->
-      forall z, R0 < z < r ->
-        derive (fun t => f t x) pr z =
-        eval_term d (f z)) ->
+   solves_diffeqs f diffeqs r is_derivable ->
    (* (3) f does not change other variables *)
-   (forall x d,
-      ~In (x, d) diffeqs ->
-      forall z, R0 < z < r ->
-        f z x = s1 x) ->
+   vars_unchanged f diffeqs r s1 ->
    Transition (DiffEq diffeqs) s1 s2
 
 (* Semantics of sequencing. Nothing special here. *)
@@ -152,7 +164,7 @@ Infix "-" := (MinusT) : HP_scope.
 Notation "-- x" := (MinusT (RealT R0) x)
                      (at level 9) : HP_scope.
 Infix "*" := (MultT) : HP_scope.
-Infix "/" := (DivideT) : HP_scope.
+(*Infix "/" := (DivideT) : HP_scope.*)
 Fixpoint pow (t : Term) (n : nat) :=
   match n with
   | O => RealT 1
@@ -176,6 +188,9 @@ Notation "f1 --> f2" := (Imp f1 f2)
                           (at level 11) : DL_scope.
 Notation "[ p ] f" := (ForallState p f)
                         (at level 10) : DL_scope.
+
+Delimit Scope HP_scope with HP.
+Delimit Scope DL_scope with DL.
 
 (************************************************)
 (* Some proof rules.                            *)
@@ -232,10 +247,22 @@ Fixpoint deriv_term (t:Term) (eqs:list (Var * Term))
      (deriv_term t1 eqs) - (deriv_term t2 eqs)
   | MultT t1 t2 =>
      ((deriv_term t1 eqs) * t2) + (t1 * (deriv_term t2 eqs))
-  | DivideT t1 t2 =>
+(*  | DivideT t1 t2 =>
      (((deriv_term t1 eqs) * t2) - (t1 * (deriv_term t2 eqs)))
-     / (t2 * t2)
+     / (t2 * t2)*)
   end.
+
+(* For some formulas, differential induction does not work,
+   so we use the following unprovable formula in those
+   cases. *)
+Definition FalseFormula := Geq (RealT R0) (RealT (INR 1)).
+
+Lemma FalseFormulaFalse : forall st,
+  ~eval_formula FalseFormula st.
+Proof.
+  intros. simpl. apply Rlt_not_ge.
+  apply lt_0_INR with (n := S O). omega.
+Qed.
 
 (* The derivative of a formula is essentially the derivative
    of each of its terms (with some exceptions not shown
@@ -244,18 +271,137 @@ Fixpoint deriv_formula (f:Formula) (eqs:list (Var * Term))
   : Formula :=
   match f with
   | Geq t1 t2 => Geq (deriv_term t1 eqs) (deriv_term t2 eqs)
-  | Imp f1 f2 => Imp (deriv_formula f1 eqs)
-                     (deriv_formula f2 eqs)
-  | ForallState p f => ForallState p (deriv_formula f eqs)
+  | Imp f1 f2 => FalseFormula
+     (*I'm not sure what the condition is in this case
+       but I think the following is wrong. *)
+     (*Imp (deriv_formula f1 eqs)
+           (deriv_formula f2 eqs)*)
+  | ForallState p f => FalseFormula
+     (*I don't think differential induction works here.*)
+     (*ForallState p (deriv_formula f eqs)*)
   end.
+
+(* Now we have a bunch of messy lemmas that we'll use
+   to prove the differential induction (diff_ind) rule. *)
+Lemma term_is_derivable : forall (f : R -> state) (e : Term),
+  (forall x, derivable (fun t => f t x)) ->
+  derivable (fun t => eval_term e (f t)).
+Proof.
+  intros f e.
+  induction e; simpl; intro is_derivable.
+    - auto.
+    - apply derivable_const.
+    - apply derivable_plus; auto.
+    - apply derivable_minus; auto.
+    - apply derivable_mult; auto.
+(*    - apply derivable_div; auto.*)
+Qed.
+
+Lemma get_deriv_in : forall x eqs t,
+  get_deriv x eqs = Some t ->
+  List.In (x, t) eqs.
+Proof.
+  intros x eqs t Hderiv.
+  induction eqs.
+    - unfold get_deriv in *. simpl in *. discriminate.
+    - unfold get_deriv in *. simpl in *. destruct a.
+      destruct (string_dec x v) eqn:?; simpl in *;
+        intuition congruence.
+Qed.
+
+Lemma get_deriv_not_in : forall x eqs,
+  get_deriv x eqs = None ->
+  ~exists t, List.In (x, t) eqs.
+Proof.
+  intros x eqs Hderiv.
+  induction eqs.
+    - intro H. destruct H. auto.
+    - intro H. destruct H. simpl in *.
+      destruct H.
+      + subst a. unfold get_deriv in *. simpl in *.
+        destruct (string_dec x x); simpl in *;
+        intuition discriminate.
+      + unfold get_deriv in *. simpl in *. destruct a.
+        destruct (string_dec x v); simpl in *.
+        * discriminate.
+        * intuition. eauto.
+Qed.
+
+Lemma term_deriv : forall (f : R -> state) (e : Term)
+  (r : R) (diffeqs : list (Var * Term)) is_derivable s,
+  solves_diffeqs f diffeqs r is_derivable ->
+  vars_unchanged f diffeqs r s ->
+  forall z, 
+    (R0 < z < r)%R ->
+    derive (fun t => eval_term e (f t))
+           (term_is_derivable f e is_derivable) z =
+    eval_term (deriv_term e diffeqs) (f z).
+Proof.
+  intros. unfold derive.
+  apply (derive_pt_D_in
+           (fun t : R => eval_term e (f t))
+           (fun t : R => eval_term (deriv_term e diffeqs)
+                                   (f t))).
+  induction e; intros; simpl in *.
+    - destruct (get_deriv v diffeqs) eqn:?.
+      + unfold solves_diffeqs in *.
+        unfold derive in *.
+        specialize (H v t (get_deriv_in _ _ _ Heqo) z H1).
+        apply (derive_pt_D_in
+                 (fun t0 : R => f t0 v)
+                 (fun t0 : R => eval_term t (f t0))) in H.
+        auto.
+      + apply (derive_pt_D_in _ _ _
+         (term_is_derivable _ (VarT v) is_derivable z)).
+        simpl. apply deriv_constant2 with (a := R0) (b := r);
+               intuition. unfold vars_unchanged in *.
+        specialize (H0 v (get_deriv_not_in v diffeqs Heqo)).
+        transitivity (s v). apply H0. intuition.
+        symmetry. apply H0. intuition.
+    - apply Dconst.
+    - apply Dadd; auto.
+    - apply Dminus; auto.
+    - apply Dmult; auto.
+Qed.
 
 (* Differential induction *)
 Lemma diff_ind : forall diffeqs inv st,
   eval_formula inv st ->
   (forall st, eval_formula (deriv_formula inv diffeqs) st) ->
   eval_formula ([DiffEq diffeqs]inv) st.
-Admitted.
+Proof.
+  intros diffeqs inv st Hbase Hind.
+  simpl; intros st' Htrans; inversion_clear Htrans.
+  generalize dependent st.
+  generalize dependent st'.
+  induction inv; simpl in *; intros.
+    - apply Rminus_ge. apply Rge_minus in Hbase.
+      cut (eval_term t st - eval_term t0 st <=
+           eval_term t st' - eval_term t0 st')%R.
+      + intros. apply Rle_ge. apply Rge_le in Hbase.
+        apply Rle_trans with
+          (r2 := (eval_term t st - eval_term t0 st)%R); auto.
+      + subst st. subst st'.
+        eapply (derive_increasing_interv_var
+                 0 r (fun z =>
+                        eval_term t (f z) -
+                        eval_term t0 (f z))%R); eauto.
+        * intros. specialize (Hind (f t1)).
+          apply Rge_minus in Hind. apply Rge_le in Hind.
+          erewrite <- term_deriv in Hind; eauto.
+          erewrite <- term_deriv in Hind; eauto.
+          unfold derive in Hind.
+          rewrite <- derive_pt_minus in Hind.
+          apply Hind.
+        * split; try apply Rle_refl; apply Rlt_le; auto.
+        * split; try apply Rle_refl; apply Rlt_le; auto.
+    - specialize (Hind (fun _ => R0)). 
+      destruct (FalseFormulaFalse st' Hind).
+    - specialize (Hind (fun _ => R0)). 
+      destruct (FalseFormulaFalse st' Hind).
+Qed.
 
+(* A tactic for apply all of our proof rules. *)
 Ltac apply_proof_rules :=
   repeat (intros; match goal with
                     | [ |- _ ] => apply imp_intro
@@ -275,9 +421,9 @@ Open Scope string_scope.
 (* Example 3.14 on page 171 of Platzer's textbook. This
    example includes the following three programs and
    their corresponding differential invariants. *)
-Definition quartic1 := |["x"' ::= `"x"^^4]|.
+Definition quartic1 := |[ "x"' ::= `"x"^^4 ]|.
 
-Definition inv_quartic1 := `"x" >= 1/4.
+Definition inv_quartic1 := 4 * `"x" >= 1.
 
 Theorem inv_quartic1_ok : forall st,
   eval_formula (inv_quartic1 --> [quartic1] inv_quartic1) st.
@@ -285,12 +431,12 @@ Proof.
   intro st; apply_proof_rules; auto; simpl in *; intros.
   field_simplify.
   (* We're essentially left with the goal
-     forall x, x^4 >= 0 *)
+     forall x, 4 * x^4 >= 0 *)
 Admitted.
 
 Definition quartic2 := |["x"' ::= `"x"^^4 + `"x"^^2]|.
 
-Definition inv_quartic2 := 3*`"x" >= 1/4.
+Definition inv_quartic2 := 3 * 4 *`"x" >= 1.
 
 Theorem inv_quartic2_ok : forall st,
   eval_formula (inv_quartic2 --> [quartic2] inv_quartic2) st.
@@ -298,12 +444,12 @@ Proof.
   intro st; apply_proof_rules; auto; simpl in *; intros.
   field_simplify.
   (* We're essentially left with the goal
-     forall x, 3(x^4 + x^2) >= 0 *)
+     forall x, 12(x^4 + x^2) >= 0 *)
 Admitted.
 
 Definition quad := |["x"' ::= `"x"^^2 - (4*`"x") + 6]|.
 
-Definition inv_quad := 3*`"x" >= 1/4.
+Definition inv_quad := 3*4*`"x" >= 1.
 
 Theorem inv_quad_ok : forall st,
   eval_formula (inv_quad --> [quad] inv_quad) st.
@@ -311,12 +457,12 @@ Proof.
   intro st; apply_proof_rules; auto; simpl in *; intros.
   field_simplify.
   (* We're essentially left with the goal
-     forall x, 3(x^2 - 4x + 6) >= 0 *)
+     forall x, 12(x^2 - 4x + 6) >= 0 *)
 Admitted.
 
 Definition cubic := |["x"' ::= `"x"^^3]|.
 
-Definition inv_cubic := 5*(`"x"^^2) >= 1/3.
+Definition inv_cubic := 3*5*(`"x"^^2) >= 1.
 
 Theorem inv_cubic_ok : forall st,
   eval_formula (inv_cubic --> [cubic] inv_cubic) st.
@@ -324,7 +470,7 @@ Proof.
   intro st; apply_proof_rules; auto; simpl in *; intros.
   field_simplify.
   (* We're essentially left with the goal
-     forall x, 10x^4 >= 0 *)
+     forall x, 30x^4 >= 0 *)
 Admitted.
 
 (* Here's a more challenging example from section
