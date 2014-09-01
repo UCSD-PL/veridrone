@@ -6,6 +6,8 @@ Require Import List.
 Require Import Sumbool.
 Require Import Coq.Reals.MVT.
 Require Import String.
+Require Import FunctionalExtensionality.
+Require Import Equality.
 
 (************************************************)
 (* Some proof rules.                            *)
@@ -18,6 +20,65 @@ Lemma imp_intro : forall f f' st,
    eval_formula f' st) ->
   eval_formula (f --> f') st.
 Proof. auto. Qed.
+
+(* Assignment rule *)
+Lemma assign_intro : forall x t f st,
+  eval_formula f
+    (fun y => if string_dec x y
+              then eval_term t st else st y) ->
+  eval_formula ([x ::= t]f) st.
+Proof.
+  intros x t f st H.
+  simpl. intros st' Htrans.
+  inversion Htrans.
+ assert (st' = (fun y : Var =>
+    if string_dec x y then eval_term t st else st y)).
+    apply functional_extensionality.
+    intro x1. destruct (string_dec x x1).
+    subst x1; auto.
+    symmetry. eapply H5.
+    congruence.
+  rewrite H6. auto.
+Qed.
+
+(*Sequencing introduction. *)
+Lemma seq_intro : forall p1 p2 f st,
+  eval_formula ([p1]([p2]f)) st ->
+  eval_formula ([p1; p2]f) st.
+Proof.
+  intros p1 p2 f st H.
+  simpl in *. intros st' Htrans.
+  inversion Htrans.
+  firstorder.
+Qed.
+
+Lemma ite_intro : forall c p1 p2 f st,
+  (eval_cond c st ->
+   eval_formula ([p1]f) st) ->
+  (~eval_cond c st ->
+    eval_formula ([p2]f) st) ->
+  eval_formula ([Branch c p1 p2] f) st.
+Proof.
+  intros c p1 p2 f st HT HF.
+  simpl. intros st' Htrans.
+  inversion Htrans. subst. apply HT; auto.
+  apply HF; auto.
+Qed.
+
+(* induction over while loops *)
+(* This rule is weaker than it could be because
+   it's annoying to put the false condition in the
+   post condition. *)
+Lemma while_ind : forall c p f st,
+  eval_formula f st ->
+  (forall st, eval_cond c st ->
+              eval_formula (f --> [p] f) st) ->
+  eval_formula ([While c p] f) st.
+Proof.
+  intros c p f st Hbase Hind.
+  simpl in *. intros st' Htrans.
+  dependent induction Htrans; firstorder.
+Qed.
 
 (* The following three functions will be used to state
    the differential induction rule (diff_ind) below.

@@ -142,9 +142,9 @@ Notation "[ diffeqs & b ]" :=
     (at level 10) : HP_scope.
 Notation "p1 ; p2" := (Seq p1 p2)
                         (at level 11) : HP_scope.
-Notation "`if` c `then` p1 `else` p2" :=
+Notation "'IF' c 'THEN' p1 'ELSE' p2" :=
   (Branch c p1 p2) (at level 11) : HP_scope.
-Notation "`while` c p" :=
+Notation "'WHILE' c p" :=
   (While c p) (at level 11) : HP_scope.
 
 (* Formula notation *)
