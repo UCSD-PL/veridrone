@@ -52,6 +52,7 @@ Proof.
   firstorder.
 Qed.
 
+(* Branching rule *)
 Lemma ite_intro : forall c p1 p2 f st,
   (eval_cond c st ->
    eval_formula ([p1]f) st) ->
