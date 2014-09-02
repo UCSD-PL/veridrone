@@ -137,14 +137,27 @@ Proof.
   apply RIneq.Rle_0_1.
 Qed.
 
+(* When you take the synthetic derivative of a formula
+   with a comparison operator, the operator does not
+   necessarily stay the same. For example x < y becomes
+   x' <= y' *)
+Fixpoint deriv_comp_op (op:CompOp) : CompOp :=
+  match op with
+    | Gt => Ge
+    | Ge => Ge
+    | Lt => Le
+    | Le => Le
+    | Eq => Eq
+  end.
+
 (* The derivative of a formula is essentially the derivative
-   of each of its terms (with some exceptions not shown
-   here). *)
+   of each of its terms (with some exceptions). *)
 Fixpoint deriv_formula (f:Formula) (eqs:list (Var * Term))
   : Formula :=
   match f with
-  | GtF t1 t2 => (deriv_term t1 eqs) >= (deriv_term t2 eqs)
-  | EqF t1 t2 => EqF (deriv_term t1 eqs) (deriv_term t2 eqs)
+  | CompF t1 t2 op =>
+     CompF (deriv_term t1 eqs) (deriv_term t2 eqs)
+           (deriv_comp_op op)
   | AndF f1 f2 => AndF (deriv_formula f1 eqs)
                       (deriv_formula f2 eqs)
   | OrF f1 f2 => AndF (deriv_formula f1 eqs)
@@ -244,6 +257,148 @@ Proof.
     - apply Dmult; auto.
 Qed.
 
+Lemma deriv_neg : forall f t1 t2 r diffeqs is_derivable,
+  solves_diffeqs f diffeqs r is_derivable ->
+  vars_unchanged f diffeqs r is_derivable ->
+  (forall st,
+     (R0 <= eval_term (deriv_term t1 diffeqs) st -
+      eval_term (deriv_term t2 diffeqs) st)%R) ->
+  forall t,
+    (R0 <= t <= r)%R ->
+    (R0 <=
+    derive_pt
+      (fun z : R => eval_term t1 (f z) - eval_term t2 (f z))
+      t (derivable_pt_minus _ _ t
+           (term_is_derivable _ _ is_derivable t)
+           (term_is_derivable _ _ is_derivable t)))%R.
+Proof.
+  intros f t1 t2 r diffeqs is_derivable Hdiff1 Hdiff2 Hineq
+         t Ht.
+  specialize (Hineq (f t)).
+  erewrite <- term_deriv in Hineq; eauto.
+  erewrite <- term_deriv in Hineq; eauto.
+  unfold derive in Hineq.
+  rewrite <- derive_pt_minus in Hineq.
+  apply Hineq.
+Qed.
+
+Ltac normalize_ineq_goal :=
+  match goal with
+    | [ |- Rgt _ _ ]
+      => apply RIneq.Rminus_gt; apply RIneq.Rlt_gt
+    | [ |- Rge _ _ ]
+      => apply RIneq.Rminus_ge; apply RIneq.Rle_ge
+    | [ |- Rlt _ _ ]
+      => apply RIneq.Rminus_lt; apply RIneq.Ropp_lt_cancel;
+         rewrite RIneq.Ropp_minus_distr; rewrite RIneq.Ropp_0
+    | [ |- Rle _ _ ]
+      => apply RIneq.Rminus_le; apply RIneq.Ropp_le_cancel;
+         rewrite RIneq.Ropp_minus_distr; rewrite RIneq.Ropp_0
+    | [ |- eq _ _ ]
+      => apply RIneq.Rminus_diag_uniq
+  end.
+
+Ltac normalize_ineq_hyp H :=
+  match type of H with
+    | context [Rgt _ _] => eapply RIneq.Rgt_minus in H;
+                          eapply RIneq.Rgt_lt in H
+    | context [Rge _ _] => eapply RIneq.Rge_minus in H;
+                          eapply RIneq.Rge_le in H
+    | context [Rlt _ _] => eapply RIneq.Rlt_minus in H;
+       eapply RIneq.Ropp_lt_contravar in H;
+       rewrite RIneq.Ropp_minus_distr in H;
+       rewrite RIneq.Ropp_0 in H
+    | context [Rle _ _] => eapply RIneq.Rle_minus in H;
+       eapply RIneq.Ropp_le_contravar in H;
+       rewrite RIneq.Ropp_minus_distr in H;
+       rewrite RIneq.Ropp_0 in H
+    | context [ eq _ _ ] => apply RIneq.Rminus_diag_eq in H
+  end.
+
+Ltac ineq_trans :=
+  match goal with
+    | [ H : Rlt ?r1 ?r2 |- Rlt ?r1 ?r3 ]
+        => apply (RIneq.Rlt_le_trans r1 r2 r3)
+    | [ H : Rle ?r1 ?r2 |- Rle ?r1 ?r3 ]
+        => apply (RIneq.Rle_trans r1 r2 r3)
+    | [ H : Rlt ?r2 ?r3 |- Rlt ?r1 ?r3 ]
+        => apply (RIneq.Rlt_le_trans r1 r2 r3)
+    | [ H : Rle ?r2 ?r3 |- Rle ?r1 ?r3 ]
+        => apply (RIneq.Rle_trans r1 r2 r3)
+    | [ _ : eq ?r1 ?r3 |- eq _ ?r3 ]
+        => transitivity r1
+  end.
+
+Ltac deriv_ineq :=
+  match goal with
+    | [ |- Rle (eval_term ?t1 (?f ?r1) - eval_term ?t2 (?f _))
+            (eval_term ?t1 (?f ?r2) - eval_term ?t2 (?f _)) ]
+        => eapply (derive_increasing_interv_var r1 r2
+                     (fun z => eval_term t1 (f z) -
+                               eval_term t2 (f z))%R); eauto
+    | [ |- @eq R
+               (Rminus (eval_term ?t1 (?f _))
+                       (eval_term ?t2 (?f _)))
+               (Rminus (eval_term ?t1 (?f _))
+                       (eval_term ?t2 (?f _)))]
+        => eapply (null_derivative_loc
+                 (fun z => (eval_term t1 (f z) -
+                            eval_term t2 (f z))%R)); eauto
+  end.
+
+Ltac solve_ineq :=
+  repeat match goal with
+           | [ H : (_ < _ < _)%R |- _ ] => destruct H
+           | [ |- (_ <= _ <= _)%R ] => split
+           | [ |- _ ] => solve [eapply RIneq.Rlt_le; eauto]
+           | [ |- _ ] => solve [apply RIneq.Rle_refl]
+         end.
+
+Lemma eval_comp_ind : forall f r diffeqs is_derivable
+                             t1 t2 op,
+  Rlt R0 r ->
+  solves_diffeqs f diffeqs r is_derivable ->
+  vars_unchanged f diffeqs r is_derivable ->
+  eval_comp t1 t2 (f 0%R) op ->
+  (forall st, eval_comp (deriv_term t1 diffeqs)
+                        (deriv_term t2 diffeqs)
+                        st
+                        (deriv_comp_op op)) ->
+  eval_comp t1 t2 (f r) op.
+Proof.
+  intros f r diffeqs is_derivable t1 t2 op Hr Hdiff1 Hdiff2
+         Hbase Hind.
+  destruct op; unfold eval_comp in *; simpl in *;
+  try solve [normalize_ineq_goal; normalize_ineq_hyp Hbase;
+       ineq_trans; auto; deriv_ineq; intros;
+       match goal with
+         | [ |- context [ derive_pt _ _ _ ] ]
+           => eapply deriv_neg; eauto; intros;
+         normalize_ineq_hyp Hind; try eapply Hind
+         | [ |- _ ]
+           => idtac
+       end; solve_ineq].
+
+normalize_ineq_goal; normalize_ineq_hyp Hbase;
+ineq_trans; auto; deriv_ineq; intros.
+apply continuity_pt_minus; apply derivable_continuous_pt;
+apply term_is_derivable; auto.
+eapply RIneq.Rminus_diag_eq in Hind.
+erewrite <- term_deriv in Hind; eauto.
+erewrite <- term_deriv in Hind; eauto.
+unfold derive in *.
+rewrite <- derive_pt_minus in Hind.
+apply Hind.
+solve_ineq.
+solve_ineq.
+solve_ineq.
+Grab Existential Variables.
+exact (f r).
+exact (f r).
+exact (f r).
+exact (f r).
+Qed.
+
 (* Differential induction *)
 Lemma diff_ind : forall diffeqs b inv st,
   eval_formula inv st ->
@@ -255,65 +410,7 @@ Proof.
   generalize dependent st.
   generalize dependent st'.
   induction inv; simpl in *; intros.
-    - apply RIneq.Rminus_gt. apply RIneq.Rgt_minus in Hbase.
-      cut (eval_term t st - eval_term t0 st <=
-           eval_term t st' - eval_term t0 st')%R.
-      + intros. apply RIneq.Rlt_gt.
-        apply RIneq.Rgt_lt in Hbase.
-        apply RIneq.Rlt_le_trans with
-          (r2 := (eval_term t st - eval_term t0 st)%R); auto.
-      + subst st. subst st'.
-        eapply (derive_increasing_interv_var
-                 0 r (fun z =>
-                        eval_term t (f z) -
-                        eval_term t0 (f z))%R); eauto.
-        * intros. specialize (Hind (f t1)).
-          apply RIneq.Rge_minus in Hind.
-          apply RIneq.Rge_le in Hind.
-          erewrite <- term_deriv in Hind; eauto.
-          erewrite <- term_deriv in Hind; eauto.
-          unfold derive in Hind.
-          rewrite <- derive_pt_minus in Hind.
-          apply Hind.
-          destruct H0.
-          split; try apply RIneq.Rlt_le; auto.
-          destruct H0.
-          split; try apply RIneq.Rlt_le; auto.
-        * split; try apply RIneq.Rle_refl;
-          apply RIneq.Rlt_le; auto.
-        * split; try apply RIneq.Rle_refl;
-          apply RIneq.Rlt_le; auto.
-    - apply RIneq.Rminus_diag_uniq.
-      apply RIneq.Rminus_diag_eq in Hbase.
-      transitivity (eval_term t st - eval_term t0 st)%R.
-      * subst st. subst st'.
-        eapply (null_derivative_loc
-                 (fun z => (eval_term t (f z) -
-                            eval_term t0 (f z))%R)).
-        intros. specialize (Hind (f x)).
-        apply RIneq.Rminus_diag_eq in Hind.
-        erewrite <- term_deriv in Hind; eauto.
-        erewrite <- term_deriv in Hind; eauto.
-        unfold derive in Hind.
-        apply continuity_pt_minus.
-        apply derivable_continuous_pt.
-        apply term_is_derivable; auto.
-        apply derivable_continuous_pt.
-        apply term_is_derivable; auto.
-        intros. specialize (Hind (f x)).
-        apply RIneq.Rminus_diag_eq in Hind.
-        erewrite <- term_deriv in Hind; eauto.
-        erewrite <- term_deriv in Hind; eauto.
-        unfold derive in *.
-        rewrite <- derive_pt_minus in Hind.
-        apply Hind.
-        destruct P.
-        split; try apply RIneq.Rlt_le; auto.
-        destruct P.
-        split; try apply RIneq.Rlt_le; auto.
-        split; try apply RIneq.Rle_refl;
-        apply RIneq.Rlt_le; auto.
-      * auto.
+    - subst st. subst st'. eapply eval_comp_ind; eauto.
     - split.
       + eapply IHinv1; eauto. apply Hind. apply Hbase.
       + eapply IHinv2; eauto. apply Hind. apply Hbase.
@@ -331,6 +428,10 @@ Ltac apply_proof_rules :=
   repeat (intros; match goal with
                     | [ |- _ ] => apply imp_intro
                     | [ |- _ ] => apply diff_ind
+                    | [ |- _ ] => apply seq_intro
+                    | [ |- _ ] => apply assign_intro
+                    | [ |- _ ] => apply ite_intro
+                    | [ |- _ ] => apply while_ind
                   end).
 
 Close Scope HP_scope.

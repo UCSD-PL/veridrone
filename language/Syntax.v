@@ -18,18 +18,18 @@ Inductive Term :=
 | MinusT : Term -> Term -> Term
 | MultT : Term -> Term -> Term.
 
-Class Evaluable (T : Set) : Type :=
-{ evaluate : T -> state -> Prop }.
-
-(* Atoms of formulas. *)
-(*Inductive Atom :=
-| Gt : Term -> Term -> Atom
-| Eq : Term -> Term -> Atom.*)
+Inductive CompOp :=
+| Gt : CompOp
+| Ge : CompOp
+| Lt : CompOp
+| Le : CompOp
+| Eq : CompOp.
 
 (* Conditionals *)
 Inductive Cond :=
-| GtC : Term -> Term -> Cond
-| EqC : Term -> Term -> Cond
+| CompC : Term -> Term -> CompOp -> Cond
+(*| GtC : Term -> Term -> Cond
+| EqC : Term -> Term -> Cond*)
 | AndC : Cond -> Cond -> Cond
 | OrC : Cond -> Cond -> Cond.
 
@@ -67,8 +67,9 @@ Inductive HybridProg :=
 (* Formulas expressing correctness properties of hybrid
    programs. *)
 Inductive Formula :=
-| GtF : Term -> Term -> Formula
-| EqF : Term -> Term -> Formula
+| CompF : Term -> Term -> CompOp -> Formula
+(*| GtF : Term -> Term -> Formula
+| EqF : Term -> Term -> Formula*)
 | AndF : Formula -> Formula -> Formula
 | OrF : Formula -> Formula -> Formula
 | Imp : Formula -> Formula -> Formula
@@ -101,34 +102,39 @@ Notation "t ^^ n" := (pow t n) (at level 10) : HP_scope.
 (* This type class allows us to define a single notation
    for comparison operators and logical connectives in
    the context of a formula and conditionals. *)
-Class LogicEq (T : Type) : Type :=
-{ Gt : Term -> Term -> T;
-  Eq : Term -> Term -> T;
-  And : T -> T -> T;
+Class Comparison (T : Type) : Type :=
+{ Comp : Term -> Term -> CompOp -> T }.
+
+Definition Gt' {T I} x y := @Comp T I x y Gt.
+Infix ">" := (Gt') : HP_scope.
+Definition Eq' {T I} x y := @Comp T I x y Eq.
+Infix "=" := (Eq') : HP_scope.
+Definition Ge' {T I} x y := @Comp T I x y Ge.
+Infix ">=" := (Ge') : HP_scope.
+Definition Le' {T I} x y := @Comp T I x y Le.
+Infix "<=" := (Le') : HP_scope.
+Definition Lt' {T I} x y := @Comp T I x y Lt.
+Infix "<" := (Lt') : HP_scope.
+
+Class PropLogic (T : Type) : Type :=
+{ And : T -> T -> T;
   Or : T -> T -> T }.
 
-Infix ">" := (Gt) : HP_scope.
-Infix "=" := (Eq) : HP_scope.
-Definition Gte {T I} x y :=
-  @Or T I (@Gt T I x y) (@Eq T I x y).
-Infix ">=" := (Gte) : HP_scope.
-Definition Lte {T I} x y := @Gte T I y x.
-Infix "<=" := (Lte) : HP_scope.
-Definition Lt {T I} x y := @Gt T I y x.
-Infix "<" := (Lt) : HP_scope.
 Infix "/\" := (And) : HP_scope.
 Infix "\/" := (Or) : HP_scope.
 
-Instance FormulaLogicEq : LogicEq Formula :=
-{ Gt := GtF;
-  Eq := EqF;
-  And := AndF;
+Instance FormulaComparison : Comparison Formula :=
+{ Comp := CompF }.
+
+Instance CondComparison : Comparison Cond :=
+{ Comp := CompC }.
+
+Instance FormulaPropLogic : PropLogic Formula :=
+{ And := AndF;
   Or := OrF }.
 
-Instance CondLogicEq : LogicEq Cond :=
-{ Gt := GtC;
-  Eq := EqC;
-  And := AndC;
+Instance CondPropLogic : PropLogic Cond :=
+{ And := AndC;
   Or := OrC }.
 
 (* HybridProg notation *)

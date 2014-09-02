@@ -18,11 +18,23 @@ Fixpoint eval_term (t:Term) (st:state) : R :=
   | MultT t1 t2 => (eval_term t1 st) * (eval_term t2 st)
   end.
 
+(* Semantics of comparison operators *)
+Definition eval_comp (t1 t2:Term) (st:state) (op:CompOp) :
+  Prop :=
+  let (e1, e2) := (eval_term t1 st, eval_term t2 st) in
+  let op := match op with
+              | Gt => Rgt
+              | Ge => Rge
+              | Lt => Rlt
+              | Le => Rle
+              | Eq => eq
+            end in
+  op e1 e2.
+
 (* Semantics of conditionals *)
 Fixpoint eval_cond (c:Cond) (st:state) : Prop :=
   match c with
-  | GtC t1 t2 => eval_term t1 st > eval_term t2 st
-  | EqC t1 t2 => eval_term t1 st = eval_term t2 st
+  | CompC t1 t2 op => eval_comp t1 t2 st op
   | AndC c1 c2 => eval_cond c1 st /\ eval_cond c2 st
   | OrC c1 c2 => eval_cond c1 st \/ eval_cond c2 st
   end.
@@ -132,8 +144,7 @@ Inductive Transition :
    state.  *)
 Fixpoint eval_formula (f:Formula) (st:state) : Prop :=
   match f with
-  | GtF t1 t2 => eval_term t1 st > eval_term t2 st
-  | EqF t1 t2 => eval_term t1 st = eval_term t2 st
+  | CompF t1 t2 op => eval_comp t1 t2 st op
   | AndF c1 c2 => eval_formula c1 st /\ eval_formula c2 st
   | OrF c1 c2 => eval_formula c1 st \/ eval_formula c2 st
   (* Semantics of implication. Nothing special here. *)
