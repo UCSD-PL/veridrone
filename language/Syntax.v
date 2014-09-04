@@ -28,8 +28,6 @@ Inductive CompOp :=
 (* Conditionals *)
 Inductive Cond :=
 | CompC : Term -> Term -> CompOp -> Cond
-(*| GtC : Term -> Term -> Cond
-| EqC : Term -> Term -> Cond*)
 | AndC : Cond -> Cond -> Cond
 | OrC : Cond -> Cond -> Cond.
 
@@ -68,8 +66,6 @@ Inductive HybridProg :=
    programs. *)
 Inductive Formula :=
 | CompF : Term -> Term -> CompOp -> Formula
-(*| GtF : Term -> Term -> Formula
-| EqF : Term -> Term -> Formula*)
 | AndF : Formula -> Formula -> Formula
 | OrF : Formula -> Formula -> Formula
 | Imp : Formula -> Formula -> Formula
@@ -78,23 +74,21 @@ Inductive Formula :=
 (************************************************)
 (* Some notation for the logic.                 *)
 (************************************************)
+Delimit Scope HP_scope with HP.
+
 (*Term notation *)
-Notation " ` a " := (VarT a) (at level 10) : HP_scope.
-Notation "0" := (RealT 0) (at level 10) : HP_scope.
-Notation "1" := (RealT 1) (at level 10) : HP_scope.
-Notation "2" := (RealT 2) (at level 10) : HP_scope.
-Notation "3" := (RealT 3) (at level 10) : HP_scope.
-Notation "4" := (RealT 4) (at level 10) : HP_scope.
-Notation "5" := (RealT 5) (at level 10) : HP_scope.
-Notation "6" := (RealT 6) (at level 10) : HP_scope.
+Notation " # a " := (RealT a) (at level 0) : HP_scope.
+Notation " ` a " := (VarT a) (at level 0) : HP_scope.
+Definition T0 := RealT 0.
+Definition T1 := RealT 1.
 Infix "+" := (PlusT) : HP_scope.
 Infix "-" := (MinusT) : HP_scope.
 Notation "-- x" := (MinusT (RealT R0) x)
-                     (at level 9) : HP_scope.
+                     (at level 0) : HP_scope.
 Infix "*" := (MultT) : HP_scope.
 Fixpoint pow (t : Term) (n : nat) :=
   match n with
-  | O => RealT 1
+  | O => T1
   | S n => MultT t (pow t n)
   end.
 Notation "t ^^ n" := (pow t n) (at level 10) : HP_scope.
@@ -139,24 +133,22 @@ Instance CondPropLogic : PropLogic Cond :=
 
 (* HybridProg notation *)
 Notation "x ::= t" := (Assign x t)
-                        (at level 10) : HP_scope.
-Notation "x ' ::= t" := (x, t) (at level 10) : HP_scope.
+                        (at level 60) : HP_scope.
+Notation "x ' ::= t" := (x, t) (at level 60) : HP_scope.
 Notation "| x1 , .. , xn |" := (cons x1 .. (cons xn nil) .. )
-    (at level 10) : HP_scope.
-Notation "[ diffeqs & b ]" :=
+    (at level 70) : HP_scope.
+Notation " diffeqs & b " :=
   (DiffEq diffeqs b)
-    (at level 10) : HP_scope.
+    (at level 0) : HP_scope.
 Notation "p1 ; p2" := (Seq p1 p2)
-                        (at level 11) : HP_scope.
+  (at level 80, right associativity) : HP_scope.
 Notation "'IF' c 'THEN' p1 'ELSE' p2" :=
-  (Branch c p1 p2) (at level 11) : HP_scope.
+  (Branch c p1 p2) (at level 90) : HP_scope.
 Notation "'WHILE' c p" :=
-  (While c p) (at level 11) : HP_scope.
+  (While c p) (at level 90) : HP_scope.
 
 (* Formula notation *)
 Notation "f1 --> f2" := (Imp f1 f2)
-                          (at level 11) : HP_scope.
+                          (at level 100) : HP_scope.
 Notation "[ p ] f" := (ForallState p f)
-                        (at level 10) : HP_scope.
-
-Delimit Scope HP_scope with HP.
+                        (at level 95) : HP_scope.

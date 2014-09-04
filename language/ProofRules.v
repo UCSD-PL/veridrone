@@ -8,6 +8,7 @@ Require Import Coq.Reals.MVT.
 Require Import String.
 Require Import FunctionalExtensionality.
 Require Import Equality.
+Require Import Coq.Bool.Bool.
 
 (************************************************)
 (* Some proof rules.                            *)
@@ -21,8 +22,127 @@ Lemma imp_intro : forall f f' st,
   eval_formula (f --> f') st.
 Proof. auto. Qed.
 
+(* Substitutes t2 for x in t1 *)
+Fixpoint subst_var_term (t1 t2:Term) (x:Var) : Term :=
+  match t1 with
+  | VarT y => if string_dec x y then t2 else t1
+  | RealT r => t1
+  | PlusT t3 t4 =>
+     (subst_var_term t3 t2 x) + (subst_var_term t4 t2 x)
+  | MinusT t3 t4 =>
+     (subst_var_term t3 t2 x) - (subst_var_term t4 t2 x)
+  | MultT t3 t4 =>
+     (subst_var_term t3 t2 x) * (subst_var_term t4 t2 x)
+  end.
+
+(* Substitutes t for x in c *)
+Fixpoint subst_var_cond (c:Cond) (x:Var) (t:Term) : Cond :=
+  match c with
+    | CompC t1 t2 op => CompC (subst_var_term t1 t x)
+                              (subst_var_term t2 t x) op
+    | AndC c1 c2 => AndC (subst_var_cond c1 x t)
+                         (subst_var_cond c2 x t)
+    | OrC c1 c2 => OrC (subst_var_cond c1 x t)
+                       (subst_var_cond c2 x t)
+  end.
+
+Fixpoint get_vars (t:Term) : list Var :=
+  match t with
+    | VarT x => x::nil
+    | RealT _ => nil
+    | PlusT t1 t2 => get_vars t1 ++ get_vars t2
+    | MinusT t1 t2 => get_vars t1 ++ get_vars t2
+    | MultT t1 t2 => get_vars t1 ++ get_vars t2
+  end.
+
+Fixpoint admissible_subst_prog (p:HybridProg) (x:Var) (t:Term)
+  : bool :=
+  match p with
+    | Skip => true
+    | Assign y t' => 
+      proj1_sig (bool_of_sumbool
+                   (in_dec string_dec y (x::get_vars t)))
+    | DiffEq eqs b =>
+      existsb (fun p =>
+                 proj1_sig
+                   (bool_of_sumbool
+                      (in_dec string_dec (fst p)
+                              (x::get_vars t))))
+              eqs
+    | Seq p1 p2 =>
+      andb (admissible_subst_prog p1 x t)
+           (admissible_subst_prog p2 x t)
+    | Branch c p1 p2 =>
+      andb (admissible_subst_prog p1 x t)
+           (admissible_subst_prog p2 x t)
+    | While c p =>
+      admissible_subst_prog p x t
+  end.
+
+Fixpoint admissible_subst (f:Formula) (x:Var) (t:Term)
+  : bool :=
+  match f with
+    | CompF t1 t2 op => true
+    | AndF f1 f2 => andb (admissible_subst f1 x t)
+                         (admissible_subst f2 x t)
+    | OrF f1 f2 => andb (admissible_subst f1 x t)
+                        (admissible_subst f2 x t)
+    | Imp f1 f2 => andb (admissible_subst f1 x t)
+                        (admissible_subst f2 x t)
+    | ForallState p f' => andb (admissible_subst_prog p x t)
+                               (admissible_subst f' x t)
+  end.
+
+(* Substitutes t for x in p *)
+Fixpoint subst_var_prog (p:HybridProg) (x:Var) (t:Term) :
+  HybridProg :=
+  match p with
+    | Skip => Skip
+    | Assign y t' => Assign y (subst_var_term t' t x)
+    | DiffEq eqs b =>
+      DiffEq
+        (map (fun p => (fst p, subst_var_term (snd p) t x))
+             eqs) b
+    | Seq p1 p2 =>
+      Seq (subst_var_prog p1 x t) (subst_var_prog p2 x t)
+    | Branch c p1 p2 =>
+      Branch (subst_var_cond c x t)
+             (subst_var_prog p1 x t)
+             (subst_var_prog p2 x t)
+    | While c p =>
+      While (subst_var_cond c x t) (subst_var_prog p x t)
+  end.
+
+(* Substitutes t for x in f *)
+Fixpoint subst_var (f:Formula) (x:Var) (t:Term) : Formula :=
+  match f with
+    | CompF t1 t2 op =>
+      CompF (subst_var_term t1 t x) (subst_var_term t2 t x) op
+    | AndF f1 f2 => AndF (subst_var f1 x t) (subst_var f2 x t)
+    | OrF f1 f2 => OrF (subst_var f1 x t) (subst_var f2 x t)
+    | Imp f1 f2 => Imp (subst_var f1 x t) (subst_var f2 x t)
+    | ForallState p f' =>
+      ForallState (subst_var_prog p x t) (subst_var f' x t)
+  end.
+
 (* Assignment rule *)
-Lemma assign_intro : forall x t f st,
+Lemma assign_intro' : forall x t f st,
+  admissible_subst f x t = true ->
+  (eval_formula (subst_var f x t) st <->
+   eval_formula f
+                (fun y => if string_dec x y
+                          then eval_term t st else st y)).
+Proof.
+  intros x t f.
+  induction f; simpl in *; intros.
+  - admit.
+  - apply andb_true_iff in H. firstorder.
+  - apply andb_true_iff in H. firstorder.
+  - apply andb_true_iff in H. firstorder.
+  - admit.
+Qed.
+
+Lemma assign_intro'' : forall x t f st,
   eval_formula f
     (fun y => if string_dec x y
               then eval_term t st else st y) ->
@@ -39,6 +159,15 @@ Proof.
     symmetry. eapply H5.
     congruence.
   rewrite H6. auto.
+Qed.
+
+(* Assignment rule *)
+Lemma assign_intro : forall x t f st
+  (OK : admissible_subst f x t = true),
+  eval_formula (subst_var f x t) st ->
+   eval_formula ([x ::= t]f) st.
+Proof.
+  intros. apply assign_intro''. apply assign_intro'; auto.
 Qed.
 
 (*Sequencing introduction. *)
@@ -128,7 +257,7 @@ Fixpoint deriv_term (t:Term) (eqs:list (Var * Term))
 (* For some formulas, differential induction does not work,
    so we use the following unprovable formula in those
    cases. *)
-Definition FalseFormula : Formula := 0 > 1.
+Definition FalseFormula : Formula := #0 > #1.
 
 Lemma FalseFormulaFalse : forall st,
   ~eval_formula FalseFormula st.
@@ -359,7 +488,7 @@ Lemma eval_comp_ind : forall f r diffeqs is_derivable
   Rlt R0 r ->
   solves_diffeqs f diffeqs r is_derivable ->
   vars_unchanged f diffeqs r is_derivable ->
-  eval_comp t1 t2 (f 0%R) op ->
+  eval_comp t1 t2 (f R0) op ->
   (forall st, eval_comp (deriv_term t1 diffeqs)
                         (deriv_term t2 diffeqs)
                         st
@@ -429,7 +558,8 @@ Ltac apply_proof_rules :=
                     | [ |- _ ] => apply imp_intro
                     | [ |- _ ] => apply diff_ind
                     | [ |- _ ] => apply seq_intro
-                    | [ |- _ ] => apply assign_intro
+                    | [ |- _ ] => apply assign_intro;
+                           [exact (Logic.eq_refl _) | ]
                     | [ |- _ ] => apply ite_intro
                     | [ |- _ ] => apply while_ind
                   end).

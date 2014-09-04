@@ -13,9 +13,9 @@ Open Scope string_scope.
 (* Example 3.14 on page 171 of Platzer's textbook. This
    example includes the following three programs and
    their corresponding differential invariants. *)
-Definition quartic1 b := [ |"x"' ::= `"x"^^4| & b].
+Definition quartic1 b := |"x"' ::= `"x"^^4| & b.
 
-Definition inv_quartic1 : Formula := 4 * `"x" >= 1.
+Definition inv_quartic1 : Formula := #4 * `"x" >= #1.
 
 Theorem inv_quartic1_ok : forall st b,
   eval_formula
@@ -26,9 +26,9 @@ Proof.
      forall x, 4 * x^4 >= 0 *)
 Admitted.
 
-Definition quartic2 b := [|"x"' ::= `"x"^^4 + `"x"^^2| & b].
+Definition quartic2 b := |"x"' ::= `"x"^^4 + `"x"^^2| & b.
 
-Definition inv_quartic2 : Formula := 3 * 4 *`"x" >= 1.
+Definition inv_quartic2 : Formula := #3 * #4 *`"x" >= #1.
 
 Theorem inv_quartic2_ok : forall st b,
   eval_formula
@@ -39,9 +39,9 @@ Proof.
      forall x, 12(x^4 + x^2) >= 0 *)
 Admitted.
 
-Definition quad b := [|"x"' ::= `"x"^^2 - (4*`"x") + 6| & b].
+Definition quad b := |"x"' ::= `"x"^^2 - (#4*`"x") + #6| & b.
 
-Definition inv_quad : Formula := 3*4*`"x" >= 1.
+Definition inv_quad : Formula := #3*#4*`"x" >= #1.
 
 Theorem inv_quad_ok : forall st b,
   eval_formula (inv_quad --> [quad b] inv_quad) st.
@@ -51,9 +51,9 @@ Proof.
      forall x, 12(x^2 - 4x + 6) >= 0 *)
 Admitted.
 
-Definition cubic b := [|"x"' ::= `"x"^^3| & b].
+Definition cubic b := |"x"' ::= `"x"^^3| & b.
 
-Definition inv_cubic : Formula := 3*5*(`"x"^^2) >= 1.
+Definition inv_cubic : Formula := #3*#5*(`"x"^^2) >= #1.
 
 Theorem inv_cubic_ok : forall st b,
   eval_formula (inv_cubic --> [cubic b] inv_cubic) st.
@@ -71,11 +71,11 @@ Admitted.
    allow us to prove stuff that's wrong. Eventually,
    I'll implement something that does work. *)
 Definition system b :=
-  [|"x"' ::= `"d", "y"' ::= `"e", "d"' ::= `"e",
-    "e"' ::= --`"d"| & b].
+  |"x"' ::= `"d", "y"' ::= `"e", "d"' ::= `"e",
+    "e"' ::= --`"d"| & b.
 
 Definition bad_inv p : Formula :=
-  ((`"x"-1)^^2) + (`"y"-2)^^2 >= (RealT p)^^2.
+  ((`"x"-#1)^^2) + (`"y"-#2)^^2 >= #p^^2.
 
 Theorem bad_inv_ok : forall st p b,
   eval_formula
