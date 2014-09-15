@@ -39,6 +39,7 @@ Fixpoint eval_cond (c:Cond) (st:state) : Prop :=
   | CompC t1 t2 op => eval_comp t1 t2 st op
   | AndC c1 c2 => eval_cond c1 st /\ eval_cond c2 st
   | OrC c1 c2 => eval_cond c1 st \/ eval_cond c2 st
+  | NegC c => ~eval_cond c st
   end.
 
 (* Expresses the property the a differentiable formula

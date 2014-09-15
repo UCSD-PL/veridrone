@@ -29,7 +29,8 @@ Inductive CompOp :=
 Inductive Cond :=
 | CompC : Term -> Term -> CompOp -> Cond
 | AndC : Cond -> Cond -> Cond
-| OrC : Cond -> Cond -> Cond.
+| OrC : Cond -> Cond -> Cond
+| NegC : Cond -> Cond.
 
 (* Programs containing discrete and continuous parts. *)
 Inductive DiscreteProg :=
@@ -71,6 +72,22 @@ Inductive HybridProg :=
 (* Non-deterministic repetition *)
 | Rep : HybridProg -> HybridProg.
 
+(* A language for more easily expressing discrete
+   programs with a single continuous dynamics. *)
+Inductive FullDiscrete :=
+| Atomic : DiscreteProg -> FullDiscrete
+| SeqI : FullDiscrete -> FullDiscrete -> FullDiscrete
+| Ite : Cond -> R -> FullDiscrete -> FullDiscrete -> FullDiscrete.
+
+Fixpoint desugar (p:FullDiscrete) (cd:list DiffEq) :=
+  match p with
+    | Atomic p => DiffEqHP2 cd p
+    | SeqI p1 p2 => Seq (desugar p1 cd) (desugar p2 cd)
+    | Ite c b p1 p2 =>
+      Branch (Seq (DiffEqHP2 cd (CondTest c b)) (desugar p1 cd))
+             (Seq (DiffEqHP2 cd (CondTest (NegC c) b))
+                  (desugar p1 cd))
+  end.
 
 (* Formulas expressing correctness properties of hybrid
    programs. *)
