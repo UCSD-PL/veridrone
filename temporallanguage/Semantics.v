@@ -173,4 +173,8 @@ Fixpoint eval_formula (f:Formula) (beh:R->state) : Prop :=
   | Eventually f' => exists t, eval_formula f' (fun r => beh (r+t))
   end.
 
+(* Adding some notation for evaluation of formulas. *)
+Notation "|- f" := (forall beh, eval_formula f beh)
+                     (at level 100) : HP_scope.
+
 Close Scope R_scope.

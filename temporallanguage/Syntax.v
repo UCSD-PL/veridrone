@@ -161,18 +161,28 @@ Instance CondPropLogic : PropLogic Cond :=
   Or := OrC }.
 
 (* HybridProg notation *)
-Notation "x ::= t @ b" := (Assign x t b)
+Notation "x ::= t @ b" := (Atomic (Assign x t b))
                         (at level 60) : HP_scope.
 Notation "x ' ::= t" := (x, t) (at level 60) : HP_scope.
 Notation "[ x1 , .. , xn ]" := (cons x1 .. (cons xn nil) .. )
     (at level 70) : HP_scope.
-Notation " diffeqs @ b " :=
+(* This rule interferes with the assignment rule.
+   Need to figure that out. *)
+(*Notation " diffeqs @ b " :=
   (DiffEqHP1 diffeqs b)
-    (at level 0) : HP_scope.
-Notation "p1 ; p2" := (Seq p1 p2)
+    (at level 0) : HP_scope.*)
+Notation "p1 ; p2" := (SeqI p1 p2)
   (at level 80, right associativity) : HP_scope.
-Infix "||" := (DiffEqHP2) : HP_scope.
+Notation "'IFF' c @ b 'THEN' p1 'ELSE' p2" :=
+  (Ite c b p1 p2) (at level 90) : HP_scope.
+Infix "||" := (desugar) : HP_scope.
 
 (* Formula notation *)
 Notation "f1 --> f2" := (Imp f1 f2)
-                          (at level 100) : HP_scope.
+                          (at level 97) : HP_scope.
+Notation "| p |" := (Prog p)
+                      (at level 95) : HP_scope.
+Notation "[] f" := (Always f)
+                     (at level 95) : HP_scope.
+Notation "<> f" := (Eventually f)
+                     (at level 95) : HP_scope.
