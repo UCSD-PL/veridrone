@@ -176,6 +176,8 @@ Notation "p1 ; p2" := (SeqI p1 p2)
 Notation "'IFF' c @ b 'THEN' p1 'ELSE' p2" :=
   (Ite c b p1 p2) (at level 90) : HP_scope.
 Infix "||" := (desugar) : HP_scope.
+Notation "p **" := (Rep p)
+                     (at level 90) : HP_scope.
 
 (* Formula notation *)
 Notation "f1 --> f2" := (Imp f1 f2)

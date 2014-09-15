@@ -21,7 +21,7 @@ Section HeightCtrl.
     ["h"' ::= `"v"].
 
   Definition sys :=
-    ctrl || world.
+    (ctrl || world)**.
 
   (* We'll need to add some initial conditions here.
      It remains to be seen what those are. *)
