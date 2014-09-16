@@ -94,9 +94,9 @@ Inductive DiscreteJump :
 | CondTest : forall c b s,
    eval_cond c s -> DiscreteJump (CondTest c b) s s b.
 
-Definition merge_fun (f1 f2 f3:R->state) b1 b2 :=
-  forall r, R0 <= r <= b1 -> f3 r = f1 r /\
-  forall r, R0 <= r <= b2 -> f3 (r+b1) = f2 r.
+Definition merge_fun (f1 f2 f3:R->state) b :=
+  forall r, R0 <= r <= b -> f3 r = f1 r /\
+  forall r, R0 <= r -> f3 (r+b) = f2 r.
 
 (* Semantics of hybrid programs. Intuitively,
    Behavior p f b should hold if p terminates in
@@ -111,6 +111,8 @@ Inductive Behavior :
    is_solution fcp cp b ->
    (* f agrees with fcp in [0,b) *)
    (forall r, R0 <= r < b -> f r = fcp r) ->
+   (* the state doesn't change after b *)
+   (forall r, b < r -> f r = f b) ->
    Behavior (DiffEqHP2 cp p) f b
 
 (* Semantics of continuous evolution. The system can
@@ -128,13 +130,15 @@ Inductive Behavior :
    (* Should it be R0 < r or R0 <= r ? *)
    R0 < r <= b ->
    is_solution f diffeqs r ->
+   (* The state doesn't change after r *)
+   (forall t, r < t -> f t = f r) ->
    Behavior (DiffEqHP1 diffeqs b) f r
 
 (* Semantics of sequencing. Nothing special here. *)
 | SeqB : forall f1 f2 f3 b1 b2 p1 p2,
    Behavior p1 f1 b1 ->
    Behavior p2 f2 b2 ->
-   merge_fun f1 f2 f3 b1 b2 ->
+   merge_fun f1 f2 f3 b1 ->
    Behavior (Seq p1 p2) f3 (b1 + b2)
 
 (* Branching semantics when first branch is taken. *)
@@ -155,7 +159,7 @@ Inductive Behavior :
 | RepN : forall f1 b1 fN bN f p,
    Behavior p f1 b1 ->
    Behavior (Rep p) fN bN ->
-   merge_fun f1 fN f b1 bN ->
+   merge_fun f1 fN f b1 ->
    Behavior (Rep p) f (b1 + bN).
 
 (* Semantics of formulas. A formula valid with respect
