@@ -76,7 +76,7 @@ Proof.
   firstorder.
 Qed.
 
-Lemma inv_ind : forall I N,
+Lemma inv_discr_ind : forall I N,
   is_st_formula I = true ->
   (|- (I /\ N) --> (next I)) ->
   (|- (I /\ []N) --> []I).
