@@ -88,4 +88,35 @@ Proof.
   apply next_formula_tl; intuition.
 Qed.
 
+Lemma imp_trans : forall F1 F2 F3,
+  (|- F1 --> F2) ->
+  (|- F2 --> F3) ->
+  (|- F1 --> F3).
+Proof. firstorder. Qed.
+
+Lemma always_imp : forall F1 F2,
+  (|- F1 --> F2) ->
+  (|- []F1 --> []F2).
+Proof. firstorder. Qed.
+
+Lemma and_right : forall F1 F2 F3,
+  (|- F1 --> F2) ->
+  (|- F1 --> F3) ->
+  (|- F1 --> (F2 /\ F3)).
+Proof. firstorder. Qed.
+
+Lemma and_left1 : forall F1 F2 F3,
+  (|- F1 --> F3) ->
+  (|- (F1 /\ F2) --> F3).
+Proof. firstorder. Qed.
+
+Lemma and_left2 : forall F1 F2 F3,
+  (|- F2 --> F3) ->
+  (|- (F1 /\ F2) --> F3).
+Proof. firstorder. Qed.
+
+Lemma imp_id : forall F,
+  |- F --> F.
+Proof. firstorder. Qed.
+
 Close Scope HP_scope.
