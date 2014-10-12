@@ -77,6 +77,8 @@ Notation "t1 >= t2" := (Comp t1 t2 Ge) : HP_scope.
 Notation "t1 < t2" := (Comp t1 t2 Lt) : HP_scope.
 Notation "t1 <= t2" := (Comp t1 t2 Le) : HP_scope.
 Notation "t1 = t2" := (Comp t1 t2 Eq) : HP_scope.
+Notation "x <= y <= z" :=
+  (And (Comp x y Le) (Comp y z Le)) : HP_scope.
 
 (* Propositional Logic *)
 Infix "/\" := (And) : HP_scope.
