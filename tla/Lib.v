@@ -36,6 +36,11 @@ Definition get_var (d:DiffEq) :=
     | DiffEqC x _ => x
   end.
 
+Definition get_term (d:DiffEq) :=
+  match d with
+    | DiffEqC _ t => t
+  end.
+
 (* Expresses the property that a differentiable formula
    is a solution to a list of differential equations
    in the range 0 to r. *)
@@ -68,7 +73,8 @@ Definition Continuous (cp:list DiffEq) (b:Term) (t:Var) : Formula :=
          (fun r =>
             Exists (R -> state)
                    (fun f =>
-                         (PropF (is_solution f cp r))
+                         (r > 0)
+                      /\ (PropF (is_solution f cp r))
                       /\ (VarsAgree xs (f R0))
                       /\ (AVarsAgree xs (f r))
                       /\ (t + r <= b)

@@ -18,7 +18,7 @@ Section HeightCtrl.
     "T"! = "t" /\ "H"! = "h".
 
   Definition Evolve : Formula :=
-    Continuous (["h"' ::= "v"]) d "t".
+    Continuous (["h"' ::= "v"]) ("T"+d) "t".
 
   Definition Ctrl : Formula :=
        ("H" < 0  /\ "v"! = 1)
@@ -85,16 +85,24 @@ Section HeightCtrl.
       + apply and_left2. apply imp_id.
     - apply imp_trans with (F2:=[]Ind_Inv).
       + apply inv_discr_ind; auto.
-        simpl; intros; intuition; unfold eval_comp in *;
-        simpl in *; try psatzl R.
-        * admit.
-        * admit.
-        * admit.
-        * admit.
-        * admit.
-        * admit.
-        * admit.
-        * admit.
+        repeat first [ apply or_next |
+                       apply and_right |
+                       apply imp_right ];
+        try solve [simpl; intros; intuition; unfold eval_comp in *;
+        simpl in *; try psatzl R].
+        * apply diff_ind. simpl; intros; intuition; unfold eval_comp in *;
+                          simpl in *; try psatzl R.
+        * apply diff_ind. simpl; intros; intuition; unfold eval_comp in *;
+                          simpl in *; try psatzl R.
+        * apply diff_ind. simpl; intros; intuition; unfold eval_comp in *;
+                          simpl in *; try psatzl R.
+        * apply diff_ind. simpl; intros; intuition; unfold eval_comp in *;
+                          simpl in *; try psatzl R.
+        * apply diff_ind2. simpl; intros; intuition; unfold eval_comp in *;
+                          simpl in *; try psatzl R.
+        * simpl; intros; intuition; unfold eval_comp in *;
+                          simpl in *; destruct H2; destruct H2; intuition;
+          try psatzl R.
       + apply always_imp. apply ind_inv_safe.
   Qed.
 
