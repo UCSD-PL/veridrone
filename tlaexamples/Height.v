@@ -76,6 +76,10 @@ Section HeightCtrl.
     simpl in *; intuition; try psatzl R.
   Qed.
 
+  Ltac solve_linear :=
+    simpl; intros; unfold eval_comp in *;
+    simpl in *; intuition; try psatzl R.
+
   Lemma safety :
     |- (Init /\ []Next) --> []Safe.
   Proof.
@@ -85,24 +89,13 @@ Section HeightCtrl.
       + apply and_left2. apply imp_id.
     - apply imp_trans with (F2:=[]Ind_Inv).
       + apply inv_discr_ind; auto.
-        repeat first [ apply or_next |
-                       apply and_right |
-                       apply imp_right ];
-        try solve [simpl; intros; intuition; unfold eval_comp in *;
-        simpl in *; try psatzl R].
-        * apply diff_ind. simpl; intros; intuition; unfold eval_comp in *;
-                          simpl in *; try psatzl R.
-        * apply diff_ind. simpl; intros; intuition; unfold eval_comp in *;
-                          simpl in *; try psatzl R.
-        * apply diff_ind. simpl; intros; intuition; unfold eval_comp in *;
-                          simpl in *; try psatzl R.
-        * apply diff_ind. simpl; intros; intuition; unfold eval_comp in *;
-                          simpl in *; try psatzl R.
-        * apply diff_ind2. simpl; intros; intuition; unfold eval_comp in *;
-                          simpl in *; try psatzl R.
-        * simpl; intros; intuition; unfold eval_comp in *;
-                          simpl in *; destruct H2; destruct H2; intuition;
-          try psatzl R.
+        repeat apply or_next;
+          repeat first [ apply and_right |
+                         apply imp_right ];
+          try solve
+              [ refine (diff_ind _ _ _ _ _ _ _); solve_linear |
+                solve_linear |
+                refine (time_diff _ _ _ _ _ _); solve_linear ].
       + apply always_imp. apply ind_inv_safe.
   Qed.
 

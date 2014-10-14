@@ -133,34 +133,48 @@ Lemma imp_right : forall F1 F2 F3,
   (|- F1 --> (F2 --> F3)).
 Proof. firstorder. Qed.
 
-Definition formulas_equiv (F1 F2:Formula) :=
-  (|- F1) <-> (|- F2).
-
-Lemma formulas_equiv_trans : forall F1 F2 F3,
-  formulas_equiv F1 F2 ->
-  formulas_equiv F2 F3 ->
-  formulas_equiv F1 F3.
+Lemma and_assoc_left : forall F1 F2 F3 F4,
+  (|- (F1 /\ (F2 /\ F3)) --> F4) ->
+  (|- ((F1 /\ F2) /\ F3) --> F4).
 Proof. firstorder. Qed.
 
-Lemma formulas_equiv_refl : forall F,
-  formulas_equiv F F.
+Lemma and_comm_left : forall F1 F2 F3,
+  (|- (F2 /\ F1) --> F3) ->
+  (|- (F1 /\ F2) --> F3).
 Proof. firstorder. Qed.
 
-Lemma formulas_equiv_sym : forall F1 F2,
-  formulas_equiv F1 F2 ->
-  formulas_equiv F2 F1.
-Proof. firstorder. Qed.
+Structure tagged_formula :=
+  Tag {untag : Formula}.
 
-Add Parametric Relation : Formula formulas_equiv
-  reflexivity proved by formulas_equiv_refl
-  symmetry proved by formulas_equiv_sym
-  transitivity proved by formulas_equiv_trans
-    as formulas.
+Structure find P :=
+  Find {F : tagged_formula;
+        pf : |- (untag F) --> P}.
 
-(*
-Add Parametric Morphism : And with
-    signature Formula ==> Formula ==> Formula as and_mor.
-*)
+Definition right_tag := Tag.
+Definition left_tag := right_tag.
+Canonical Structure found_tag F := left_tag F.
+
+Canonical Structure found P :=
+  Find P (found_tag P) (imp_id P).
+
+Canonical Structure search_left P f F2 :=
+  Find P (left_tag ((untag (F _ f)) /\ F2))
+       (and_left1 _ _ _ (pf _ f)).
+
+Canonical Structure search_right P F1 f :=
+  Find P (right_tag (F1 /\ (untag (F _ f))))
+       (and_left2 _ _ _ (pf _ f)).
+
+Lemma test : forall P (f:find P),
+  |- (untag (F _ f)).
+Admitted.
+
+Goal |- (FALSE /\ TRUE).
+(* The following apply doesn't work
+   for some reason. *)
+(*apply (test FALSE).*)
+refine (test FALSE _).
+Qed.
 
 (* The following three functions will be used to state
    the differential induction rule (diff_ind) below.
@@ -328,55 +342,31 @@ Proof.
 Qed.*)
 Admitted.
 
-Lemma diff_ind : forall F1 F2 F3 F4 cp uc b t,
+Lemma diff_ind : forall G cp uc b t (found:find (Continuous cp b t /\ Unchanged uc)),
   let eqs := cons (DiffEqC t 1)
                   (List.app 
                      cp 
                      (List.map
                         (fun x => DiffEqC x (RealT R0)) uc)) in
-  (|- (F1 /\ F2 /\ Unchanged uc /\ F3)
-        --> deriv_formula F4 eqs) ->
-  (|- ((F1 /\ F2 /\ (Continuous cp b t /\ Unchanged uc)) /\ F3) --> F4).
+  (|- (untag (F _ found))
+        --> deriv_formula G eqs) ->
+  (|- (untag (F _ found)) --> G).
 Admitted.
 
-Lemma diff_ind2 : forall F1 F2 F4 cp uc b t,
+Lemma time_diff : forall G cp b t (f:find (Continuous cp b t)),
+  (|- ((untag (F _ f)) /\ t! <= b!) --> G) ->
+  (|- (untag (F _ f)) --> G).
+Admitted.
+
+(*Lemma diff_ind : forall F1 F2 cp uc b t,
   let eqs := cons (DiffEqC t 1)
                   (List.app 
                      cp 
                      (List.map
                         (fun x => DiffEqC x (RealT R0)) uc)) in
-  (|- (F1 /\ F2 /\ Unchanged uc)
-        --> deriv_formula F4 eqs) ->
-  (|- ((F1 /\ F2 /\ (Continuous cp b t /\ Unchanged uc))) --> F4).
-Admitted.
-
-(*Definition eval_formula_known (known:list Formula) 
-  (goal:Formula) : trace -> Prop :=
-  eval_formula ((List.fold_right And TRUE known) --> goal).
-
-Notation "l |- F" :=
-  (forall tr, eval_formula_known l F tr)
-    (at level 100).
-
-Lemma known_start : forall F,
-  (nil |- F) ->
-  (|- F).
-Proof. firstorder. Qed.
-
-Lemma known_cons : forall F1 F2 l,
-  (F1::l |- F2) ->
-  (l |- F1 --> F2).
-Proof. firstorder. Qed.
-
-Lemma and_elim : forall F1 F2 l F,
-  (l |- F1 --> (F2 --> F)) ->
-  ((F1 /\ F2)::l |- F).
-Proof. firstorder. Qed.
-
-Lemma or_elim : forall F1 F2 l F,
-  ( l |- F1 --> F) ->
-  ( l |- F2 --> F) ->
-  ((F1 \/ F2)::l |- F).
-Proof. firstorder. Qed.*)
+  (|- (F1 /\ Unchanged uc )
+        --> deriv_formula F2 eqs) ->
+  (|- ((Continuous cp b t /\ Unchanged uc) /\ F1) --> F2).
+Admitted.*)
 
 Close Scope HP_scope.
