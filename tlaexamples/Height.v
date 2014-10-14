@@ -1,8 +1,8 @@
-Require Import Coq.micromega.Psatz.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.Lib.
 Require Import TLA.ProofRules.
+Require Import TLA.Tactics.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 
@@ -65,20 +65,10 @@ Section HeightCtrl.
 *)
 
   Lemma ind_inv_init : |- Init --> Ind_Inv.
-  Proof.
-    simpl; intros; unfold eval_comp in *;
-    simpl in *; intuition; try psatzl R.
-  Qed.
+  Proof. solve_linear. Qed.
 
   Lemma ind_inv_safe : |- Ind_Inv --> Safe.
-  Proof.
-    simpl; intros; unfold eval_comp in *;
-    simpl in *; intuition; try psatzl R.
-  Qed.
-
-  Ltac solve_linear :=
-    simpl; intros; unfold eval_comp in *;
-    simpl in *; intuition; try psatzl R.
+  Proof. solve_linear. Qed.
 
   Lemma safety :
     |- (Init /\ []Next) --> []Safe.

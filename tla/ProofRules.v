@@ -165,7 +165,9 @@ Canonical Structure search_right P F1 f :=
   Find P (right_tag (F1 /\ (untag (F _ f))))
        (and_left2 _ _ _ (pf _ f)).
 
-Lemma test : forall P (f:find P),
+(* The following illustrates something
+   weird with canonical structures. *)
+(*Lemma test : forall P (f:find P),
   |- (untag (F _ f)).
 Admitted.
 
@@ -174,7 +176,7 @@ Goal |- (FALSE /\ TRUE).
    for some reason. *)
 (*apply (test FALSE).*)
 refine (test FALSE _).
-Qed.
+Qed.*)
 
 (* The following three functions will be used to state
    the differential induction rule (diff_ind) below.

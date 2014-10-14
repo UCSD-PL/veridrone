@@ -1,4 +1,4 @@
-MODULES := Syntax Semantics Lib ProofRules
+MODULES := Syntax Semantics Lib ProofRules Tactics
 VS      := $(MODULES:%=%.v)
 
 .PHONY: coq clean
