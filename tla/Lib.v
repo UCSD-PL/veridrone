@@ -25,7 +25,7 @@ Fixpoint AVarsAgree (xs:list Var) (st:state) : Formula :=
   match xs with
     | nil => TRUE
     | cons x xs =>
-      (x! = st x) /\ (VarsAgree xs st)
+      (x! = st x) /\ (AVarsAgree xs st)
   end.
 
 Inductive DiffEq :=
@@ -78,7 +78,7 @@ Definition Continuous (cp:list DiffEq) (b:Term) (t:Var) : Formula :=
                       /\ (VarsAgree xs (f R0))
                       /\ (AVarsAgree xs (f r))
                       /\ (t + r <= b)
-                      /\ (t! = t + r))).
+                      (*/\ (t! = t + r)*))).
 
 Close Scope string_scope.
 Close Scope HP_scope.
