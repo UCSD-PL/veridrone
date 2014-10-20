@@ -606,42 +606,41 @@ Lemma zero_deriv : forall G cp b t F x,
   (|- (F /\ x! = x) --> G) ->
   (|- F --> G).
 Proof.
-  induction cp; intros b t F x Hin Hcont Hsuf.
-  - simpl in *; contradiction.
-  - simpl in Hin. destruct Hin.
-    + simpl in *; intros; apply Hsuf.
-      split; auto. specialize (Hcont tr H0).
-      destruct Hcont as [r [f Hf] ].
-      decompose [and] Hf.
-      unfold eval_comp in *. simpl in *.
-      destruct a. simpl in *. inversion H.
-      subst x. subst t0. unfold is_solution in *.
-      unfold solves_diffeqs in *.
-      destruct H3. specialize (H2 v 0).
-      simpl in *. rewrite H5. rewrite H4.
-      rewrite (null_derivative_loc (fun t => f t v) R0 r);
-        auto.
-      * intros.
-Require Import String.
-Open Scope string_scope.
-Goal forall tr r, eval_aterm (next_term "pc") tr = r.
-intros. simpl (next_term "pc").
+induction cp.  intros b t F x Hin Hcont Hsuf.
+- simpl in *. contradiction.
+-  intros b t F x Hin Hcont Hsuf. simpl in Hin. destruct Hin.
++ simpl in *. intros. apply Hsuf.
+split. auto. specialize (Hcont tr H0).
+destruct Hcont as [r [f Hf] ].
+decompose [and] Hf.
+unfold eval_comp in *. simpl in *.
+destruct a. simpl in *. inversion H.
+subst x. subst t0. unfold is_solution in *.
+unfold solves_diffeqs in *.
+destruct H3 as [H10]. specialize (H2 v 0).
+simpl in *. rewrite H5. rewrite H4.
+rewrite (null_derivative_loc (fun t => f t v) R0 r).
+auto.
+* intros.  unfold derivable in H10. apply derivable_continuous_pt.
+apply H10.
+* unfold derive in H2. firstorder. apply H2. auto. psatzl R.
+* intuition. 
++ apply IHcp with (b:=b) (t:=t) (x:=x).
+apply H. 
+simpl in *. intros. specialize (Hcont tr H0).
+destruct Hcont as [r [f Hf]]. decompose [and] Hf.
+exists r. exists f. intuition.
+unfold is_solution in *.
+destruct H10.
+unfold solves_diffeqs in *.
+simpl in *.
+exists x0. intros. apply H9; auto.
+apply Hsuf. Qed.
 
 Lemma time_diff : forall G cp b t F,
   (|- F --> Continuous cp b t) ->
   (|- (F /\ t! <= b!) --> G) ->
   (|- F --> G).
 Admitted.
-
-(*Lemma diff_ind : forall F1 F2 cp uc b t,
-  let eqs := cons (DiffEqC t 1)
-                  (List.app 
-                     cp 
-                     (List.map
-                        (fun x => DiffEqC x (RealT R0)) uc)) in
-  (|- (F1 /\ Unchanged uc )
-        --> deriv_formula F2 eqs) ->
-  (|- ((Continuous cp b t /\ Unchanged uc) /\ F1) --> F2).
-Admitted.*)
 
 Close Scope HP_scope.

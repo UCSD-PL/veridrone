@@ -18,7 +18,11 @@ Section HeightCtrl.
     "T"! = "t" /\ "H"! = "h".
 
   Definition Evolve : Formula :=
-    Continuous (["h"' ::= "v"]) ("T"+d) "t".
+    Continuous (["h"' ::= "v",
+                 "v"' ::= 0,
+                 "H"' ::= 0,
+                 "T"' ::= 0,
+                 "pc"' ::= 0]) ("T"+d) "t".
 
   Definition Ctrl : Formula :=
        ("H" < 0  /\ "v"! = 1)
@@ -27,8 +31,8 @@ Section HeightCtrl.
   Definition Next : Formula :=
        ("pc" = 0 /\ Read /\ "pc"! = 1 /\
         Unchanged (["h", "t", "v"]))
-    \/ ("pc" = 1 /\ Evolve /\
-        Unchanged (["v", "H", "T", "pc"]))
+    \/ ("pc" = 1 /\ Evolve(* /\
+        Unchanged (["v", "H", "T", "pc"])*))
     \/ ("pc" = 1 /\ Ctrl /\ "pc"! = 0 /\
         Unchanged (["h", "t", "H", "T"])).
 
@@ -52,18 +56,6 @@ Section HeightCtrl.
     ("v"=--1 \/ "v" = 1) /\
     ("pc"=0 \/ "pc"=1).
 
-(*
-    (("pc"=0 /\ "v"=1) --> ("h" <= d /\ --2*d <= "h")) /\
-    (("pc"=0 /\ "v"=--1) --> (--d <= "h" /\ "h" <= 2*d)) /\
-    (("pc"=1 /\ "v"=1) --> (d-("t"-"T") <= 2*d-"h" /\
-                            d-("t"-"T") <= 2*d+"h")) /\
-    (("pc"=1 /\ "v"=--1) --> (("t"-"T")-d <= 2*d-"h" /\
-                              ("t"-"T")-d <= 2*d+"h")) /\
-    "t"-"T" <= d /\ 0 <= "t"-"T" /\
-    ("v"=--1 \/ "v" = 1) /\
-    ("pc"=0 \/ "pc"=1).
-*)
-
   Lemma ind_inv_init : |- Init --> Ind_Inv.
   Proof. solve_linear. Qed.
 
@@ -81,11 +73,31 @@ Section HeightCtrl.
       + apply inv_discr_ind; auto.
         repeat apply or_next;
           repeat first [ apply and_right |
-                         apply imp_right ];
+                         apply imp_right ]; unfold Evolve;
           try solve
-              [ refine (diff_ind _ _ _ _ _ _ _); solve_linear |
-                solve_linear |
-                refine (time_diff _ _ _ _ _ _); solve_linear ].
+              [ (*refine (diff_ind _ _ _ _ _ _ _); solve_linear |*)
+                solve_linear (*|
+                refine (time_diff _ _ _ _ _ _); solve_linear*) ];
+try (match goal with
+|- context [Continuous ?eqs ?bb ?tt] =>
+  match goal with
+    | [ |- (|- _ --> next_term ?t1 <= next_term ?t2) ]
+        => apply diff_ind with
+           (Hyps:="v"=1) (G:=t1<=t2) (cp:=eqs) (b:=bb) (t:=tt)
+  end
+end); try solve [solve_linear].
+Focus 5.
+match goal with
+|- context [Continuous ?eqs ?bb ?tt] =>
+  match goal with
+    | [ |- (|- _ --> next_term ?t1 <= next_term ?t2) ]
+        => idtac (*apply diff_ind with
+           (Hyps:=TRUE) (G:=t1<=t2) (cp:=eqs) (b:=bb) (t:=tt)*)
+  end
+end.
+Focus 2.
+eapply diff_ind with (G:=--2*d <= "h"); intuition.
+refine (diff_ind TRUE _(*(--2*d <= "h")*) _ _ _ _ _ _ _ _ _ _). auto.
       + apply always_imp. apply ind_inv_safe.
   Qed.
 
