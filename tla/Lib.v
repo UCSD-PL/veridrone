@@ -25,7 +25,7 @@ Fixpoint AVarsAgree (xs:list Var) (st:state) : Formula :=
   match xs with
     | nil => TRUE
     | cons x xs =>
-      (x! = st x) /\ (VarsAgree xs st)
+      (x! = st x) /\ (AVarsAgree xs st)
   end.
 
 Inductive DiffEq :=
@@ -67,7 +67,7 @@ Definition TimeC (t:time) : Term :=
   RealT t.
 Coercion TimeC : time >-> Term.
 
-Definition Continuous (cp:list DiffEq) (b:Term) (t:Var) : Formula :=
+Definition Continuous (cp:list DiffEq) : Formula :=
   let xs := List.map get_var cp in
   Exists R
          (fun r =>
@@ -76,9 +76,7 @@ Definition Continuous (cp:list DiffEq) (b:Term) (t:Var) : Formula :=
                          (r > 0)
                       /\ (PropF (is_solution f cp r))
                       /\ (VarsAgree xs (f R0))
-                      /\ (AVarsAgree xs (f r))
-                      /\ (t + r <= b)
-                      /\ (t! = t + r))).
+                      /\ (AVarsAgree xs (f r)))).
 
 Close Scope string_scope.
 Close Scope HP_scope.

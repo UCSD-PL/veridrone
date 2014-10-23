@@ -513,23 +513,23 @@ Proof.
   apply Hineq.
 Qed.
 
-Lemma eval_comp_ind : forall Hyps eqs b tvar
+Lemma eval_comp_ind : forall Hyps eqs
                              t1 t2 t1' t2' op,
   deriv_term t1 eqs = Some t1' ->
   deriv_term t2 eqs = Some t2' ->
   is_st_formula Hyps = true ->
-  (|- (Hyps /\ Continuous eqs b tvar) --> next Hyps) ->
+  (|- (Hyps /\ Continuous eqs) --> next Hyps) ->
   (|- Hyps --> (Comp t1' t2' (deriv_comp_op op))) ->
   (|- (Comp (TermNow t1) (TermNow t2) op /\ Hyps /\
-       Continuous eqs b tvar) -->
+       Continuous eqs) -->
                               Comp (TermNext t1) (TermNext t2) op).
 Proof.
-  intros Hyps eqs b tvar t1 t2 t1' t2' op Ht1 Ht2 Hst Hhyps Hind.
+  intros Hyps eqs t1 t2 t1' t2' op Ht1 Ht2 Hst Hhyps Hind.
   simpl in *; unfold eval_comp in *; simpl in *.
   intros tr H; destruct H as [Hbase [HhypsI Hcont] ].
 
   destruct Hcont as [r [f Hcont] ];
-    destruct Hcont as [Hr [Hsol [? [? ?] ] ] ].
+    destruct Hcont as [Hr [Hsol [? ?] ] ].
   do 2 erewrite deriv_trace_now with (tr:=tr) in Hbase; eauto.
   erewrite deriv_trace_next with (tr:=tr); eauto.
   erewrite deriv_trace_next with (tr:=tr); eauto.
@@ -570,11 +570,11 @@ Proof.
       ]).
 Qed.
 
-Lemma diff_ind : forall Hyps G cp b t F,
+Lemma diff_ind : forall Hyps G cp F,
   is_st_formula G = true ->
   is_st_formula Hyps = true ->
-  (|- (Hyps /\ Continuous cp b t) --> next Hyps) ->
-  (|- F --> Continuous cp b t) ->
+  (|- (Hyps /\ Continuous cp) --> next Hyps) ->
+  (|- F --> Continuous cp) ->
   (|- F --> G) ->
   (|- F --> Hyps) ->
   (|- Hyps --> deriv_formula (next G) cp) ->
@@ -582,65 +582,59 @@ Lemma diff_ind : forall Hyps G cp b t F,
 Proof.
   intros Hyps G; generalize dependent Hyps;
   induction G;
-    intros Hyps cp b t F HstG HstH Hhyps Hcont Hbase HhypsF Hind;
+    intros Hyps cp F HstG HstH Hhyps Hcont Hbase HhypsF Hind;
   simpl in *; intros; eauto;
   try discriminate; try solve [exfalso; eapply Hind; eauto].
   destruct a; destruct a0; simpl in *;
   try discriminate.
-  destruct (deriv_term t0 cp) eqn:?;
-           destruct (deriv_term t1 cp) eqn:?;
+  destruct (deriv_term t cp) eqn:?;
+           destruct (deriv_term t0 cp) eqn:?;
   try solve [simpl in *; exfalso; eapply Hind; eauto].
   simpl in *. pose proof (Hcont tr H).
   destruct H0 as [r [f Hf] ].
   decompose [and] Hf.
-  eapply eval_comp_ind with (t1:=t0) (t2:=t1) (op:=c)
-  (Hyps:=Hyps) (eqs:=cp) (b:=b) (tvar:=t); eauto.
+  eapply eval_comp_ind with (t1:=t) (t2:=t0) (op:=c)
+  (Hyps:=Hyps) (eqs:=cp); eauto.
   repeat split; intuition.
   - apply HhypsF; auto.
   - apply Hcont; auto.
 Qed.
 
-Lemma zero_deriv : forall G cp b t F x,
+Lemma zero_deriv : forall G cp F x,
   List.In (DiffEqC x 0) cp ->
-  (|- F --> Continuous cp b t) ->
+  (|- F --> Continuous cp) ->
   (|- (F /\ x! = x) --> G) ->
   (|- F --> G).
 Proof.
-induction cp.  intros b t F x Hin Hcont Hsuf.
+induction cp.  intros F x Hin Hcont Hsuf.
 - simpl in *. contradiction.
--  intros b t F x Hin Hcont Hsuf. simpl in Hin. destruct Hin.
+-  intros F x Hin Hcont Hsuf. simpl in Hin. destruct Hin.
 + simpl in *. intros. apply Hsuf.
 split. auto. specialize (Hcont tr H0).
 destruct Hcont as [r [f Hf] ].
 decompose [and] Hf.
 unfold eval_comp in *. simpl in *.
 destruct a. simpl in *. inversion H.
-subst x. subst t0. unfold is_solution in *.
+subst x. subst t. unfold is_solution in *.
 unfold solves_diffeqs in *.
-destruct H3 as [H10]. specialize (H2 v 0).
-simpl in *. rewrite H5. rewrite H4.
+destruct H3 as [H10]. specialize (H3 v 0).
+simpl in *. rewrite H2. rewrite H4.
 rewrite (null_derivative_loc (fun t => f t v) R0 r).
 auto.
 * intros.  unfold derivable in H10. apply derivable_continuous_pt.
 apply H10.
-* unfold derive in H2. firstorder. apply H2. auto. psatzl R.
+* unfold derive in H2. firstorder. apply H3. auto. psatzl R.
 * intuition. 
-+ apply IHcp with (b:=b) (t:=t) (x:=x).
++ apply IHcp with (x:=x).
 apply H. 
 simpl in *. intros. specialize (Hcont tr H0).
 destruct Hcont as [r [f Hf]]. decompose [and] Hf.
 exists r. exists f. intuition.
 unfold is_solution in *.
-destruct H10.
+destruct H9.
 unfold solves_diffeqs in *.
 simpl in *.
 exists x0. intros. apply H9; auto.
 apply Hsuf. Qed.
-
-Lemma time_diff : forall G cp b t F,
-  (|- F --> Continuous cp b t) ->
-  (|- (F /\ t! <= b!) --> G) ->
-  (|- F --> G).
-Admitted.
 
 Close Scope HP_scope.
