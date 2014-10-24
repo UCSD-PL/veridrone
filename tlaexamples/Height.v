@@ -12,13 +12,22 @@ Open Scope string_scope.
 Section HeightCtrl.
 
   Variable d : R.
+  (* The following hypothesis is not necessary
+     for the safety property, but it's necessary
+     for ensuring that non-Zeno behaviors are
+     possible. *)
   Hypothesis Hd : (d > 0)%R.
 
   Definition Read : Formula :=
     "T"! = "t" /\ "H"! = "h".
 
   Definition Evolve : Formula :=
-    Continuous (["h"' ::= "v"]) ("T"+d) "t".
+    Continuous (["h"' ::= "v",
+                 "v"' ::= 0,
+                 "t"' ::= 1,
+                 "H"' ::= 0,
+                 "T"' ::= 0,
+                 "pc"' ::= 0]).
 
   Definition Ctrl : Formula :=
        ("H" < 0  /\ "v"! = 1)
@@ -27,8 +36,7 @@ Section HeightCtrl.
   Definition Next : Formula :=
        ("pc" = 0 /\ Read /\ "pc"! = 1 /\
         Unchanged (["h", "t", "v"]))
-    \/ ("pc" = 1 /\ Evolve /\
-        Unchanged (["v", "H", "T", "pc"]))
+    \/ ("pc" = 1 /\ Evolve /\ "t"! <= "T" + d)
     \/ ("pc" = 1 /\ Ctrl /\ "pc"! = 0 /\
         Unchanged (["h", "t", "H", "T"])).
 
@@ -52,18 +60,6 @@ Section HeightCtrl.
     ("v"=--1 \/ "v" = 1) /\
     ("pc"=0 \/ "pc"=1).
 
-(*
-    (("pc"=0 /\ "v"=1) --> ("h" <= d /\ --2*d <= "h")) /\
-    (("pc"=0 /\ "v"=--1) --> (--d <= "h" /\ "h" <= 2*d)) /\
-    (("pc"=1 /\ "v"=1) --> (d-("t"-"T") <= 2*d-"h" /\
-                            d-("t"-"T") <= 2*d+"h")) /\
-    (("pc"=1 /\ "v"=--1) --> (("t"-"T")-d <= 2*d-"h" /\
-                              ("t"-"T")-d <= 2*d+"h")) /\
-    "t"-"T" <= d /\ 0 <= "t"-"T" /\
-    ("v"=--1 \/ "v" = 1) /\
-    ("pc"=0 \/ "pc"=1).
-*)
-
   Lemma ind_inv_init : |- Init --> Ind_Inv.
   Proof. solve_linear. Qed.
 
@@ -78,14 +74,34 @@ Section HeightCtrl.
       + apply and_left1. apply ind_inv_init.
       + apply and_left2. apply imp_id.
     - apply imp_trans with (F2:=[]Ind_Inv).
-      + apply inv_discr_ind; auto.
-        repeat apply or_next;
+      + apply inv_discr_ind; auto. unfold Next, Evolve.
+        Time repeat apply or_next;
           repeat first [ apply and_right |
                          apply imp_right ];
-          try solve
-              [ refine (diff_ind _ _ _ _ _ _ _); solve_linear |
-                solve_linear |
-                refine (time_diff _ _ _ _ _ _); solve_linear ].
+        match goal with
+          | [ |- context [Continuous ?eqs] ]
+              => pose "Continuous"; extract_unchanged eqs;
+                 match goal with
+                   | [ |- context [next_term (TermC (VarC "pc")) =
+                                   next_term (TermC (ConstC (NatC 1)))] ] =>
+                     match goal with
+                       | [ |- context [next_term (TermC (VarC "v")) = next_term ?e] ] =>
+                         abstract (prove_diff_inv ("v" = e);
+                                   match goal with
+                                     | [ |- (|- (?I /\ Continuous eqs) --> next ?I) ] =>
+                                       extract_unchanged eqs; solve_linear
+                                     | [ |- _ ] =>
+                                       solve_linear
+                                   end)
+                     end
+                   | [ |- _ ] =>
+                     try abstract solve [solve_linear |
+                                         prove_diff_inv TRUE; solve_linear]
+                 end
+          | [ |- _ ]
+              => pose "Discrete";
+                 try abstract solve_linear
+        end.
       + apply always_imp. apply ind_inv_safe.
   Qed.
 
