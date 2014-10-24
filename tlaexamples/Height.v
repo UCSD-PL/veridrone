@@ -26,39 +26,31 @@ Section HeightCtrl.
                  "v"' ::= 0,
                  "t"' ::= 1,
                  "H"' ::= 0,
-                 "T"' ::= 0,
-                 "pc"' ::= 0]).
+                 "T"' ::= 0]).
 
   Definition Ctrl : Formula :=
        ("H" < 0  /\ "v"! = 1)
     \/ ("H" >= 0 /\ "v"! = --1).
 
   Definition Next : Formula :=
-       ("pc" = 0 /\ Read /\ "pc"! = 1 /\
-        Unchanged (["h", "t", "v"]))
-    \/ ("pc" = 1 /\ Evolve /\ "t"! <= "T" + d)
-    \/ ("pc" = 1 /\ Ctrl /\ "pc"! = 0 /\
-        Unchanged (["h", "t", "H", "T"])).
+       (Evolve /\ "t"! <= "T" + d)
+    \/ (Ctrl /\ Read /\ Unchanged (["h", "t"])).
 
   Definition Init : Formula :=
     (--1 = "v" \/ "v" = 1) /\
     --d <= "h" <= d /\
-    "t" = 0 /\ "T" = 0 /\ "pc" = 0 /\
-    "H" = "h".
+    "t" = "T" /\ "H" = "h".
 
   Definition Safe : Formula :=
     --2*d <="h" <= 2*d.
 
   Definition Ind_Inv : Formula :=
-    (("pc" = 0 /\ "v" = 1) --> (--2*d <= "h" <= d)) /\
-    (("pc" = 0 /\ "v" = --1) --> (--d <= "h" <= 2*d)) /\
-    (("pc" = 1 /\ "v" = 1) --> (--2*d <= "H" <= d /\
-                                0 <= "h"-"H" <= "t"-"T")) /\
-    (("pc" = 1 /\ "v" = --1) --> (--d <= "H" <= 2*d /\
-                                  0 <= "H"-"h" <= "t"-"T")) /\
+    ("v" = 1 --> (--2*d <= "H" <= d /\
+                  0 <= "h"-"H" <= "t"-"T")) /\
+    ("v" = --1 --> (--d <= "H" <= 2*d /\
+                    0 <= "H"-"h" <= "t"-"T")) /\
     0 <= "t"-"T" <= d /\
-    ("v"=--1 \/ "v" = 1) /\
-    ("pc"=0 \/ "pc"=1).
+    ("v"=--1 \/ "v" = 1).
 
   Lemma ind_inv_init : |- Init --> Ind_Inv.
   Proof. solve_linear. Qed.
@@ -82,18 +74,14 @@ Section HeightCtrl.
           | [ |- context [Continuous ?eqs] ]
               => pose "Continuous"; extract_unchanged eqs;
                  match goal with
-                   | [ |- context [next_term (TermC (VarC "pc")) =
-                                   next_term (TermC (ConstC (NatC 1)))] ] =>
-                     match goal with
-                       | [ |- context [next_term (TermC (VarC "v")) = next_term ?e] ] =>
-                         abstract (prove_diff_inv ("v" = e);
-                                   match goal with
-                                     | [ |- (|- (?I /\ Continuous eqs) --> next ?I) ] =>
-                                       extract_unchanged eqs; solve_linear
-                                     | [ |- _ ] =>
-                                       solve_linear
-                                   end)
-                     end
+                   | [ |- context [next_term (TermC (VarC "v")) = next_term ?e] ] =>
+                     abstract (prove_diff_inv ("v" = e);
+                               match goal with
+                                 | [ |- (|- (?I /\ Continuous eqs) --> next ?I) ] =>
+                                   extract_unchanged eqs; solve_linear
+                                 | [ |- _ ] =>
+                                   solve_linear
+                               end)
                    | [ |- _ ] =>
                      try abstract solve [solve_linear |
                                          prove_diff_inv TRUE; solve_linear]
