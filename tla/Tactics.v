@@ -9,6 +9,10 @@ Ltac solve_linear :=
   simpl; intros; unfold eval_comp in *;
   simpl in *; intuition; try psatzl R.
 
+Ltac solve_nonlinear :=
+  simpl; intros; unfold eval_comp in *;
+  simpl in *; intuition; try psatz R.
+
 Open Scope HP_scope.
 
 Ltac find_zeros eqs :=
