@@ -113,15 +113,3 @@ end.
 + apply always_imp. apply ind_inv_safe.
 Qed.
 
-Lemma safety :
-|- (Init /\ []Next) --> []Safe.
-Proof.
-apply imp_trans with (F2:=Ind_Inv /\ []Next).
-- apply and_right.
-+ apply and_left1. apply ind_inv_init.
-+ apply and_left2. apply imp_id.
-- apply imp_trans with (F2:=[]Ind_Inv).
-+ apply inv_discr_ind; auto.
-repeat apply or_next.
-repeat first [ apply and_right |
-apply imp_right ].
