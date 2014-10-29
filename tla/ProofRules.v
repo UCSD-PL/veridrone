@@ -254,6 +254,8 @@ Fixpoint deriv_formula (F:Formula) (eqs:list DiffEq) :=
           end
         | _, _ => FALSE
       end
+    | And F1 F2 => And (deriv_formula F1 eqs)
+                       (deriv_formula F2 eqs)
     | _ => FALSE
   end.
 
@@ -598,6 +600,15 @@ Proof.
   repeat split; intuition.
   - apply HhypsF; auto.
   - apply Hcont; auto.
+  - split.
+    + eapply IHG1; eauto.
+      * apply andb_prop in HstG; intuition.
+      * apply Hbase; auto.
+      * apply Hind; auto.
+    + eapply IHG2; eauto.
+      * apply andb_prop in HstG; intuition.
+      * apply Hbase; auto.
+      * apply Hind; auto.
 Qed.
 
 Lemma zero_deriv : forall G cp F x,
@@ -636,5 +647,155 @@ unfold solves_diffeqs in *.
 simpl in *.
 exists x0. intros. apply H9; auto.
 apply Hsuf. Qed.
+
+Fixpoint extract_vars_term (t:Term) : list Var :=
+  match t with
+    | RealT _ => nil
+    | VarT x => cons x nil
+    | PlusT t1 t2 => List.app
+                       (extract_vars_term t1)
+                       (extract_vars_term t2)
+    | MinusT t1 t2 => List.app
+                        (extract_vars_term t1)
+                        (extract_vars_term t2)
+    | MultT t1 t2 => List.app
+                       (extract_vars_term t1)
+                       (extract_vars_term t2)
+  end.
+
+Fixpoint extract_vars (F:Formula) : list Var :=
+  match F with
+    | Comp t1 t2 _ =>
+      let t1 := match t1 with TermNext t1 => t1 | TermNow t1 => t1 end in
+      let t2 := match t2 with TermNext t2 => t2 | TermNow t2 => t2 end in
+      List.app (extract_vars_term t1) (extract_vars_term t2)
+    | And F1 F2 =>
+      List.app (extract_vars F1) (extract_vars F2)
+    | Or F1 F2 =>
+      List.app (extract_vars F1) (extract_vars F2)
+    | Imp F1 F2 =>
+      List.app (extract_vars F1) (extract_vars F2)
+    | _ => nil
+  end.
+
+Lemma extract_vars_term_0 : forall t eqs tr,
+(*  List.fold_right and True
+                  (List.map (fun x => List.In (DiffEqC x R0) eqs)
+                            (extract_vars_term t)) ->*)
+  (forall x, List.In x (extract_vars_term t) ->
+             List.In (DiffEqC x R0) eqs) ->
+  eval_formula (Continuous eqs) tr ->
+  eval_aterm t! tr = eval_term t (hd tr).
+Proof.
+  induction t; simpl;
+  intros eqs tr Hin Heval; auto.
+  - specialize (Hin v (or_introl (Logic.eq_refl _))).
+    pose proof (zero_deriv (v!=v) eqs (Continuous eqs) v Hin (imp_id _)).
+    apply H; auto; simpl; intros; intuition.
+  - simpl in *. erewrite IHt1; eauto. erewrite IHt2; eauto.
+    intros; apply Hin; apply List.in_or_app; auto.
+    intros; apply Hin; apply List.in_or_app; auto.
+  - simpl in *. erewrite IHt1; eauto. erewrite IHt2; eauto.
+    intros; apply Hin; apply List.in_or_app; auto.
+    intros; apply Hin; apply List.in_or_app; auto.
+  - simpl in *. erewrite IHt1; eauto. erewrite IHt2; eauto.
+    intros; apply Hin; apply List.in_or_app; auto.
+    intros; apply Hin; apply List.in_or_app; auto.
+Qed.
+
+Lemma extract_vars_0 : forall F H eqs,
+  is_st_formula H = true ->
+  (forall x, List.In x (extract_vars H) ->
+             List.In (DiffEqC x R0) eqs) ->
+  (|- F --> Continuous eqs) ->
+  (|- (F /\ next H) --> H) /\ (|- (F /\ H) --> next H).
+Proof.
+  induction H; intros eqs Hst Hin Hcont;
+  simpl in *; intros; intuition; try discriminate.
+  - destruct a; destruct a0; try discriminate; simpl in *.
+    unfold eval_comp; simpl.
+    repeat rewrite <- extract_vars_term_0 with (eqs:=eqs);
+      auto; try apply Hcont; auto; intros; apply Hin;
+      apply List.in_or_app; auto.
+  - destruct a; destruct a0; try discriminate; simpl in *.
+    unfold eval_comp; simpl.
+    pose proof (extract_vars_term_0 t eqs tr).
+    pose proof (extract_vars_term_0 t0 eqs tr).
+    simpl in *. rewrite H; auto. rewrite H2; auto.
+    intros; apply Hin; apply List.in_or_app; auto.
+    intros; apply Hin; apply List.in_or_app; auto.
+  - eapply IHFormula1; eauto.
+    apply andb_prop in Hst; intuition.
+    intros; apply Hin; apply List.in_or_app; auto.
+  - eapply IHFormula2; eauto.
+    apply andb_prop in Hst; intuition.
+    intros; apply Hin; apply List.in_or_app; auto.
+  - eapply IHFormula1; eauto.
+    apply andb_prop in Hst; intuition.
+    intros; apply Hin; apply List.in_or_app; auto.
+  - eapply IHFormula2; eauto.
+    apply andb_prop in Hst; intuition.
+    intros; apply Hin; apply List.in_or_app; auto.
+  - left. eapply IHFormula1; eauto.
+    apply andb_prop in Hst; intuition.
+    intros; apply Hin; apply List.in_or_app; auto.
+  - right. eapply IHFormula2; eauto.
+    apply andb_prop in Hst; intuition.
+    intros; apply Hin; apply List.in_or_app; auto.
+  - left. eapply IHFormula1; eauto.
+    apply andb_prop in Hst; intuition.
+    intros; apply Hin; apply List.in_or_app; auto.
+  - right. eapply IHFormula2; eauto.
+    apply andb_prop in Hst; intuition.
+    intros; apply Hin; apply List.in_or_app; auto.
+  - eapply IHFormula2; eauto; intuition.
+    apply andb_prop in Hst; intuition.
+    apply H4. eapply IHFormula1; eauto.
+    apply andb_prop in Hst; intuition.
+    intros; apply Hin; apply List.in_or_app; auto.
+  - eapply IHFormula2; eauto; intuition.
+    apply andb_prop in Hst; intuition.
+    apply H4. eapply IHFormula1; eauto.
+    apply andb_prop in Hst; intuition.
+    intros; apply Hin; apply List.in_or_app; auto.
+Qed.
+
+Lemma list_in_fold_right : forall eqs l,
+  List.fold_right and True
+                  (List.map (fun x => List.In (DiffEqC x R0) eqs)
+                            l) ->
+  (forall x, List.In x l ->
+             List.In (DiffEqC x R0) eqs).
+Proof.
+  intros eqs l Hfold x Hin.
+  induction l; simpl in *; try contradiction.
+  firstorder. subst x; auto.
+Qed.
+
+Lemma diff_ind_imp : forall F H G eqs,
+  is_st_formula G = true ->
+  is_st_formula H = true ->
+  List.fold_right and True
+                  (List.map (fun x => List.In (DiffEqC x R0) eqs)
+                            (extract_vars H)) ->
+  (|- (F /\ H) --> G) ->
+  (|- F --> Continuous eqs) ->
+  (|- H --> deriv_formula (next G) eqs) ->
+  (|- F --> (next H --> next G)).
+Proof.
+  intros F H G eqs HstG HstH Hin Hinit Hcont Hind.
+  apply imp_right.
+  assert (|- (F /\ next H) --> H) by
+      (eapply extract_vars_0; auto;
+       apply list_in_fold_right; auto).
+  apply diff_ind with (Hyps:=H) (cp:=eqs); auto.
+  - apply and_comm_left. eapply extract_vars_0; auto.
+    + apply list_in_fold_right; eauto.
+    + apply imp_id.      
+  - apply and_left1; auto.
+  - apply imp_trans with (F2:=F/\H); auto.
+    apply and_right; auto. apply and_left1.
+    apply imp_id.
+Qed.
 
 Close Scope HP_scope.
