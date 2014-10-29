@@ -68,8 +68,18 @@ Ltac prove_diff_inv known :=
       match goal with
           |- (|- _ --> Comp (next_term ?t1) (next_term ?t2) ?op) =>
           apply diff_ind with
-          (Hyps:=known) (G:=Comp t1 t2 op) (cp:=eqs); try solve [solve_linear]
+          (Hyps:=known) (G:=Comp t1 t2 op) (cp:=eqs)(*; try solve [solve_linear]*)
       end
+  end.
+
+Fixpoint unnext (F:Formula) : Formula :=
+  match F with
+    | Comp t1 t2 op =>
+      let t1 := match t1 with TermNext t1 => t1 | _ => t1 end in
+      let t2 := match t2 with TermNext t2 => t2 | _ => t2 end in
+      Comp t1 t2 op
+    | And F1 F2 => And (unnext F1) (unnext F2)
+    | _ => F
   end.
 
 Close Scope HP_scope.

@@ -37,7 +37,7 @@ Section HeightCtrl.
     \/ (Ctrl /\ Read /\ Unchanged (["h", "t"])).
 
   Definition Init : Formula :=
-    (--1 = "v" \/ "v" = 1) /\
+    ("v" = --1 \/ "v" = 1) /\
     --d <= "h" <= d /\
     "t" = "T" /\ "H" = "h".
 
@@ -67,28 +67,29 @@ Section HeightCtrl.
       + apply and_left2. apply imp_id.
     - apply imp_trans with (F2:=[]Ind_Inv).
       + apply inv_discr_ind; auto. unfold Next, Evolve.
-        Time repeat apply or_next;
-          repeat first [ apply and_right |
-                         apply imp_right ];
+        Time repeat apply or_next; repeat apply and_right;
         match goal with
-          | [ |- context [Continuous ?eqs] ]
-              => pose "Continuous"; extract_unchanged eqs;
-                 match goal with
-                   | [ |- context [next_term (TermC (VarC "v")) = next_term ?e] ] =>
-                     abstract (prove_diff_inv ("v" = e);
-                               match goal with
-                                 | [ |- (|- (?I /\ Continuous eqs) --> next ?I) ] =>
-                                   extract_unchanged eqs; solve_linear
-                                 | [ |- _ ] =>
-                                   solve_linear
-                               end)
-                   | [ |- _ ] =>
-                     try abstract solve [solve_linear |
-                                         prove_diff_inv TRUE; solve_linear]
-                 end
-          | [ |- _ ]
-              => pose "Discrete";
-                 try abstract solve_linear
+            | [ |- context [Continuous ?deqs] ] =>
+              match goal with
+                  | [ |- (|- _ --> (?HH --> ?GG))] =>
+                  apply diff_ind_imp
+                  with (eqs:=deqs) (H:=unnext HH) (G:=unnext GG);
+                    try abstract
+                        solve [reflexivity |
+                               simpl; intuition;
+                               solve_linear]
+                  | [ |- (|- _ --> ?GG) ] =>
+                    abstract (eapply diff_ind
+                    with (cp:=deqs) (G:=unnext GG) (Hyps:=TRUE);
+                      try solve [reflexivity |
+                                 simpl; intuition;
+                                 solve_linear] )
+                  | [ |- _ ] =>
+                    abstract (extract_unchanged deqs;
+                              solve_linear)
+              end
+            | [ |- _ ] =>
+              try abstract (solve_linear)
         end.
       + apply always_imp. apply ind_inv_safe.
   Qed.
