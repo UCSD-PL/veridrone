@@ -46,7 +46,7 @@ Ltac get_var_inv F x :=
     | Comp (next_term x) (next_term ?e) Eq => constr:(Comp x e Eq)
   end.
 
-Ltac get_inv eqs F :=
+(*Ltac get_inv eqs F :=
   let xs := find_zeros eqs in
   let rec aux l :=
       match l with
@@ -61,6 +61,7 @@ Ltac get_inv eqs F :=
           rest
       end in
   aux xs.
+*)
 
 Ltac prove_diff_inv known :=
   match goal with
@@ -72,12 +73,24 @@ Ltac prove_diff_inv known :=
       end
   end.
 
+Fixpoint unnext_term (t:TermNext) : TermNext :=
+  match t with
+    | VarT (VarNow x) => VarT _ (VarNow x)
+    | VarT (VarNext x) => VarT _ (VarNow x)
+    | RealT r => RealT _ r
+    | NatT n => NatT _ n
+    | PlusT t1 t2 =>
+      PlusT _ (unnext_term t1) (unnext_term t2)
+    | MinusT t1 t2 =>
+      MinusT _ (unnext_term t1) (unnext_term t2)
+    | MultT t1 t2 =>
+      MultT _ (unnext_term t1) (unnext_term t2)
+  end.
+
 Fixpoint unnext (F:Formula) : Formula :=
   match F with
     | Comp t1 t2 op =>
-      let t1 := match t1 with TermNext t1 => t1 | _ => t1 end in
-      let t2 := match t2 with TermNext t2 => t2 | _ => t2 end in
-      Comp t1 t2 op
+      Comp (unnext_term t1) (unnext_term t2) op
     | And F1 F2 => And (unnext F1) (unnext F2)
     | _ => F
   end.

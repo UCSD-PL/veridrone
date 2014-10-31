@@ -27,10 +27,10 @@ Section HeightCtrl.
                  "t"' ::= 1,
                  "H"' ::= 0,
                  "T"' ::= 0]).
-
+Print Coercions.
   Definition Ctrl : Formula :=
        ("H" < 0  /\ "v"! = 1)
-    \/ ("H" >= 0 /\ "v"! = --1).
+    \/ ("H" >= 0 /\ "v"! = (MinusT VarOrNext (RealT _ R0) (RealT _ 1))).
 
   Definition Next : Formula :=
        (Evolve /\ "t"! <= "T" + d)
@@ -84,9 +84,10 @@ Section HeightCtrl.
                       try solve [reflexivity |
                                  simpl; intuition;
                                  solve_linear] )
-                  | [ |- _ ] =>
+                  | [ |- _ ] => idtac
+(*                  | [ |- _ ] =>
                     abstract (extract_unchanged deqs;
-                              solve_linear)
+                              solve_linear)*)
               end
             | [ |- _ ] =>
               try abstract (solve_linear)

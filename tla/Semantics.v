@@ -26,23 +26,55 @@ Definition state := Var -> R.
 Definition trace := stream state.
 
 (* Semantics of real valued terms *)
-Fixpoint eval_term (t:Term) (st:state) : R :=
+Fixpoint eval_term {V T:Type} (eval_var:V->T->R) (t:Term V) (tr:T) : R :=
+  (match t with
+     | VarT x => eval_var x tr
+     | NatT n => Raxioms.INR n
+     | RealT r => r
+     | PlusT t1 t2 => (eval_term eval_var t1 tr) + (eval_term eval_var t2 tr)
+     | MinusT t1 t2 => (eval_term eval_var t1 tr) - (eval_term eval_var t2 tr)
+     | MultT t1 t2 => (eval_term eval_var t1 tr) * (eval_term eval_var t2 tr)
+   end)%R.
+
+Definition eval_termnow :=
+  @eval_term Var state (fun x s => s x).
+
+Definition eval_termnext :=
+  @eval_term VarOrNext trace
+             (fun x tr =>
+                match x with
+                  | VarNow x => hd tr x
+                  | VarNext x => hd (tl tr) x
+                end).
+(*Fixpoint eval_term (t:Term) (st:state) : R :=
   (match t with
      | VarT x => st x
+     | NatT n => Raxioms.INR n
      | RealT r => r
      | PlusT t1 t2 => (eval_term t1 st) + (eval_term t2 st)
      | MinusT t1 t2 => (eval_term t1 st) - (eval_term t2 st)
      | MultT t1 t2 => (eval_term t1 st) * (eval_term t2 st)
-   end)%R.
+   end)%R.*)
 
-Definition eval_aterm (t:ActionTerm) (tr:trace) : R :=
+(*Definition eval_aterm (t:ActionTerm) (tr:trace) : R :=
   match t with
     | TermNow t => eval_term t (hd tr)
     | TermNext t => eval_term t (hd (tl tr))
-  end.
+  end.*)
 
 (* Semantics of comparison operators *)
-Definition eval_comp (t1 t2:ActionTerm) (op:CompOp) (tr:trace) :
+Definition eval_comp (t1 t2:TermNext) (op:CompOp) (tr:trace) :
+  Prop :=
+  let (e1, e2) := (eval_termnext t1 tr, eval_termnext t2 tr) in
+  let op := match op with
+              | Gt => Rgt
+              | Ge => Rge
+              | Lt => Rlt
+              | Le => Rle
+              | Eq => eq
+            end in
+  op e1 e2.
+(*Definition eval_comp (t1 t2:ActionTerm) (op:CompOp) (tr:trace) :
   Prop :=
   let (e1, e2) := (eval_aterm t1 tr, eval_aterm t2 tr) in
   let op := match op with
@@ -52,7 +84,7 @@ Definition eval_comp (t1 t2:ActionTerm) (op:CompOp) (tr:trace) :
               | Le => Rle
               | Eq => eq
             end in
-  op e1 e2.
+  op e1 e2.*)
 
 Fixpoint eval_formula (F:Formula) (tr:trace) :=
   match F with

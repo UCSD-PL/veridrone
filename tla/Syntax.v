@@ -7,19 +7,27 @@ Require Import Coq.Reals.RIneq.
 (************************************************)
 Definition Var := string.
 
+Inductive VarOrNext :=
+| VarNow : Var -> VarOrNext
+| VarNext : Var -> VarOrNext.
+
 (* Real-valued terms built using variables, constants
    and arithmetic. *)
-Inductive Term :=
-| VarT : Var -> Term
-| RealT : R -> Term
-| PlusT : Term -> Term -> Term
-| MinusT : Term -> Term -> Term
-| MultT : Term -> Term -> Term.
+Inductive Term V :=
+| VarT : V -> Term V
+| NatT : nat -> Term V
+| RealT : R -> Term V
+| PlusT : Term V -> Term V -> Term V
+| MinusT : Term V -> Term V -> Term V
+| MultT : Term V -> Term V -> Term V.
+
+Definition TermNow := Term Var.
+Definition TermNext := Term VarOrNext.
 
 (* Terms taking on the value of the next state. *)
-Inductive ActionTerm :=
+(*Inductive ActionTerm :=
 | TermNow : Term -> ActionTerm
-| TermNext : Term -> ActionTerm.
+| TermNext : Term -> ActionTerm.*)
 
 Inductive CompOp :=
 | Gt : CompOp
@@ -31,7 +39,8 @@ Inductive CompOp :=
 Inductive Formula :=
 | TRUE : Formula
 | FALSE : Formula
-| Comp : ActionTerm -> ActionTerm -> CompOp -> Formula
+(*| Comp : ActionTerm -> ActionTerm -> CompOp -> Formula*)
+| Comp : TermNext -> TermNext -> CompOp -> Formula
 | And : Formula -> Formula -> Formula
 | Or : Formula -> Formula -> Formula
 | Imp : Formula -> Formula -> Formula
@@ -46,28 +55,45 @@ Inductive Formula :=
 Delimit Scope HP_scope with HP.
 
 (*Term notation *)
-Definition NatC (n:nat) : R :=
+(*Definition NatC (n:nat) : R :=
   INR n.
-Coercion NatC : nat >-> R.
-Definition ConstC (c:R) : Term :=
-  RealT c.
-Coercion ConstC : R >-> Term.
-Definition VarC (x:string) : Term :=
-  VarT x.
-Coercion VarC : string >-> Term.
-Definition TermC (t:Term) : ActionTerm :=
+Coercion NatC : nat >-> R.*)
+Definition NatC (n:nat) : TermNow :=
+  NatT _ n.
+Coercion NatC : nat >-> TermNow.
+Definition NatNextC (n:nat) : TermNext :=
+  NatT _ n.
+Coercion NatNextC : nat >-> TermNext.
+Definition ConstC (c:R) : TermNow :=
+  RealT _ c.
+Coercion ConstC : R >-> TermNow.
+Definition ConstNextC (c:R) : TermNext :=
+  RealT _ c.
+Coercion ConstNextC : R >-> TermNext.
+Definition StringC (s:string) : Var :=
+  s.
+Coercion StringC : string >-> Var.
+Definition VarC (x:Var) : TermNow :=
+  VarT _ x.
+Coercion VarC : Var >-> TermNow.
+Definition VarNextC (x:Var) : TermNext :=
+  VarT _ (VarNow x).
+Coercion VarNextC : Var >-> TermNext.
+(*Definition TermC (t:Term) : ActionTerm :=
   TermNow t.
-Coercion TermC : Term >-> ActionTerm.
-Notation "x !" := (TermNext x) (at level 0) : HP_scope.
-Infix "+" := (PlusT) : HP_scope.
-Infix "-" := (MinusT) : HP_scope.
-Notation "-- x" := (MinusT (RealT R0) x)
+Coercion TermC : Term >-> ActionTerm.*)
+(*Notation "x !" := (TermNext x) (at level 0) : HP_scope.*)
+Notation "x !" :=
+  (VarT VarOrNext (VarNext x)) (at level 0) : HP_scope.
+Infix "+" := (PlusT _) : HP_scope.
+Infix "-" := (MinusT _) : HP_scope.
+Notation "-- x" := (MinusT _ (RealT _ R0) x)
                      (at level 0) : HP_scope.
-Infix "*" := (MultT) : HP_scope.
-Fixpoint pow (t : Term) (n : nat) :=
+Infix "*" := (MultT _) : HP_scope.
+Fixpoint pow {V} (t : Term V) (n : nat) :=
   match n with
-  | O => RealT 1
-  | S n => MultT t (pow t n)
+  | O => RealT _ 1
+  | S n => MultT _ t (pow t n)
   end.
 Notation "t ^^ n" := (pow t n) (at level 10) : HP_scope.
 
