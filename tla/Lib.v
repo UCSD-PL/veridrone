@@ -29,7 +29,7 @@ Fixpoint AVarsAgree (xs:list Var) (st:state) : Formula :=
   end.
 
 Inductive DiffEq :=
-| DiffEqC : Var -> TermNow -> DiffEq.
+| DiffEqC : Var -> Term -> DiffEq.
 
 Definition get_var (d:DiffEq) :=
   match d with
@@ -47,11 +47,11 @@ Definition get_term (d:DiffEq) :=
 Definition solves_diffeqs (f : R -> state)
            (diffeqs : list DiffEq) (r : R)
            (is_derivable : forall x, derivable (fun t => f t x)) :=
-  forall x d,
+  forall x d st,
     List.In (DiffEqC x d) diffeqs ->
     forall z, (R0 <= z <= r)%R ->
               derive (fun t => f t x) (is_derivable x) z =
-              eval_termnow d (f z).
+              eval_term d (f z) st.
 
 (* Prop expressing that f is a solution to diffeqs in
    [0,r]. *)
