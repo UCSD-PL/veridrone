@@ -47,11 +47,11 @@ Definition get_term (d:DiffEq) :=
 Definition solves_diffeqs (f : R -> state)
            (diffeqs : list DiffEq) (r : R)
            (is_derivable : forall x, derivable (fun t => f t x)) :=
-  forall x d,
+  forall x d st,
     List.In (DiffEqC x d) diffeqs ->
     forall z, (R0 <= z <= r)%R ->
               derive (fun t => f t x) (is_derivable x) z =
-              eval_term d (f z).
+              eval_term d (f z) st.
 
 (* Prop expressing that f is a solution to diffeqs in
    [0,r]. *)
@@ -60,12 +60,6 @@ Definition is_solution (f : R -> state)
   exists is_derivable,
     (* f is a solution to diffeqs *)
     solves_diffeqs f diffeqs r is_derivable.
-
-Definition time := nonnegreal.
-
-Definition TimeC (t:time) : Term :=
-  RealT t.
-Coercion TimeC : time >-> Term.
 
 Definition Continuous (cp:list DiffEq) : Formula :=
   let xs := List.map get_var cp in

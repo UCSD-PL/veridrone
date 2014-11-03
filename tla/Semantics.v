@@ -26,25 +26,21 @@ Definition state := Var -> R.
 Definition trace := stream state.
 
 (* Semantics of real valued terms *)
-Fixpoint eval_term (t:Term) (st:state) : R :=
+Fixpoint eval_term (t:Term) (s1 s2:state) : R :=
   (match t with
-     | VarT x => st x
+     | VarNowT x => s1 x
+     | VarNextT x => s2 x
+     | NatT n => Raxioms.INR n
      | RealT r => r
-     | PlusT t1 t2 => (eval_term t1 st) + (eval_term t2 st)
-     | MinusT t1 t2 => (eval_term t1 st) - (eval_term t2 st)
-     | MultT t1 t2 => (eval_term t1 st) * (eval_term t2 st)
+     | PlusT t1 t2 => (eval_term t1 s1 s2) + (eval_term t2 s1 s2)
+     | MinusT t1 t2 => (eval_term t1 s1 s2) - (eval_term t2 s1 s2)
+     | MultT t1 t2 => (eval_term t1 s1 s2) * (eval_term t2 s1 s2)
    end)%R.
 
-Definition eval_aterm (t:ActionTerm) (tr:trace) : R :=
-  match t with
-    | TermNow t => eval_term t (hd tr)
-    | TermNext t => eval_term t (hd (tl tr))
-  end.
-
 (* Semantics of comparison operators *)
-Definition eval_comp (t1 t2:ActionTerm) (op:CompOp) (tr:trace) :
+Definition eval_comp (t1 t2:Term) (op:CompOp) (s1 s2:state) :
   Prop :=
-  let (e1, e2) := (eval_aterm t1 tr, eval_aterm t2 tr) in
+  let (e1, e2) := (eval_term t1 s1 s2, eval_term t2 s1 s2) in
   let op := match op with
               | Gt => Rgt
               | Ge => Rge
@@ -58,7 +54,7 @@ Fixpoint eval_formula (F:Formula) (tr:trace) :=
   match F with
     | TRUE => True
     | FALSE => False
-    | Comp t1 t2 op => eval_comp t1 t2 op tr
+    | Comp t1 t2 op => eval_comp t1 t2 op (hd tr) (hd (tl tr))
     | And F1 F2 => eval_formula F1 tr /\
                    eval_formula F2 tr
     | Or F1 F2 => eval_formula F1 tr \/

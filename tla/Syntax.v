@@ -10,16 +10,13 @@ Definition Var := string.
 (* Real-valued terms built using variables, constants
    and arithmetic. *)
 Inductive Term :=
-| VarT : Var -> Term
+| VarNowT : Var -> Term
+| VarNextT : Var -> Term
+| NatT : nat -> Term
 | RealT : R -> Term
 | PlusT : Term -> Term -> Term
 | MinusT : Term -> Term -> Term
 | MultT : Term -> Term -> Term.
-
-(* Terms taking on the value of the next state. *)
-Inductive ActionTerm :=
-| TermNow : Term -> ActionTerm
-| TermNext : Term -> ActionTerm.
 
 Inductive CompOp :=
 | Gt : CompOp
@@ -31,7 +28,8 @@ Inductive CompOp :=
 Inductive Formula :=
 | TRUE : Formula
 | FALSE : Formula
-| Comp : ActionTerm -> ActionTerm -> CompOp -> Formula
+(*| Comp : ActionTerm -> ActionTerm -> CompOp -> Formula*)
+| Comp : Term -> Term -> CompOp -> Formula
 | And : Formula -> Formula -> Formula
 | Or : Formula -> Formula -> Formula
 | Imp : Formula -> Formula -> Formula
@@ -46,19 +44,17 @@ Inductive Formula :=
 Delimit Scope HP_scope with HP.
 
 (*Term notation *)
-Definition NatC (n:nat) : R :=
-  INR n.
-Coercion NatC : nat >-> R.
+Definition NatC (n:nat) : Term :=
+  NatT n.
+Coercion NatC : nat >-> Term.
 Definition ConstC (c:R) : Term :=
   RealT c.
 Coercion ConstC : R >-> Term.
 Definition VarC (x:string) : Term :=
-  VarT x.
+  VarNowT x.
 Coercion VarC : string >-> Term.
-Definition TermC (t:Term) : ActionTerm :=
-  TermNow t.
-Coercion TermC : Term >-> ActionTerm.
-Notation "x !" := (TermNext x) (at level 0) : HP_scope.
+Notation "x !" :=
+  (VarNextT x) (at level 0) : HP_scope.
 Infix "+" := (PlusT) : HP_scope.
 Infix "-" := (MinusT) : HP_scope.
 Notation "-- x" := (MinusT (RealT R0) x)
