@@ -27,10 +27,10 @@ Section HeightCtrl.
                  "t"' ::= 1,
                  "H"' ::= 0,
                  "T"' ::= 0]).
-Print Coercions.
+
   Definition Ctrl : Formula :=
        ("H" < 0  /\ "v"! = 1)
-    \/ ("H" >= 0 /\ "v"! = (MinusT VarOrNext (RealT _ R0) (RealT _ 1))).
+    \/ ("H" >= 0 /\ "v"! = --1).
 
   Definition Next : Formula :=
        (Evolve /\ "t"! <= "T" + d)
@@ -72,22 +72,21 @@ Print Coercions.
             | [ |- context [Continuous ?deqs] ] =>
               match goal with
                   | [ |- (|- _ --> (?HH --> ?GG))] =>
-                  apply diff_ind_imp
+                  abstract (apply diff_ind_imp
                   with (eqs:=deqs) (H:=unnext HH) (G:=unnext GG);
-                    try abstract
                         solve [reflexivity |
                                simpl; intuition;
-                               solve_linear]
+                               solve_linear])
                   | [ |- (|- _ --> ?GG) ] =>
                     abstract (eapply diff_ind
                     with (cp:=deqs) (G:=unnext GG) (Hyps:=TRUE);
                       try solve [reflexivity |
                                  simpl; intuition;
                                  solve_linear] )
-                  | [ |- _ ] => idtac
-(*                  | [ |- _ ] =>
-                    abstract (extract_unchanged deqs;
-                              solve_linear)*)
+                  | [ |- _ ] =>
+                    abstract
+                      (apply zero_deriv_formula_ok with (eqs:=deqs);
+                       solve_linear)
               end
             | [ |- _ ] =>
               try abstract (solve_linear)

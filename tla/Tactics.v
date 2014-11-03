@@ -73,18 +73,18 @@ Ltac prove_diff_inv known :=
       end
   end.
 
-Fixpoint unnext_term (t:TermNext) : TermNext :=
+Fixpoint unnext_term (t:Term) : Term :=
   match t with
-    | VarT (VarNow x) => VarT _ (VarNow x)
-    | VarT (VarNext x) => VarT _ (VarNow x)
-    | RealT r => RealT _ r
-    | NatT n => NatT _ n
+    | VarNowT x => VarNowT x
+    | VarNextT x => VarNowT x
+    | RealT r => RealT r
+    | NatT n => NatT n
     | PlusT t1 t2 =>
-      PlusT _ (unnext_term t1) (unnext_term t2)
+      PlusT (unnext_term t1) (unnext_term t2)
     | MinusT t1 t2 =>
-      MinusT _ (unnext_term t1) (unnext_term t2)
+      MinusT (unnext_term t1) (unnext_term t2)
     | MultT t1 t2 =>
-      MultT _ (unnext_term t1) (unnext_term t2)
+      MultT (unnext_term t1) (unnext_term t2)
   end.
 
 Fixpoint unnext (F:Formula) : Formula :=
