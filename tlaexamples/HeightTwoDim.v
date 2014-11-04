@@ -39,7 +39,7 @@ Definition Ctrl (dimension:string): Formula :=
 
 
 Definition Next : Formula :=
-(Evolve /\ "tx"! <= "Tx" + dx /\ "ty"! <="Ty"+dy)
+(Evolve /\ "t"! <= "Tx" + dx /\ "t"! <="Ty"+dy)
 \/ (Ctrl "x" /\ Read "x"  /\ Unchanged (["hx","hy","t","Ty","vy","Hy"])) \/ 
 (Ctrl "y" /\ Read "y" /\ Unchanged (["hx","hy","t","Tx","vx","Hx"])).
 
@@ -82,34 +82,13 @@ Lemma safety :
 |- (Init /\ []Next) --> []Safe.
 Proof.
 apply imp_trans with (F2:=Ind_Inv /\ []Next).
-- apply and_right.
-+ apply and_left1. apply ind_inv_init.
-+ apply and_left2. apply imp_id.
-- apply imp_trans with (F2:=[]Ind_Inv).
-+ apply inv_discr_ind; auto. unfold Next, Evolve.
-Time repeat apply or_next;
-repeat first [ apply and_right |
-apply imp_right ];
-match goal with
-| [ |- context [Continuous ?eqs] ]
-=> pose "Continuous"; extract_unchanged eqs;
-match goal with
-| [ |- context [next_term (TermC (VarC "v")) = next_term ?e] ] =>
-abstract (prove_diff_inv ("v" = e);
-match goal with
-| [ |- (|- (?I /\ Continuous eqs) --> next ?I) ] =>
-extract_unchanged eqs; solve_linear
-| [ |- _ ] =>
-solve_linear
-end)
-| [ |- _ ] =>
-try abstract solve [solve_linear |
-prove_diff_inv TRUE; solve_linear]
-end
-| [ |- _ ]
-=> pose "Discrete";
-try abstract solve_linear
-end.
-+ apply always_imp. apply ind_inv_safe.
+    - apply and_right.
+      + apply and_left1. apply ind_inv_init.
+      + apply and_left2. apply imp_id.
+    - apply imp_trans with (F2:=[]Ind_Inv).
+      + apply inv_discr_ind; auto. unfold Next, Evolve.
+        Time prove_inductive.
+      + apply always_imp. apply ind_inv_safe.
 Qed.
 
+End HeightTwoDimensionCtrl.

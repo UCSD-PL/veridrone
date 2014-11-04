@@ -67,30 +67,7 @@ Section HeightCtrl.
       + apply and_left2. apply imp_id.
     - apply imp_trans with (F2:=[]Ind_Inv).
       + apply inv_discr_ind; auto. unfold Next, Evolve.
-        Time repeat apply or_next; repeat apply and_right;
-        match goal with
-            | [ |- context [Continuous ?deqs] ] =>
-              match goal with
-                  | [ |- (|- _ --> (?HH --> ?GG))] =>
-                  abstract (apply diff_ind_imp
-                  with (eqs:=deqs) (H:=unnext HH) (G:=unnext GG);
-                        solve [reflexivity |
-                               simpl; intuition;
-                               solve_linear])
-                  | [ |- (|- _ --> ?GG) ] =>
-                    abstract (eapply diff_ind
-                    with (cp:=deqs) (G:=unnext GG) (Hyps:=TRUE);
-                      try solve [reflexivity |
-                                 simpl; intuition;
-                                 solve_linear] )
-                  | [ |- _ ] =>
-                    abstract
-                      (apply zero_deriv_formula_ok with (eqs:=deqs);
-                       solve_linear)
-              end
-            | [ |- _ ] =>
-              try abstract (solve_linear)
-        end.
+        Time prove_inductive.
       + apply always_imp. apply ind_inv_safe.
   Qed.
 

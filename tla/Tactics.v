@@ -95,4 +95,30 @@ Fixpoint unnext (F:Formula) : Formula :=
     | _ => F
   end.
 
+Ltac prove_inductive :=
+  repeat apply or_next; repeat apply and_right;
+  match goal with
+    | [ |- context [Continuous ?deqs] ] =>
+      match goal with
+        | [ |- (|- _ --> (?HH --> ?GG))] =>
+          abstract (apply diff_ind_imp
+                    with (eqs:=deqs) (H:=unnext HH) (G:=unnext GG);
+                    solve [reflexivity |
+                           simpl; intuition;
+                           solve_linear])
+        | [ |- _ ] =>
+          abstract
+            (apply zero_deriv_formula_ok with (eqs:=deqs);
+             solve_linear)
+        | [ |- (|- _ --> ?GG) ] =>
+          abstract (eapply diff_ind
+                    with (cp:=deqs) (G:=unnext GG) (Hyps:=TRUE);
+                    try solve [reflexivity |
+                               simpl; intuition;
+                               solve_linear] )
+      end
+    | [ |- _ ] =>
+      try abstract (solve_linear)
+  end.
+
 Close Scope HP_scope.
