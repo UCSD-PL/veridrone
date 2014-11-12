@@ -3,7 +3,7 @@ Require Import TLA.Semantics.
 Require Import TLA.Lib.
 Require Import TLA.ProofRules.
 Require Import TLA.Tactics.
-Require Import Modules.AbstractOneDimCtrl.
+Require Import Modules.AbstractOneDimVelCtrl.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 
