@@ -186,6 +186,22 @@ Lemma or_next : forall F1 F2 N1 N2,
   (|- (F1 /\ (N1 \/ N2)) --> F2).
 Proof. firstorder. Qed.
 
+Lemma or_left : forall F1 F2 F3,
+  (|- F1 --> F3) ->
+  (|- F2 --> F3) ->
+  (|- (F1 \/ F2) --> F3).
+Proof. firstorder. Qed.
+
+Lemma or_right1 : forall F1 F2 F3,
+  (|- F1 --> F2) ->
+  (|- F1 --> (F2 \/ F3)).
+Proof. firstorder. Qed.
+
+Lemma or_right2 : forall F1 F2 F3,
+  (|- F1 --> F3) ->
+  (|- F1 --> (F2 \/ F3)).
+Proof. firstorder. Qed.
+
 Lemma imp_right : forall F1 F2 F3,
   (|- (F1 /\ F2) --> F3) ->
   (|- F1 --> (F2 --> F3)).

@@ -9,59 +9,63 @@ Require Import Coq.Reals.RIneq.
 Open Scope HP_scope.
 Open Scope string_scope.
 
+Module Type CtrlParameters.
 
-Section AbstractOneDimCtrl.
-
-  Variable ub : R.
-  Variable ubX : Term.
-  Hypothesis ubX_st : is_st_term ubX = true.
-  Variable d : R.
+  Parameter ub : R.
+  Parameter ubX : Term.
+  Parameter ubX_st : is_st_term ubX = true.
+  Parameter d : R.
   (* The following hypothesis is not necessary
      for the safety property, but it's necessary
      for ensuring that non-Zeno behaviors are
      possible. *)
-  Hypothesis Hd : (d > 0)%R.
+  Parameter Hd : (d > 0)%R.
+
+End CtrlParameters.
+
+Module AbstractOneDimCtrl (Import Params : CtrlParameters).
 
   Definition Evolve : Formula :=
-    Continuous (["x"' ::= "v",
+    Continuous (["h"' ::= "v",
                  "v"' ::= 0,
                  "t"' ::= 1,
-                 "T"' ::= 0,
-                 "X"' ::= 0]).
+                 "H"' ::= 0,
+                 "T"' ::= 0]).
 
   Definition Read : Formula :=
-    "T"! = "t" /\ "X"! = "x".
+    "T"! = "t" /\ "H"! = "h".
 
   Definition Ctrl : Formula :=
-    ("x" <= ub /\ ("x"-"X" <= ubX \/ "x"-"X" <= 0))
-      --> ("x" + "v"!*d <= ub /\
+    ("h" <= ub /\ ("h"-"H" <= ubX \/ "h"-"H" <= 0))
+      --> ("h" + "v"!*d <= ub /\
            "v"!*d <= next_term ubX).
 
   Definition Next : Formula :=
        (Evolve /\ "t"! <= "T" + d /\
         ubX = next_term ubX)
     \/ (Ctrl /\ Read /\
-        Unchanged (["x", "t"])).
+        Unchanged (["h", "t"])).
 
   Definition Init : Formula :=
-    "x" <= ub /\
-    "x" + "v"*d <= ub /\
+    "h" <= ub /\
+    "h" + "v"*d <= ub /\
     "v"*d <= ubX /\
     "T" = "t" /\
-    "X" = "x".
+    "H" = "h".
 
   Definition Ind_Inv : Formula :=
-    "x"-"X" = "v"*("t"-"T") /\
+    "h"-"H" = "v"*("t"-"T") /\
     "v"*d <= ubX /\
-    "X" + ("v"*d) <= ub /\
-    "X" <= ub /\
+    "H" + ("v"*d) <= ub /\
+    "H" <= ub /\
     0 <= "t"-"T" <= d.
 
   Definition Safe : Formula :=
-    "x" <= ub.
+    "h" <= ub.
 
   Lemma ind_inv_init : |- Init --> Ind_Inv.
   Proof.
+    pose proof (Hd).
     solve_linear;
     repeat match goal with
       | [ H : @eq R _ _ |- _ ] =>
@@ -71,7 +75,9 @@ Section AbstractOneDimCtrl.
 
   Lemma ind_inv_safe : |- Ind_Inv --> Safe.
   Proof.
-    solve_linear; solve_nonlinear.
+    pose proof (Hd).
+    solve_linear;
+    solve_nonlinear.
   Qed.
 
   Lemma safety :
@@ -84,7 +90,7 @@ Section AbstractOneDimCtrl.
     - apply imp_trans with (F2:=[]Ind_Inv).
       + apply inv_discr_ind;
         try solve [simpl; rewrite ubX_st; auto].
-        unfold Next, Evolve.
+        unfold Next, Evolve. pose proof Hd.
         Time prove_inductive.
         * match goal with
             | [ |- context [Continuous ?deqs] ] =>

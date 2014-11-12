@@ -3,23 +3,30 @@ Require Import TLA.Semantics.
 Require Import TLA.Lib.
 Require Import TLA.ProofRules.
 Require Import TLA.Tactics.
+Require Import Modules.AbstractOneDimCtrl.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 
 Open Scope HP_scope.
 Open Scope string_scope.
 
-Section HeightCtrl.
+Module Params <: CtrlParameters.
 
   Variable d : R.
-  (* The following hypothesis is not necessary
-     for the safety property, but it's necessary
-     for ensuring that non-Zeno behaviors are
-     possible. *)
   Hypothesis Hd : (d > 0)%R.
-  (* We don't have division in the language, so we
-     just add a parameter, which is the inverse of
-     d *)
+
+  Definition ub := d%R.
+  Definition ubX : Term := d.
+  Definition ubX_st : is_st_term ubX = true := eq_refl _.
+
+End Params.
+
+Import Params.
+
+Module AbstractCtrl := AbstractOneDimCtrl(Params).
+
+Section Ctrl.
+
   Variable dinv : R.
   Hypothesis Hdinv : (@eq R (d * dinv) 1)%R.
 
@@ -34,53 +41,71 @@ Section HeightCtrl.
                  "T"' ::= 0]).
 
   Definition Ctrl : Formula :=
-    "v"! = --"H"*dinv.
+       (--d <= "H" /\ "v"! = --"H"*dinv)
+    \/ ("H" < --d /\ "v"! = 1).
 
   Definition Next : Formula :=
        (Evolve /\ "t"! <= "T" + d)
     \/ (Ctrl /\ Read /\ Unchanged (["h", "t"])).
 
   Definition Init : Formula :=
-       (   ("v" >= 0 /\ --d <= "h" <= d*(1-"v"))
-        \/ ("v" <= 0 /\ --d*(1+"v") <= "h" <= d))
-    /\ "t" = 0 /\ "T" = 0
-    /\ "H" = "h" /\ --1 <= "v" <= 1.
+       "v" <= 1
+    /\ "h" <= d
+    /\ "h" + "v"*d <= d
+    /\ "t" = "T"
+    /\ "H" = "h".
 
   Definition Safe : Formula :=
-    --d <="h" <= d.
+    "h" <= d.
 
-  Definition Ind_Inv : Formula :=
-    ("v" >= 0 -->
-              (--d <= "H" <= d*(1-"v") /\
-               0 <= "h"-"H" <= "v"*("t"-"T"))) /\
-    ("v" <= 0 -->
-              (--d*(1+"v") <= "H" <= d /\
-               0 <= "H"-"h" <= "v"*("T"-"t"))) /\
-    0 <= "t"-"T" <= d /\
-    --1 <= "v" <= 1.
-
-  Lemma ind_inv_init : |- Init --> Ind_Inv.
-  Proof. Time solve_linear; solve_nonlinear. Qed.
-
-  Lemma ind_inv_safe : |- Ind_Inv --> Safe.
-  Proof. Time solve_linear.
-         Time solve_nonlinear.
-         Time solve_nonlinear.
-  Time Qed.
+  Lemma refinement :
+    |- (Init /\ []Next)
+         --> (AbstractCtrl.Init /\ []AbstractCtrl.Next).
+  Proof.
+    pose Hd.
+    apply and_right.
+    - apply and_left1.
+      solve_linear;
+        repeat match goal with
+                 | [ H : @eq R _ _ |- _ ] =>
+                   rewrite H
+               end; solve_linear.
+      rewrite <- Rmult_1_l.
+      solve_nonlinear.
+    - apply and_left2. apply always_imp.
+      repeat apply or_left.
+      + unfold Evolve. apply or_right1.
+        repeat apply and_right.
+        * apply and_left1. apply imp_id.
+        * apply and_left2. apply imp_id.
+        * match goal with
+            | [ |- context [Continuous ?deqs] ] =>
+              apply unchanged_continuous with (eqs:=deqs)
+          end; solve_linear.
+      + apply or_right2.
+        solve_linear;
+          repeat match goal with
+                   | [ H : @eq R _ _ |- _ ] =>
+                     rewrite H
+                 end; solve_linear;
+          unfold ub in *; solve_linear.
+        * rewrite Rmult_assoc. rewrite Rmult_comm in Hdinv.
+          rewrite Hdinv. solve_linear.
+        * rewrite Rmult_assoc. rewrite Rmult_comm in Hdinv.
+          rewrite Hdinv. solve_linear.
+        * rewrite Rmult_assoc. rewrite Rmult_comm in Hdinv.
+          rewrite Hdinv. solve_linear.
+        * rewrite Rmult_assoc. rewrite Rmult_comm in Hdinv.
+          rewrite Hdinv. solve_linear.
+  Qed.
 
   Lemma safety :
     |- (Init /\ []Next) --> []Safe.
   Proof.
-    apply imp_trans with (F2:=Ind_Inv /\ []Next).
-    - apply and_right.
-      + apply and_left1. apply ind_inv_init.
-      + apply and_left2. apply imp_id.
-    - apply imp_trans with (F2:=[]Ind_Inv).
-      + apply inv_discr_ind; auto.
-        unfold Next, Evolve.
-        Time prove_inductive.
-        (* Unsolved goals here. *)
-      + apply always_imp. apply ind_inv_safe.
+    apply imp_trans
+    with (F2:=AbstractCtrl.Init /\ []AbstractCtrl.Next).
+    - apply refinement.
+    - apply AbstractCtrl.safety.
   Qed.
 
-End HeightCtrl.
+End Ctrl.
