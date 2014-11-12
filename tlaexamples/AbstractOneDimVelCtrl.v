@@ -15,10 +15,6 @@ Module Type CtrlParameters.
   Parameter ubX : Term.
   Parameter ubX_st : is_st_term ubX = true.
   Parameter d : R.
-  (* The following hypothesis is not necessary
-     for the safety property, but it's necessary
-     for ensuring that non-Zeno behaviors are
-     possible. *)
   Parameter Hd : (d > 0)%R.
 
 End CtrlParameters.
