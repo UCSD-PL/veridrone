@@ -108,8 +108,11 @@ Ltac prove_inductive :=
                            solve_linear])
         | [ |- _ ] =>
           abstract
-            (apply zero_deriv_formula_ok with (eqs:=deqs);
+            (apply unchanged_continuous with (eqs:=deqs);
              solve_linear)
+(*          abstract
+            (apply zero_deriv_formula_ok with (eqs:=deqs);
+             solve_linear)*)
         | [ |- (|- _ --> ?GG) ] =>
           abstract (eapply diff_ind
                     with (cp:=deqs) (G:=unnext GG) (Hyps:=TRUE);

@@ -1118,4 +1118,58 @@ Proof.
     + right; apply IHG2; auto.
 Qed.
 
+Definition get_unchanged (eqs:list DiffEq) : list Var :=
+  List.map get_var
+           (List.filter (fun d =>
+                           match get_term d with
+                             | NatT O => true
+                             | _ => false
+                           end) eqs).
+
+Lemma get_unchanged_ok : forall eqs x,
+  List.In x (get_unchanged eqs) ->
+  List.In (DiffEqC x 0) eqs.
+Proof.
+  induction eqs; auto.
+  intros x Hin. destruct a.
+  unfold get_unchanged in *. simpl in *.
+  destruct t; simpl in *;
+  try solve [right; apply IHeqs; auto].
+  destruct n; simpl in *.
+  - destruct Hin.
+    + subst v; left; auto.
+    + right; apply IHeqs; auto.
+  - right; apply IHeqs; auto.
+Qed.
+
+Lemma unchanged_continuous_aux : forall eqs,
+  |- Continuous eqs --> Unchanged (get_unchanged eqs).
+Proof.
+  intro eqs. pose proof (get_unchanged_ok eqs) as Hunch.
+  revert Hunch.  generalize (get_unchanged eqs).
+  intros l Hin. induction l.
+  - simpl; intros; auto.
+  - apply zero_deriv with (x:=a) (cp:=eqs).
+    + apply Hin; intuition.
+    + apply imp_id.
+    + simpl (Unchanged (a :: l)).
+      apply and_right.
+      * apply and_left2. apply imp_id.
+      * simpl; intros. apply IHl; auto.
+        intros; apply Hin; intuition.
+        apply H.
+Qed.
+
+Lemma unchanged_continuous : forall eqs F G,
+  (|- F --> Continuous eqs) ->
+  (|- (F /\ Unchanged (get_unchanged eqs)) --> G) ->
+  (|- F --> G).
+Proof.
+  intros eqs F G Hcont Hunch.
+  simpl; intros; apply Hunch.
+  split; auto.
+  apply unchanged_continuous_aux.
+  apply Hcont; auto.
+Qed.      
+
 Close Scope HP_scope.
