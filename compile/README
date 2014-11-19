@@ -1,0 +1,29 @@
+Because CompCert is big, and because of licensing concerns,
+I've decided not to put CompCert into the git repo (yet).
+For now, do this instead:
+
+- Download a source distribution of CompCert from
+  http://compcert.inria.fr/download.html
+  (I used 2.4, the newest version at time of writing)
+
+- Make sure you have Menhir installed, as compcert needs it
+  (the version in the Ubuntu repos is fine;
+  apt-get install menhir libmenhir-ocaml-dev
+  was enough for me)
+
+- Untar compcert, then run
+  ln -s ./compcert-<vnum> ./compcert
+  cd compcert
+  ./configure ia32-linux
+  make -j[number]
+  make -j[number] clightgen
+
+- (For the configure step, above, the platform doesn't really matter since
+  we aren't going to be using compcert's platform-specific backends anyway;
+  use ia32-linux if you're running Linux)
+  (Also, since CompCert is big you want to use the -j flag to make
+  to allow it to use multiple cores; I've heard
+  -j[number of cores in your system minus one]
+  is a reasonable heuristic)
+
+- Now you should be able to build our code for C compilation!
