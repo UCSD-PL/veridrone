@@ -63,6 +63,7 @@ Fixpoint eval_formula (F:Formula) (tr:trace) :=
                    eval_formula F2 tr
     | PropF P => P
     | Exists _ F => exists x, eval_formula (F x) tr
+    | Forall _ F => forall x, eval_formula (F x) tr
     | Always F => forall n, eval_formula F (nth_suf n tr)
     | Eventually F => exists n, eval_formula F (nth_suf n tr)
   end.

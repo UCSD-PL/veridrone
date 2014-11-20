@@ -4,6 +4,7 @@ Require Import TLA.Semantics.
 Require Import TLA.Lib.
 Require Import TLA.ProofRules.
 Require Import Rdefinitions.
+Require Import Coq.Reals.RIneq.
 
 Ltac solve_linear :=
   simpl; intros; unfold eval_comp in *;
@@ -12,6 +13,11 @@ Ltac solve_linear :=
 Ltac solve_nonlinear :=
   simpl; intros; unfold eval_comp in *;
   simpl in *; intuition; try psatz R.
+
+Ltac R_simplify :=
+  field_simplify;
+  unfold Rdiv;
+  repeat rewrite RMicromega.Rinv_1.
 
 Open Scope HP_scope.
 

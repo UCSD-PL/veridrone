@@ -35,6 +35,7 @@ Inductive Formula :=
 | Imp : Formula -> Formula -> Formula
 | PropF : Prop -> Formula
 | Exists : forall T, (T -> Formula) -> Formula
+| Forall : forall T, (T -> Formula) -> Formula
 | Always : Formula -> Formula
 | Eventually : Formula -> Formula.
 
@@ -83,6 +84,12 @@ Notation "f1 --> f2" := (Imp f1 f2)
                           (at level 97) : HP_scope.
 
 (* Formula notation *)
+Notation "'\E' ( x : T ) , p" :=
+  (Exists T (fun x => p))
+    (at level 100) : HP_scope.
+Notation "'\A' ( x : T ) , p" :=
+  (Forall T (fun x => p))
+    (at level 100) : HP_scope.
 (*Notation "'Exists' x .. y , p" :=
   (Exists (fun x => .. (Exists (fun y => p)) ..))
     (at level 100, x binder, y binder) : HP_scope.*)
