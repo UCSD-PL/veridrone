@@ -1,4 +1,4 @@
-MODULES := AbstractOneDimVelCtrl
+MODULES := AbstractOneDimVelCtrl AbstractOneDimAccCtrl
 VS      := $(MODULES:%=%.v)
 
 .PHONY: coq clean

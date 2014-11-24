@@ -85,7 +85,7 @@ Module AbstractOneDimCtrl (Import Params : CtrlParameters).
       + apply and_left2. apply imp_id.
     - apply imp_trans with (F2:=[]Ind_Inv).
       + apply inv_discr_ind;
-        try solve [simpl; rewrite ubX_st; auto].
+        try solve [simpl; rewrite ubX_st; intuition].
         unfold Next, Evolve. pose proof Hd.
         Time prove_inductive.
         * match goal with
