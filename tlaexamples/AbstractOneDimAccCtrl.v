@@ -17,12 +17,14 @@ Module Type CtrlParameters.
   Parameter Hd : (d > 0)%R.
  
   Parameter ubV : Term.
+  Parameter ubv : Term.
   Parameter ubH : Term.
   Parameter amax : R.
   Parameter Hamax : (amax > 0)%R.
  
   Parameter ubH_st : is_st_term ubH = true.
-  Parameter ubV_st : is_st_term ubV = true. 
+  Parameter ubV_st : is_st_term ubV = true.
+  Parameter ubv_st : is_st_term ubv = true.
  
 End CtrlParameters.
 
@@ -45,7 +47,8 @@ Module AbstractAccDimCtrl (Import Params : CtrlParameters).
     (0 <= "v" --> "h" + (sdist "v") <= ub) /\
     "h" <= ub /\
     "h" - "H" <= ubH /\
-    "v" - "V" <= ubV.
+    "v" - "V" <= ubV /\
+    "v" <= ubv.
 
   Definition Ctrl : Formula :=
     --amax <= "a"! /\
@@ -60,6 +63,7 @@ Module AbstractAccDimCtrl (Import Params : CtrlParameters).
          ("v" + "a"!*t < 0 -->
            "h" + (tdist "v" "a"! t) <= ub) /\
          "a"!*t <= next_term ubV /\
+         "v" + "a"!*t <= next_term ubv /\
          tdist "v" "a"! t <= next_term ubH)).
 
   Definition Evolve : Formula :=
@@ -78,7 +82,8 @@ Module AbstractAccDimCtrl (Import Params : CtrlParameters).
   Definition Next : Formula :=
        (Evolve /\ "t"! <="T" + d /\
         next_term ubH = ubH /\
-        next_term ubV = ubV)
+        next_term ubV = ubV /\
+        next_term ubv = ubv)
     \/ (Ctrl /\ Read /\
         Unchanged (["h","v","t"])).
  
@@ -93,6 +98,7 @@ Module AbstractAccDimCtrl (Import Params : CtrlParameters).
                ("V" + "a"*t < 0 -->
                 "H" + tdist "V" "a" t <= ub) /\
                "a"*t <= ubV /\
+               "V" + "a"*t <= ubv /\
                tdist "V" "a" t <= ubH)) /\
     --amax <= "a" /\
     0 <= "t" - "T" <= d.
@@ -168,7 +174,8 @@ Module AbstractAccDimCtrl (Import Params : CtrlParameters).
     - apply imp_trans with (F2:=[]Ind_Inv).
       + apply inv_discr_ind.
         simpl. rewrite ubH_st.
-        rewrite ubV_st. simpl. tauto.
+        rewrite ubV_st. rewrite ubv_st.
+        simpl. tauto.
         unfold Next, Evolve. pose proof Hd.
         pose proof Hamax.
         Time prove_inductive.
@@ -216,7 +223,7 @@ Module AbstractAccDimCtrl (Import Params : CtrlParameters).
                      | [ H : @eq R _ _ |- _ ] =>
                        rewrite H; try rewrite H in H10
                    end;
-            specialize (H18 x); intuition. }
+            specialize (H19 x); intuition. }
       + apply always_imp. apply ind_inv_safe.
 Qed. 
  

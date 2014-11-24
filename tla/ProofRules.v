@@ -178,6 +178,11 @@ Lemma always_imp : forall F1 F2,
   (|- []F1 --> []F2).
 Proof. firstorder. Qed.
 
+Lemma always_and_left : forall F1 F2 F3,
+  (|- [](F1 /\ F2) --> F3) ->
+  (|- (([]F1) /\ ([]F2)) --> F3).
+Proof. firstorder. Qed.
+
 Lemma and_right : forall F1 F2 F3,
   (|- F1 --> F2) ->
   (|- F1 --> F3) ->
