@@ -46,11 +46,18 @@ let z3Tactic  = fun gl ->
   let output = ref "" in
   let store str = output := str in
   let pp_print () = !output in
+ 
+  let reverseHashTbl = Hashtbl.create 100 in
 
-  
+    
   let hashtbl =   Hashtbl.create 100 in
   let noOfVar = ref 0 in
   let declStmt var = "(declare-const " :: (var :: ( " Real)"  ::  []) ) in
+  
+  let hashTableMappings = ref [] in
+
+  let toStringKeyValuePair key value =  (hashTableMappings:= List.append !hashTableMappings ["\n"; key ; ":"; value ; "\n"]) in   
+
   let mapVariable var =
     try
         ([],[Hashtbl.find hashtbl var])
@@ -58,6 +65,7 @@ let z3Tactic  = fun gl ->
         noOfVar := !noOfVar + 1;
         let mappedVar = "x" ^ (string_of_int !noOfVar) in
         Hashtbl.add hashtbl var mappedVar;
+	Hashtbl.add reverseHashTbl mappedVar var;
         (declStmt mappedVar,[mappedVar]) in   
   								               					          
   let rec getZ3Statements t cnt isReal mapOpposite =  (match Term.kind_of_term t with
@@ -178,8 +186,10 @@ let read_process command =
 	   let command = String.concat "" ["z3 -smt2 " ; file ]  in
 	   let _ = Format.printf "Z3 Statements : %s\n" finalZ3Stmts in   
 	   let _ = Format.printf "COMMAND  : %s\n" command  in
-   	   let str = read_process command in
-	   store str
+   	   let z3Output = read_process command in
+	   let _ = Hashtbl.iter toStringKeyValuePair reverseHashTbl  in
+           let outputStr = String.concat "" (List.append  [z3Output ; "\n" ;  ] !hashTableMappings)   in
+	   store outputStr
    ) in 
   
    let _ = Pp.msgnl (Pp.str (pp_print ())) in    
