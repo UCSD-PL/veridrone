@@ -38,7 +38,7 @@ let validityCheck op = (match op with
                 | _ -> Invalid )
 
                 
-let exploit  = fun gl -> 
+let z3Tactic  = fun gl -> 
   (* the type of [c] is [ty] *)
   let goal = Tacmach.pf_concl gl in     
 
@@ -130,25 +130,25 @@ let exploit  = fun gl ->
 	  ([],[])) 
    in
 
-     let rec getZ3StatementsForGoal ty = (match Term.kind_of_term ty with
-        | Term.Prod (n,b,t) ->           let z3Stmts = getZ3Statements b 0 false false in
-					 
-                                         (match z3Stmts with
-                                         | ([],[]) -> ([],[])
-                                         | (declStmts,stmts) -> let assertStmt = List.append (List.append ["(assert "] stmts) [")"] in
-								let nextZ3Stmts = getZ3StatementsForGoal t in
-                                                                (match nextZ3Stmts with
-                                                                | ([],[]) -> ([],[])
-                                                                | (nextDeclStmts,nextStmts) ->
-                                                                        let allDeclStmts = (List.append declStmts nextDeclStmts) in
-                                                                        let allStmts = (List.append assertStmt nextStmts) in                                                                                                (allDeclStmts,allStmts)        
-                    						)
-					 )
-                    
-        | _ ->   let (declStmt,stmts) = (getZ3Statements ty 0 false true)  in 
-		 let assertStmt = List.append (List.append ["(assert "] stmts) [")"] in
-		 (declStmt,assertStmt) ) in		
- 
+let rec getZ3StatementsForGoal ty = (match Term.kind_of_term ty with
+| Term.Prod (n,b,t) ->           let z3Stmts = getZ3Statements b 0 false false in
+				 
+                                 (match z3Stmts with
+                                 | ([],[]) -> ([],[])
+                                 | (declStmts,stmts) -> let assertStmt = List.append (List.append ["(assert "] stmts) [")"] in
+							let nextZ3Stmts = getZ3StatementsForGoal t in
+                                                        (match nextZ3Stmts with
+                                                        | ([],[]) -> ([],[])
+                                                        | (nextDeclStmts,nextStmts) ->
+                                                                let allDeclStmts = (List.append declStmts nextDeclStmts) in
+                                                                let allStmts = (List.append assertStmt nextStmts) in                                                                                                (allDeclStmts,allStmts)        
+            						)
+				 )
+            
+| _ ->   let (declStmt,stmts) = (getZ3Statements ty 0 false true)  in 
+	 let assertStmt = List.append (List.append ["(assert "] stmts) [")"] in
+	 (declStmt,assertStmt) ) in		
+
 
  
 let read_process command =
@@ -186,4 +186,4 @@ let read_process command =
    Tacticals.tclIDTAC gl 
     
 TACTIC EXTEND exploit
-  | ["exploit"] ->     [exploit]      END;;
+  | ["z3Tactic"] ->     [z3Tactic]      END;;
