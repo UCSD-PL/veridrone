@@ -52,6 +52,18 @@ let validityCheck op = (match op with
                 | "eq"  -> Maybe
                 | _ -> Invalid )
 
+class ['a] assertion  (isgoal:bool) (assertionStmt:'a) (assertionName:string) =
+	object (self)
+	val mutable isGoal = isgoal
+	val mutable assertion = assertionStmt
+	val mutable translatedAssertion = ""
+	val mutable name = assertionName
+	method getName = name
+	method getStmt = assertion
+	method getisGoal = isGoal
+	method setTranslatedAssertion (translatedStmt:string) = translatedAssertion <- translatedStmt 
+	method getTranslatedAssertion = translatedAssertion
+	end 
 
 class ['a] hashTable size =
 	object (self) 
@@ -90,19 +102,19 @@ let rec getIndividualAssertions goal = (match Term.kind_of_term goal with
 					)
 
 let rec getHypothesisAssertions goal = (match Term.kind_of_term goal with
-                                        | Term.Prod (n,b,t) ->   	b :: getHypothesisAssertions t 
-									 (*let _ = ( match n with
+                                        | Term.Prod (n,b,t) ->       
+									( match n with
 										|Names.Name id ->  let hypName = string_of_id id in
-											           (hypName,b)	:: getHypothesisAssertions t			 
-										| Names.Anonymous -> ("unknown",b) :: getHypothesisAssertions t 
-									  )  in*)
+												   ((new assertion false b hypName) :: getHypothesisAssertions t)
+										| Names.Anonymous -> (new assertion false b "unknown") :: getHypothesisAssertions t 
+									) 
 
                                         | _ ->                          []
                                         )
 let rec getGoalAssertion goal = (match Term.kind_of_term goal with
                                         | Term.Prod (n,b,t) ->          getGoalAssertion t
 
-                                        | _ ->                          [goal]
+                                        | _ ->                          (new assertion true goal "G")
                                 )
 
 
@@ -226,23 +238,12 @@ let rec printListOfLists lst = match lst with
 
 let rec translateHypothesisAssertions assertions varMapping =   match assertions with 
 								| a :: b ->
-									   let z3Rep = getZ3Representation a varMapping false in 
-							        	   z3Rep :: (translateHypothesisAssertions b varMapping)
+									   let _ = a#setTranslatedAssertion (getZ3Representation a#getStmt varMapping false) in 
+							        	   a :: (translateHypothesisAssertions b varMapping)
 							        | _  -> []
-let rec translateGoalAssertion assertion varMapping =  getZ3Representation assertion varMapping true 
+let rec translateGoalAssertion assertion varMapping =  let _ = assertion#setTranslatedAssertion (getZ3Representation assertion#getStmt varMapping true) in
+						 	assertion  
 
-let rec translateAssertions assertions varMapping =      
-				     			(match assertions with 
-				     			| a :: b -> (match b with 	
-					         			| _ :: _  -> let z3Rep = getZ3Representation a varMapping false  in
-											 z3Rep :: (translateAssertions b varMapping)  
-						 			|  _    ->   [getZ3Representation a varMapping true] )
-				     			| _     ->    []      
-							)
-let getTranslatedAssertions goal varMapping =   
-				                let assertions = getIndividualAssertions goal in	
-				                let assertionsList =  translateAssertions assertions varMapping in	
-				    		String.concat " " assertionsList  
 
 let getAllSubsetsOfHypothesisAssertions goal = 
 								let assertions = getHypothesisAssertions goal in 
@@ -268,7 +269,10 @@ let runZ3 finalZ3Stmts =
         let z3Output = read_process command in
         z3Output 
 
-let solveUsingZ3 assertionStmts goalStmt = let z3Stmts = String.concat " " (List.append (List.append assertionStmts goalStmt) ["(check-sat) "; "(get-model)"] ) in
+let solveUsingZ3 assertions goal = let z3Stmts = 
+							let assertionStmts = List.map (fun stmt -> stmt#getTranslatedAssertion )  assertions in
+							let goalStmt = [goal#getTranslatedAssertion] in 
+							String.concat " " (List.append (List.append assertionStmts goalStmt) ["(check-sat) "; "(get-model)"] ) in
 					   let z3Output = (runZ3 z3Stmts) in
 					   z3Output           
 
@@ -278,7 +282,6 @@ let findTheSmallestSubsetGoalSolver goal =
 							let translatedSortedHypoAssertionSubsets = List.map (fun hypoAssertions ->
 						
 											let ht = new hashTable 100 in 
-											let len = Hashtbl.length ht#getHashTable in
 											let assertions = (translateHypothesisAssertions hypoAssertions ht) in
 							          		        (assertions,ht)) 
 								  		        sortedHypothesisAssertionSubsets in   
@@ -288,11 +291,11 @@ let findTheSmallestSubsetGoalSolver goal =
 									match b with 
 									| (false,_,_)->
 										let (assertions,ht) = hypoAssertions in
-										let translatedGoalAssertion =  List.map (fun goalAssertion-> 
-                                                                                translateGoalAssertion goalAssertion ht) goalAssertion in 
-										let z3Output = (solveUsingZ3 assertions 
-										translatedGoalAssertion) in if contains z3Output "unsat" then
-										 (true,String.concat " " assertions,ht) else (false,z3Output,ht) 
+										let _ = (translateGoalAssertion goalAssertion ht) in
+										let z3Output = (solveUsingZ3 assertions goalAssertion) in 
+										if contains z3Output "unsat" then
+										let assertionNames =List.map (fun assertion -> assertion#getName) assertions in	
+										 (true,String.concat " " assertionNames,ht) else (false,z3Output,ht) 
 									| (true,_,_) -> 
 										b	
 									) ) (false,"",new hashTable 100) translatedSortedHypoAssertionSubsets in
