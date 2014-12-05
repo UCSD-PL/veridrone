@@ -6,10 +6,12 @@ Require Import TLA.Lib.
 Require Import TLA.Tactics.
 Require Import String.
 Require Import List.
-Import ListNotations.
-Print Formula.
+Require Import ExtLib.Structures.Monad.
+Require Import ExtLib.Data.Monads.EitherMonad.
 
 Local Open Scope string_scope.
+
+(* First attempt at compilation; look at Compile2 for my most recent work *)
 
 (* Formula, sans the things we don't need to worry about
    compiling, and without and and or *)

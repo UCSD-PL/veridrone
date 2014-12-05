@@ -1,4 +1,7 @@
 -R ../temporallanguage TempLang
 -R ../seqlang SeqLang
 -R ../tla TLA
--R ./compcert-2.4/cfrontend compcert.cfrontend
+-R ./compcert/common compcert.common
+-R ./compcert/cfrontend compcert.cfrontend
+-R ./compcert/flocq/Core compcert.flocq.Core
+-R ../coq-ext-lib/theories ExtLib
