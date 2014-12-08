@@ -25,17 +25,19 @@ let read_process command =
 
 
 let pp_constr fmt x = Pp.pp_with fmt (Printer.pr_constr x)
-let mapOperator op opposite= (match op with 
-		| "Rle" -> if opposite = true then ">" else "<=" 
-   	        | "Rlt"  -> if opposite = true then ">=" else "<"
-                | "Rgt" -> if opposite = true then "<=" else ">"
-		| "Rge"  ->  if opposite = true then "<" else ">="
-		| "Rmult" -> "*"
-		| "Rplus" -> "+"
-		| "Rminus" -> "-"
-		| "eq" -> if opposite = true then "<>" else "="
-		| "neq" -> if opposite = true then "=" else "<>"
-		| x -> x )
+
+
+type validOperation = ValidOp of string | InvalidOp
+let mapOperator op = (match op with 
+		| "Rle" -> ValidOp "<=" 
+   	        | "Rlt"  -> ValidOp "<"
+                | "Rgt" -> ValidOp ">"
+		| "Rge"  -> ValidOp ">="
+		| "Rmult" -> ValidOp "*"
+		| "Rplus" -> ValidOp "+"
+		| "Rminus" -> ValidOp "-"
+		| "eq" -> ValidOp "="
+		| x -> InvalidOp )
 type validity = Valid | Invalid | Maybe
 
 
@@ -118,17 +120,28 @@ let rec getGoalAssertion goal = (match Term.kind_of_term goal with
                                 )
 
 
-let rec getZ3Statements t varMapping cnt isReal mapOpposite=  (match Term.kind_of_term t with
+let rec getZ3Statements t varMapping cnt isReal=  (match Term.kind_of_term t with
   | Term.Const const ->  (match isReal with 
-                         | true ->                                
+                         | true ->      (*not happy doing this. real hacky. checking if its a real number or an operation or a parameter. would ideally want to break down the ast further. could not do so since the type constructors are not exposed outside*)                         
 			 		let formatStr = Format.asprintf "%a" pp_constr t in
 			 		(match formatStr with
 			 		| "0%R" -> ([],["0"])
                          		| "1%R" -> ([],["1"])
-					|  _ ->  ([],[mapOperator formatStr mapOpposite])
+					|  _ -> 
+						 (
+						 match mapOperator formatStr with
+						 | ValidOp op -> ([],[op])
+						 | InvalidOp -> 
+								(
+                                        			match varMapping#exists formatStr with
+   			                                        | false  ->  let mappedVar = varMapping#getMapping (formatStr) in
+                           		                         ((getDeclStmtForVariable mappedVar varMapping),[mappedVar])
+                                        			| true ->  let mappedVar = varMapping#getMapping (formatStr) in
+		                                                 ([],[mappedVar])
+               				                        )   
+						 ) 
 					)
 
-			 		(* [(mapOperator (Names.string_of_con const))]*)
 		 	| false -> 
 					([],[])	)
   | Term.App (fst,snd) -> let str = Format.asprintf "%a" pp_constr fst in 
@@ -156,36 +169,44 @@ let rec getZ3Statements t varMapping cnt isReal mapOpposite=  (match Term.kind_o
 								| "R" ->   		  
 									let declList = ref [] in
 									let listStr = ref ["("] in
-									let op = mapOperator str mapOpposite in
-							        	let (declStmt,stmt) = ([],[op]) in
-									listStr := List.append !listStr stmt;
-									declList := List.append !declList declStmt;	
-									for i =1 to ((Array.length snd)-1) do
-										let val_i = snd.(i) in
-										let (declStmt, stmt) = (getZ3Statements val_i varMapping (cnt+1) true mapOpposite) in
+									let op = mapOperator str in
+								 	(match op with
+									| ValidOp op ->
+		
+								        	let (declStmt,stmt) = ([],[op]) in
 										listStr := List.append !listStr stmt;
-										declList := List.append !declList declStmt
-										done;
-										listStr := List.append !listStr [")"];
-										(!declList,!listStr) 						
+										declList := List.append !declList declStmt;	
+										for i =1 to ((Array.length snd)-1) do
+											let val_i = snd.(i) in
+											let (declStmt, stmt) = (getZ3Statements val_i varMapping (cnt+1) true) in
+											listStr := List.append !listStr stmt;
+											declList := List.append !declList declStmt
+											done;
+											listStr := List.append !listStr [")"];
+											(!declList,!listStr)
+									| InvalidOp ->  let _ = Format.printf "Something unexpected is happening" in
+											([],[])
+									) 						
 								| _  -> ([],[]))    	 
                                            | _ -> ([],[]) )                       
 			  | Valid     -> 
 					   let listStr = ref ["("] in
 					   let declList = ref [] in
-					   let (declStmt,stmt) =  getZ3Statements fst varMapping (cnt+1) true mapOpposite   in 
+					   let (declStmt,stmt) =  getZ3Statements fst varMapping (cnt+1) true   in 
 					   listStr := List.append !listStr stmt; 
 					   declList := List.append !declList declStmt;   
 			  		   for i = 0 to ((Array.length snd)-1) do 
 	              			   let 	val_i = snd.(i) in
-					   let (declStmt,stmt) = (getZ3Statements val_i varMapping (cnt+1) true mapOpposite) in
+					   let (declStmt,stmt) = (getZ3Statements val_i varMapping (cnt+1) true) in
 			                   listStr := List.append !listStr stmt; 
 					   declList := List.append !declList declStmt	
 			  	           done;
 			  	          listStr := List.append !listStr [")"] ; 
 					   (!declList,!listStr) )       
   | Term.Var var-> 	(match isReal with 
-			| true ->	(
+			| true ->	let str = Names.string_of_id var in 
+					let _ = Format.printf "variable %s" str in
+					(
 					match varMapping#exists (Names.string_of_id var) with
 					| false  ->  let mappedVar = varMapping#getMapping (Names.string_of_id var) in 
 						    ((getDeclStmtForVariable mappedVar varMapping),[mappedVar]) 
@@ -199,13 +220,17 @@ let rec getZ3Statements t varMapping cnt isReal mapOpposite=  (match Term.kind_o
   | _ ->  let _ = Format.printf "UNKNOWN REPRESENTATION" in ([],[])) 
 
 
-let getZ3Representation ty varMapping mapOpposite=   let z3Stmts = getZ3Statements ty varMapping 0 false mapOpposite in
+let getZ3Representation ty varMapping mapOpposite=   let z3Stmts = getZ3Statements ty varMapping 0 false in
                                                      (match z3Stmts with
                                                      | ([],[]) -> ""
-                                                     | (declStmts,stmts) -> let assertStmt = List.append (List.append ["(assert "] stmts) [")"] in
+                                                     | (declStmts,stmts) -> let assertStmt =
+									    (match mapOpposite with
+									    | true ->  List.append (List.append ["(assert (not "] stmts) ["))"]  
+									    | false -> List.append (List.append ["(assert "] stmts) [")"]
+									    ) in 	
 									    let allStmts = (List.append declStmts assertStmt) in
 									    String.concat " " allStmts
-							 )	
+						     )	
 
 
 
