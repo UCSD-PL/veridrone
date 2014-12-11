@@ -1,6 +1,7 @@
 Require Import compcert.cfrontend.Clight.
 Require Import compcert.cfrontend.Cop.
 Require Import compcert.cfrontend.Ctypes.
+Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.Lib.
@@ -64,7 +65,7 @@ Definition deflatten_formula (ff : FlatFormula) : Formula :=
    Our program will be a list of these statements. *)
 Record progr_stmt : Set :=
   mk_progr_stmt {
-      assns : list (Var * Term);
+      assns : list (Var * NowTerm);
       conds : list FlatFormula
     }.
 
@@ -74,37 +75,88 @@ Definition progr : Set := list progr_stmt.
 Require Import compcert.common.Events.
 Require Import compcert.cfrontend.ClightBigstep.
 
+Check List.fold_right.
+
+(* Fold a list with its first element as starting accumulator
+   Takes function and list, as well as default element to return if list is nil *)
+Definition self_foldr {A : Type} (f : A -> A -> A) (l : list A) (dflt : A) : A :=
+  match l with
+    | nil => dflt
+    | h :: t =>
+      List.fold_right f h t
+  end.
+
 Definition progr_stmt_to_tla (ps : progr_stmt) : Formula :=
   match ps with
     | mk_progr_stmt assns conds =>
-      let convert_assn (var_term : Var * Term) :=
+      let convert_assn (var_term : Var * NowTerm) :=
           let (var, term) := var_term in
-          Comp (VarNextT var) term Eq
+          Comp (VarNextT var) (denowify term) Eq
       in
       let conjuncts :=
           List.app (List.map convert_assn assns) (List.map deflatten_formula conds) in
-      match conjuncts with
-        | nil => FALSE   (* if program statement is empty, it is an empty disjunct -> FALSE *)
-        | c :: cs => 
-          List.fold_right And c cs
-      end
+      self_foldr And conjuncts FALSE
   end.
 
 Definition progr_to_tla (pr : progr) : Formula :=
   let disjuncts :=
       List.map progr_stmt_to_tla pr in
-  match disjuncts with
-    | nil => FALSE    (* if there is no program, there should be no behavior *)
-    | d :: ds =>
-      List.fold_right Or d ds
-  end.
+  self_foldr Or disjuncts FALSE.
 
 Import ListNotations.
+Locate Integers.Int.int.
+Require Import compcert.lib.Integers.
 
 Definition derp : progr :=
-  (mk_progr_stmt (("ab", RealT 1) :: nil) (FTRUE :: (FComp (NatN 1) (NatN 1) Eq ) :: nil)) :: nil.
+  (mk_progr_stmt (("ab", RealN 1) :: nil) (FTRUE :: (FComp (NatN 1) (NatN 1) Eq ) :: nil)) :: 
+  (mk_progr_stmt (("cd", RealN 2) :: nil) (FFALSE :: nil)) :: nil.
      
 Eval compute in (progr_to_tla derp).
+
+(* bool type in C, briefly *)
+Definition c_bool : type :=
+  Tint IBool Signed noattr.
+
+(* "AND" operator in C, briefly *)
+Definition c_and (e1 e2 : expr) : expr :=
+  Ebinop Oand e1 e2 c_bool.
+
+(* "true" constant in C, briefly *)
+Definition c_true : expr.
+  refine (Econst_int (Int.mkint 1 _) c_bool).
+  compute. auto.
+Qed.  
+
+(* Utility function for doing lookup in a variable map
+   If found, returns the same map and the index of the variable
+   Otherwise, returns a new map with variable appended, and new index *)
+Local Open Scope positive.
+Fixpoint lookup_or_add (v : Var) (varmap : list Var) : (positive * list Var) :=
+  match varmap with
+    | nil => (1, v :: nil)
+    | v1 :: varmap' =>
+      if (string_dec v v1) then
+        (1, varmap)
+      else
+  (* if we can't find it at head, look in tail, then increment index *)
+        let (idx, vm') := lookup_or_add v varmap' in
+        (idx + 1, v1 :: vm')
+  end.
+
+(* converts a single progr_stmt to an "if" statement in Clight *)
+(* in the process, builds up a table mapping source-language variable names
+   to target-language positive indices *)
+Definition progr_stmt_to_clight (ps : progr_stmt) (varmap : list Var) : statement :=
+  match ps with
+    | mk_progr_stmt assns conds =>
+      let convert_assn (assn : Var * Term) : statement :=
+          let (v, t) := assn in
+          Sassign alhs arhs 
+      in
+      let condition := self_foldr c_and (List.map convert_cond conds) c_true in
+      let body := self_foldr Ssequence (List.map convert_assn assns) Sskip in
+      Sifthenelse condition body Sskip
+  end.
 
 Axiom progr_to_clight : progr -> program.
 Check bigstep_semantics.
