@@ -2,3 +2,10 @@ Makefile.coq
 *.glob
 *.v.d
 *.vo
+*~
+*.cmi
+*.cmo
+*.cmx
+*.cmxs
+*.o
+*.d
