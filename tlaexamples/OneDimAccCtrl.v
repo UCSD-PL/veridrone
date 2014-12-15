@@ -4,6 +4,7 @@ Require Import TLA.Lib.
 Require Import TLA.ProofRules.
 Require Import TLA.Tactics.
 Require Import TLA.ArithFacts.
+Require Import TLA.Substitution.
 Require Import Modules.AbstractOneDimAccCtrl.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
@@ -30,9 +31,46 @@ Module Params <: CtrlParameters.
   Definition ub : R := (ubH_r + ubH_r +
                         ubv_r*ubv_r*/2)%R.
  
-  Definition ubH_st : is_st_term ubH = true := Logic.eq_refl _.
-  Definition ubV_st : is_st_term ubV = true := Logic.eq_refl _.
-  Definition ubv_st : is_st_term ubv = true := Logic.eq_refl _.
+  Lemma ubH_st : is_st_term ubH = true.
+  Proof. reflexivity. Qed.
+  Lemma ubV_st : is_st_term ubV = true.
+  Proof. reflexivity. Qed.
+  Lemma ubv_st : is_st_term ubv = true.
+  Proof. reflexivity. Qed.
+
+  Lemma ubH_unch : forall t1 t2,
+    |- Unchanged (["a", "H", "V", "T"])
+       -->
+       (subst_term_term 
+          (subst_term_term (next_term ubH)
+                           (next_term t1) "h" true)
+          (next_term t2) "v" true) =
+       (subst_term_term 
+          (subst_term_term ubH t1 "h" false)
+          t2 "v" false).
+  Proof. solve_linear. Qed.
+  Lemma ubV_unch : forall t1 t2,
+    |- Unchanged (["a", "H", "V", "T"])
+       -->
+       (subst_term_term 
+          (subst_term_term (next_term ubV)
+                           (next_term t1) "h" true)
+          (next_term t2) "v" true) =
+       (subst_term_term 
+          (subst_term_term ubV t1 "h" false)
+          t2 "v" false).
+  Proof. solve_linear. Qed.
+  Lemma ubv_unch : forall t1 t2,
+    |- Unchanged (["a", "H", "V", "T"])
+       -->
+       (subst_term_term 
+          (subst_term_term (next_term ubv)
+                           (next_term t1) "h" true)
+          (next_term t2) "v" true) =
+       (subst_term_term 
+          (subst_term_term ubv t1 "h" false)
+          t2 "v" false).
+  Proof. solve_linear. Qed.
 
 End Params.
 
@@ -62,16 +100,17 @@ Definition Next : Formula :=
      (Evolve /\ "t"! <= "T" + d)
   \/ (Ctrl /\ Read /\ Unchanged (["h", "v", "t"])).
 
-Definition Init : Formula := AbstractCtrl.Ind_Inv.
+Definition Init : Formula := AbstractCtrl.AbstractCtrl.Init.
 
 Definition Safe : Formula :=
   "h" <= ub.
 
 Lemma refinement :
   |- (Init /\ []Next)
-       --> (AbstractCtrl.Init /\ []AbstractCtrl.Next).
+       --> (AbstractCtrl.AbstractCtrl.Init /\
+            []AbstractCtrl.AbstractCtrl.Next).
 Proof.
-  pose Hd. pose Hvt.
+  pose proof Hd. pose proof Hvt.
   apply and_right.
   - apply and_left1. apply imp_id.
   - apply and_left2. apply always_imp.
@@ -80,7 +119,7 @@ Proof.
       repeat apply and_right.
       * apply and_left1. apply imp_id.
       * apply and_left2. apply imp_id.
-      * match goal with
+(*      * match goal with
           | [ |- context [Continuous ?deqs] ] =>
             apply unchanged_continuous with (eqs:=deqs)
         end; solve_linear.
@@ -91,11 +130,12 @@ Proof.
       * match goal with
           | [ |- context [Continuous ?deqs] ] =>
             apply unchanged_continuous with (eqs:=deqs)
-        end; solve_linear.
+        end; solve_linear.*)
     + apply or_right2.
       apply and_right.
       * apply and_left1.
-        { apply and_right; repeat apply or_left; try apply imp_right;
+        { repeat apply or_left;
+          try apply imp_right;
           try solve [unfold amax; solve_linear].
           - apply imp_strengthen with (F2:="h" < ubH);
             [ solve_linear | ].
@@ -103,31 +143,42 @@ Proof.
               [ solve_linear | ].
             solve_linear;
               unfold amax, AbstractCtrl.amaxinv,
-              AbstractCtrl.inv2, ub, ubV, ubv, ubv_r, ubH, ubH_r in *;
+              AbstractCtrl.InvParams.d,
+              ub, ubV, ubv, ubv_r, ubH, ubH_r in *;
               repeat match goal with
                        | [ H : @eq R _ _ |- _ ] =>
                          rewrite H
                      end; solve_linear.
-            + rewrite H8 in H10. clear H8 H0 H1 H5 H7 H11 H6.
-              unfold amax, ubv_r in *. repeat rewrite Rplus_assoc.
+            + rewrite H10 in H13.
+              unfold amax, ubv_r in *.
+              repeat rewrite Rplus_assoc.
               match goal with
                 | [ H : Rlt ?e1 ?e2 |- Rle (Rplus ?e1 ?e3) _ ]
                   => apply Rle_trans with (r2:=Rplus e2 e3);
                     [ solve_linear | clear H ]
               end.
-              Time solve_nonlinear.
-            + clear H10 H11. unfold ubv_r in *. Time solve_nonlinear.
-            + clear H11. unfold ubv_r in *. Time solve_nonlinear.
+              repeat rewrite Rplus_assoc.
+              repeat apply Rplus_le_compat_l.
+              clear H2 H3 H7 H10 H8 H9 H11 H12.
+              solve_nonlinear.
+            + unfold ubv_r in *.
+              rewrite H10 in H13.
+              clear H2 H3 H7 H10 H8 H11 H12.
+              solve_nonlinear.
+            + unfold ubv_r in *.
+              clear H2 H3 H6 H7 H11 H10 H8 H9 H12.
+              solve_nonlinear.
           - apply imp_strengthen with (F2:="h" < ubH);
             [ solve_linear | ].
             solve_linear;
               unfold amax, AbstractCtrl.amaxinv,
-              AbstractCtrl.inv2, ub, ubV, ubH, ubH_r in *;
+              AbstractCtrl.InvParams.d,
+              ub, ubV, ubH, ubH_r in *;
               repeat match goal with
                        | [ H : @eq R _ _ |- _ ] =>
                          rewrite H
                      end; solve_linear.
-            + rewrite H7 in H9.
+            + rewrite H9 in H12.
               assert (0 <= hd tr "v")%R by solve_linear.
               intuition. eapply Rle_trans; eauto.
               R_simplify; solve_linear. unfold amax. simpl.
@@ -139,7 +190,7 @@ Proof.
                   => apply Rle_trans with (r2:=Rplus e2 e3);
                     [ solve_linear | clear H ]
               end.
-              rewrite H7 in H9.
+              rewrite H9 in H12.
               assert (hd tr "v" - x <= 0)%R by solve_linear.
               clear H8.
               unfold ubv_r in *.
@@ -148,49 +199,57 @@ Proof.
               R_simplify. simpl.
               rewrite Rmult_comm.
               apply Rmult_le_0; solve_linear.
-              clear H10. generalize dependent (hd tr "v").
+              generalize dependent (hd tr "v").
               intros. clear dependent tr.
-              Time solve_nonlinear.
-            + unfold ubv_r in *. Time solve_nonlinear.
+              solve_nonlinear.
+            + unfold ubv_r in *.
+              clear H4 H3 H2 H6 H9 H7 H8 H10 H11.
+              solve_nonlinear.
           - apply imp_strengthen with (F2:="v" < --vt + ubV);
               [ solve_linear | ].
             solve_linear;
               unfold amax, AbstractCtrl.amaxinv,
-              AbstractCtrl.inv2, ub, ubV, ubH, ubH_r in *;
+              AbstractCtrl.InvParams.d,
+              ub, ubV, ubH, ubH_r in *;
               repeat match goal with
                        | [ H : @eq R _ _ |- _ ] =>
                          rewrite H
                      end; solve_linear.
-            + rewrite H7 in H9.
-              assert (hd tr "v" + 1 * x < 0)%R by solve_linear.
+            + rewrite H9 in H12.
+              assert (hd tr "v" + 1 * x < 0)%R
+                by solve_linear.
               solve_linear.
-            + rewrite H7 in H9. clear H10.
+            + rewrite H9 in H12. clear H10.
               unfold ubv_r in *.
-              Time solve_nonlinear.
-            + clear H10. unfold ubv_r in *.
-              solve_linear.
-            + clear H10. unfold ubv_r in *.
-              Time solve_nonlinear.
+              solve_nonlinear.
+            + clear H3 H2 H6 H9 H7 H8 H10 H11.
+              unfold ubv_r in *.
+              solve_nonlinear.
+            + unfold ubv_r in *.
+              solve_nonlinear.
           - solve_linear;
               unfold amax, AbstractCtrl.amaxinv,
-              AbstractCtrl.inv2, ub, ubV, ubH, ubH_r in *;
+              AbstractCtrl.InvParams.d,
+              ub, ubV, ubH, ubH_r in *;
               repeat match goal with
                        | [ H : @eq R _ _ |- _ ] =>
                          rewrite H
                      end; solve_linear.
-            + rewrite H6 in H8.
+            + rewrite H8 in H11.
               assert (0 <= hd tr "v")%R by solve_linear.
               unfold amax, ubv_r in *. clear H9.
-              Time solve_nonlinear.
-            + rewrite H6 in H8. clear H9.
+              solve_nonlinear.
+            + rewrite H8 in H11. clear H9.
               destruct (Rle_dec 0 (hd tr "v"))%R.
-              * unfold amax, ubv_r in *. Time solve_nonlinear.
-              * assert (hd tr "v" * x + / 2 * (0 - 1) * (x * (x * 1))
+              * unfold amax, ubv_r in *. solve_nonlinear.
+              * assert (hd tr "v" * x + / 2 * (0 - 1) *
+                                        (x * (x * 1))
                       <= 0)%R
-                       by (generalize dependent (hd tr "v"); intros; clear dependent tr;
-                           clear r0; solve_nonlinear).
+                       by (generalize dependent (hd tr "v");
+                           intros; clear dependent tr;
+                           solve_nonlinear).
                 solve_linear.
-            + unfold ubv_r in *. Time solve_nonlinear. }
+            + unfold ubv_r in *. solve_nonlinear. }
       * solve_linear.
 Qed.
 
@@ -198,7 +257,8 @@ Lemma safety :
   |- (Init /\ []Next) --> []Safe.
 Proof.
   apply imp_trans
-  with (F2:=AbstractCtrl.Init /\ []AbstractCtrl.Next).
+  with (F2:=AbstractCtrl.AbstractCtrl.Init /\
+            []AbstractCtrl.AbstractCtrl.Next).
   - apply refinement.
   - apply AbstractCtrl.safety.
 Qed.

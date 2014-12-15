@@ -1,4 +1,4 @@
-MODULES := Syntax Semantics Lib ProofRules Tactics ArithFacts
+MODULES := Syntax Semantics Lib ProofRules Tactics ArithFacts Substitution
 VS      := $(MODULES:%=%.v)
 
 .PHONY: coq clean

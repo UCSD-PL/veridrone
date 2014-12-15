@@ -81,7 +81,7 @@ Notation "x <= y <= z" :=
 Infix "/\" := (And) : HP_scope.
 Infix "\/" := (Or) : HP_scope.
 Notation "f1 --> f2" := (Imp f1 f2)
-                          (at level 97) : HP_scope.
+  (at level 97, right associativity) : HP_scope.
 
 (* Formula notation *)
 Notation "'\E' ( x : T ) , p" :=

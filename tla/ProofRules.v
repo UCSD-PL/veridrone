@@ -246,6 +246,11 @@ Lemma and_comm_left : forall F1 F2 F3,
   (|- (F1 /\ F2) --> F3).
 Proof. firstorder. Qed.
 
+Lemma forall_right : forall T F G,
+  (forall x, |- F --> G x) ->
+  (|- F --> Forall T G).
+Proof. firstorder. Qed.
+
 (* The following three functions will be used to state
    the differential induction rule (diff_ind) below.
    Essentially, an invariant inv is a differential
