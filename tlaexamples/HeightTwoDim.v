@@ -2,6 +2,7 @@
 Require Import Syntax.
 Require Import Semantics.
 Require Import Lib.
+Import LibNotations.
 Require Import ProofRules.
 Require Import Tactics.
 Require Import Coq.Strings.String.

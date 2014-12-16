@@ -75,6 +75,9 @@ Definition Continuous (cp:list DiffEq) : Formula :=
 Close Scope string_scope.
 Close Scope HP_scope.
 
+(* In a module to avoid conflicts. *)
+Module LibNotations.
 Notation "x ' ::= t" := (DiffEqC x t) (at level 60) : HP_scope.
 Notation "[ x1 , .. , xn ]" := (cons x1 .. (cons xn nil) .. )
     (at level 60) : HP_scope.
+End LibNotations.

@@ -1,6 +1,7 @@
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.Lib.
+Import LibNotations.
 Require Import TLA.ProofRules.
 Require Import TLA.Tactics.
 Require Import Coq.Reals.Rdefinitions.
