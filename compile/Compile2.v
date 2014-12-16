@@ -1,21 +1,25 @@
 Require Import compcert.cfrontend.Clight.
 Require Import compcert.cfrontend.Cop.
 Require Import compcert.cfrontend.Ctypes.
+Require Import compcert.lib.Integers.
 Require Import Coq.Reals.Rdefinitions.
+Require Import List.
+Import ListNotations.
+
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
-Require Import TLA.Lib.
-Require Import TLA.Tactics.
+(* not importing these for now because of list notation conflicts *)
+(*Require Import TLA.Lib.*)
+(*Require Import TLA.Tactics.*)
 Require Import String.
-Require Import List.
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Data.Monads.EitherMonad.
-
 Require Import compcert.flocq.Core.Fcore_defs.
 
-Local Open Scope string_scope.
+Local Close Scope HP_scope.
+Delimit Scope SrcLang_scope with SL.
+Local Open Scope SrcLang_scope.
 
-Print TLA.Syntax.Term.
 
 (* Term, sans the next operator *)
 Inductive NowTerm : Type :=
@@ -26,6 +30,21 @@ Inductive NowTerm : Type :=
 | MinusN : NowTerm -> NowTerm -> NowTerm
 | MultN : NowTerm -> NowTerm -> NowTerm.
 
+(* peeled from Syntax.v *)
+Infix "+" := (PlusN) : SrcLang_scope.
+Infix "-" := (MinusN) : SrcLang_scope.
+Notation "-- x" := (MinusN (RealN R0) x)
+                     (at level 0) : SrcLang_scope.
+Infix "*" := (MultN) : SrcLang_scope.
+Fixpoint pow (t : NowTerm) (n : nat) :=
+  match n with
+  | O => RealN 1
+  | S n => MultN t (pow t n)
+  end.
+Notation "t ^^ n" := (pow t n) (at level 10) : SrcLang_scope.
+
+(* we probably need to define more convenience methods/notations
+   for this representation *)
 Fixpoint denowify (nt : NowTerm) : Term :=
   match nt with
     | VarNowN v => VarNowT v
@@ -42,6 +61,15 @@ Inductive FlatFormula :=
 | FTRUE : FlatFormula
 | FFALSE : FlatFormula
 | FComp : NowTerm -> NowTerm -> CompOp -> FlatFormula.
+
+(* Comparisons *)
+Notation "t1 > t2" := (FComp t1 t2 Gt) : SrcLang_scope.
+Notation "t1 >= t2" := (FComp t1 t2 Ge) : SrcLang_scope.
+Notation "t1 < t2" := (FComp t1 t2 Lt) : SrcLang_scope.
+Notation "t1 <= t2" := (FComp t1 t2 Le) : SrcLang_scope.
+Notation "t1 = t2" := (FComp t1 t2 Eq) : SrcLang_scope.
+Notation "x <= y <= z" :=
+  (And (FComp x y Le) (FComp y z Le)) : SrcLang_scope.
 
 (* Convert a formula to a flat one *)
 (*Definition flatten_formula (tla : Formula) : option FlatFormula :=
@@ -63,11 +91,42 @@ Definition deflatten_formula (ff : FlatFormula) : Formula :=
    Basically, a list of simultaneous assignments, and a
    list of conditions guarding (all of) those assigments.
    Our program will be a list of these statements. *)
+
+(* eventually this will be our IR, using "unknown" to account for possibility
+   of e.g. rounding errors *)
+
+(*
 Record progr_stmt : Set :=
   mk_progr_stmt {
-      assns : list (Var * NowTerm);
-      conds : list FlatFormula
+      conds : list FlatFormula;
+      yes_assns : list (Var * NowTerm);
+      unknown_assns : list (Var * NowTerm)
     }.
+*)
+
+Record progr_assn : Set :=
+  mk_progr_assn {
+      pa_dest : Var;
+      pa_source : NowTerm
+    }.
+
+(* for now we omit "unknown" case for simplicity *)
+Record progr_stmt : Set :=
+  mk_progr_stmt {
+      ps_conds : list FlatFormula;
+      ps_assns : list progr_assn
+    }.
+
+Notation "a !!= b" := (mk_progr_assn a b) (at level 40) : SrcLang_scope.
+
+Notation "'PIF' cs 'PTHEN' yas" :=
+  (mk_progr_stmt cs yas) (at level 60) : SrcLang_scope.
+
+(*
+Notation "'PIF' cs 'PTHEN' yas 'PUNKNOWN' unas" := 
+  (mk_progr_stmt cs yas unas) (at level 59).
+*)
+Check (PIF nil PTHEN nil).
 
 Definition progr : Set := list progr_stmt.
 
@@ -88,10 +147,11 @@ Definition self_foldr {A : Type} (f : A -> A -> A) (l : list A) (dflt : A) : A :
 
 Definition progr_stmt_to_tla (ps : progr_stmt) : Formula :=
   match ps with
-    | mk_progr_stmt assns conds =>
-      let convert_assn (var_term : Var * NowTerm) :=
-          let (var, term) := var_term in
-          Comp (VarNextT var) (denowify term) Eq
+    | mk_progr_stmt conds assns =>
+      let convert_assn (assn : progr_assn) :=
+          match assn with
+            | mk_progr_assn var term => Comp (VarNextT var) (denowify term) Eq
+          end
       in
       let conjuncts :=
           List.app (List.map convert_assn assns) (List.map deflatten_formula conds) in
@@ -103,13 +163,13 @@ Definition progr_to_tla (pr : progr) : Formula :=
       List.map progr_stmt_to_tla pr in
   self_foldr Or disjuncts FALSE.
 
-Import ListNotations.
-Locate Integers.Int.int.
 Require Import compcert.lib.Integers.
 
+Local Open Scope string_scope.
+
 Definition derp : progr :=
-  (mk_progr_stmt (("ab", RealN 1) :: nil) (FTRUE :: (FComp (NatN 1) (NatN 1) Eq ) :: nil)) :: 
-  (mk_progr_stmt (("cd", RealN 2) :: nil) (FFALSE :: nil)) :: nil.
+  [PIF [FTRUE; NatN 1 = NatN 1]
+   PTHEN ["ab" !!= RealN 1]].
      
 Eval compute in (progr_to_tla derp).
 
@@ -117,7 +177,7 @@ Eval compute in (progr_to_tla derp).
 Definition c_bool : type :=
   Tint IBool Signed noattr.
 
-(* "AND" operator in C, briefly *)
+(* "And" operator in C, briefly *)
 Definition c_and (e1 e2 : expr) : expr :=
   Ebinop Oand e1 e2 c_bool.
 
@@ -146,13 +206,16 @@ Fixpoint lookup_or_add (v : Var) (varmap : list Var) : (positive * list Var) :=
 (* converts a single progr_stmt to an "if" statement in Clight *)
 (* in the process, builds up a table mapping source-language variable names
    to target-language positive indices *)
-Definition progr_stmt_to_clight (ps : progr_stmt) (varmap : list Var) : statement :=
+(* we probably need a state monad at this point... *)
+Definition progr_stmt_to_clight (ps : progr_stmt) (varmap : list Var) : (statement * list Var) :=
   match ps with
-    | mk_progr_stmt assns conds =>
-      let convert_assn (assn : Var * Term) : statement :=
-          let (v, t) := assn in
-          Sassign alhs arhs 
+    | mk_progr_stmt conds assns =>
+      let convert_assn (assn : progr_assn) : statement :=
+          match assn with
+            | mk_progr_assn dst src => Sassign dst src
+          end
       in
+      let convert_cond (cond : FlatFormula
       let condition := self_foldr c_and (List.map convert_cond conds) c_true in
       let body := self_foldr Ssequence (List.map convert_assn assns) Sskip in
       Sifthenelse condition body Sskip
