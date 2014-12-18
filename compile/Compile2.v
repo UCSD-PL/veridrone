@@ -5,40 +5,58 @@ Require Import compcert.lib.Integers.
 Require Import Coq.Reals.Rdefinitions.
 Require Import List.
 Import ListNotations.
-
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
-(* not importing these for now because of list notation conflicts *)
-(*Require Import TLA.Lib.*)
-(*Require Import TLA.Tactics.*)
-Require Import String.
+Require Import TLA.Lib.
+Require Import TLA.Tactics.
 Require Import ExtLib.Structures.Monad.
-Require Import ExtLib.Data.Monads.EitherMonad.
+Require Import ExtLib.Structures.MonadState.
+Require Import ExtLib.Data.Monads.StateMonad.
+Require Import ExtLib.Structures.Traversable. (* for sequence function *)
+Require Import ExtLib.Data.List.
 Require Import compcert.flocq.Core.Fcore_defs.
+Require Import compcert.flocq.Appli.Fappli_IEEE.
+Require Import compcert.flocq.Appli.Fappli_IEEE_bits.
 
 Local Close Scope HP_scope.
 Delimit Scope SrcLang_scope with SL.
 Local Open Scope SrcLang_scope.
 
-
 (* Term, sans the next operator *)
 Inductive NowTerm : Type :=
 | VarNowN : Var -> NowTerm
 | NatN : nat -> NowTerm
-| RealN : Rdefinitions.R -> NowTerm
+(*| RealN : Rdefinitions.R -> NowTerm*)
+| FloatN : Floats.float -> NowTerm
 | PlusN : NowTerm -> NowTerm -> NowTerm
 | MinusN : NowTerm -> NowTerm -> NowTerm
 | MultN : NowTerm -> NowTerm -> NowTerm.
 
+(* peeled from Haskell, because it's beautiful *)
+Definition app {A B: Type} (f : A -> B) (x : A) : B := f x.
+Notation "f $ x" := (app f x) (at level 99, right associativity).
+
 (* peeled from Syntax.v *)
 Infix "+" := (PlusN) : SrcLang_scope.
 Infix "-" := (MinusN) : SrcLang_scope.
-Notation "-- x" := (MinusN (RealN R0) x)
+Notation "-- x" := (MinusN (FloatN 0) x)
                      (at level 0) : SrcLang_scope.
 Infix "*" := (MultN) : SrcLang_scope.
+
+(* convenient coercions between number formats *)
+Definition nat_to_int (n : nat) : int :=
+  Int.repr $ Z.of_nat n.
+
+Definition nat_to_float (n : nat) : Floats.float :=
+  Floats.Float.of_int $ nat_to_int n.
+
+Coercion nat_to_int : nat >-> int.
+Coercion nat_to_float : nat >-> Floats.float.
+Coercion Pos.of_nat : nat >-> positive.
+
 Fixpoint pow (t : NowTerm) (n : nat) :=
   match n with
-  | O => RealN 1
+  | O => FloatN 1
   | S n => MultN t (pow t n)
   end.
 Notation "t ^^ n" := (pow t n) (at level 10) : SrcLang_scope.
@@ -49,7 +67,7 @@ Fixpoint denowify (nt : NowTerm) : Term :=
   match nt with
     | VarNowN v => VarNowT v
     | NatN n => NatT n
-    | RealN r => RealT r
+    | FloatN f => RealT $ B2R _ _ f
     | PlusN t1 t2 => PlusT (denowify t1) (denowify t2)
     | MinusN t1 t2 => MinusT (denowify t1) (denowify t2)
     | MultN t1 t2 => MultT (denowify t1) (denowify t2)
@@ -168,14 +186,23 @@ Require Import compcert.lib.Integers.
 Local Open Scope string_scope.
 
 Definition derp : progr :=
-  [PIF [FTRUE; NatN 1 = NatN 1]
-   PTHEN ["ab" !!= RealN 1]].
-     
+  [PIF [FTRUE;
+        NatN 1 = NatN 1]
+   PTHEN ["ab" !!= FloatN 1]].
+
+(* This hides the nastiness of the definition of B2R, but I don't think it's a long term solution
+   In the long run we're going to have to figure out how to deal with converting from real numbers
+   into floating point. There's no easy way to go back. *)
+Opaque B2R.
 Eval compute in (progr_to_tla derp).
 
 (* bool type in C, briefly *)
+Locate Tint.
 Definition c_bool : type :=
   Tint IBool Signed noattr.
+
+Definition c_float : type :=
+  Tfloat F64 noattr.
 
 (* "And" operator in C, briefly *)
 Definition c_and (e1 e2 : expr) : expr :=
@@ -185,28 +212,164 @@ Definition c_and (e1 e2 : expr) : expr :=
 Definition c_true : expr.
   refine (Econst_int (Int.mkint 1 _) c_bool).
   compute. auto.
-Qed.  
+Qed.
+
+(* "false" constant in C, briefly *)  
+Definition c_false : expr.
+  refine (Econst_int (Int.mkint 0 _) c_bool).
+  compute. auto.
+Qed.
+
+(* This is going to give us "backwards" place-values for string indices
+   but it's not a big deal as long as we do it consistently. *)
+(* Also, please don't use null characters or empty strings, these are likely to cause
+   problems *)
+(*Fixpoint tlavar2N (tlav : Var) : N :=
+  match tlav with
+    | EmptyString => 0%N
+    | String ch rest => 
+      let place := N_of_ascii ch in
+      (place + 256 * (tlavar2N rest))%N
+  end.*)
+
+(*Definition tlavar2c (tlav : Var) : AST.ident :=
+  N.succ_pos (tlavar2N tlav).
+
+Definition cvar2tla (id : AST.ident) : Var :=
+  Nvar2tla (Pos.pred_N id).*)
+
+(* varmap-state *)
+Definition VMS := state (list Var).
 
 (* Utility function for doing lookup in a variable map
    If found, returns the same map and the index of the variable
    Otherwise, returns a new map with variable appended, and new index *)
-Local Open Scope positive.
-Fixpoint lookup_or_add (v : Var) (varmap : list Var) : (positive * list Var) :=
+
+Import MonadNotation.
+Local Open Scope monad.
+Require Import String.
+(* monadic, but well-formed recursion is not evident *)
+(*
+Fixpoint lookup_or_add (v : Var) : VMS positive :=
+  vm <- get;;
+  match vm with
+    | nil => put [v];;
+             ret 1
+    | v1 :: vm' =>
+      if (string_dec v v1) then ret 1
+      else
+        put vm';;
+        idx <- lookup_or_add v;;
+        vm'' <- get;;
+        put (v1 :: vm'');;
+        ret (idx + 1)
+  end.
+ *)
+
+Fixpoint lookup_or_add' (v : Var) (varmap : list Var) : (positive * list Var) :=
   match varmap with
-    | nil => (1, v :: nil)
+    | nil => (1%positive, v :: nil)
     | v1 :: varmap' =>
       if (string_dec v v1) then
-        (1, varmap)
+        (1%positive, varmap)
       else
   (* if we can't find it at head, look in tail, then increment index *)
-        let (idx, vm') := lookup_or_add v varmap' in
-        (idx + 1, v1 :: vm')
+        let (idx, vm') := lookup_or_add' v varmap' in
+        ((idx + 1)%positive, v1 :: vm')
   end.
+
+Definition lookup_or_add (v : Var) : VMS positive :=
+  vm <- get;;
+  let (idx, vm') := lookup_or_add' v vm in
+  put vm';;
+  ret idx.
+
+Print expr.
+SearchAbout (Z -> int).
+SearchAbout (_ -> Floats.float).
+
+(* Helper routines for converting from source language to C *)
+Print expr.
+Print binary_operation.
+Check Econst_float.
+
+Fixpoint nowTerm_to_clight (nt : NowTerm) : VMS expr :=
+  match nt with
+    | VarNowN var =>
+      idx <- lookup_or_add var;;
+      ret $ Evar idx c_float
+    | NatN n =>
+      ret $ Econst_float (nat_to_float n) c_float
+    | FloatN f =>
+      ret $ Econst_float f c_float
+    | PlusN nt1 nt2 =>
+      clnt1 <- nowTerm_to_clight nt1;;
+      clnt2 <- nowTerm_to_clight nt2;;
+      ret $ Ebinop Oadd clnt1 clnt2 c_float
+    | MinusN nt1 nt2 =>
+      clnt1 <- nowTerm_to_clight nt1;;
+      clnt2 <- nowTerm_to_clight nt2;;
+      ret $ Ebinop Osub clnt1 clnt2 c_float
+    | MultN nt1 nt2 =>
+      clnt1 <- nowTerm_to_clight nt1;;
+      clnt2 <- nowTerm_to_clight nt2;;
+      ret $ Ebinop Omul clnt1 clnt2 c_float
+  end.
+
+Definition progr_assn_to_clight (assn : progr_assn) : VMS statement :=
+  match assn with
+    | mk_progr_assn dst src =>
+      dst_idx <- lookup_or_add dst;;
+      rhs <- nowTerm_to_clight src;;
+      ret $ Sassign (Evar dst_idx c_float) rhs
+  end.
+
+Definition compOp_to_binop (cmp : CompOp) : binary_operation :=
+  match cmp with
+    | Gt => Ogt
+    | Ge => Oge
+    | Lt => Olt
+    | Le => Ole
+    | Eq => Oeq
+  end.
+
+Definition flatFormula_to_clight (ff : FlatFormula) : VMS expr :=
+  match ff with
+    | FTRUE => ret c_true
+    | FFALSE => ret c_false
+    | FComp nt1 nt2 cmp =>
+      clnt1 <- nowTerm_to_clight nt1;;
+      clnt2 <- nowTerm_to_clight nt2;;
+      ret $ Ebinop (compOp_to_binop cmp) clnt1 clnt2 c_bool
+  end.
+
+(* TODO define mapM function. I don't want to take the time right now to figure
+   out its fully general type signature... *)
+Check Ebinop.
+Print statement.
+Print expr.
+Print binary_operation.
 
 (* converts a single progr_stmt to an "if" statement in Clight *)
 (* in the process, builds up a table mapping source-language variable names
    to target-language positive indices *)
-(* we probably need a state monad at this point... *)
+Definition progr_stmt_to_clight (ps : progr_stmt) : VMS statement :=
+  match ps with
+    | mk_progr_stmt conds assns =>      
+      let convd_conds := map flatFormula_to_clight conds in
+      let convd_assns := map progr_assn_to_clight assns in
+      cconds <- sequence convd_conds;;
+      cassns <- sequence convd_assns;;
+      let if_condition :=
+          self_foldr (fun l r => Ebinop Oand l r c_bool) cconds c_false
+      in
+      let if_body :=
+          self_foldr Ssequence cassns Sskip
+      in
+      ret $ Sifthenelse if_condition if_body Sskip
+  end.  
+
+(*
 Definition progr_stmt_to_clight (ps : progr_stmt) (varmap : list Var) : (statement * list Var) :=
   match ps with
     | mk_progr_stmt conds assns =>
@@ -220,8 +383,58 @@ Definition progr_stmt_to_clight (ps : progr_stmt) (varmap : list Var) : (stateme
       let body := self_foldr Ssequence (List.map convert_assn assns) Sskip in
       Sifthenelse condition body Sskip
   end.
+*)
 
-Axiom progr_to_clight : progr -> program.
+(*  AST.program fundef type *)
+Check AST.mkprogram.
+Print AST.Gfun.
+Print AST.program.
+Print fundef.
+Print function.
+Print type.
+Locate function.
+
+(* needed for correctly packing into the function record *)
+(* for now we cheat because all our variables are floats. In the long run we
+   may not be able to get away with this and may need to start including types
+   in the var-map *)
+Fixpoint varmap_to_typed_idents (vm : list Var) (p : positive) : list (AST.ident * type) :=
+  match vm with
+    | nil => nil
+    | _ :: vm' =>
+      (p, c_float) :: varmap_to_typed_idents vm' (p + 1)%positive
+  end.  
+
+(* almost there - first, define a helper function that computes the program
+   within the state monad *)
+Definition progr_to_clight' (pr : progr) : VMS program :=
+  prog_stmts <- sequence $ map progr_stmt_to_clight pr;;
+  vm <- get;;
+  let prog_body := self_foldr Ssequence prog_stmts Sskip in
+  (* now we need to pack the program structure appropriately *)
+  let funrec :=
+      {| fn_return := Tvoid;
+         fn_callconv := AST.cc_default;
+         fn_params := nil;
+         fn_vars := varmap_to_typed_idents vm 1%positive;
+         fn_temps := nil;
+         fn_body := prog_body
+      |}
+  in
+  let globdefs :=
+      [(1%positive, AST.Gfun (Internal funrec))]
+  in
+  let main_id := 1%positive in
+  ret $ AST.mkprogram globdefs main_id.
+
+Check evalState.
+Definition progr_to_clight (pr : progr) : program :=
+  let pVMS := progr_to_clight' pr in
+  let init_state := ["__main"] in
+  evalState pVMS init_state.
+
+Eval compute in (progr_to_clight derp).
+
 Check bigstep_semantics.
 Print Smallstep.bigstep_semantics.
 (* for now, assume output program not divergent *)
