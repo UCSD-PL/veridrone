@@ -4,4 +4,5 @@
 -R ./compcert/common compcert.common
 -R ./compcert/cfrontend compcert.cfrontend
 -R ./compcert/flocq/Core compcert.flocq.Core
+-R ./compcert/flocq/Appli compcert.flocq.Appli
 -R ../coq-ext-lib/theories ExtLib
