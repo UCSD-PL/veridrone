@@ -37,6 +37,7 @@ let mapOperator op = (match op with
 		| "Rplus" -> ValidOp "+"
 		| "Rminus" -> ValidOp "-"
 		| "eq" -> ValidOp "="
+		| "Rinv" -> ValidOp "/"
 		| x -> InvalidOp )
 type validity = Valid | Invalid | Maybe
 
@@ -52,6 +53,7 @@ let validityCheck op = (match op with
                 | "Rplus" -> Valid
                 | "Rminus" -> Valid
                 | "eq"  -> Maybe
+		| "Rinv" -> Valid
                 | _ -> Invalid )
 
 class ['a] assertion  (isgoal:bool) (assertionStmt:'a) (assertionName:string) =
@@ -130,7 +132,10 @@ let rec getZ3Statements t varMapping cnt isReal=  (match Term.kind_of_term t wit
 					|  _ -> 
 						 (
 						 match mapOperator formatStr with
-						 | ValidOp op -> ([],[op])
+						 | ValidOp op -> (match formatStr with
+								| "Rinv"  ->  ([],[op ; " 1"]) 
+								| _ ->		([],[op])
+								)
 						 | InvalidOp -> 
 								(
                                         			match varMapping#exists formatStr with
@@ -152,6 +157,14 @@ let rec getZ3Statements t varMapping cnt isReal=  (match Term.kind_of_term t wit
 						(
 	                                        match varMapping#exists formatTy with
         	                                | false  ->  let mappedVar = varMapping#getMapping formatTy in
+						    let _ = Format.printf "var %s %s " mappedVar formatTy  in
+						    let _  = ( match formatTy with
+							      | "(/ 2)%R" ->   (* ( match 
+										) *)
+									
+								     Format.printf "div 2 %a " pp_constr fst 
+							      | _ -> Format.printf ""
+							     ) in
                                                     ((getDeclStmtForVariable mappedVar varMapping),[mappedVar])
                 	                        | true ->  let mappedVar = varMapping#getMapping formatTy in
                                                     ([],[mappedVar])
@@ -299,7 +312,8 @@ let solveUsingZ3 assertions goal = let z3Stmts =
 							let goalStmt = [goal#getTranslatedAssertion] in 
 							String.concat " " (List.append (List.append assertionStmts goalStmt) ["(check-sat) "; "(get-model)"] ) in
 					   let z3Output = (runZ3 z3Stmts) in
-					   z3Output           
+					   z3Output          
+ 
 
 let findTheSmallestSubsetGoalSolver goal = 
 							let hypothesisAssertionSubsets = getAllSubsetsOfHypothesisAssertions goal in
