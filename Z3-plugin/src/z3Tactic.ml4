@@ -37,7 +37,8 @@ let mapOperator op = (match op with
 		| "Rplus" -> ValidOp "+"
 		| "Rminus" -> ValidOp "-"
 		| "eq" -> ValidOp "="
-		| "Rinv" -> ValidOp "/"
+		| "Rinv" -> ValidOp "/ 1"
+		| "Ropp" -> ValidOp "- 0"
 		| x -> InvalidOp )
 type validity = Valid | Invalid | Maybe
 
@@ -54,6 +55,7 @@ let validityCheck op = (match op with
                 | "Rminus" -> Valid
                 | "eq"  -> Maybe
 		| "Rinv" -> Valid
+		| "Ropp" -> Valid
                 | _ -> Invalid )
 
 class ['a] assertion  (isgoal:bool) (assertionStmt:'a) (assertionName:string) =
@@ -133,7 +135,6 @@ let rec getZ3Statements t varMapping cnt isReal=  (match Term.kind_of_term t wit
 						 (
 						 match mapOperator formatStr with
 						 | ValidOp op -> (match formatStr with
-								| "Rinv"  ->  ([],[op ; " 1"]) 
 								| _ ->		([],[op])
 								)
 						 | InvalidOp -> 
@@ -158,13 +159,6 @@ let rec getZ3Statements t varMapping cnt isReal=  (match Term.kind_of_term t wit
 	                                        match varMapping#exists formatTy with
         	                                | false  ->  let mappedVar = varMapping#getMapping formatTy in
 						    let _ = Format.printf "var %s %s " mappedVar formatTy  in
-						    let _  = ( match formatTy with
-							      | "(/ 2)%R" ->   (* ( match 
-										) *)
-									
-								     Format.printf "div 2 %a " pp_constr fst 
-							      | _ -> Format.printf ""
-							     ) in
                                                     ((getDeclStmtForVariable mappedVar varMapping),[mappedVar])
                 	                        | true ->  let mappedVar = varMapping#getMapping formatTy in
                                                     ([],[mappedVar])
@@ -315,6 +309,8 @@ let solveUsingZ3 assertions goal = let z3Stmts =
 					   z3Output          
  
 
+			  
+			   
 let findTheSmallestSubsetGoalSolver goal = 
 							let hypothesisAssertionSubsets = getAllSubsetsOfHypothesisAssertions goal in
 							let sortedHypothesisAssertionSubsets =  List.sort listCmp hypothesisAssertionSubsets in
