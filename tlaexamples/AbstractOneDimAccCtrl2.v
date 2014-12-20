@@ -38,8 +38,9 @@ Module AbstractAccDimCtrl2 (Import Params : CtrlParameters).
     "a" <= amax /\
     (0 <= "v" --> "h" + (sdist "v") <= ub) /\
     ("v" < 0 --> "h" <= ub) /\
-    "h" - "H" <= tdist "V" amax d /\
-    "v" - "V" <= amax*d.
+    ("h" <= "H" + tdist "V" amax d
+     \/ "h" <= "H") /\
+    "v" <= "V" + amax*d.
 
 (*
 (* Attempt at a more sophisticated invariant. *)
@@ -128,12 +129,17 @@ Module AbstractAccDimCtrl2 (Import Params : CtrlParameters).
   Proof.
     pose proof Hd.
     pose proof Hamin.
-    solve_linear.
+    simpl; unfold eval_comp; simpl; intros.
+    decompose [and] H1.
+    clear H5 H1.
     generalize dependent (hd tr "t" - hd tr "T")%R.
     intros. unfold amininv in *.
     destruct (Rle_dec R0 (hd tr "v"))%R;
       solve_linear.
-    eapply Rle_trans; eauto.
+    match goal with
+      | [ _ : Rle ?r ub |- _ ]
+        => apply Rle_trans with (r2:=r); auto
+    end.
     rewrite <- Rplus_0_r at 1.
     apply Rplus_le_compat_l.
     apply Rmult_0_le; solve_linear.
