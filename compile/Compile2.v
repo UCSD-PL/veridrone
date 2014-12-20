@@ -152,8 +152,6 @@ Definition progr : Set := list progr_stmt.
 Require Import compcert.common.Events.
 Require Import compcert.cfrontend.ClightBigstep.
 
-Check List.fold_right.
-
 (* Fold a list with its first element as starting accumulator
    Takes function and list, as well as default element to return if list is nil *)
 Definition self_foldr {A : Type} (f : A -> A -> A) (l : list A) (dflt : A) : A :=
@@ -284,15 +282,7 @@ Definition lookup_or_add (v : Var) : VMS positive :=
   put vm';;
   ret idx.
 
-Print expr.
-SearchAbout (Z -> int).
-SearchAbout (_ -> Floats.float).
-
 (* Helper routines for converting from source language to C *)
-Print expr.
-Print binary_operation.
-Check Econst_float.
-
 Fixpoint nowTerm_to_clight (nt : NowTerm) : VMS expr :=
   match nt with
     | VarNowN var =>
@@ -345,10 +335,6 @@ Definition flatFormula_to_clight (ff : FlatFormula) : VMS expr :=
 
 (* TODO define mapM function. I don't want to take the time right now to figure
    out its fully general type signature... *)
-Check Ebinop.
-Print statement.
-Print expr.
-Print binary_operation.
 
 (* converts a single progr_stmt to an "if" statement in Clight *)
 (* in the process, builds up a table mapping source-language variable names
@@ -385,15 +371,6 @@ Definition progr_stmt_to_clight (ps : progr_stmt) (varmap : list Var) : (stateme
   end.
 *)
 
-(*  AST.program fundef type *)
-Check AST.mkprogram.
-Print AST.Gfun.
-Print AST.program.
-Print fundef.
-Print function.
-Print type.
-Locate function.
-
 (* needed for correctly packing into the function record *)
 (* for now we cheat because all our variables are floats. In the long run we
    may not be able to get away with this and may need to start including types
@@ -405,6 +382,13 @@ Fixpoint varmap_to_typed_idents (vm : list Var) (p : positive) : list (AST.ident
       (p, c_float) :: varmap_to_typed_idents vm' (p + 1)%positive
   end.  
 
+(* this function probably exists somewhere else *)
+Definition ltail {A : Type} (l : list A) : list A :=
+  match l with
+    | nil => nil
+    | _ :: t => t
+  end.
+
 (* almost there - first, define a helper function that computes the program
    within the state monad *)
 Definition progr_to_clight' (pr : progr) : VMS program :=
@@ -413,10 +397,13 @@ Definition progr_to_clight' (pr : progr) : VMS program :=
   let prog_body := self_foldr Ssequence prog_stmts Sskip in
   (* now we need to pack the program structure appropriately *)
   let funrec :=
-      {| fn_return := Tvoid;
+      {| (* no return now; that may change *)
+         fn_return := Tvoid;
          fn_callconv := AST.cc_default;
+         (* no params right now; that may change *)
          fn_params := nil;
-         fn_vars := varmap_to_typed_idents vm 1%positive;
+         (* main is number 1 so rest of vars must start at 2 *)
+         fn_vars := varmap_to_typed_idents (ltail vm) 2%positive;
          fn_temps := nil;
          fn_body := prog_body
       |}
@@ -427,13 +414,18 @@ Definition progr_to_clight' (pr : progr) : VMS program :=
   let main_id := 1%positive in
   ret $ AST.mkprogram globdefs main_id.
 
-Check evalState.
 Definition progr_to_clight (pr : progr) : program :=
   let pVMS := progr_to_clight' pr in
   let init_state := ["__main"] in
   evalState pVMS init_state.
 
+Print derp.
+Goal False.
+pose (progr_to_clight derp).
+compute in p.
 Eval compute in (progr_to_clight derp).
+Print binary_float.
+Check Econst_float.
 
 Check bigstep_semantics.
 Print Smallstep.bigstep_semantics.

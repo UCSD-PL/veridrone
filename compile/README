@@ -1,3 +1,10 @@
+1. Getting ExtLib set up
+
+The compiler depends on Gregory Malecha's coq-ext-lib library.
+This library is included in the project, but you still have to build it.
+
+1. Getting CompCert Set Up
+
 Because CompCert is big, and because of licensing concerns,
 I've decided not to put CompCert into the git repo (yet).
 For now, do this instead:
@@ -27,3 +34,19 @@ For now, do this instead:
   is a reasonable heuristic)
 
 - Now you should be able to build our code for C compilation!
+
+
+2. Using Clightgen 
+
+Here's how to create C files from the clight programs output by
+the compiler. Hopefully we can one day make this process more
+automated.
+
+- Make sure you built clightgen in step 1. You need to also build the bytecode
+  version of Clightgen in order to allow the Ocaml bytecode interpreter
+  to access them:
+
+  make -j[number] clightgen.byte
+
+- If you run make clean, you'll end up deleting some of the files in
+  compcert/_build which are needed to use the Clightgen library
