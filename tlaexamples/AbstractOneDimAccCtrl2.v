@@ -30,6 +30,7 @@ End CtrlParameters.
 Module AbstractAccDimCtrl2 (Import Params : CtrlParameters).
 
   Definition amininv : R := (/amin)%R.
+  Definition amaxinv : R := (/amax)%R.
  
   Definition sdist (v:Term) : Term :=
     v^^2*(/2)%R*(--amininv).
@@ -38,8 +39,8 @@ Module AbstractAccDimCtrl2 (Import Params : CtrlParameters).
     "a" <= amax /\
     (0 <= "v" --> "h" + (sdist "v") <= ub) /\
     ("v" < 0 --> "h" <= ub) /\
-    ("h" <= "H" + tdist "V" amax d
-     \/ "h" <= "H") /\
+    ("h" <= "H" + tdist "V" amax d \/
+     "h" <= "H") /\
     "v" <= "V" + amax*d.
 
 (*
@@ -130,8 +131,7 @@ Module AbstractAccDimCtrl2 (Import Params : CtrlParameters).
     pose proof Hd.
     pose proof Hamin.
     simpl; unfold eval_comp; simpl; intros.
-    decompose [and] H1.
-    clear H5 H1.
+    decompose [and] H1. clear H1 H5.
     generalize dependent (hd tr "t" - hd tr "T")%R.
     intros. unfold amininv in *.
     destruct (Rle_dec R0 (hd tr "v"))%R;

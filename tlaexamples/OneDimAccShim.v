@@ -54,7 +54,8 @@ Definition SafeCtrl (t1 t2:R) : Formula :=
   CtrlTerm t1 t2 <= ub.
 
 Definition Ctrl : Formula :=
-     (SafeCtrl d d /\ "A" <= amax /\ "a"! = "A")
+     (SafeCtrl d d /\ SafeCtrl 0 d /\
+      "A" <= amax /\ "a"! = "A")
   \/ ("a"! = amin).
 
 Lemma Rmult_minus_distr_r : forall r1 r2 r3,
@@ -94,92 +95,6 @@ Proof.
     solve_nonlinear.
 Qed.
 
-(*
-Lemma CtrlTerm_incr2 : forall (t1 t2:R),
-  |- t1 <= d --> t2 <= d -->
-     0 <= "V" + amax*t1 + amax*t2 -->
-     CtrlTerm t1 t2 <= CtrlTerm d d.
-Proof.
-  pose proof Hd. pose proof Hamin.
-  pose proof Hamax.
-  simpl; unfold eval_comp; simpl;
-  unfold amininv. intros.
-  repeat rewrite Rplus_assoc.
-  apply Rplus_le_compat_l.
-  R_simplify; solve_linear.
-  apply Rmult_le_compat_neg_r; solve_linear.
-  - apply inv_le_0; solve_linear; 
-    apply Rmult_le_0.
-  - unfold Rminus. repeat rewrite Rplus_assoc.
-    apply Rplus_le_compat_l.
-    R_simplify; simpl.
-    solve_nonlinear.
-Qed.
-*)
-
-(* Attempt at a more sophisticated safety check. *)
-(*
-(*Definition safe_travel (h v t:Term) :=
-  ("A" >= 0 /\ h + tdist v "A" t <= ub - sdist v2.*)
-
-Definition Safe (V a:Term) : Formula :=
-  (* Always moves up *)
-  ((V >= 0 /\ a >= 0)
-   --> "h" - "H" <= tdist V a d) /\
-  (* Always moves down *)
-    ((V < 0 /\ a < 0)
-     --> "h" - "H" <= 0) /\
-    (* Moves up for next d time *)
-    ((V >= 0 /\ a < 0 /\ --a*d < V)
-     --> "h" - "H" <= tdist V a d) /\
-    (* Peaks in middle *)
-    ((V >= 0 /\ a < 0 /\ --a*d >= V)
-     (* We don't have division, so we need a
-        on the left. *)
-     --> a*("h" - "H") <= --V^^2*(/2)%R) /\
-    (* Moves down then turns around and ends
-       heigher than at the beginning *)
-    ((V < 0 /\ a >= 0 /\ tdist V a d >= 0)
-     --> "h" - "H" <= tdist V a d) /\
-    (* Moves down, maybe turns around, but ends
-       lower than at the beginning *)
-    ((V < 0 /\ a >= 0 /\ tdist V a d < 0)
-     --> "h" - "H" <= 0)
-
-
-
-     ("V" >= 0 /\ "a" >= 0 /\ "A" >= 0 /\
-      "H" + tdist "V" "a" d + tdist ("V" + "a"*d) "A" d
-       <= ub - sdist ("V" + "a"*d + "A"*d))
-  \/ ("V" >= 0 /\ "a" >= 0 /\ "A" < 0 /\
-      --"A"*d < "V" + "a"*d /\
-      "H" + tdist "V" "a" d + tdist ("V" + "a"*d) "A" d
-       <= ub - sdist ("V" + "a"*d))
-  \/ ("V" >= 0 /\ "a" >= 0 /\ "A" < 0 /\
-      --"A"*d >= "V" + "a"*d /\
-      "H" + tdist "V" "a" d + tdist ("V" + "a"*d) "A" d
-       <= ub - sdist ("V" + "a"*d))
-
-    (* Always moves down *)
-    (("V" < 0 /\ "a" < 0)
-     --> "h" - "H" <= 0) /\
-    (* Moves up for next d time *)
-    (("V" >= 0 /\ "a" < 0 /\ --"a"*d < "V")
-     --> "h" - "H" <= tdist "V" "a" d) /\
-    (* Peaks in middle *)
-    (("V" >= 0 /\ "a" < 0 /\ --"a"*d >= "V")
-     (* We don't have division, so we need "a"
-        on the left. *)
-     --> "a"*("h" - "H") <= --"V"^^2*(/2)%R) /\
-    (* Moves down then turns around and ends
-       heigher than at the beginning *)
-    (("V" < 0 /\ "a" >= 0 /\ tdist "V" "a" d >= 0)
-     --> "h" - "H" <= tdist "V" "a" d) /\
-    (* Moves down, maybe turns around, but ends
-       lower than at the beginning *)
-    (("V" < 0 /\ "a" >= 0 /\ tdist "V" "a" d < 0)
-     --> "h" - "H" <= 0)*)
-
 Definition Next : Formula :=
      (Evolve /\ "t"! <= "T" + d)
   \/ (Ctrl /\ Read /\ Unchanged (["h", "v", "t"])).
@@ -193,16 +108,7 @@ Lemma Rmult_le_lt_0 : forall r1 r2,
   (0 < r1 -> 0 <= r1*r2 -> 0 <= r2)%R.
 Proof. solve_nonlinear. Qed.
 
-(*
-Lemma tdist_incr1 : forall v1 v2 a1 a2 d1 d2,
-  |- v1 <= v2 --> a1 <= a2 --> d1 <= d2 -->
-     0 <= a2 --> 0 <= d1 -->
-     0 < tdist v1 a1 d1 -->
-     tdist v1 a1 d1 <= tdist v2 a2 d2.
-Admitted.
-*)
-
-Lemma tdist_incr2 : forall v1 v2 a1 a2 d1 d2,
+Lemma tdist_incr : forall v1 v2 a1 a2 d1 d2,
   |- v1 <= v2 --> a1 <= a2 --> d1 <= d2 -->
      0 <= a2 --> 0 <= d1 -->
      0 <= tdist v2 a2 d2 -->
@@ -273,6 +179,47 @@ simpl; unfold eval_comp; simpl; intros.
   - solve_nonlinear.
 Qed.
 
+
+Lemma Rplus_le_algebra : forall r1 r2,
+  (r1 - r2 <= 0 -> r1 <= r2)%R.
+Proof. solve_linear. Qed.
+
+Lemma Rmult_neg_le_algebra : forall r1 r2,
+  (r2 < 0 -> r1*r2 >= 0 -> r1 <= 0)%R.
+Proof. solve_nonlinear. Qed.
+
+Lemma Rmult_pos_ge_algebra : forall r1 r2,
+  (r2 > 0 -> r1*r2 >= 0 -> r1 >= 0)%R.
+Proof. solve_nonlinear. Qed.
+
+Lemma Rmult_pos_le_algebra : forall r1 r2,
+  (r2 > 0 -> r1*r2 <= 0 -> r1 <= 0)%R.
+Proof. solve_nonlinear. Qed.
+
+Lemma tdist_sdist_incr : forall v1 v2 a1 a2 d1 d2,
+  |- v1 <= v2 --> a1 <= a2 --> d1 <= d2 -->
+     0 <= a2 --> 0 <= d1 -->
+     0 <= v1 + a1*d1 -->
+     tdist v1 a1 d1 + sdist (v1 + a1*d1) <=
+     tdist v2 a2 d2 + sdist (v2 + a2*d2).
+Proof.
+  simpl; unfold eval_comp; simpl; intros.
+  unfold amininv. pose proof Hamin.
+  repeat match goal with
+           | [ _ : context [eval_term ?t ?s1 ?s2] |- _ ]
+             => generalize dependent (eval_term t s1 s2)
+         end; intros;
+  repeat match goal with
+           | [ _ : context [eval_term ?t ?s1 ?s2] |- _ ]
+             => generalize dependent (eval_term t s1 s2)
+         end; intros.
+  apply Rplus_le_algebra.
+  apply Rmult_neg_le_algebra with (r2:=amin); auto.
+  apply Rmult_pos_ge_algebra with (r2:=2%R); solve_linear.
+  R_simplify; simpl; solve_linear.
+  solve_nonlinear.
+Qed.
+
 Lemma sdist_incr : forall v1 v2,
   |- 0 <= v1 <= v2 -->
      sdist v1 <= sdist v2.
@@ -291,10 +238,30 @@ Proof.
     + apply Rle_sq_pos; solve_linear.
 Qed.
 
-Lemma Rmult_le_compat_3pos:
+Lemma sdist_tdist : forall v t,
+  |- tdist v amin t <= sdist v.
+Proof.
+  pose proof Hamin.
+  simpl; unfold eval_comp; simpl;
+  unfold amininv; intros.
+  apply Rplus_le_algebra.
+  apply Rmult_neg_le_algebra with (r2:=amin); auto.
+  apply Rmult_pos_ge_algebra with (r2:=2%R); solve_linear.
+  R_simplify; solve_linear.
+  solve_nonlinear.
+Qed.
+
+Lemma Rmult_le_compat_3pos1:
   forall r1 r2 r3 r4 : R,
   (0 <= r2)%R -> (0 <= r3)%R ->
   (0 <= r4)%R -> (r1 <= r2)%R ->
+  (r3 <= r4)%R -> (r1 * r3 <= r2 * r4)%R.
+Proof. solve_nonlinear. Qed.
+
+Lemma Rmult_le_compat_3pos2:
+  forall r1 r2 r3 r4 : R,
+  (0 <= r1)%R -> (0 <= r2)%R ->
+  (0 <= r3)%R -> (r1 <= r2)%R ->
   (r3 <= r4)%R -> (r1 * r3 <= r2 * r4)%R.
 Proof. solve_nonlinear. Qed.
 
@@ -305,6 +272,36 @@ Proof. solve_linear. Qed.
 Lemma Rplus_le_r : forall r1 r2,
   (0 <= r2 -> r1 <= r1 + r2)%R.
 Proof. solve_linear. Qed.
+
+Lemma Rplus_le_l : forall r1 r2,
+  (r2 <= 0 -> r1 + r2 <= r1)%R.
+Proof. solve_linear. Qed.
+
+Lemma Rminus_le_algebra : forall r1 r2 r3,
+  (r1 <= r2 + r3 -> r1 - r2 <= r3)%R.
+Proof. solve_linear. Qed.
+
+Lemma Rmult_le_algebra : forall r1 r2 r3,
+  (r2 > 0 -> r1 <= r2*r3 -> r1 * (/r2) <= r3)%R.
+Proof. 
+  intros.
+  apply (Rmult_le_reg_r r2); solve_linear.
+  rewrite Rmult_assoc.
+  rewrite <- Rinv_l_sym; solve_linear.
+Qed.
+
+Lemma algebra1 : forall r1 r2 r3 r4,
+  (r3 > 0 -> r1 <= r2 + r3*r4 -> (r1-r2)*/r3 <= r4)%R.
+Proof.
+  intros.
+  apply Rminus_le_algebra in H0.
+  apply Rmult_le_algebra in H0; auto.
+Qed.
+
+Lemma Rmult_0_lt : forall r1 r2,
+  (0 < r1 -> 0 < r2 ->
+   0 < r1*r2)%R.
+Proof. solve_nonlinear. Qed.
 
 Lemma refinement :
   |- (Init /\ []Next)
@@ -333,8 +330,31 @@ Proof.
           repeat match goal with
                    | [ H : @eq R _ _ |- _ ] =>
                      rewrite H
-                 end; intros.
-          - assert (0 <= hd tr "V" + amax*d + amax*x)%R.
+                 end; intros;
+          try solve [ destruct (Rle_dec 0
+                         (hd tr "v"*d+/2*amax*(d*(d*1))))%R;
+                      [left; apply Rplus_le_compat_l;
+                       apply (tdist_incr "v" "v" "A"
+                                         amax x d);
+                       solve_linear |
+                       right; apply Rplus_le_l;
+                       apply (tdist_neg "v" "v" "A" amax x d);
+                       solve_linear ] |
+                      destruct (Rle_dec 0
+                         (hd tr "v"*d+/2*amax*(d*(d*1))))%R;
+                      [left; apply Rplus_le_compat_l;
+                       apply (tdist_incr "v" "v" amin
+                                         amax x d);
+                       solve_linear |
+                       right; apply Rplus_le_l;
+                       apply (tdist_neg "v" "v" amin
+                                        amax x d);
+                       solve_linear ] |
+                      apply Rplus_le_compat_l;
+                        apply Rmult_le_compat_3pos1;
+                        solve_linear ].
+          - clear H9.
+            assert (0 <= hd tr "V" + amax*d + amax*x)%R.
             + eapply Rle_trans; eauto.
               eapply Rplus_rewrite_l; eauto.
               solve_linear.
@@ -368,7 +388,8 @@ Proof.
                     repeat rewrite Rplus_assoc;
                       repeat apply Rplus_le_compat_l.
                     solve_linear. }
-          - destruct (Rlt_dec (hd tr "v") R0);
+          - clear H9.
+            destruct (Rlt_dec (hd tr "v") R0);
             intuition.
             + eapply Rle_trans; eauto.
               rewrite <- Rplus_0_r.
@@ -408,322 +429,122 @@ Proof.
                   - repeat apply Rmult_0_le; solve_linear.
                     unfold amininv. rewrite Rminus_0_l.
                     solve_linear. }
-          - destruct (Rle_dec 0
-                       (hd tr "v" * d +
-                        / 2 * amax * (d * (d * 1))))%R.
-            + left. apply Rplus_le_compat_l.
-              apply (tdist_incr2 "v" "v" "A" amax x d);
-                solve_linear.
-            + right.
-              pose proof (tdist_neg "v" "v" "A" amax x d tr).
-              simpl in *; unfold eval_comp in *;
-              simpl in *; solve_linear.
-          - apply Rplus_le_compat_l.
-            apply Rmult_le_compat_3pos;
-              solve_linear.
-          - assert (0 <= hd tr "V" + amax*d + amax*x)%R.
-            * eapply Rle_trans; eauto.
+          - clear H2.
+            assert (0 <= hd tr "V" + amax*d + amax*x)%R.
+            + eapply Rle_trans; eauto.
               eapply Rplus_rewrite_l; eauto.
               solve_linear.
-            * Declare ML Module "z3Tactic".
-repeat match goal with
-            | H : @eq R _ _ |- _ => revert H
-            | H : @Rle _ _ |- _ => revert H
-            | H : @Rge _ _ |- _ => revert H
-            | H : @Rlt _ _ |- _ => revert H
-            | H :@ Rgt _ _ |- _ => revert H
-            | H : @Rge _ _ |- _ => revert H
-           end.
-z3Tactic.
-
-
-pose proof (CtrlTerm_incr2 0 x tr).
+            + pose proof (CtrlTerm_incr1 x tr).
               simpl in *; unfold eval_comp in *;
               simpl in *; intuition.
               eapply Rle_trans; eauto.
-              eapply Rle_trans; eauto.
-              repeat rewrite Rplus_assoc.
-              apply Rplus_le_compat; auto.
-              solve_nonlinear.
               rewrite Rplus_assoc.
               match goal with
-                | [ _ : Rle ?x ?e1 |-
-                    Rle (Rplus ?x ?e2) ?e3 ]
+                | [ _ : Rle ?x ?e1 |- Rle (Rplus ?x ?e2) ?e3 ]
                   => assert (Rle (Rplus x e2) (Rplus e1 e2))
                     by (try apply Rplus_le_compat;
-                          try apply Rle_refl; auto)
+                        try apply Rle_refl; auto)
               end.
               eapply Rle_trans; eauto.
               repeat rewrite Rplus_assoc;
                 repeat apply Rplus_le_compat_l.
-              Declare ML Module "z3Tactic".
-              repeat match goal with
-                       | H : @eq R _ _ |- _ => revert H
-                       | H : @Rle _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
-                       | H : @Rlt _ _ |- _ => revert H
-                       | H :@ Rgt _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
-                     end.
-              z3Tactic.
-
-eapply Rle_trans; eauto.
-            apply Rplus_le_compat.
-            + repeat rewrite Rplus_assoc.
-              apply Rplus_le_compat; auto.
-              
-
-                       | [ H : _ |- _ ]
-                         => match type of H with
-                              | Rlt _ _ => revert H
-                              | _ => clear H
-                            end
-                     end; intros.
-              clear H1.
-              solve_nonlinear.
-              rewrite Rplus_assoc.
-              match goal with
-              | [ _ : Rle ?x ?e1 |- Rle (Rplus ?x ?e2) ?e3 ]
-                => assert (Rle (Rplus x e2) (Rplus e1 e2))
-                  by (try apply Rplus_le_compat;
-                      try apply Rle_refl; auto)
-            end.
-            eapply Rle_trans; eauto.
-            repeat rewrite Rplus_assoc;
-              repeat apply Rplus_le_compat_l.
-            repeat apply Rplus_le_compat.
-            + 
-
- destruct (Rlt_dec 0 (hd tr "V" * d +
-                                 / 2 * amax * (d * (d * 1))));
+              repeat first [ rewrite Rmult_0_r |
+                             rewrite Rmult_0_l |
+                             rewrite Rplus_0_l ].
+              pose proof (tdist_sdist_incr "v" ("V" + amax*d)
+                     "A" amax x d tr) as Htsdist.
+              simpl in *; unfold eval_comp in *;
+              simpl in *. repeat rewrite Rplus_assoc in *.
+              apply Htsdist; solve_linear.
+          - destruct (Rlt_dec (hd tr "v") R0);
             intuition.
-            + clear H13. eapply Rle_trans; eauto.
-              rewrite Rplus_assoc.
-              match goal with
-                | [ _ : Rle ?x ?e1 |- Rle (Rplus ?x ?e2) ?e3 ]
-                  => assert (Rle (Rplus x e2) (Rplus e1 e2))
-                    by (try apply Rplus_le_compat;
-                        try apply Rle_refl; auto)
-              end.
-              eapply Rle_trans; eauto.
-              repeat rewrite Rplus_assoc;
-                repeat apply Rplus_le_compat_l.
-              repeat rewrite <- Rplus_assoc.
-              apply Rplus_le_compat.
-              * apply tdist_incr2
-                with (v1:="v") (a1:="A") (d1:=x)
-                     (v2:="V" + amax*d) (a2:=amax) (d2:=d);
+            + eapply Rle_trans; eauto.
+              rewrite <- Rplus_0_r.
+              apply Rplus_le_compat_l.
+              apply (tdist_vel_neg "v" "A" x);
                 solve_linear.
-                apply Rle_trans
-                with (r2:=(hd tr "V" * d +
-                           /2 * amax * (d * (d * 1)))%R);
-                  solve_linear.
-                apply tdist_incr1
-                with (v1:="V") (a1:=amax) (d1:=d)
-                     (v2:="V"+amax*d) (a2:=amax) (d2:=d);
-                  solve_linear.
-                rewrite <- Rplus_0_r with (r:=hd tr "V") at 1.
-                apply Rplus_le_compat; solve_linear.
+            + assert (0 <= hd tr "V" + amax*d + amax*x)%R.
+              * apply Rle_trans with (r2:=hd tr "v");
+                solve_linear.
+                eapply Rle_trans; eauto.
+                apply Rplus_le_r.
                 apply Rmult_0_le; solve_linear.
-              * apply sdist_incr
-                with (v1:="v" + "A"*x) (v2:="V" + amax*d +
-                                            amax*d);
-                solve_linear.
+              * pose proof (CtrlTerm_incr1 x tr).
+                simpl in *; unfold eval_comp in *;
+                simpl in *; intuition.
+                eapply Rle_trans; eauto.
+                rewrite Rplus_assoc.
                 match goal with
-                | [ _ : Rle ?x ?e1 |- Rle (Rplus ?x ?e2) ?e3 ]
-                  => assert (Rle (Rplus x e2) (Rplus e1 e2))
-                    by (try apply Rplus_le_compat;
-                        try apply Rle_refl; auto)
+                  | [ _ : Rle ?x ?e1 |-
+                      Rle (Rplus ?x ?e2) ?e3 ]
+                    => assert (Rle (Rplus x e2) (Rplus e1 e2))
+                      by (try apply Rplus_le_compat;
+                          try apply Rle_refl; auto)
                 end.
                 eapply Rle_trans; eauto.
                 repeat rewrite Rplus_assoc;
                   repeat apply Rplus_le_compat_l.
-                apply Rmult_le_compat_3pos; solve_linear.
-            + clear H10. eapply Rle_trans; eauto.
-              rewrite Rplus_assoc.
-              match goal with
-                | [ _ : _ -> Rle ?x ?e1 |-
-                    Rle (Rplus ?x ?e2) ?e3 ]
-                  => assert (Rle (Rplus x e2) (Rplus e1 e2))
-                    by (try apply Rplus_le_compat;
-                        solve_linear)
-              end.
+                repeat first [ rewrite Rmult_0_r |
+                               rewrite Rmult_0_l |
+                               rewrite Rplus_0_l ].
+                { repeat apply Rplus_le_compat;
+                  solve_linear.
+                  - apply Rmult_le_compat; solve_linear.
+                  - rewrite <- Rplus_0_r at 1.
+                    apply Rplus_le_compat.
+                    + repeat rewrite Rmult_assoc.
+                      apply Rmult_le_compat_l; solve_linear.
+                      apply Rmult_le_compat_3pos1;
+                        solve_linear.
+                      * apply pow_0_le.
+                      * apply pow_0_le.
+                      * apply Rle_sq_pos; solve_linear.
+                    + unfold amininv.
+                      apply Rmult_0_le.
+                      * apply Rmult_0_le; solve_linear.
+                        apply pow_0_le.
+                      * rewrite Rminus_0_l.
+                        solve_linear. }
+          - assert (0 <= hd tr "v")%R.
+            + eapply Rle_trans; eauto.
+              solve_nonlinear.
+            + intuition.
+              unfold amaxinv, amininv in *.
               eapply Rle_trans; eauto.
-              repeat rewrite Rplus_assoc;
-                repeat apply Rplus_le_compat_l.
-              repeat rewrite <- Rplus_assoc.
-              apply Rplus_le_compat.
-              * apply tdist_incr2
-                with (v1:="v") (a1:="A") (d1:=x)
-                     (v2:="V" + amax*d) (a2:=amax) (d2:=d);
-                solve_linear.
-                apply Rle_trans
-                with (r2:=(hd tr "V" * d +
-                           /2 * amax * (d * (d * 1)))%R);
-                  solve_linear.
-                apply tdist_incr1
-                with (v1:="V") (a1:=amax) (d1:=d)
-                     (v2:="V"+amax*d) (a2:=amax) (d2:=d);
-                  solve_linear.
-                rewrite <- Rplus_0_r with (r:=hd tr "V") at 1.
-                apply Rplus_le_compat; solve_linear.
-                apply Rmult_0_le; solve_linear.
-              * apply sdist_incr
-                with (v1:="v" + "A"*x) (v2:="V" + amax*d +
-                                            amax*d);
-                solve_linear.
-                match goal with
-                | [ _ : Rle ?x ?e1 |- Rle (Rplus ?x ?e2) ?e3 ]
-                  => assert (Rle (Rplus x e2) (Rplus e1 e2))
-                    by (try apply Rplus_le_compat;
-                        try apply Rle_refl; auto)
-                end.
-                eapply Rle_trans; eauto.
-                repeat rewrite Rplus_assoc;
-                  repeat apply Rplus_le_compat_l.
-                apply Rmult_le_compat_3pos; solve_linear.
-
-solve_nonlinear. Qed.
-              apply Rplus_le_compat.
-Lemma Rmult_le_compat_3pos:
-  forall r1 r2 r3 r4 : R,
-  (0 <= r2)%R -> (0 <= r3)%R ->
-  (0 <= r4)%R -> (r1 <= r2)%R ->
-  (r3 <= r4)%R -> (r1 * r3 <= r2 * r4)%R.
-Proof. solve_nonlinear. Qed.
-apply Rmult_le_compat_3pos; auto.
-solve_nonlinear.
-
-
-SearchAbout Rmult.
-            apply Rmult_le_compat; solve_linear.
-
-            repeat rewrite Rmult_plus_distr_r.
-
-rewrite H8.
-            (*          clear H4 H6 H2 H12 H5.*)
-            (*Time solve_nonlinear.*)
-            admit.
-          - eapply Rle_trans; eauto.
-            clear H5 H4 H6 H2 H12 H11.
-            Time solve_nonlinear.
-          - Time solve_nonlinear.
-          - Time solve_nonlinear.
-          - Time solve_nonlinear.
-          - Time solve_nonlinear.
-          - Time solve_nonlinear.
-          - Time solve_nonlinear.
-          - Time solve_nonlinear.
-          - Time solve_nonlinear.
-          - Time solve_nonlinear.
-          - Time solve_nonlinear.
-          - Time solve_nonlinear.
-          - Time solve_nonlinear.
-
-Ltac thing t :=
-match goal with
-| [ _ : (t - ?e1 <= ?e2) |- 
-pose proof (derive_increasing_interv_var 
-(* 8, 12 solved nonlinearly *)
-
-
-apply and_right; repeat apply or_left;
-          try apply imp_right.
-          try solve [unfold amax; solve_linear].
-          - apply imp_strengthen with (F2:="h" < ubH);
-            [ solve_linear | ].
-            apply imp_strengthen with (F2:="v" < vt + ubV);
-              [ solve_linear | ].
-            solve_linear;
-              unfold amax, AbstractCtrl.amaxinv,
-              AbstractCtrl.inv2, ub, ubV, ubv, ubv_r, ubH, ubH_r in *;
-              repeat match goal with
-                       | [ H : @eq R _ _ |- _ ] =>
-                         rewrite H
-                     end; solve_linear.
-            + rewrite H8 in H10. clear H8 H0 H1 H5 H7 H11 H6.
-              unfold amax, ubv_r in *. repeat rewrite Rplus_assoc.
-              match goal with
-                | [ H : Rlt ?e1 ?e2 |- Rle (Rplus ?e1 ?e3) _ ]
-                  => apply Rle_trans with (r2:=Rplus e2 e3);
-                    [ solve_linear | clear H ]
-              end.
-              Time solve_nonlinear.
-            + clear H10 H11. unfold ubv_r in *. Time solve_nonlinear.
-            + clear H11. unfold ubv_r in *. Time solve_nonlinear.
-          - apply imp_strengthen with (F2:="h" < ubH);
-            [ solve_linear | ].
-            solve_linear;
-              unfold amax, AbstractCtrl.amaxinv,
-              AbstractCtrl.inv2, ub, ubV, ubH, ubH_r in *;
-              repeat match goal with
-                       | [ H : @eq R _ _ |- _ ] =>
-                         rewrite H
-                     end; solve_linear.
-            + rewrite H7 in H9.
-              assert (0 <= hd tr "v")%R by solve_linear.
-              intuition. eapply Rle_trans; eauto.
-              R_simplify; solve_linear. unfold amax. simpl.
-              repeat rewrite Rmult_1_r.
-              R_simplify. simpl. solve_linear.
-            + repeat rewrite Rplus_assoc.
-              match goal with
-                | [ H : Rlt ?e1 ?e2 |- Rle (Rplus ?e1 ?e3) _ ]
-                  => apply Rle_trans with (r2:=Rplus e2 e3);
-                    [ solve_linear | clear H ]
-              end.
-              rewrite H7 in H9.
-              assert (hd tr "v" - x <= 0)%R by solve_linear.
-              clear H8.
-              unfold ubv_r in *.
-              R_simplify. simpl.
-              apply Rminus_le.
-              R_simplify. simpl.
-              rewrite Rmult_comm.
-              apply Rmult_le_0; solve_linear.
-              clear H10. generalize dependent (hd tr "v").
-              intros. clear dependent tr.
-              Time solve_nonlinear.
-            + unfold ubv_r in *. Time solve_nonlinear.
-          - apply imp_strengthen with (F2:="v" < --vt + ubV);
-              [ solve_linear | ].
-            solve_linear;
-              unfold amax, AbstractCtrl.amaxinv,
-              AbstractCtrl.inv2, ub, ubV, ubH, ubH_r in *;
-              repeat match goal with
-                       | [ H : @eq R _ _ |- _ ] =>
-                         rewrite H
-                     end; solve_linear.
-            + rewrite H7 in H9.
-              assert (hd tr "v" + 1 * x < 0)%R by solve_linear.
-              solve_linear.
-            + rewrite H7 in H9. clear H10.
-              unfold ubv_r in *.
-              Time solve_nonlinear.
-            + clear H10. unfold ubv_r in *.
-              solve_linear.
-            + clear H10. unfold ubv_r in *.
-              Time solve_nonlinear.
-          - solve_linear;
-              unfold amax, AbstractCtrl.amaxinv,
-              AbstractCtrl.inv2, ub, ubV, ubH, ubH_r in *;
-              repeat match goal with
-                       | [ H : @eq R _ _ |- _ ] =>
-                         rewrite H
-                     end; solve_linear.
-            + rewrite H6 in H8.
-              assert (0 <= hd tr "v")%R by solve_linear.
-              unfold amax, ubv_r in *. clear H9.
-              Time solve_nonlinear.
-            + rewrite H6 in H8. clear H9.
-              destruct (Rle_dec 0 (hd tr "v"))%R.
-              * unfold amax, ubv_r in *. Time solve_nonlinear.
-              * assert (hd tr "v" * x + / 2 * (0 - 1) * (x * (x * 1))
-                      <= 0)%R
-                       by (generalize dependent (hd tr "v"); intros; clear dependent tr;
-                           clear r0; solve_nonlinear).
-                solve_linear.
-            + unfold ubv_r in *. Time solve_nonlinear. }
+              R_simplify; solve_linear.
+          - destruct (Rle_dec R0 (hd tr "v")).
+            + intuition.
+              unfold amaxinv, amininv in *.
+              eapply Rle_trans; eauto.
+              apply Rplus_le_compat_l.
+              apply sdist_tdist
+              with (v:="v") (t:=x) (tr:=tr).
+            + assert (hd tr "v" < 0)%R by solve_linear.
+              intuition.
+              eapply Rle_trans; eauto.
+              pose proof (tdist_vel_neg "v" amin x tr).
+              simpl in *; unfold eval_comp in *;
+              simpl in *; solve_linear.
+          - assert (0 <= hd tr "v")%R.
+            + eapply Rle_trans; eauto.
+              solve_nonlinear.
+            + intuition.
+              unfold amaxinv, amininv in *.
+              eapply Rle_trans; eauto.
+              R_simplify; solve_linear.
+          - destruct (Rle_dec R0 (hd tr "v")).
+            + intuition.
+              unfold amaxinv, amininv in *.
+              eapply Rle_trans; eauto.
+              apply Rplus_le_compat_l.
+              apply sdist_tdist
+              with (v:="v") (t:=x) (tr:=tr).
+            + assert (hd tr "v" < 0)%R by solve_linear.
+              intuition.
+              eapply Rle_trans; eauto.
+              pose proof (tdist_vel_neg "v" amin x tr).
+              simpl in *; unfold eval_comp in *;
+              simpl in *; solve_linear. }
       * solve_linear.
 Qed.
 
@@ -733,5 +554,8 @@ Proof.
   apply imp_trans
   with (F2:=AbstractCtrl.Init /\ []AbstractCtrl.Next).
   - apply refinement.
-  - apply AbstractCtrl.safety.
+  - apply imp_trans
+    with (F2:=[]InvParams.Inv).
+    + apply AbstractCtrl.safety.
+    + apply always_imp. apply AbstractCtrl.inv_safe.
 Qed.
