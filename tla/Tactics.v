@@ -6,6 +6,8 @@ Require Import TLA.ProofRules.
 Require Import Rdefinitions.
 Require Import Coq.Reals.RIneq.
 
+Declare ML Module "z3Tactic".
+
 Ltac solve_linear :=
   simpl; intros; unfold eval_comp in *;
   simpl in *; intuition; try psatzl R.
@@ -18,6 +20,18 @@ Ltac R_simplify :=
   field_simplify;
   unfold Rdiv;
   repeat rewrite RMicromega.Rinv_1.
+
+Ltac z3_solve :=
+  intros;
+  repeat match goal with
+           | H : @eq R _ _ |- _ => revert H
+           | H : @Rle _ _ |- _ => revert H
+           | H : @Rge _ _ |- _ => revert H
+           | H : @Rlt _ _ |- _ => revert H
+           | H :@ Rgt _ _ |- _ => revert H
+           | H : @Rge _ _ |- _ => revert H
+         end;
+  z3Tactic.
 
 Open Scope HP_scope.
 
