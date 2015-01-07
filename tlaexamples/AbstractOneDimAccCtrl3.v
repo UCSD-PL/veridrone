@@ -19,9 +19,6 @@ Module Type CtrlParameters.
   Parameter d : R.
   Parameter Hd : (d > 0)%R.
 
-  Parameter amax : R.
-  Parameter Hamax : (amax > 0)%R.
-
   Parameter amin : R.
   Parameter Hamin : (amin < 0)%R.
                  
@@ -30,13 +27,11 @@ End CtrlParameters.
 Module AbstractAccDimCtrl2 (Import Params : CtrlParameters).
 
   Definition amininv : R := (/amin)%R.
-  Definition amaxinv : R := (/amax)%R.
  
   Definition sdist (v:Term) : Term :=
     v^^2*(/2)%R*(--amininv).
 
   Definition Ctrlable : Formula :=
-    "a" <= amax /\
     (0 <= "v" --> "h" + (sdist "v") <= ub) /\
     ("v" < 0 --> "h" <= ub) /\
     ("a" >= 0 --> tdist "V" "a" d >= 0 -->

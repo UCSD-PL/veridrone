@@ -23,9 +23,6 @@ Module Params <: CtrlParameters.
   Variable amin : R.
   Hypothesis Hamin : (amin < 0)%R.
 
-  Variable amax : R.
-  Hypothesis Hamax : (amax > 0)%R.
-
 End Params.
 
 Import Params.
@@ -70,7 +67,7 @@ Definition SafeCtrl : Formula :=
       CtrlTerm 0 d 0 0 <= ub).
 
 Definition Ctrl : Formula :=
-     (SafeCtrl /\ "A" <= amax /\ "a"! = "A")
+     (SafeCtrl /\ "a"! = "A")
   \/ ("a"! = amin).
 
 Lemma Rmult_minus_distr_r : forall r1 r2 r3,
@@ -95,7 +92,6 @@ Lemma CtrlTerm_incr1 : forall (t:R) a1 a2,
      CtrlTerm d t a1 a2 <= CtrlTerm d d a1 a2.
 Proof.
   pose proof Hd. pose proof Hamin.
-  pose proof Hamax.
   simpl; unfold eval_comp; simpl;
   unfold amininv. intros.
   repeat rewrite Rplus_assoc.
@@ -374,7 +370,7 @@ Lemma refinement :
   |- (Init /\ []Next)
        --> (AbstractCtrl.Init /\ []AbstractCtrl.Next).
 Proof.
-  pose proof Hd. pose proof Hamax. pose proof Hamin.
+  pose proof Hd. pose proof Hamin.
   apply and_right.
   - apply and_left1. apply imp_id.
   - apply and_left2. apply always_imp.
@@ -393,7 +389,6 @@ Proof.
           match goal with
             |- (|- ?G) => simpl G
           end.
-          - solve_linear.
           - solve_linear; rewrite_next_st.
             + eapply Rle_trans; eauto.
               rewrite_real_zeros.
@@ -720,7 +715,7 @@ Proof.
             + assert (hd tr "v" < 0)%R.
               * apply Rle_lt_trans
                 with (r2:=(hd tr "V")%R); solve_linear.
-                revert H15 H2 H7.
+                revert H11 H1 H6.
                 repeat match goal with
                          | [ H : _ |- _ ]
                            => clear H
