@@ -33,6 +33,18 @@ Ltac z3_solve :=
          end;
   z3Tactic.
 
+Ltac rewrite_next_st :=
+  repeat match goal with
+           | [ H : eq (hd (tl _) _)  _ |- _ ]
+             => rewrite H in *
+         end.
+
+Ltac rewrite_real_zeros :=
+  repeat first [rewrite Rmult_0_r |
+                rewrite Rmult_0_l |
+                rewrite Rplus_0_r |
+                rewrite Rplus_0_l].
+
 Open Scope HP_scope.
 
 Ltac find_zeros eqs :=
