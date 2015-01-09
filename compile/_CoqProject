@@ -1,3 +1,4 @@
+-R ./clight-plugin/src clight_degen
 -R ../temporallanguage TempLang
 -R ../seqlang SeqLang
 -R ../tla TLA

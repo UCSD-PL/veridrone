@@ -17,7 +17,7 @@ Require Import ExtLib.Data.List.
 Require Import compcert.flocq.Core.Fcore_defs.
 Require Import compcert.flocq.Appli.Fappli_IEEE.
 Require Import compcert.flocq.Appli.Fappli_IEEE_bits.
-
+Locate ident.
 Local Close Scope HP_scope.
 Delimit Scope SrcLang_scope with SL.
 Local Open Scope SrcLang_scope.
@@ -419,9 +419,15 @@ Definition progr_to_clight (pr : progr) : program :=
   let init_state := ["__main"] in
   evalState pVMS init_state.
 
+Require Import clight_degen.clight_degen.
+
 Print derp.
 Goal False.
 pose (progr_to_clight derp).
+compute in p.
+clight_dump "out.txt" p.
+clight_dump "out.txt" tt.
+clight_dump "out.txt" (progr_to_clight derp).
 compute in p.
 Eval compute in (progr_to_clight derp).
 Print binary_float.
