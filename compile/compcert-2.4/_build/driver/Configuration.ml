@@ -1,0 +1,11 @@
+let stdlib_path = "/usr/local/lib/compcert"
+let prepro = "gcc -m32 -U__GNUC__ -E"
+let asm = "gcc -m32 -c"
+let linker = "gcc -m32"
+let arch = "ia32"
+let model = "sse2"
+let abi = "standard"
+let system = "linux"
+let has_runtime_lib = true
+let asm_supports_cfi = true
+let version = "2.4"
