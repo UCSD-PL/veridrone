@@ -6,14 +6,17 @@ ROOT := ./
 coq: Makefile.coq
 	$(MAKE) -f Makefile.coq
 
-Makefile.coq: Makefile $(MODULES)
+src/pretty.cma:
+	./build_pretty.sh
+
+Makefile.coq: Makefile $(MODULES) src/pretty.cma
 	coq_makefile -R $(ROOT)/src $(NAME) \
-		-I ../compcert/_build/cfrontend \
 		$(MODULES) -o Makefile.coq
 
 clean:: Makefile.coq
 	$(MAKE) -f Makefile.coq clean
 	rm -f Makefile.coq .depend
+	rm -f gather/pretty.cmo gather/pretty.cmi
 
 #		-I ../compcert/_build/common \
 #-R ../compcert/_build/common Ccommon\

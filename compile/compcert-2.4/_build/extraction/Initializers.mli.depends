@@ -1,1 +1,0 @@
-extraction/Initializers.mli: AST BinInt BinNums Cop Coqlib Csyntax Ctypes Datatypes Errors Integers Memory Values

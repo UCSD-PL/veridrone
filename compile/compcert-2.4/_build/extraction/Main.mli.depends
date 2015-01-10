@@ -1,1 +1,0 @@
-extraction/Main.mli: Alphabet Automaton Datatypes Int0 Interpreter Interpreter_complete Interpreter_correct Interpreter_safe Obj OrderedType Specif Streams Tuples Z_as_Int

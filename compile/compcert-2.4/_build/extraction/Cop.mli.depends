@@ -1,1 +1,0 @@
-extraction/Cop.mli: AST BinNums Coqlib Ctypes Datatypes Floats Int Int64 Integers Mem Memory Values
