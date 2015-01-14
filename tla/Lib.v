@@ -4,9 +4,14 @@ Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Ranalysis1.
 Require Import Coq.Reals.RIneq.
 
+(* A library of useful TLA formulas, built
+   from TLA primitives. *)
+
 Open Scope HP_scope.
 Open Scope string_scope.
 
+(* Action formula expressing that all variables
+   in xs are unchanged. *)
 Fixpoint Unchanged (xs:list Var) : Formula :=
   match xs with
     | nil => TRUE
@@ -14,6 +19,9 @@ Fixpoint Unchanged (xs:list Var) : Formula :=
       (x! = x) /\ (Unchanged xs)
   end.
 
+(* State formula expressing that the values of all
+   variables in xs in the current state are equal
+   to their value in st. *)
 Fixpoint VarsAgree (xs:list Var) (st:state) : Formula :=
   match xs with
     | nil => TRUE
@@ -21,6 +29,9 @@ Fixpoint VarsAgree (xs:list Var) (st:state) : Formula :=
       (x = st x) /\ (VarsAgree xs st)
   end.
 
+(* Action formula expressing that the values of all
+   variables in xs in the next state are equal to
+   their value in st. *)
 Fixpoint AVarsAgree (xs:list Var) (st:state) : Formula :=
   match xs with
     | nil => TRUE
@@ -28,14 +39,18 @@ Fixpoint AVarsAgree (xs:list Var) (st:state) : Formula :=
       (x! = st x) /\ (AVarsAgree xs st)
   end.
 
+(* A type representing a differential equation.
+   (DiffEqC x t) represents (x' = t). *)
 Inductive DiffEq :=
 | DiffEqC : Var -> Term -> DiffEq.
 
+(* Gets the variable of the differential equation. *)
 Definition get_var (d:DiffEq) :=
   match d with
     | DiffEqC x _ => x
   end.
 
+(* Gets the term of the differential equation. *)
 Definition get_term (d:DiffEq) :=
   match d with
     | DiffEqC _ t => t
@@ -61,6 +76,9 @@ Definition is_solution (f : R -> state)
     (* f is a solution to diffeqs *)
     solves_diffeqs f diffeqs r is_derivable.
 
+(* Action formula expressing that a transition
+   is consistent with the system of differential
+   equations represented by cp. *)
 Definition Continuous (cp:list DiffEq) : Formula :=
   let xs := List.map get_var cp in
   Exists R
@@ -75,6 +93,7 @@ Definition Continuous (cp:list DiffEq) : Formula :=
 Close Scope string_scope.
 Close Scope HP_scope.
 
+(* Some notation *)
 (* In a module to avoid conflicts. *)
 Module LibNotations.
 Notation "x ' ::= t" := (DiffEqC x t) (at level 60) : HP_scope.
