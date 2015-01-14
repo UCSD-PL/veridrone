@@ -8,19 +8,33 @@ Require Import Coq.Reals.RIneq.
 
 Declare ML Module "z3Tactic".
 
+(* Some useful tactics for our examples. *)
+
+(* This solves linear real arithmetic goals.
+   It should be complete. *)
 Ltac solve_linear :=
   simpl; intros; unfold eval_comp in *;
   simpl in *; intuition; try psatzl R.
 
+(* This tries to solve nonlinear real
+   arithmetic goals. It is not complete
+   and can be incredibly inefficient. *)
 Ltac solve_nonlinear :=
   simpl; intros; unfold eval_comp in *;
   simpl in *; intuition; try psatz R.
 
+(* This simplifies real arithmetic goals.
+   It sometimes is useful to run this before
+   sending things to solve_nonlinear. *)
 Ltac R_simplify :=
   field_simplify;
   unfold Rdiv;
   repeat rewrite RMicromega.Rinv_1.
 
+(* Doesn't change the goal but runs
+   z3 on real arithmetic goals. At the
+   moment, you have to look in the *coq*
+   buffer for the output. *)
 Ltac z3_solve :=
   intros;
   repeat match goal with
@@ -33,12 +47,16 @@ Ltac z3_solve :=
          end;
   z3Tactic.
 
+(* rewrites the values of variables in the next
+   state into hypothesis and goals. *)
 Ltac rewrite_next_st :=
   repeat match goal with
            | [ H : eq (hd (tl _) _)  _ |- _ ]
              => rewrite H in *
          end.
 
+(* Gets rid of arithmetic expressions of the
+   form 0+_, _+0, 0*_, and _*0 in the goal. *)
 Ltac rewrite_real_zeros :=
   repeat first [rewrite Rmult_0_r |
                 rewrite Rmult_0_l |
@@ -47,6 +65,8 @@ Ltac rewrite_real_zeros :=
 
 Open Scope HP_scope.
 
+(* I'm not sure what the following three
+   tactics do *)
 Ltac find_zeros eqs :=
   match eqs with
     | nil => constr:(@nil Var)
@@ -75,36 +95,24 @@ Ltac get_var_inv F x :=
       get_var_inv F1 x
     | And _ ?F2 =>
       get_var_inv F2 x
-    | Comp (next_term x) (next_term ?e) Eq => constr:(Comp x e Eq)
+    | Comp (next_term x) (next_term ?e) Eq =>
+      constr:(Comp x e Eq)
   end.
 
-(*Ltac get_inv eqs F :=
-  let xs := find_zeros eqs in
-  let rec aux l :=
-      match l with
-        | nil => constr:(TRUE)
-        | cons ?y ?l =>
-          let y := constr:(TermC y) in
-          let vinv := get_var_inv F y in
-          let rest := aux l in
-          constr:(And vinv rest)
-        | cons _ ?l =>
-          let rest := aux l in
-          rest
-      end in
-  aux xs.
-*)
-
+(* Applies differential induction with
+   a known differential invariant *)
 Ltac prove_diff_inv known :=
   match goal with
       |- context [ Continuous ?eqs ] =>
       match goal with
-          |- (|- _ --> Comp (next_term ?t1) (next_term ?t2) ?op) =>
+          |- (|- _ --> Comp (next_term ?t1)
+                   (next_term ?t2) ?op) =>
           apply diff_ind with
-          (Hyps:=known) (G:=Comp t1 t2 op) (cp:=eqs)(*; try solve [solve_linear]*)
+          (Hyps:=known) (G:=Comp t1 t2 op) (cp:=eqs)
       end
   end.
 
+(* Removes ! from variables in a Term *)
 Fixpoint unnext_term (t:Term) : Term :=
   match t with
     | VarNowT x => VarNowT x
@@ -119,6 +127,7 @@ Fixpoint unnext_term (t:Term) : Term :=
       MultT (unnext_term t1) (unnext_term t2)
   end.
 
+(* Removes ! from variables in a Formula *)
 Fixpoint unnext (F:Formula) : Formula :=
   match F with
     | Comp t1 t2 op =>
@@ -127,6 +136,9 @@ Fixpoint unnext (F:Formula) : Formula :=
     | _ => F
   end.
 
+(* Tries to prove (discrete) inductive goals in our examples.
+   Only works for linear arithmetic. Leaves unsolved subgoals
+   unchanged. *)
 Ltac prove_inductive :=
   repeat apply or_next; repeat apply and_right;
   match goal with
@@ -134,7 +146,8 @@ Ltac prove_inductive :=
       match goal with
         | [ |- (|- _ --> (?HH --> ?GG))] =>
           abstract (apply diff_ind_imp
-                    with (eqs:=deqs) (H:=unnext HH) (G:=unnext GG);
+                    with (eqs:=deqs) (H:=unnext HH)
+                                     (G:=unnext GG);
                     solve [reflexivity |
                            simpl; intuition;
                            solve_linear])
@@ -142,12 +155,10 @@ Ltac prove_inductive :=
           abstract
             (apply unchanged_continuous with (eqs:=deqs);
              solve_linear)
-(*          abstract
-            (apply zero_deriv_formula_ok with (eqs:=deqs);
-             solve_linear)*)
         | [ |- (|- _ --> ?GG) ] =>
           abstract (eapply diff_ind
-                    with (cp:=deqs) (G:=unnext GG) (Hyps:=TRUE);
+                    with (cp:=deqs) (G:=unnext GG)
+                                    (Hyps:=TRUE);
                     try solve [reflexivity |
                                simpl; intuition;
                                solve_linear] )

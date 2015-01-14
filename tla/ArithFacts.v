@@ -1,6 +1,9 @@
 Require Import TLA.Tactics.
 Require Import Rdefinitions.
 
+(* Some obvious but useful real arithmetic
+   facts. *)
+
 Lemma Rmult_0_le : forall r1 r2,
   (0 <= r1 -> 0 <= r2 ->
    0 <= r1*r2)%R.
