@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ocamlc -o ./src/pretty.cma -pack \
+ocamlc -o ./src/Pretty.cma -pack \
     gather/Errors.d.cmo \
     gather/Datatypes.d.cmo gather/Bool.d.cmo gather/Peano.d.cmo \
     gather/BinPos.d.cmo gather/BinNat.d.cmo gather/BinInt.d.cmo \
