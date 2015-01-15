@@ -17,7 +17,16 @@ Open Scope string_scope.
 (* This is an upper bound height shim
    for a one dimensional system where
    the controller can directly set the
-   acceleration. *)
+   acceleration. This means that the
+   shim (Ctrl below) takes a proposed
+   acceleration ("A") and decides whether
+   it is safe. If it is safe, the shim
+   sets the acceleration to "A". Otherwise,
+   the shim sets the acceleration to
+   some safe value. The safety check and
+   the safe value are such that the height
+   of the system will always stay below
+   the upper bound. *)
 
 (* The parameters of this system *)
 Module Params <: UtilParams.
