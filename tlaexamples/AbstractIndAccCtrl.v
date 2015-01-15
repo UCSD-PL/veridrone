@@ -117,7 +117,7 @@ Module Type InvParameters.
 
 End InvParameters.
 
-Module AbstractIndAccCtrl (Import Params : InvParameters).
+Module AbstractIndAccCtrlMod (Import Params : InvParameters).
 
   Definition Ctrl : Formula :=
     Inv -->
@@ -267,4 +267,4 @@ Module AbstractIndAccCtrl (Import Params : InvParameters).
       + apply always_imp. apply ind_inv_inv.
 Qed.
 
-End AbstractIndAccCtrl.
+End AbstractIndAccCtrlMod.
