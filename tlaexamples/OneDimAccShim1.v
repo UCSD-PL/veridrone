@@ -14,6 +14,11 @@ Require Import Coq.Reals.RIneq.
 Open Scope HP_scope.
 Open Scope string_scope.
 
+(* This is an upper bound height shim
+   for a one dimensional system where
+   the controller can directly set the
+   acceleration. *)
+
 (* The parameters of this system *)
 Module Params <: UtilParams.
 
