@@ -14,8 +14,8 @@
 # $3: name of file to output c code into
 #
 
-echo "Please read this script, be sure you understand what it does."
-echo "And what arguments it expects. At this time there are no sanity checks,"
+echo "Please read this script, be sure you understand what it does"
+echo "And what arguments it expects. At this time there are no sanity checks."
 echo "Here is what your input is:"
 echo "(Extracted) ML file to load: $1"
 echo "Name of variable in $1 containing AST to pretty-print: $2"

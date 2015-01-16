@@ -357,22 +357,6 @@ Definition progr_stmt_to_clight (ps : progr_stmt) : VMS statement :=
       ret $ Sifthenelse if_condition if_body Sskip
   end.  
 
-(*
-Definition progr_stmt_to_clight (ps : progr_stmt) (varmap : list Var) : (statement * list Var) :=
-  match ps with
-    | mk_progr_stmt conds assns =>
-      let convert_assn (assn : progr_assn) : statement :=
-          match assn with
-            | mk_progr_assn dst src => Sassign dst src
-          end
-      in
-      let convert_cond (cond : FlatFormula
-      let condition := self_foldr c_and (List.map convert_cond conds) c_true in
-      let body := self_foldr Ssequence (List.map convert_assn assns) Sskip in
-      Sifthenelse condition body Sskip
-  end.
-*)
-
 (* needed for correctly packing into the function record *)
 (* for now we cheat because all our variables are floats. In the long run we
    may not be able to get away with this and may need to start including types
@@ -393,6 +377,12 @@ Definition ltail {A : Type} (l : list A) : list A :=
 
 (* almost there - first, define a helper function that computes the program
    within the state monad *)
+
+(* pretty printer gets calling convention backwards?
+   we need to say we support varargs in order to have pretty printer not say (...) *)
+Definition default_cc :=
+  {| AST.cc_vararg := true; AST.cc_structret := false|}.
+
 Definition progr_to_clight' (pr : progr) : VMS program :=
   prog_stmts <- sequence $ map progr_stmt_to_clight pr;;
   vm <- get;;
@@ -401,10 +391,11 @@ Definition progr_to_clight' (pr : progr) : VMS program :=
   let funrec :=
       {| (* no return now; that may change *)
          fn_return := Tvoid;
-         fn_callconv := AST.cc_default;
+
+         fn_callconv := default_cc;
          (* no params right now; that may change *)
          fn_params := nil;
-         (* main is number 1 so rest of vars must start at 2 *)
+         (* main is number 1, so rest of vars must start at 2 *)
          fn_vars := varmap_to_typed_idents (ltail vm) 2%positive;
          fn_temps := nil;
          fn_body := prog_body
@@ -416,10 +407,14 @@ Definition progr_to_clight' (pr : progr) : VMS program :=
   let main_id := 1%positive in
   ret $ AST.mkprogram globdefs main_id.
 
+(* Beginning var-map; includes main function *)
+Definition init_state := ["main"].
+
 Definition progr_to_clight (pr : progr) : (program) :=
   let pVMS := progr_to_clight' pr in
-  let init_state := ["__main"] in
   evalState pVMS init_state.
+
+(* Pretty-printing adapter utilities below *)
 
 (* Convert string into list of chars *)
 Require Import String.
@@ -430,9 +425,6 @@ Fixpoint str_to_nats (s : String.string) : list nat :=
       (nat_of_ascii a) :: (str_to_nats s')
     | EmptyString => nil
   end.
-
-Eval compute in (str_to_nats "abcd").
-Definition test11 := str_to_nats "abcd".
 
 (* Convert var list for easier input into pretty printer
    Which expects a hash table from positive -> string.
@@ -450,17 +442,12 @@ Definition convert_var_list (l : list Var) : list (positive * (list nat)) :=
 
 (* Emit program and converted version of its var list *)
 Definition prepare_pretty_print (pr : progr) : (program * list (positive * list nat)) :=
-  let (prog, vars) := runState (progr_to_clight' pr) ["__main"] in
+  let (prog, vars) := runState (progr_to_clight' pr) init_state in
   (prog, convert_var_list vars).
 
 (* You have to unpack and repack because I have no idea how to unpack Coq pairs in Ocaml >:( *)
 (*Definition cfst := @fst (positive * list nat).
 Definition csnd := @snd (positive * list nat).*)
-
-Definition hi t :=
-  evalState (nowTerm_to_clight t).
-
-Check hi.
 
 Definition ex_derp_prog := fst (prepare_pretty_print derp).
 Definition ex_derp_vars := snd (prepare_pretty_print derp).
@@ -474,6 +461,8 @@ Check fold_right.
 Eval compute in (progr_to_clight derp).
 Print binary_float.
 Check Econst_float.
+
+(* Experiments with semantics follow below this point *)
 
 Check bigstep_semantics.
 Locate bigstep_semantics.
