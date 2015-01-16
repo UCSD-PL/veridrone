@@ -7,3 +7,4 @@
 -R ./compcert/flocq/Core compcert.flocq.Core
 -R ./compcert/flocq/Appli compcert.flocq.Appli
 -R ../coq-ext-lib/theories ExtLib
+-R ../Z3-plugin Exploit
