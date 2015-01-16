@@ -22,6 +22,8 @@ Local Close Scope HP_scope.
 Delimit Scope SrcLang_scope with SL.
 Local Open Scope SrcLang_scope.
 
+Locate mkprogram.
+
 (* Term, sans the next operator *)
 Inductive NowTerm : Type :=
 | VarNowN : Var -> NowTerm
@@ -184,9 +186,9 @@ Require Import compcert.lib.Integers.
 Local Open Scope string_scope.
 
 Definition derp : progr :=
-  [PIF [FTRUE;
-        NatN 1 = NatN 1]
-   PTHEN ["ab" !!= FloatN 1]].
+  ([PIF (FTRUE  ::
+        (NatN 1 = NatN 1) :: nil)
+   PTHEN ["ab" !!= FloatN 1]])%SL.
 
 (* This hides the nastiness of the definition of B2R, but I don't think it's a long term solution
    In the long run we're going to have to figure out how to deal with converting from real numbers
@@ -414,26 +416,68 @@ Definition progr_to_clight' (pr : progr) : VMS program :=
   let main_id := 1%positive in
   ret $ AST.mkprogram globdefs main_id.
 
-Definition progr_to_clight (pr : progr) : program :=
+Definition progr_to_clight (pr : progr) : (program) :=
   let pVMS := progr_to_clight' pr in
   let init_state := ["__main"] in
   evalState pVMS init_state.
 
-Require Import clight_degen.clight_degen.
+(* Convert string into list of chars *)
+Require Import String.
+Check String.String.
+Fixpoint str_to_nats (s : String.string) : list nat :=
+  match s with
+    | String.String a s' =>
+      (nat_of_ascii a) :: (str_to_nats s')
+    | EmptyString => nil
+  end.
 
-Print derp.
-Goal False.
-pose (progr_to_clight derp).
-compute in p.
-clight_dump "out.txt" p.
-clight_dump "out.txt" tt.
-clight_dump "out.txt" (progr_to_clight derp).
-compute in p.
+Eval compute in (str_to_nats "abcd").
+Definition test11 := str_to_nats "abcd".
+
+(* Convert var list for easier input into pretty printer
+   Which expects a hash table from positive -> string.
+   We do the hashtable conversion in ML. *)
+
+Fixpoint convert_var_list' (l : list Var) (p : positive) : list (positive * (list nat)) :=
+  match l with
+    | nil => nil
+    | h :: t =>
+      (p, str_to_nats h) :: convert_var_list' t (p + 1)%positive
+  end.
+
+Definition convert_var_list (l : list Var) : list (positive * (list nat)) :=
+  convert_var_list' l 1%positive.
+
+(* Emit program and converted version of its var list *)
+Definition prepare_pretty_print (pr : progr) : (program * list (positive * list nat)) :=
+  let (prog, vars) := runState (progr_to_clight' pr) ["__main"] in
+  (prog, convert_var_list vars).
+
+(* You have to unpack and repack because I have no idea how to unpack Coq pairs in Ocaml >:( *)
+(*Definition cfst := @fst (positive * list nat).
+Definition csnd := @snd (positive * list nat).*)
+
+Definition hi t :=
+  evalState (nowTerm_to_clight t).
+
+Check hi.
+
+Definition ex_derp_prog := fst (prepare_pretty_print derp).
+Definition ex_derp_vars := snd (prepare_pretty_print derp).
+Definition coqmap := map.
+(* Package everything upto extract it all at once *)
+Definition extract_derp := (ex_derp_prog, ex_derp_vars, coqmap).
+Extraction "derp.ml" extract_derp.
+
+Check fold_right.
+
 Eval compute in (progr_to_clight derp).
 Print binary_float.
 Check Econst_float.
 
 Check bigstep_semantics.
+Locate bigstep_semantics.
+Print bigstep_semantics.
 Print Smallstep.bigstep_semantics.
 (* for now, assume output program not divergent *)
 (* these take a default state to fill in if compcert trace contains
