@@ -18,6 +18,7 @@ Inductive Term :=
 | MinusT : Term -> Term -> Term
 | MultT : Term -> Term -> Term.
 
+(* Comparison operations *)
 Inductive CompOp :=
 | Gt : CompOp
 | Ge : CompOp
@@ -25,10 +26,10 @@ Inductive CompOp :=
 | Le : CompOp
 | Eq : CompOp.
 
+(* Temporal formulas *)
 Inductive Formula :=
 | TRUE : Formula
 | FALSE : Formula
-(*| Comp : ActionTerm -> ActionTerm -> CompOp -> Formula*)
 | Comp : Term -> Term -> CompOp -> Formula
 | And : Formula -> Formula -> Formula
 | Or : Formula -> Formula -> Formula

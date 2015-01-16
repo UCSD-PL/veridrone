@@ -1,0 +1,12 @@
+-R ../Z3-plugin Exploit
+-R . TLA
+Syntax.v
+Semantics.v
+Lib.v
+BasicProofRules.v
+DifferentialInduction.v
+ContinuousProofRules.v
+ProofRules.v
+ArithFacts.v
+Substitution.v
+Tactics.v

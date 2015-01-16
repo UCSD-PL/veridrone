@@ -1,19 +1,26 @@
 Require Import TLA.Syntax.
 Require Import Coq.Reals.Rdefinitions.
 
+(* The semantics of our restricted TLA *)
+
+(* A behavior of TLA is an infinite stream
+   of states. *)
 CoInductive stream (A:Type) :=
 | Cons : A -> stream A -> stream A.
 
+(* The head of a stream *)
 Definition hd {A} (s:stream A) : A :=
   match s with
     | Cons a _ => a
   end.
 
+(* The tail of a stream *)
 Definition tl {A} (s:stream A) : stream A :=
   match s with
     | Cons _ s' => s'
   end.
 
+(* The nth suffix of a stream *)
 Fixpoint nth_suf {A} (n:nat) (s:stream A) : stream A :=
   match n with
     | O => s
@@ -23,6 +30,7 @@ Fixpoint nth_suf {A} (n:nat) (s:stream A) : stream A :=
 (* All variables are real-valued. *)
 Definition state := Var -> R.
 
+(* A TLA behavior, called a trace *)
 Definition trace := stream state.
 
 (* Semantics of real valued terms *)
@@ -50,6 +58,7 @@ Definition eval_comp (t1 t2:Term) (op:CompOp) (s1 s2:state) :
             end in
   op e1 e2.
 
+(* Semantics of temporal formulas *)
 Fixpoint eval_formula (F:Formula) (tr:trace) :=
   match F with
     | TRUE => True

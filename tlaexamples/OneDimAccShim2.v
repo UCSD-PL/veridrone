@@ -6,368 +6,211 @@ Require Import TLA.ProofRules.
 Require Import TLA.Tactics.
 Require Import TLA.ArithFacts.
 Require Import TLA.Substitution.
-Require Import Modules.AbstractIndAccCtrl.
-Require Import Modules.AbstractOneDimAccCtrl3.
+Require Import AbstractIndAccCtrl.
+Require Import OneDimAccShimUtil.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 
 Open Scope HP_scope.
 Open Scope string_scope.
 
-Module Params <: CtrlParameters.
+(* This is an upper bound height shim
+   for a one dimensional system where
+   the controller can directly set the
+   acceleration. This means that the
+   shim (Ctrl below) takes a proposed
+   acceleration ("A") and decides whether
+   it is safe. If it is safe, the shim
+   sets the acceleration to "A". Otherwise,
+   the shim sets the acceleration to
+   some safe value. The safety check and
+   the safe value are such that the height
+   of the system will always stay below
+   the upper bound. *)
 
-  Variable ub : R.
-  Variable d : R.
-  Hypothesis Hd : (d > 0)%R.
+(* The parameters of this system *)
+Module Params <: UtilParams.
 
-  Variable amin : R.
-  Hypothesis Hamin : (amin < 0)%R.
+  (* The upper bound *)
+  Parameter ub : R.
+  (* The positive delay of the controller *)
+  Parameter d : R.
+  Parameter Hd : (d > 0)%R.
+
+  (* The minimum possible acceleration *)
+  Parameter amin : R.
+  Parameter Hamin : (amin < 0)%R.
 
 End Params.
-
 Import Params.
 
-Module AbstractCtrl := AbstractAccDimCtrl2(Params).
+(* Specialize some useful definitions
+   and lemmas to this system. *)
+Module Util := Util(Params).
+Import Util.
 
-Import AbstractCtrl.
+(* The system specification *)
+Module System.
 
-Definition Read : Formula :=
-  "T"! = "t" /\ "H"! = "h" /\ "V"! = "v".
+  (* Read sensors and the current time *)
+  Definition Read : Formula :=
+    "T"! = "t" /\ "H"! = "h" /\ "V"! = "v".
 
-Definition Evolve : Formula :=
-  Continuous (["h"' ::= "v",
-               "v"' ::= "a",
-               "a"' ::= 0,
-               "t"' ::= 1,
-               "H"' ::= 0,
-               "T"' ::= 0,
-               "V"' ::= 0]).
+  (* The continuous dynamics of the system *)
+  Definition Evolve : Formula :=
+    Continuous (["h"' ::= "v",
+                 "v"' ::= "a",
+                 "a"' ::= 0,
+                 "t"' ::= 1,
+                 "H"' ::= 0,
+                 "T"' ::= 0,
+                 "V"' ::= 0]).
 
-Definition CtrlTerm (t1 t2:R) (a1 a2:Term) : Term :=
-  "H" + tdist "V" a1 t1 +
-  tdist ("V" + a1*d) a2 t2 +
-  sdist ("V" + a1*d + a2*t2).
+  (* Specialize the control Term to this
+     system's parameters *)
+  Definition CtrlTermUB :=
+    CtrlTermUB "H" "V".
 
-Definition SafeCtrl : Formula :=
-     ("a" >= 0 /\ tdist "V" "a" d >= 0 /\ "A" >= 0 /\
-      CtrlTerm d d "a" "A" <= ub)
-  \/ ("a" >= 0 /\ tdist "V" "a" d < 0 /\ "A" >= 0 /\
-      CtrlTerm 0 d "a" "A" <= ub)
-  \/ ("a" < 0 /\ tdist "V" 0 d >= 0 /\ "A" >= 0 /\
-      CtrlTerm d d 0 "A" <= ub)
-  \/ ("a" < 0 /\ tdist "V" 0 d < 0 /\ "A" >= 0 /\
-      CtrlTerm 0 d 0 "A" <= ub)
-  \/ ("a" >= 0 /\ tdist "V" "a" d >= 0 /\ "A" < 0 /\
-      CtrlTerm d d "a" 0 <= ub)
-  \/ ("a" >= 0 /\ tdist "V" "a" d < 0 /\ "A" < 0 /\
-      CtrlTerm 0 d "a" 0 <= ub)
-  \/ ("a" < 0 /\ tdist "V" 0 d >= 0 /\ "A" < 0 /\
-      CtrlTerm d d 0 0 <= ub)
-  \/ ("a" < 0 /\ tdist "V" 0 d < 0 /\ "A" < 0 /\
-      CtrlTerm 0 d 0 0 <= ub).
+  (* The safety check on proposed accelerations *)
+  Definition SafeCtrl : Formula :=
+       ("a" >= 0 /\ tdist "V" "a" d >= 0 /\ "A" >= 0 /\
+        CtrlTermUB "a" "A" d d)
+    \/ ("a" >= 0 /\ tdist "V" "a" d < 0 /\ "A" >= 0 /\
+        CtrlTermUB "a" "A" 0 d)
+    \/ ("a" < 0 /\ tdist "V" 0 d >= 0 /\ "A" >= 0 /\
+        CtrlTermUB 0 "A" d d)
+    \/ ("a" < 0 /\ tdist "V" 0 d < 0 /\ "A" >= 0 /\
+        CtrlTermUB 0 "A" 0 d)
+    \/ ("a" >= 0 /\ tdist "V" "a" d >= 0 /\ "A" < 0 /\
+        CtrlTermUB "a" 0 d d)
+    \/ ("a" >= 0 /\ tdist "V" "a" d < 0 /\ "A" < 0 /\
+        CtrlTermUB "a" 0 0 d)
+    \/ ("a" < 0 /\ tdist "V" 0 d >= 0 /\ "A" < 0 /\
+        CtrlTermUB 0 0 d d)
+    \/ ("a" < 0 /\ tdist "V" 0 d < 0 /\ "A" < 0 /\
+        CtrlTermUB 0 0 0 d).
 
-Definition Ctrl : Formula :=
-     (SafeCtrl /\ "a"! = "A")
-  \/ ("a"! = amin).
+  (* The controller *)
+  Definition Ctrl : Formula :=
+       (SafeCtrl /\ "a"! = "A")
+    \/ ("a"! = amin).
 
-Lemma Rmult_minus_distr_r : forall r1 r2 r3,
-  (eq ((r1 - r2)*r3) (r1*r3 - r2*r3))%R.
-Proof. solve_linear. Qed.
+  (* The transition formula for the whole system *)
+  Definition Next : Formula :=
+       (Evolve /\ "t"! <= "T" + d)
+    \/ (Ctrl /\ Read /\ Unchanged (["h", "v", "t"])).
 
-Lemma Rmult_le_compat_neg_r : forall r r1 r2 : R,
- (r <= 0)%R -> (r1 <= r2)%R -> (r2*r <= r1*r)%R.
-Proof. solve_nonlinear. Qed.
+  (* We don't write an initial state predicate here
+     because we're going to use the initial state
+     predicate of the abstract controller of which
+     this will be a refinement. See AbstractCtrl
+     below. *)
 
-Lemma inv_le_0 : forall r,
-  (r < 0 -> /r <= 0)%R.
-Proof. solve_nonlinear. Qed.
+  (* The safety condition *)
+  Definition Safe : Formula :=
+    "h" <= ub.
 
-Lemma inv_0_le : forall r,
-  (0 < r -> 0 <= /r)%R.
-Proof. solve_nonlinear. Qed.
+End System.
 
-Lemma CtrlTerm_incr1 : forall (t:R) a1 a2,
-  |- t <= d --> a1 >= 0 --> a2 >= 0 -->
-     0 <= "V" + a1*d + a2*t -->
-     CtrlTerm d t a1 a2 <= CtrlTerm d d a1 a2.
+Import System.
+
+(* Now we want to prove safety of the system.
+   We'll use AbstractIndAccCtrl for this. We
+   need to supply some parameters to this
+   abstract controller, which is what the
+   following module does. *)
+Module InvParams <: InvParameters.
+  Definition d := d.
+  Definition Hd := Hd.
+  (* Formula expressing the inductive
+     safety condition for this controller *)
+  Definition Inv : Formula :=
+    (0 <= "v" --> "h" + (sdist "v") <= ub) /\
+    ("v" < 0 --> "h" <= ub) /\
+    ("a" >= 0 --> tdist "V" "a" d >= 0 -->
+     "h" <= "H" + tdist "V" "a" d) /\
+    ("a" < 0 --> tdist "V" 0 d >= 0 -->
+     "h" <= "H" + tdist "V" 0 d) /\
+    ((("a" >= 0 /\ tdist "V" "a" d < 0) \/
+      ("a" < 0 /\ tdist "V" 0 d < 0)) -->
+     "h" <= "H") /\
+    ("a" >= 0 --> "v" <= "V" + "a"*d) /\
+    ("a" < 0 --> "v" <= "V").
+  
+  Lemma HInv_st : is_st_formula Inv.
+  Proof.
+    simpl. intuition.
+  Qed.
+  
+  Lemma HInv_unch : forall (t:R),
+    |- (Inv["H" + (tdist "V" "a" t)//"h"]
+           ["V" + "a"*t//"v"] /\
+        Unchanged (["a", "H", "V", "T"]))
+         --> (next Inv)
+             [next_term ("H" + (tdist "V" "a" t))/!"h"]
+             [next_term ("V" + "a"*t)/!"v"].
+  Proof.
+    solve_linear;
+    repeat match goal with
+             | [ H : _ |- _ ] =>
+               match type of H with
+                 | @eq R _ _ => idtac
+                 | _ => revert H
+               end
+           end;
+    repeat match goal with
+             | [ H : @eq R _ _ |- _ ] =>
+               rewrite H
+             end; solve_linear.
+  Qed.
+  
+End InvParams.
+
+(* We pass the parameters to the module. *)
+Module AbstractCtrl := AbstractIndAccCtrlMod(InvParams).
+
+(* We ultimately want to prove the lemma safety
+   at the end of this file. We do this in two
+   steps:
+     1) Show that our inductive safety condition
+        Inv implies the safety condition
+        we care about, Safe (inv_safe).
+     2) Show that this system spec is a refinement
+        of the abstract system spec in the module
+        AbstractCtrl (refinement)
+   Then by transitivity, we prove safety. *)
+
+(* A proof that the inductive safety condition
+   Inv implies the safety contition
+   we actually care about, Safe. *)
+Lemma inv_safe : |- InvParams.Inv --> Safe.
 Proof.
-  pose proof Hd. pose proof Hamin.
-  simpl; unfold eval_comp; simpl;
-  unfold amininv. intros.
-  repeat rewrite Rplus_assoc.
+  pose proof Hd.
+  pose proof Hamin.
+  simpl; unfold eval_comp; simpl; intros.
+  generalize dependent (hd tr "t" - hd tr "T")%R.
+  intros. unfold amininv in *.
+  destruct (Rle_dec R0 (hd tr "v"))%R;
+    solve_linear.
+  match goal with
+    | [ _ : Rle ?r ub |- _ ]
+      => apply Rle_trans with (r2:=r); auto
+  end.
+  rewrite <- Rplus_0_r at 1.
   apply Rplus_le_compat_l.
-  R_simplify; solve_linear.
-  apply Rmult_le_compat_neg_r; solve_linear.
-  - apply inv_le_0; solve_linear; 
-    apply Rmult_le_0.
-  - unfold Rminus. repeat rewrite Rplus_assoc.
-    apply Rplus_le_compat_l.
-    R_simplify; simpl.
-    solve_nonlinear.
+  apply Rmult_0_le; solve_linear.
+  apply Rmult_0_le; solve_linear.
+  apply pow_0_le.
+  rewrite <- Rplus_0_r at 1.
+  apply Rplus_le_compat_l.
+  solve_linear.
 Qed.
 
-Definition Next : Formula :=
-     (Evolve /\ "t"! <= "T" + d)
-  \/ (Ctrl /\ Read /\ Unchanged (["h", "v", "t"])).
-
-Definition Init : Formula := AbstractCtrl.Ind_Inv.
-
-Definition Safe : Formula :=
-  "h" <= ub.
-
-Lemma Rmult_le_lt_0 : forall r1 r2,
-  (0 < r1 -> 0 <= r1*r2 -> 0 <= r2)%R.
-Proof. solve_nonlinear. Qed.
-
-Lemma tdist_incr : forall v1 v2 a1 a2 d1 d2,
-  |- v1 <= v2 --> a1 <= a2 --> d1 <= d2 -->
-     0 <= a2 --> 0 <= d1 -->
-     0 <= tdist v2 a2 d2 -->
-     tdist v1 a1 d1 <= tdist v2 a2 d2.
-Proof.
-  simpl; unfold eval_comp; simpl; intros.
-  repeat match goal with
-           | [ _ : context [eval_term ?t ?s1 ?s2] |- _ ]
-             => generalize dependent (eval_term t s1 s2)
-         end; intros;
-  repeat match goal with
-           | [ _ : context [eval_term ?t ?s1 ?s2] |- _ ]
-             => generalize dependent (eval_term t s1 s2)
-         end; intros.
-  match goal with
-    |- (?e <= _)%R
-    => destruct (Rle_dec 0 e)
-  end; solve_linear.
-  destruct H3;
-    repeat match goal with
-             | [ H : @eq R _ _ |- _ ] =>
-               rewrite <- H
-           end; solve_linear.
-  apply Rle_trans with (r2:=((r3 + /2*r2*r0)*r0)%R);
-    solve_linear.
-  apply Rle_trans with (r2:=((r1 + /2*r*r4)*r4)%R);
-    solve_linear.
-  apply Rmult_le_compat; solve_linear.
-  - eapply Rmult_le_lt_0; eauto; solve_linear.
-  - solve_nonlinear.
-Qed.
-
-Lemma tdist_vel_neg : forall v a t,
-  |- 0 <= t --> v < 0 --> v + a*t < 0 -->
-     tdist v a t <= 0.
-Proof. solve_nonlinear. Qed.
-
-Lemma tdist_neg : forall v1 v2 a1 a2 d1 d2,
-  |- v1 <= v2 --> a1 <= a2 --> d1 <= d2 -->
-     0 <= a2 --> 0 <= d1 -->
-     tdist v2 a2 d2 <= 0 -->
-     tdist v1 a1 d1 <= 0.
-Proof.
-simpl; unfold eval_comp; simpl; intros.
-  repeat match goal with
-           | [ _ : context [eval_term ?t ?s1 ?s2] |- _ ]
-             => generalize dependent (eval_term t s1 s2)
-         end; intros;
-  repeat match goal with
-           | [ _ : context [eval_term ?t ?s1 ?s2] |- _ ]
-             => generalize dependent (eval_term t s1 s2)
-         end; intros.
-  match goal with
-    |- (?e <= _)%R
-    => destruct (Rle_dec 0 e)
-  end; solve_linear.
-  destruct H3;
-    repeat match goal with
-             | [ H : @eq R _ _ |- _ ] =>
-               rewrite <- H
-           end; solve_linear.
-  apply Rle_trans with (r2:=((r3 + /2*r2*r0)*r0)%R);
-    solve_linear.
-  apply Rle_trans with (r2:=((r1 + /2*r*r4)*r4)%R);
-    solve_linear.
-  apply Rmult_le_compat; solve_linear.
-  - eapply Rmult_le_lt_0; eauto; solve_linear.
-  - solve_nonlinear.
-Qed.
-
-Lemma tdist_pos_vel_pos : forall v a t,
-  |- 0 <= a --> 0 < t -->
-     0 <= tdist v a t -->
-     0 <= v + a*t.
-Proof. solve_nonlinear. Qed.
-
-Lemma Rplus_le_algebra : forall r1 r2,
-  (r1 - r2 <= 0 -> r1 <= r2)%R.
-Proof. solve_linear. Qed.
-
-Lemma Rmult_neg_le_algebra : forall r1 r2,
-  (r2 < 0 -> r1*r2 >= 0 -> r1 <= 0)%R.
-Proof. solve_nonlinear. Qed.
-
-Lemma Rmult_pos_ge_algebra : forall r1 r2,
-  (r2 > 0 -> r1*r2 >= 0 -> r1 >= 0)%R.
-Proof. solve_nonlinear. Qed.
-
-Lemma Rmult_pos_le_algebra : forall r1 r2,
-  (r2 > 0 -> r1*r2 <= 0 -> r1 <= 0)%R.
-Proof. solve_nonlinear. Qed.
-
-Lemma tdist_sdist_incr : forall v1 v2 a1 a2 d1 d2,
-  |- v1 <= v2 --> a1 <= a2 --> d1 <= d2 -->
-     0 <= a2 --> 0 <= d1 -->
-     0 <= v1 + a1*d1 -->
-     tdist v1 a1 d1 + sdist (v1 + a1*d1) <=
-     tdist v2 a2 d2 + sdist (v2 + a2*d2).
-Proof.
-  simpl; unfold eval_comp; simpl; intros.
-  unfold amininv. pose proof Hamin.
-  repeat match goal with
-           | [ _ : context [eval_term ?t ?s1 ?s2] |- _ ]
-             => generalize dependent (eval_term t s1 s2)
-         end; intros;
-  repeat match goal with
-           | [ _ : context [eval_term ?t ?s1 ?s2] |- _ ]
-             => generalize dependent (eval_term t s1 s2)
-         end; intros.
-  apply Rplus_le_algebra.
-  apply Rmult_neg_le_algebra with (r2:=amin); auto.
-  apply Rmult_pos_ge_algebra with (r2:=2%R); solve_linear.
-  R_simplify; simpl; solve_linear.
-  solve_nonlinear.
-Qed.
-
-Lemma sdist_incr : forall v1 v2,
-  |- 0 <= v1 <= v2 -->
-     sdist v1 <= sdist v2.
-Proof.
-  pose proof Hamin.
-  simpl; unfold eval_comp; simpl;
-  unfold amininv; intros.
-  apply Rmult_le_compat; solve_linear.
-  - apply Rmult_0_le; solve_linear.
-    apply pow_0_le.
-  - rewrite <- Rplus_0_r at 1.
-    apply Rplus_le_compat_l.
-    solve_linear.
-  - apply Rmult_le_compat; solve_linear.
-    + apply Rmult_0_le; solve_linear.
-    + apply Rle_sq_pos; solve_linear.
-Qed.
-
-Lemma sdist_tdist : forall v t,
-  |- tdist v amin t <= sdist v.
-Proof.
-  pose proof Hamin.
-  simpl; unfold eval_comp; simpl;
-  unfold amininv; intros.
-  apply Rplus_le_algebra.
-  apply Rmult_neg_le_algebra with (r2:=amin); auto.
-  apply Rmult_pos_ge_algebra with (r2:=2%R); solve_linear.
-  R_simplify; solve_linear.
-  solve_nonlinear.
-Qed.
-
-Lemma Rmult_le_compat_3pos1:
-  forall r1 r2 r3 r4 : R,
-  (0 <= r2)%R -> (0 <= r3)%R ->
-  (0 <= r4)%R -> (r1 <= r2)%R ->
-  (r3 <= r4)%R -> (r1 * r3 <= r2 * r4)%R.
-Proof. solve_nonlinear. Qed.
-
-Lemma Rmult_le_compat_3pos2:
-  forall r1 r2 r3 r4 : R,
-  (0 <= r1)%R -> (0 <= r2)%R ->
-  (0 <= r3)%R -> (r1 <= r2)%R ->
-  (r3 <= r4)%R -> (r1 * r3 <= r2 * r4)%R.
-Proof. solve_nonlinear. Qed.
-
-Lemma Rplus_rewrite_l : forall r1 r2 r3 r4,
-  (r1 <= r2 -> r2 + r3 <= r4 -> r1 + r3 <= r4)%R.
-Proof. solve_linear. Qed.
-
-Lemma Rplus_le_r : forall r1 r2,
-  (0 <= r2 -> r1 <= r1 + r2)%R.
-Proof. solve_linear. Qed.
-
-Lemma Rplus_le_l : forall r1 r2,
-  (r2 <= 0 -> r1 + r2 <= r1)%R.
-Proof. solve_linear. Qed.
-
-Lemma Rminus_le_algebra : forall r1 r2 r3,
-  (r1 <= r2 + r3 -> r1 - r2 <= r3)%R.
-Proof. solve_linear. Qed.
-
-Lemma Rmult_le_algebra : forall r1 r2 r3,
-  (r2 > 0 -> r1 <= r2*r3 -> r1 * (/r2) <= r3)%R.
-Proof. 
-  intros.
-  apply (Rmult_le_reg_r r2); solve_linear.
-  rewrite Rmult_assoc.
-  rewrite <- Rinv_l_sym; solve_linear.
-Qed.
-
-Lemma algebra1 : forall r1 r2 r3 r4,
-  (r3 > 0 -> r1 <= r2 + r3*r4 -> (r1-r2)*/r3 <= r4)%R.
-Proof.
-  intros.
-  apply Rminus_le_algebra in H0.
-  apply Rmult_le_algebra in H0; auto.
-Qed.
-
-Lemma Rmult_0_lt : forall r1 r2,
-  (0 < r1 -> 0 < r2 ->
-   0 < r1*r2)%R.
-Proof. solve_nonlinear. Qed.
-
-Lemma tdist_bound : forall v a t1 t2,
-  |- 0 <= t1 <= t2 -->
-     (tdist v a t1 <= tdist v a t2 \/
-      tdist v a t1 <= tdist v 0 t2 \/
-      tdist v a t1 <= 0).
-Proof.
-  simpl; unfold eval_comp; simpl; intros.
-  destruct (Rle_dec 0 (eval_term a (hd tr) (hd (tl tr)))).
-  - destruct (Rle_dec 0 (eval_term (tdist v a t2)
-                                   (hd tr) (hd (tl tr))));
-    simpl in *.
-    + left; apply (tdist_incr v v a a t1 t2);
-      solve_linear.
-    + right; right;
-      apply (tdist_neg v v a a t1 t2);
-      solve_linear.
-  - destruct (Rle_dec 0 (eval_term v (hd tr) (hd (tl tr)))).
-    + right; left;
-      apply Rplus_le_compat; solve_linear.
-      R_simplify; simpl.
-      rewrite Rmult_0_l.
-      apply Rmult_pos_le_algebra with (r2:=2%R);
-        solve_linear.
-      R_simplify; simpl.
-      rewrite Rmult_comm.
-      apply Rmult_le_0.
-      apply pow_0_le.
-      solve_linear.
-    + right; right;
-      rewrite <- Rplus_0_r.
-      apply Rplus_le_compat.
-      * rewrite Rmult_comm.
-        apply Rmult_le_0;
-          solve_linear.
-      * repeat rewrite Rmult_assoc.
-        apply Rmult_le_0; solve_linear.
-        rewrite Rmult_comm.
-        apply Rmult_le_0;
-        apply pow_0_le ||
-              solve_linear.
-Qed.
-
-Lemma vbound : forall a t1 t2,
-  |- 0 <= t1 <= t2 -->
-     (a*t1 <= a*t2 \/ a*t1 <= 0).
-Proof. solve_nonlinear. Qed.
-
+(* A proof that this system spec is a refinement
+   of the abstract system spec in the module
+   AbstractCtrl. *)
 Lemma refinement :
-  |- (Init /\ []Next)
+  |- (AbstractCtrl.Init /\ []Next)
        --> (AbstractCtrl.Init /\ []AbstractCtrl.Next).
 Proof.
   pose proof Hd. pose proof Hamin.
@@ -668,6 +511,7 @@ Proof.
                 { assert (0 <= (hd tr "V"+hd tr "a"*d)*d +
                                / 2 * 0 * (d * (d * 1)))%R.
                   - rewrite_real_zeros.
+                    unfold InvParams.d in *.
                     apply Rmult_0_le; solve_linear.
                   - intuition.
                     assert (0 <=
@@ -736,7 +580,8 @@ Proof.
                 unfold amininv. apply Rplus_le_algebra.
                 R_simplify; simpl; solve_linear.
                 { apply Rmult_le_0.
-                  - solve_nonlinear.
+                  - unfold InvParams.d in *.
+                    solve_nonlinear.
                   - apply inv_le_0. solve_linear. }
           - repeat apply and_assoc_left.
             apply and_left2. apply and_left2.
@@ -772,8 +617,10 @@ Proof.
       * solve_linear.
 Qed.
 
+(* Finally, we prove the safety condition
+   we care about using inv_safe and refinement. *)
 Lemma safety :
-  |- (Init /\ []Next) --> []Safe.
+  |- (AbstractCtrl.Init /\ []Next) --> []Safe.
 Proof.
   apply imp_trans
   with (F2:=AbstractCtrl.Init /\ []AbstractCtrl.Next).
@@ -781,5 +628,5 @@ Proof.
   - apply imp_trans
     with (F2:=[]InvParams.Inv).
     + apply AbstractCtrl.safety.
-    + apply always_imp. apply AbstractCtrl.inv_safe.
+    + apply always_imp. apply inv_safe.
 Qed.

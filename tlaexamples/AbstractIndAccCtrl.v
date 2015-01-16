@@ -12,12 +12,95 @@ Require Import Coq.Reals.RIneq.
 Open Scope HP_scope.
 Open Scope string_scope.
 
+(*
+   As with most systems, to prove an invariant
+   of a hybrid system, you come up with a global
+   inductive invariant of that system that implies
+   the invariant you care about. To show that the
+   inductive invariant is in fact inductive, you
+   have to show that it is preserved by the discrete
+   and the continuous transitions. The content of the
+   inductive invariant varied from system (e.g. conditions
+   on how close the system can be to the height upper
+   bound), but the core structure always stayed the same.
+   It was always a conjunction of the following:
+     1) Physical variables (like h) differ from
+        their corresponding discrete variable (like H)
+        according to the solution to the system
+        of differential equations.
+     2) For the next d (delay) time units, the content
+        part of the inductive invariant will hold if
+        you substitute, for each physical variable,
+        its value in terms of only discrete variables.
+     3) The time t never differs from its discrete
+        variable T by more than d.
+   For every example, we would have to prove that
+   this inductive invariant was preserved by the
+   continuous transition and by the discrete
+   transition(s). This involved several kinds of
+   duplicated work:
+     1) (1) holds on any discrete transition with
+        a Read (where T! = t, H! = h, etc.)
+     2) (1) holds on any continuous transition
+        to which the solution corresponds
+     3) If the content of the inductive invariant only
+        depends on variables in the spec, then (2)
+        holds on the continuous transition
+     4) (3) holds on any system properly enforcing
+        the delay
+   Given this, it seemed silly to repeat the structure
+   of the inductive invariant and repeat the proofs
+   that should always be possible. Ideally, for each
+   system with a given continuous dynamics, one would
+   only have to state the content part of the inductive
+   invariant and then prove that the controller satisfies
+   a property with respect to that content. This file
+   allows one to do exactly that.
+
+   Below, Ind_Inv captures this typical structure of
+   the inductive invariant. The "controller" Ctrl,
+   captures the only reasoning that one has to do
+   to prove the content part of an inductive invariant
+   for a particular system. The safety proof captures
+   all of the duplicated proving that we were doing.
+
+   In the end, to prove that some forumla I is an
+   invariant of a system with concrete controller
+   CtrlConcrete, one only has to prove
+
+     CtrlConcrete --> Ctrl
+
+   with I substituted for Inv in Ctrl. This amounts
+   to reasoning about real arithmetic. Once one proves
+   this, one uses refinement (implication) and the
+   safety proof below to show that I is an invariant.
+   Of course, this doesn't eliminate the need to come
+   up with I, but it at least eliminates some of the
+   repetitive work.
+*)
+
+(* The distance traveled with starting velocity v,
+   acceleration a, for time t. *)
 Definition tdist (v:Term) (a:Term) (t:Term) : Term :=
   v*t + (/2)%R*a*t^^2.
 
+(* The difference between the actual time
+   and the most recently measured time. *)
 Definition tdiff : Term :=
   "t"-"T".
 
+(* Parameters to this module. Contains the
+   delay, the invariant, a proof that the invariant
+   is a state formula, and a proof of a somewhat
+   complicated looking lemma. I want this lemma
+   to say that Inv only uses the variables in the
+   spec. There are several simple ways to state this,
+   but I was unable to use any of them in the safety
+   proof. Instead, I came up with this more complicated
+   lemma, which is easy to use in the safety proof.
+   So far, I've also found that it is easy to prove
+   for the instantiations of Inv I've come up with
+   for our examples, so it hasn't been an issue yet. *)
 Module Type InvParameters.
 
   Parameter d : R.
@@ -34,7 +117,7 @@ Module Type InvParameters.
 
 End InvParameters.
 
-Module AbstractIndAccCtrl (Import Params : InvParameters).
+Module AbstractIndAccCtrlMod (Import Params : InvParameters).
 
   Definition Ctrl : Formula :=
     Inv -->
@@ -76,7 +159,10 @@ Module AbstractIndAccCtrl (Import Params : InvParameters).
 
   Definition Init : Formula := Ind_Inv.
 
-  Lemma ind_inv_safe : |- Ind_Inv --> Inv.
+  (* The inductive invariant implies the invariant
+     which contains the actual inductive content
+     specific to a system. *)
+  Lemma ind_inv_inv : |- Ind_Inv --> Inv.
   Proof.
     simpl; unfold eval_comp; simpl; intuition.
     specialize (H1 (hd tr "t" - hd tr "T"))%R. intuition.
@@ -85,6 +171,8 @@ Module AbstractIndAccCtrl (Import Params : InvParameters).
     solve_linear.
   Qed.
 
+  (* The safety proof showing that Inv is in fact
+     an invariant of this system. *)
   Lemma safety :
     |- (Init /\ []Next) --> []Inv.
   Proof.
@@ -167,7 +255,7 @@ Module AbstractIndAccCtrl (Import Params : InvParameters).
                            reflexivity].
               unfold tdist in *. simpl in *.
               assert (eval_formula Inv tr) by
-                  (apply ind_inv_safe; simpl; auto).
+                  (apply ind_inv_inv; simpl; auto).
 
               apply subst_eq_next with (x:="H") (t:="h");
                 solve_linear.
@@ -176,7 +264,7 @@ Module AbstractIndAccCtrl (Import Params : InvParameters).
               apply H16; auto.
             - repeat apply subst_st_formula;
               simpl; auto. }
-      + apply always_imp. apply ind_inv_safe.
+      + apply always_imp. apply ind_inv_inv.
 Qed.
 
-End AbstractIndAccCtrl.
+End AbstractIndAccCtrlMod.

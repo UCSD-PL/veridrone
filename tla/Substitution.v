@@ -4,7 +4,16 @@ Require Import TLA.ProofRules.
 
 Open Scope HP_scope.
 
-Fixpoint subst_term_term (t1 t2 : Term) (x : Var)  (next:bool) :=
+(* Functions for substituting terms for
+   variables in TLA Formulas and lemmas
+   about these substitutions. The function
+   that substitutes terms for variables in
+   a formula is called subst_term_formula. *)
+
+(* If next is true, substitutes t2 for x! in t2.
+   If next is false, substitutes t2 for x in t2. *)
+Fixpoint subst_term_term (t1 t2 : Term) (x : Var)
+         (next:bool) :=
   match t1 with
     | VarNowT y =>
       if next
@@ -30,6 +39,8 @@ Fixpoint subst_term_term (t1 t2 : Term) (x : Var)  (next:bool) :=
     | _ => t1
   end.
 
+(* If next is true, substitutes t for x! in F.
+   If next is false, substitutes t for x in F. *)
 Fixpoint subst_term_formula (F:Formula) (t : Term) (x : Var)
          (next:bool) :=
   match F with
@@ -48,12 +59,16 @@ Fixpoint subst_term_formula (F:Formula) (t : Term) (x : Var)
     | _ => F
   end.
 
+(* Some notation *)
 Notation "F [ t /! x ]" :=
   (subst_term_formula F t x true)
     (at level 50).
 Notation "F [ t // x ]" :=
   (subst_term_formula F t x false)
     (at level 50).
+
+(* And now a whole bunch of lemmas about
+   substitutions. *)
 
 Lemma subst_st_term : forall t1 t2 x b,
   is_st_term t1 = true ->
@@ -183,7 +198,8 @@ Qed.
 
 Lemma subst_term_formula_sub : forall F t1 t2 x y b,
   |- x! = t1 -->
-     (subst_term_formula F (subst_term_term t2 t1 x true) y b -->
+     (subst_term_formula F
+        (subst_term_term t2 t1 x true) y b -->
       subst_term_formula F t2 y b).
 Proof.
   simpl; intros.
