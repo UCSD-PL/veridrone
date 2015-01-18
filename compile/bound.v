@@ -46,11 +46,17 @@ Local Open Scope R_scope.
 
 
 Fixpoint bound  expr s1 s2:= match expr with
-| PlusN x1 x2 =>  (forall fx1 fx2, (((eval_term (fst (bound_term x1)) s1 s2)%R <= (B2R _ _ fx1)%R <= (eval_term (snd (bound_term x1)) s1 s2)%R) /\ ((eval_term (fst (bound_term x2)) s1 s2)<= B2R _ _ fx2 <= (eval_term (snd (bound_term x2)) s1 s2))) -> ((forall ge e te mem val, 
-((eval_expr ge e te mem (clightExpr (PlusN (FloatN fx1) (FloatN fx2))) val)) ->  ((eval_term (fst (bound_term expr)) s1 s2) <= (valToR val) <= (eval_term (snd (bound_term expr)) s1 s2)))))
+| PlusN x1 x2 =>  (forall fx1 fx2, (((eval_term (fst (bound_term x1)) s1 s2)%R <= (B2R _ _ fx1)%R <= 
+(eval_term (snd (bound_term x1)) s1 s2)%R) /\ ((eval_term (fst (bound_term x2)) s1 s2)<= B2R _ _ fx2 <= 
+(eval_term (snd (bound_term x2)) s1 s2))) -> ((forall ge e te mem val, 
+((eval_expr ge e te mem (clightExpr (PlusN (FloatN fx1) (FloatN fx2))) val)) ->  
+((eval_term (fst (bound_term expr)) s1 s2) <= (valToR val) <= (eval_term (snd (bound_term expr)) s1 s2)))))
 
-| MultN x1 x2 =>  (forall fx1 fx2, (((eval_term (fst (bound_term x1)) s1 s2)%R <= (B2R _ _ fx1)%R <= (eval_term (snd (bound_term x1)) s1 s2)%R) /\ ((eval_term (fst (bound_term x2)) s1 s2)<= B2R _ _ fx2 <= (eval_term (snd (bound_term x2)) s1 s2))) -> ((forall ge e te mem val, 
-((eval_expr ge e te mem (clightExpr (MultN (FloatN fx1) (FloatN fx2))) val)) ->  ((eval_term (fst (bound_term expr)) s1 s2) <= (valToR val) <= (eval_term (snd (bound_term expr)) s1 s2)))))
+| MultN x1 x2 =>  (forall fx1 fx2, (((eval_term (fst (bound_term x1)) s1 s2)%R <= (B2R _ _ fx1)%R <= 
+(eval_term (snd (bound_term x1)) s1 s2)%R) /\ ((eval_term (fst (bound_term x2)) s1 s2)<= B2R _ _ fx2 <= 
+(eval_term (snd (bound_term x2)) s1 s2))) -> ((forall ge e te mem val, 
+((eval_expr ge e te mem (clightExpr (MultN (FloatN fx1) (FloatN fx2))) val)) ->  
+((eval_term (fst (bound_term expr)) s1 s2) <= (valToR val) <= (eval_term (snd (bound_term expr)) s1 s2)))))
 
 | MinusN x1 x2 =>  (forall fx1 fx2, (((eval_term (fst (bound_term x1)) s1 s2)%R <= (B2R _ _ fx1)%R <= (eval_term (snd (bound_term x1)) s1 s2)%R) /\ ((eval_term (fst (bound_term x2)) s1 s2)<= B2R _ _ fx2 <= (eval_term (snd (bound_term x2)) s1 s2))) -> ((forall ge e te mem val, 
 ((eval_expr ge e te mem (clightExpr (MinusN (FloatN fx1) (FloatN fx2))) val)) ->  ((eval_term (fst (bound_term expr)) s1 s2) <= (valToR val) <= (eval_term (snd (bound_term expr)) s1 s2)))))
