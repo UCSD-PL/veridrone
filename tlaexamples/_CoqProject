@@ -1,4 +1,6 @@
 -R ../Z3-plugin Exploit
 -R ../tla TLA
+-R ../coq-ext-lib/theories ExtLib
+-I ../compile
 AbstractIndAccCtrl.v
 OneDimAccShimUtil.v
