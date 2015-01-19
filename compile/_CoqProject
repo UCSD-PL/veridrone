@@ -1,6 +1,4 @@
 -R ./clight-plugin/src clight_degen
--R ../temporallanguage TempLang
--R ../seqlang SeqLang
 -R ../tla TLA
 -R ./compcert/common compcert.common
 -R ./compcert/cfrontend compcert.cfrontend
@@ -8,3 +6,4 @@
 -R ./compcert/flocq/Appli compcert.flocq.Appli
 -R ../coq-ext-lib/theories ExtLib
 -R ../Z3-plugin Exploit
+Compile2.v

@@ -8,6 +8,7 @@ Require Import TLA.ArithFacts.
 Require Import TLA.Substitution.
 Require Import AbstractIndAccCtrl.
 Require Import OneDimAccShimUtil.
+Require Import Compile2.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 
@@ -32,17 +33,18 @@ Open Scope string_scope.
 Module Params <: UtilParams.
 
   (* The upper bound *)
-  Parameter ub : R.
+  Parameter ub : Floats.float.
+
   (* The positive delay of the controller *)
-  Parameter d : R.
+  Parameter d : Floats.float.
   Parameter Hd : (d > 0)%R.
 
   (* The minimum possible acceleration *)
-  Parameter amin : R.
+  Parameter amin : Floats.float.
   Parameter Hamin : (amin < 0)%R.
 
   (* The maximum possible acceleration *)
-  Parameter amax : R.
+  Parameter amax : Floats.float.
   Parameter Hamax : (amax > 0)%R.
 
 End Params.
@@ -57,8 +59,9 @@ Import Util.
 Module System.
 
   (* Read sensors and the current time *)
-  Definition Read : Formula :=
-    "T"! = "t" /\ "H"! = "h" /\ "V"! = "v".
+  Definition Read : progr :=
+    ([PIF [FTRUE]
+      PTHEN ["T" !!= "t", "H" !!= "h", "V" !!= "v"]])%SL.
 
   (* The continuous dynamics of the system *)
   Definition Evolve : Formula :=
@@ -72,14 +75,14 @@ Module System.
 
   (* Specialize the control Term to this
      system's parameters *)
-  Definition CtrlTermUB :=
-    CtrlTermUB "H" "V" amax amax.
+  Definition CtrlTermUB_src :=
+    CtrlTermUB_src "H" "V" amax amax.
 
   (* The controller *)
-  Definition Ctrl : Formula :=
-       (CtrlTermUB d d /\ CtrlTermUB 0 d /\
-        "A" <= amax /\ "a"! = "A")
-    \/ ("a"! = amin).
+  Definition Ctrl : progr :=
+    ([PIF [CtrlTermUB_src d d, CtrlTermUB_src 0 d,
+           "A" <= amax] PTHEN ["a" !!= "A"],
+      PIF [FTRUE] PTHEN ["a" !!= amin]])%SL.
 
   (* The transition formula for the whole system *)
   Definition Next : Formula :=
@@ -106,7 +109,7 @@ Import System.
    abstract controller, which is what the
    following module does. *)
 Module InvParams <: InvParameters.
-  Definition d := d.
+  Definition d := FloatToR d.
   Definition Hd := Hd.
   (* Formula expressing the inductive
      safety condition for this controller *)
@@ -170,14 +173,16 @@ Proof.
   pose proof Hamin.
   simpl; unfold eval_comp; simpl; intros.
   decompose [and] H1. clear H1 H5.
-  generalize dependent (hd tr "t" - hd tr "T")%R.
-  intros. unfold amininv in *.
-  destruct (Rle_dec R0 (hd tr "v"))%R;
+(*  generalize dependent (Semantics.hd tr "t" -
+                        Semantics.hd tr "T")%R.
+  intros r. unfold amininv in *.*)
+  destruct (Rle_dec R0 (Semantics.hd tr "v"))%R;
     solve_linear.
-  match goal with
+  eapply Rle_trans; eauto.
+(*  match goal with
     | [ _ : Rle ?r ub |- _ ]
       => apply Rle_trans with (r2:=r); auto
-  end.
+  end.*)
   rewrite <- Rplus_0_r at 1.
   apply Rplus_le_compat_l.
   apply Rmult_0_le; solve_linear.
@@ -224,7 +229,8 @@ Proof.
                      rewrite H
                  end; intros;
           try solve [ destruct (Rle_dec 0
-                         (hd tr "v"*d+/2*amax*(d*(d*1))))%R;
+                         (Semantics.hd tr "v"*d+
+                          /2*amax*(d*(d*1))))%R;
                       [left; apply Rplus_le_compat_l;
                        apply (tdist_incr "v" "v" "A"
                                          amax x d);
@@ -233,7 +239,8 @@ Proof.
                        apply (tdist_neg "v" "v" "A" amax x d);
                        solve_linear ] |
                       destruct (Rle_dec 0
-                         (hd tr "v"*d+/2*amax*(d*(d*1))))%R;
+                         (Semantics.hd tr "v"*d+
+                          /2*amax*(d*(d*1))))%R;
                       [left; apply Rplus_le_compat_l;
                        apply (tdist_incr "v" "v" amin
                                          amax x d);
@@ -245,11 +252,55 @@ Proof.
                       apply Rplus_le_compat_l;
                         apply Rmult_le_compat_3pos1;
                         solve_linear ].
+          - assert (0 <= Semantics.hd tr "v")%R.
+            + eapply Rle_trans; eauto.
+              solve_nonlinear.
+            + intuition.
+              unfold amininv in *.
+              eapply Rle_trans; eauto.
+              R_simplify; solve_linear.
+          - destruct (Rle_dec R0 (Semantics.hd tr "v")).
+            + intuition.
+              unfold amininv in *.
+              eapply Rle_trans; eauto.
+              apply Rplus_le_compat_l.
+              apply sdist_tdist
+              with (v:="v") (t:=x) (tr:=tr).
+            + assert (Semantics.hd tr "v" < 0)%R
+                by solve_linear.
+              intuition.
+              eapply Rle_trans; eauto.
+              pose proof (tdist_vel_neg "v" amin x tr).
+              simpl in *; unfold eval_comp in *;
+              simpl in *; solve_linear.
+          - assert (0 <= Semantics.hd tr "v")%R.
+            + eapply Rle_trans; eauto.
+              solve_nonlinear.
+            + intuition.
+              unfold amininv in *.
+              eapply Rle_trans; eauto.
+              R_simplify; solve_linear.
+          - destruct (Rle_dec R0 (Semantics.hd tr "v")).
+            + intuition.
+              unfold amininv in *.
+              eapply Rle_trans; eauto.
+              apply Rplus_le_compat_l.
+              apply sdist_tdist
+              with (v:="v") (t:=x) (tr:=tr).
+            + assert (Semantics.hd tr "v" < 0)%R
+                by solve_linear.
+              intuition.
+              eapply Rle_trans; eauto.
+              pose proof (tdist_vel_neg "v" amin x tr).
+              simpl in *; unfold eval_comp in *;
+              simpl in *; solve_linear.
           - clear H9.
-            assert (0 <= hd tr "V" + amax*d + amax*x)%R.
+            assert (0 <= Semantics.hd tr "V" +
+                         amax*d + amax*x)%R.
             + eapply Rle_trans; eauto.
               eapply Rplus_rewrite_l; eauto.
-              solve_linear.
+              repeat apply Rplus_le_compat_l.
+              apply Rmult_le_compat_3pos1; solve_linear.
             + pose proof (CtrlTerm_incr x tr).
               assert (amax >= 0)%R by solve_linear.
               simpl in *; unfold eval_comp in *;
@@ -282,15 +333,17 @@ Proof.
                       repeat apply Rplus_le_compat_l.
                     solve_linear. }
           - clear H9.
-            destruct (Rlt_dec (hd tr "v") R0);
+            destruct (Rlt_dec (Semantics.hd tr "v") R0);
             intuition.
             + eapply Rle_trans; eauto.
               rewrite <- Rplus_0_r.
               apply Rplus_le_compat_l.
               apply (tdist_vel_neg "v" "A" x);
                 solve_linear.
-            + assert (0 <= hd tr "V" + amax*d + amax*x)%R.
-              * apply Rle_trans with (r2:=hd tr "v");
+            + assert (0 <= Semantics.hd tr "V" +
+                           amax*d + amax*x)%R.
+              * apply Rle_trans
+                with (r2:=Semantics.hd tr "v");
                 solve_linear.
                 eapply Rle_trans; eauto.
                 apply Rplus_le_r.
@@ -324,7 +377,8 @@ Proof.
                     unfold amininv. rewrite Rminus_0_l.
                     solve_linear. }
           - clear H2.
-            assert (0 <= hd tr "V" + amax*d + amax*x)%R.
+            assert (0 <= Semantics.hd tr "V" +
+                         amax*d + amax*x)%R.
             + eapply Rle_trans; eauto.
               eapply Rplus_rewrite_l; eauto.
               solve_linear.
@@ -351,15 +405,17 @@ Proof.
               simpl in *; unfold eval_comp in *;
               simpl in *. repeat rewrite Rplus_assoc in *.
               apply Htsdist; solve_linear.
-          - destruct (Rlt_dec (hd tr "v") R0);
+          - destruct (Rlt_dec (Semantics.hd tr "v") R0);
             intuition.
             + eapply Rle_trans; eauto.
               rewrite <- Rplus_0_r.
               apply Rplus_le_compat_l.
               apply (tdist_vel_neg "v" "A" x);
                 solve_linear.
-            + assert (0 <= hd tr "V" + amax*d + amax*x)%R.
-              * apply Rle_trans with (r2:=hd tr "v");
+            + assert (0 <= Semantics.hd tr "V" +
+                           amax*d + amax*x)%R.
+              * apply Rle_trans
+                with (r2:=Semantics.hd tr "v");
                 solve_linear.
                 eapply Rle_trans; eauto.
                 apply Rplus_le_r.
@@ -401,46 +457,7 @@ Proof.
                         apply pow_0_le.
                       * rewrite Rminus_0_l.
                         solve_linear. }
-          - assert (0 <= hd tr "v")%R.
-            + eapply Rle_trans; eauto.
-              solve_nonlinear.
-            + intuition.
-              unfold amininv in *.
-              eapply Rle_trans; eauto.
-              R_simplify; solve_linear.
-          - destruct (Rle_dec R0 (hd tr "v")).
-            + intuition.
-              unfold amininv in *.
-              eapply Rle_trans; eauto.
-              apply Rplus_le_compat_l.
-              apply sdist_tdist
-              with (v:="v") (t:=x) (tr:=tr).
-            + assert (hd tr "v" < 0)%R by solve_linear.
-              intuition.
-              eapply Rle_trans; eauto.
-              pose proof (tdist_vel_neg "v" amin x tr).
-              simpl in *; unfold eval_comp in *;
-              simpl in *; solve_linear.
-          - assert (0 <= hd tr "v")%R.
-            + eapply Rle_trans; eauto.
-              solve_nonlinear.
-            + intuition.
-              unfold amininv in *.
-              eapply Rle_trans; eauto.
-              R_simplify; solve_linear.
-          - destruct (Rle_dec R0 (hd tr "v")).
-            + intuition.
-              unfold amininv in *.
-              eapply Rle_trans; eauto.
-              apply Rplus_le_compat_l.
-              apply sdist_tdist
-              with (v:="v") (t:=x) (tr:=tr).
-            + assert (hd tr "v" < 0)%R by solve_linear.
-              intuition.
-              eapply Rle_trans; eauto.
-              pose proof (tdist_vel_neg "v" amin x tr).
-              simpl in *; unfold eval_comp in *;
-              simpl in *; solve_linear. }
+        }
       * solve_linear.
 Qed.
 

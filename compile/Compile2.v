@@ -28,8 +28,10 @@ Locate mkprogram.
 Inductive NowTerm : Type :=
 | VarNowN : Var -> NowTerm
 | NatN : nat -> NowTerm
+| NatInvN : nat -> NowTerm
 (*| RealN : Rdefinitions.R -> NowTerm*)
 | FloatN : Floats.float -> NowTerm
+| FloatInvN : Floats.float -> NowTerm
 | PlusN : NowTerm -> NowTerm -> NowTerm
 | MinusN : NowTerm -> NowTerm -> NowTerm
 | MultN : NowTerm -> NowTerm -> NowTerm.
@@ -41,9 +43,19 @@ Notation "f $ x" := (app f x) (at level 99, right associativity).
 (* peeled from Syntax.v *)
 Infix "+" := (PlusN) : SrcLang_scope.
 Infix "-" := (MinusN) : SrcLang_scope.
-Notation "-- x" := (MinusN (FloatN 0) x)
+Notation "-- x" := (MinusN (NatN 0) x)
                      (at level 0) : SrcLang_scope.
+Notation "/ f" := (FloatInvN f) : SrcLang_scope.
 Infix "*" := (MultN) : SrcLang_scope.
+Definition NatC (n:nat) : NowTerm :=
+  NatN n.
+Coercion NatC : nat >-> NowTerm.
+Definition FloatC (f:Floats.float) : NowTerm :=
+  FloatN f.
+Coercion FloatC : Floats.float >-> NowTerm.
+Definition VarC (x:String.string) : NowTerm :=
+  VarNowN x.
+Coercion VarC : String.string >-> NowTerm.
 
 (* convenient coercions between number formats *)
 Definition nat_to_int (n : nat) : int :=
@@ -52,13 +64,16 @@ Definition nat_to_int (n : nat) : int :=
 Definition nat_to_float (n : nat) : Floats.float :=
   Floats.Float.of_int $ nat_to_int n.
 
+Definition FloatToR : Floats.float -> R := B2R 53 1024.
+
 Coercion nat_to_int : nat >-> int.
 Coercion nat_to_float : nat >-> Floats.float.
 Coercion Pos.of_nat : nat >-> positive.
+Coercion FloatToR : Floats.float >-> R.
 
 Fixpoint pow (t : NowTerm) (n : nat) :=
   match n with
-  | O => FloatN 1
+  | O => NatN 1
   | S n => MultN t (pow t n)
   end.
 Notation "t ^^ n" := (pow t n) (at level 10) : SrcLang_scope.
@@ -69,7 +84,9 @@ Fixpoint denowify (nt : NowTerm) : Term :=
   match nt with
     | VarNowN v => VarNowT v
     | NatN n => NatT n
-    | FloatN f => RealT $ B2R _ _ f
+    | NatInvN n => RealT (/Raxioms.INR n)%R
+    | FloatN f => RealT $ f
+    | FloatInvN f => RealT $ (/f)%R
     | PlusN t1 t2 => PlusT (denowify t1) (denowify t2)
     | MinusN t1 t2 => MinusT (denowify t1) (denowify t2)
     | MultN t1 t2 => MultT (denowify t1) (denowify t2)
@@ -180,6 +197,9 @@ Definition progr_to_tla (pr : progr) : Formula :=
   let disjuncts :=
       List.map progr_stmt_to_tla pr in
   self_foldr Or disjuncts FALSE.
+
+Coercion denowify : NowTerm >-> Term.
+Coercion progr_to_tla : progr >-> Formula.
 
 Require Import compcert.lib.Integers.
 
@@ -292,8 +312,14 @@ Fixpoint nowTerm_to_clight (nt : NowTerm) : VMS expr :=
       ret $ Evar idx c_float
     | NatN n =>
       ret $ Econst_float (nat_to_float n) c_float
+    | NatInvN n =>
+      ret $ Ebinop Odiv (Econst_float 1 c_float)
+          (Econst_float n c_float) c_float
     | FloatN f =>
       ret $ Econst_float f c_float
+    | FloatInvN f =>
+      ret $ Ebinop Odiv (Econst_float 1 c_float)
+          (Econst_float f c_float) c_float
     | PlusN nt1 nt2 =>
       clnt1 <- nowTerm_to_clight nt1;;
       clnt2 <- nowTerm_to_clight nt2;;
