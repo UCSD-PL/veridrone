@@ -7,11 +7,11 @@
 #
 # Arguments:
 # $1: extracted ML file to load
-# $2: name of pair, in ML code, containing
-#     -_compiled_ AST, in ML code (should usually be same name as in Coq)
-#     - variable mapping created while compiling that AST
+# $2: name of variable, in ML code, containing
+#     _compiled_ AST, in ML code (should usually be same name as in Coq)
+# $3: variable mapping created while compiling that AST
 #     (try using prepare_pretty_print to get this)
-# $3: name of file to output c code into
+# $4: name of file to output c code into
 #
 
 echo "Please read this script, be sure you understand what it does"

@@ -357,6 +357,95 @@ Definition progr_stmt_to_clight (ps : progr_stmt) : VMS statement :=
       ret $ Sifthenelse if_condition if_body Sskip
   end.  
 
+(* Allows user to specify extra code to add to "wrap" the source-language program.
+   Currently it is the user's responsibility to ensure that the strings passed in correspond
+   to actual variable and function names. In the future we will be smarter *)
+Record wrapspec :=
+  {
+    (* Names of functions to insert calls to before inserting generated code *)
+    prespec : list String.string;
+    (* List of (variable-name, function-name) pairs.
+       Ensure function-name is excecuted once, with result assigned into variable-name
+       Before variable-name is first read. Variable name is passed by value
+       (Using address-of)*)
+    inspec : list (String.string * String.string);
+    (* List of (variable-name, function-name) pairs.
+       Ensure function-name is executed once, with variable-name as argument,
+       After variable-name is last written. *)
+    outspec : list (String.string * String.string);
+    (* Names of functions to insert calls to after inserting generated code *)
+    postspec : list String.string
+  }.
+
+Check lookup_or_add.
+
+(* pretty printer gets calling convention backwards?
+   we need to say we support varargs in order to have pretty printer not say (...) *)
+Definition default_cc :=
+  {| AST.cc_vararg := true; AST.cc_structret := false|}.
+
+(* TODO we need to make these functions external or something. *)
+(* Call a function with no arguments that returns a double *)
+Definition simple_fun_call (funid : AST.ident) : statement :=
+  Scall None (Evar funid (Tfunction Tnil c_float default_cc)) nil.
+
+(* Call a function with a single double argument that returns a double *)
+Definition simple_fun_call_arg (funid : AST.ident) (argid : AST.ident) : statement :=
+  let tlist := Tcons c_float Tnil in
+  Scall None (Evar funid (Tfunction tlist c_float default_cc))
+        [(Evar argid c_float)].
+
+(* Call a function with a single argument that is the address of a double to
+   write the return value into (pass-by-reference) *)
+(* should variable be volatile? maybe change attrs... *)
+(* also is the type of Eaddrof pointer type or pointed-to type? *)
+Definition simple_fun_call_byref (funid : AST.ident) (outid : AST.ident) : statement :=
+  let tlist := Tcons (Tpointer c_float noattr) Tnil in
+  Scall None (Evar funid (Tfunction tlist c_float default_cc))
+        [(Eaddrof (Evar outid c_float) c_float)].        
+
+(* Utility functions for processing wrapspecs *)
+(* TODO these still assume all variables are floats; this will eventually need
+   to change... *)
+Definition process_prespec (ps : list String.string) : VMS (list statement) :=
+  let process_prespec_item (pi : String.string) : VMS statement :=
+     piv <- lookup_or_add pi;;
+     ret $ simple_fun_call piv
+  in
+  sequence $ map process_prespec_item ps.
+
+(* This generates a temp variable we have to deal with.
+   Hopefully we won't have weird naming/numbering conflicts with our normal variables... *)
+Definition process_inspec (is : list (String.string * String.string)) : VMS (list statement) :=
+  let process_inspec_item (ii : String.string * String.string) : VMS statement :=
+      varid <- lookup_or_add (fst ii);;
+      funid <- lookup_or_add (snd ii);;
+      ret $ simple_fun_call_byref funid varid
+  in
+  sequence $ map process_inspec_item is.
+
+Definition process_outspec (os : list (String.string * String.string)) : VMS (list statement) :=
+  let process_outspec_item (oi : String.string * String.string) : VMS statement :=
+      varid <- lookup_or_add (fst oi);;
+      funid <- lookup_or_add (snd oi);;
+      ret $ simple_fun_call_arg funid varid
+  in
+  sequence $ map process_outspec_item os.
+
+Definition process_postspec (ps : list String.string) : VMS (list statement) :=
+  let process_postspec_item (pi : String.string) : VMS statement :=
+     piv <- lookup_or_add pi;;
+     ret $ simple_fun_call piv
+  in
+  sequence $ map process_postspec_item ps.
+ 
+Definition process_wrapspec (ws : wrapspec) : VMS (list statement * list statement) :=
+  pre_sts  <- process_prespec  $ prespec ws;;
+  in_sts   <- process_inspec   $ inspec ws;;
+  out_sts  <- process_outspec  $ outspec ws;;
+  post_sts <- process_postspec $ postspec ws;;
+  ret $ (List.app pre_sts in_sts, List.app out_sts post_sts).
+   
 (* needed for correctly packing into the function record *)
 (* for now we cheat because all our variables are floats. In the long run we
    may not be able to get away with this and may need to start including types
@@ -375,23 +464,19 @@ Definition ltail {A : Type} (l : list A) : list A :=
     | _ :: t => t
   end.
 
-(* almost there - first, define a helper function that computes the program
+(* almost there - first, helper function that computes the program
    within the state monad *)
-
-(* pretty printer gets calling convention backwards?
-   we need to say we support varargs in order to have pretty printer not say (...) *)
-Definition default_cc :=
-  {| AST.cc_vararg := true; AST.cc_structret := false|}.
-
-Definition progr_to_clight' (pr : progr) : VMS program :=
-  prog_stmts <- sequence $ map progr_stmt_to_clight pr;;
+Definition progr_to_clight' (pr : progr) (ws : wrapspec) : VMS program :=
+  wrap_res <- process_wrapspec ws;;
+  let (pre_wrap, post_wrap) := wrap_res in
+  our_stmts <- sequence $ map progr_stmt_to_clight pr;;
+  let prog_stmts := List.app pre_wrap $ List.app our_stmts post_wrap in
   vm <- get;;
   let prog_body := self_foldr Ssequence prog_stmts Sskip in
   (* now we need to pack the program structure appropriately *)
   let funrec :=
       {| (* no return now; that may change *)
          fn_return := Tvoid;
-
          fn_callconv := default_cc;
          (* no params right now; that may change *)
          fn_params := nil;
@@ -410,8 +495,8 @@ Definition progr_to_clight' (pr : progr) : VMS program :=
 (* Beginning var-map; includes main function *)
 Definition init_state := ["main"].
 
-Definition progr_to_clight (pr : progr) : (program) :=
-  let pVMS := progr_to_clight' pr in
+Definition progr_to_clight (pr : progr) (ws : wrapspec) : (program) :=
+  let pVMS := progr_to_clight' pr ws in
   evalState pVMS init_state.
 
 (* Pretty-printing adapter utilities below *)
@@ -441,16 +526,30 @@ Definition convert_var_list (l : list Var) : list (positive * (list nat)) :=
   convert_var_list' l 1%positive.
 
 (* Emit program and converted version of its var list *)
-Definition prepare_pretty_print (pr : progr) : (program * list (positive * list nat)) :=
-  let (prog, vars) := runState (progr_to_clight' pr) init_state in
+Definition prepare_pretty_print (pr : progr) (ws : wrapspec) : (program * list (positive * list nat)) :=
+  let (prog, vars) := runState (progr_to_clight' pr ws) init_state in
   (prog, convert_var_list vars).
+
+Check bigstep_program_diverges.
 
 (* You have to unpack and repack because I have no idea how to unpack Coq pairs in Ocaml >:( *)
 (*Definition cfst := @fst (positive * list nat).
 Definition csnd := @snd (positive * list nat).*)
+Locate bigstep_program_terminates.
+Definition height_wrapspec : wrapspec :=
+{|
+  prespec := ["compute_outputs_armed"];
+  inspec := [("A", "get_acceleration"); ("H", "get_altitude"); ("V", "get_vertical_vel")];
+  outspec := [("A", "update_motor_values")];
+  postspec := ["write_outputs"]
+|}.
 
-Definition ex_derp_prog := fst (prepare_pretty_print derp).
-Definition ex_derp_vars := snd (prepare_pretty_print derp).
+Eval compute in (runState (process_wrapspec height_wrapspec) nil).
+
+Definition pp_derp := prepare_pretty_print derp height_wrapspec.
+Definition ex_derp_prog := fst pp_derp.
+Definition ex_derp_vars := snd pp_derp.
+Eval compute in ex_derp_vars.
 Definition coqmap := map.
 (* Package everything upto extract it all at once *)
 Definition extract_derp := (ex_derp_prog, ex_derp_vars, coqmap).
