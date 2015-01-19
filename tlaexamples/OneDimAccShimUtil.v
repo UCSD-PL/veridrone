@@ -3,28 +3,35 @@ Require Import TLA.Semantics.
 Require Import TLA.Tactics.
 Require Import TLA.ArithFacts.
 Require Import AbstractIndAccCtrl.
+Require Import Compile2.
+Require Import compcert.flocq.Appli.Fappli_IEEE.
 Require Import Rdefinitions.
 Require Import RIneq.
 
-Open Scope HP_scope.
-
 Module Type UtilParams.
 
-  Parameter amin : R.
+  Parameter amin : Floats.float.
   Parameter Hamin : (amin < 0)%R.
 
-  Parameter ub : R.
-  Parameter d : R.
+  Parameter ub : Floats.float.
+  Parameter d : Floats.float.
   Parameter Hd : (d > 0)%R.
 
 End UtilParams.
 
 Module Util (Import Params : UtilParams).
 
-  Definition amininv : R := (/amin)%R.
+  Definition amininv : NowTerm := (/amin)%SL.
+
+  Definition sdist_src (v:NowTerm) : NowTerm :=
+    (v^^2*(NatInvN 2)*(--amininv))%SL.
 
   Definition sdist (v:Term) : Term :=
     v^^2*(/2)%R*(--amininv).
+
+  Definition tdist_src (v:NowTerm) (a:NowTerm) (t:NowTerm)
+    : NowTerm :=
+    (v*t + (NatInvN 2)%R*a*t^^2)%SL.
 
   Lemma tdist_sdist_incr : forall v1 v2 a1 a2 d1 d2,
     |- v1 <= v2 --> a1 <= a2 --> d1 <= d2 -->
@@ -44,7 +51,8 @@ Module Util (Import Params : UtilParams).
                => generalize dependent (eval_term t s1 s2)
            end; intros.
     apply Rplus_le_algebra.
-    apply Rmult_neg_le_algebra with (r2:=amin); auto.
+    apply Rmult_neg_le_algebra with (r2:=amin);
+      unfold FloatToR in *; auto.
     apply Rmult_pos_ge_algebra with (r2:=2%R); solve_linear.
     R_simplify; simpl; solve_linear.
     solve_nonlinear.
@@ -60,7 +68,6 @@ Module Util (Import Params : UtilParams).
     apply Rmult_le_compat; solve_linear.
     - apply Rmult_0_le; solve_linear.
       apply pow_0_le.
-
     - rewrite <- Rplus_0_r at 1.
       apply Rplus_le_compat_l.
       solve_linear.
@@ -76,11 +83,22 @@ Module Util (Import Params : UtilParams).
     simpl; unfold eval_comp; simpl;
     unfold amininv; intros.
     apply Rplus_le_algebra.
-    apply Rmult_neg_le_algebra with (r2:=amin); auto.
+    apply Rmult_neg_le_algebra with (r2:=amin);
+      unfold FloatToR in *; auto.
     apply Rmult_pos_ge_algebra with (r2:=2%R); solve_linear.
     R_simplify; solve_linear.
     solve_nonlinear.
   Qed.
+
+  Definition CtrlTerm_src (H V a1 a2 t1 t2:NowTerm)
+    : NowTerm :=
+    (H + tdist_src V a1 t1 +
+     tdist_src (V + a1*d) a2 t2 +
+     sdist_src (V + a1*d + a2*t2))%SL.
+
+  Definition CtrlTermUB_src (H V a1 a2 t1 t2:NowTerm)
+    : FlatFormula :=
+    (CtrlTerm_src H V a1 a2 t1 t2 <= ub)%SL.
 
   Definition CtrlTerm (H V:Term) (a1 a2:Term) (t1 t2:R)
     : Term :=
@@ -99,7 +117,7 @@ Module Util (Import Params : UtilParams).
   Proof.
     pose proof Hd. pose proof Hamin.
     simpl; unfold eval_comp; simpl;
-    unfold amininv. intros.
+    unfold amininv, FloatToR in *. intros.
     repeat rewrite Rplus_assoc.
     apply Rplus_le_compat_l.
     R_simplify; solve_linear.
@@ -198,16 +216,22 @@ Lemma tdist_bound : forall v a t1 t2,
       tdist v a t1 <= 0).
 Proof.
   simpl; unfold eval_comp; simpl; intros.
-  destruct (Rle_dec 0 (eval_term a (hd tr) (hd (tl tr)))).
+  destruct (Rle_dec 0 (eval_term a (Semantics.hd tr)
+                                 (Semantics.hd
+                                    (Semantics.tl tr)))).
   - destruct (Rle_dec 0 (eval_term (tdist v a t2)
-                                   (hd tr) (hd (tl tr))));
+                                   (Semantics.hd tr)
+                                   (Semantics.hd
+                                      (Semantics.tl tr))));
     simpl in *.
     + left; apply (tdist_incr v v a a t1 t2);
       solve_linear.
     + right; right;
       apply (tdist_neg v v a a t1 t2);
       solve_linear.
-  - destruct (Rle_dec 0 (eval_term v (hd tr) (hd (tl tr)))).
+  - destruct (Rle_dec 0 (eval_term v (Semantics.hd tr)
+                                   (Semantics.hd
+                                      (Semantics.tl tr)))).
     + right; left;
       apply Rplus_le_compat; solve_linear.
       R_simplify; simpl.
