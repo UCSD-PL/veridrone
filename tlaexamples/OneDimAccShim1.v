@@ -60,7 +60,7 @@ Module System.
 
   (* Read sensors and the current time *)
   Definition Read : progr :=
-    ([PIF [FTRUE]
+    ([PIF FTRUE
       PTHEN ["T" !!= "t", "H" !!= "h", "V" !!= "v"]])%SL.
 
   (* The continuous dynamics of the system *)
@@ -80,9 +80,9 @@ Module System.
 
   (* The controller *)
   Definition Ctrl : progr :=
-    ([PIF [CtrlTermUB_src d d, CtrlTermUB_src 0 d,
-           "A" <= amax] PTHEN ["a" !!= "A"],
-      PIF [FTRUE] PTHEN ["a" !!= amin]])%SL.
+    ([PIF CtrlTermUB_src d d /\ CtrlTermUB_src 0 d /\
+           "A" <= amax PTHEN ["a" !!= "A"],
+      PIF FTRUE PTHEN ["a" !!= amin]])%SL.
 
   (* The transition formula for the whole system *)
   Definition Next : Formula :=
@@ -109,7 +109,7 @@ Import System.
    abstract controller, which is what the
    following module does. *)
 Module InvParams <: InvParameters.
-  Definition d := FloatToR d.
+  Definition d : R := d.
   Definition Hd := Hd.
   (* Formula expressing the inductive
      safety condition for this controller *)
@@ -173,16 +173,9 @@ Proof.
   pose proof Hamin.
   simpl; unfold eval_comp; simpl; intros.
   decompose [and] H1. clear H1 H5.
-(*  generalize dependent (Semantics.hd tr "t" -
-                        Semantics.hd tr "T")%R.
-  intros r. unfold amininv in *.*)
   destruct (Rle_dec R0 (Semantics.hd tr "v"))%R;
     solve_linear.
   eapply Rle_trans; eauto.
-(*  match goal with
-    | [ _ : Rle ?r ub |- _ ]
-      => apply Rle_trans with (r2:=r); auto
-  end.*)
   rewrite <- Rplus_0_r at 1.
   apply Rplus_le_compat_l.
   apply Rmult_0_le; solve_linear.
@@ -294,7 +287,7 @@ Proof.
               pose proof (tdist_vel_neg "v" amin x tr).
               simpl in *; unfold eval_comp in *;
               simpl in *; solve_linear.
-          - clear H9.
+          - clear H2.
             assert (0 <= Semantics.hd tr "V" +
                          amax*d + amax*x)%R.
             + eapply Rle_trans; eauto.
@@ -332,7 +325,7 @@ Proof.
                     repeat rewrite Rplus_assoc;
                       repeat apply Rplus_le_compat_l.
                     solve_linear. }
-          - clear H9.
+          - clear H2.
             destruct (Rlt_dec (Semantics.hd tr "v") R0);
             intuition.
             + eapply Rle_trans; eauto.
@@ -376,7 +369,7 @@ Proof.
                   - repeat apply Rmult_0_le; solve_linear.
                     unfold amininv. rewrite Rminus_0_l.
                     solve_linear. }
-          - clear H2.
+          - clear H9.
             assert (0 <= Semantics.hd tr "V" +
                          amax*d + amax*x)%R.
             + eapply Rle_trans; eauto.

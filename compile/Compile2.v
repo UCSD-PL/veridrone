@@ -97,7 +97,9 @@ Fixpoint denowify (nt : NowTerm) : Term :=
 Inductive FlatFormula :=
 | FTRUE : FlatFormula
 | FFALSE : FlatFormula
-| FComp : NowTerm -> NowTerm -> CompOp -> FlatFormula.
+| FComp : NowTerm -> NowTerm -> CompOp -> FlatFormula
+| FAnd : FlatFormula -> FlatFormula -> FlatFormula
+| FOr : FlatFormula -> FlatFormula -> FlatFormula.
 
 (* Comparisons *)
 Notation "t1 > t2" := (FComp t1 t2 Gt) : SrcLang_scope.
@@ -108,6 +110,10 @@ Notation "t1 = t2" := (FComp t1 t2 Eq) : SrcLang_scope.
 Notation "x <= y <= z" :=
   (And (FComp x y Le) (FComp y z Le)) : SrcLang_scope.
 
+(* Propositional Logic *)
+Infix "/\" := (FAnd) : SrcLang_scope.
+Infix "\/" := (FOr) : SrcLang_scope.
+
 (* Convert a formula to a flat one *)
 (*Definition flatten_formula (tla : Formula) : option FlatFormula :=
   match tla with
@@ -117,11 +123,15 @@ Notation "x <= y <= z" :=
     | _ => None
   end.*)
 
-Definition deflatten_formula (ff : FlatFormula) : Formula :=
+Fixpoint deflatten_formula (ff : FlatFormula) : Formula :=
   match ff with
     | FTRUE => TRUE
     | FFALSE => FALSE
     | FComp a b c => Comp (denowify a) (denowify b) c
+    | FAnd ff1 ff2 => And (deflatten_formula ff1)
+                          (deflatten_formula ff2)
+    | FOr ff1 ff2 => Or (deflatten_formula ff1)
+                        (deflatten_formula ff2)
   end.
 
 (* Captures the structure we want each term in our IR to have
@@ -150,7 +160,7 @@ Record progr_assn : Set :=
 (* for now we omit "unknown" case for simplicity *)
 Record progr_stmt : Set :=
   mk_progr_stmt {
-      ps_conds : list FlatFormula;
+      ps_conds : FlatFormula;
       ps_assns : list progr_assn
     }.
 
@@ -163,7 +173,7 @@ Notation "'PIF' cs 'PTHEN' yas" :=
 Notation "'PIF' cs 'PTHEN' yas 'PUNKNOWN' unas" := 
   (mk_progr_stmt cs yas unas) (at level 59).
 *)
-Check (PIF nil PTHEN nil).
+Check (PIF FTRUE PTHEN nil).
 
 Definition progr : Set := list progr_stmt.
 
@@ -185,11 +195,14 @@ Definition progr_stmt_to_tla (ps : progr_stmt) : Formula :=
     | mk_progr_stmt conds assns =>
       let convert_assn (assn : progr_assn) :=
           match assn with
-            | mk_progr_assn var term => Comp (VarNextT var) (denowify term) Eq
+            | mk_progr_assn var term => Comp (VarNextT var)
+                                             (denowify term)
+                                             Eq
           end
       in
       let conjuncts :=
-          List.app (List.map convert_assn assns) (List.map deflatten_formula conds) in
+          List.app (List.map convert_assn assns)
+                   [(deflatten_formula conds)] in
       self_foldr And conjuncts FALSE
   end.
 
@@ -206,8 +219,8 @@ Require Import compcert.lib.Integers.
 Local Open Scope string_scope.
 
 Definition derp : progr :=
-  ([PIF (FTRUE  ::
-        (NatN 1 = NatN 1) :: nil)
+  ([PIF (FTRUE  /\
+        (NatN 1 = NatN 1))
    PTHEN ["ab" !!= FloatN 1]])%SL.
 
 (* This hides the nastiness of the definition of B2R, but I don't think it's a long term solution
@@ -351,7 +364,7 @@ Definition compOp_to_binop (cmp : CompOp) : binary_operation :=
     | Eq => Oeq
   end.
 
-Definition flatFormula_to_clight (ff : FlatFormula) : VMS expr :=
+Fixpoint flatFormula_to_clight (ff : FlatFormula) : VMS expr :=
   match ff with
     | FTRUE => ret c_true
     | FFALSE => ret c_false
@@ -359,6 +372,14 @@ Definition flatFormula_to_clight (ff : FlatFormula) : VMS expr :=
       clnt1 <- nowTerm_to_clight nt1;;
       clnt2 <- nowTerm_to_clight nt2;;
       ret $ Ebinop (compOp_to_binop cmp) clnt1 clnt2 c_bool
+    | FAnd ff1 ff2 =>
+      f1 <- flatFormula_to_clight ff1;;
+      f2 <- flatFormula_to_clight ff2;;
+      ret $ Ebinop Oand f1 f2 c_bool
+    | FOr ff1 ff2 =>
+      f1 <- flatFormula_to_clight ff1;;
+      f2 <- flatFormula_to_clight ff2;;
+      ret $ Ebinop Oor f1 f2 c_bool
   end.
 
 (* TODO define mapM function. I don't want to take the time right now to figure
@@ -370,13 +391,9 @@ Definition flatFormula_to_clight (ff : FlatFormula) : VMS expr :=
 Definition progr_stmt_to_clight (ps : progr_stmt) : VMS statement :=
   match ps with
     | mk_progr_stmt conds assns =>      
-      let convd_conds := map flatFormula_to_clight conds in
       let convd_assns := map progr_assn_to_clight assns in
-      cconds <- sequence convd_conds;;
+      if_condition <- flatFormula_to_clight conds;;
       cassns <- sequence convd_assns;;
-      let if_condition :=
-          self_foldr (fun l r => Ebinop Oand l r c_bool) cconds c_false
-      in
       let if_body :=
           self_foldr Ssequence cassns Sskip
       in
