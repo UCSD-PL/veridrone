@@ -48,74 +48,73 @@ Import Params.
 
 (* Specialize some useful definitions
    and lemmas to this system. *)
+Module UtilSrc := UtilSrc(Params).
+Import UtilSrc.
 Module Util := Util(Params).
 Import Util.
 
 (* The system specification *)
-Module System.
 
   (* Read sensors and the current time *)
-  Definition Read : progr :=
-    ([PIF FTRUE
-      PTHEN ["T" !!= "t", "H" !!= "h", "V" !!= "v"]])%SL.
+Definition Read : progr :=
+  ([PIF FTRUE
+    PTHEN ["T" !!= "t", "H" !!= "h", "V" !!= "v"]])%SL.
 
-  (* The continuous dynamics of the system *)
-  Definition Evolve : Formula :=
-    Continuous (["h"' ::= "v",
-                 "v"' ::= "a",
-                 "a"' ::= 0,
-                 "t"' ::= 1,
-                 "H"' ::= 0,
-                 "T"' ::= 0,
-                 "V"' ::= 0]).
+(* The continuous dynamics of the system *)
+Definition Evolve : Formula :=
+  Continuous (["h"' ::= "v",
+               "v"' ::= "a",
+               "a"' ::= 0,
+               "t"' ::= 1,
+               "H"' ::= 0,
+               "T"' ::= 0,
+               "V"' ::= 0]).
 
-  (* Specialize the control Term to this
-     system's parameters *)
-  Definition CtrlTermUB_src :=
-    CtrlTermUB_src "H" "V".
+(* Specialize the control Term to this
+   system's parameters *)
+Definition CtrlTermUB_src :=
+  CtrlTermUB_src "H" "V".
 
-  (* The safety check on proposed accelerations *)
-  Definition SafeCtrl : FlatFormula :=
-      (("a" >= 0 /\ tdist_src "V" "a" d >= 0 /\ "A" >= 0 /\
-        CtrlTermUB_src "a" "A" d d)
-    \/ ("a" >= 0 /\ tdist_src "V" "a" d < 0 /\ "A" >= 0 /\
-        CtrlTermUB_src "a" "A" 0 d)
-    \/ ("a" < 0 /\ tdist_src "V" 0 d >= 0 /\ "A" >= 0 /\
-        CtrlTermUB_src 0 "A" d d)
-    \/ ("a" < 0 /\ tdist_src "V" 0 d < 0 /\ "A" >= 0 /\
-        CtrlTermUB_src 0 "A" 0 d)
-    \/ ("a" >= 0 /\ tdist_src "V" "a" d >= 0 /\ "A" < 0 /\
-        CtrlTermUB_src "a" 0 d d)
-    \/ ("a" >= 0 /\ tdist_src "V" "a" d < 0 /\ "A" < 0 /\
-        CtrlTermUB_src "a" 0 0 d)
-    \/ ("a" < 0 /\ tdist_src "V" 0 d >= 0 /\ "A" < 0 /\
-        CtrlTermUB_src 0 0 d d)
-    \/ ("a" < 0 /\ tdist_src "V" 0 d < 0 /\ "A" < 0 /\
-        CtrlTermUB_src 0 0 0 d))%SL.
+(* The safety check on proposed accelerations *)
+Definition SafeCtrl : FlatFormula :=
+     (("a" >= 0 /\ tdist_src "V" "a" d >= 0 /\ "A" >= 0 /\
+       CtrlTermUB_src "a" "A" d d)
+  \/ ("a" >= 0 /\ tdist_src "V" "a" d < 0 /\ "A" >= 0 /\
+      CtrlTermUB_src "a" "A" 0 d)
+  \/ ("a" < 0 /\ tdist_src "V" 0 d >= 0 /\ "A" >= 0 /\
+      CtrlTermUB_src 0 "A" d d)
+  \/ ("a" < 0 /\ tdist_src "V" 0 d < 0 /\ "A" >= 0 /\
+      CtrlTermUB_src 0 "A" 0 d)
+  \/ ("a" >= 0 /\ tdist_src "V" "a" d >= 0 /\ "A" < 0 /\
+      CtrlTermUB_src "a" 0 d d)
+  \/ ("a" >= 0 /\ tdist_src "V" "a" d < 0 /\ "A" < 0 /\
+      CtrlTermUB_src "a" 0 0 d)
+  \/ ("a" < 0 /\ tdist_src "V" 0 d >= 0 /\ "A" < 0 /\
+      CtrlTermUB_src 0 0 d d)
+  \/ ("a" < 0 /\ tdist_src "V" 0 d < 0 /\ "A" < 0 /\
+      CtrlTermUB_src 0 0 0 d))%SL.
 
-  (* The controller *)
-  Definition Ctrl : progr :=
-    ([PIF SafeCtrl PTHEN ["a" !!= "A"],
-      PIF FTRUE PTHEN ["a" !!= amin]])%SL.
+(* The controller *)
+Definition Ctrl : progr :=
+  ([PIF SafeCtrl PTHEN ["a" !!= "A"],
+    PIF FTRUE PTHEN ["a" !!= amin]])%SL.
 
-  (* The transition formula for the whole system *)
-  Definition Next : Formula :=
-       (Evolve /\ "t"! <= "T" + d)
-    \/ (Ctrl /\ Read /\ Unchanged (["h", "v", "t"])).
+(* The transition formula for the whole system *)
+Definition Next : Formula :=
+     (Evolve /\ "t"! <= "T" + d)
+  \/ (Ctrl /\ Read /\ Unchanged (["h", "v", "t"])).
 
-  (* We don't write an initial state predicate here
-     because we're going to use the initial state
-     predicate of the abstract controller of which
-     this will be a refinement. See AbstractCtrl
-     below. *)
+(* We don't write an initial state predicate here
+   because we're going to use the initial state
+   predicate of the abstract controller of which
+   this will be a refinement. See AbstractCtrl
+   below. *)
 
-  (* The safety condition *)
-  Definition Safe : Formula :=
-    "h" <= ub.
+(* The safety condition *)
+Definition Safe : Formula :=
+  "h" <= ub.
 
-End System.
-
-Import System.
+(* End of system specification *)
 
 (* Now we want to prove safety of the system.
    We'll use AbstractIndAccCtrl for this. We

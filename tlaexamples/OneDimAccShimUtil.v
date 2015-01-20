@@ -8,6 +8,10 @@ Require Import compcert.flocq.Appli.Fappli_IEEE.
 Require Import Rdefinitions.
 Require Import RIneq.
 
+(* A bunch of utility functions and lemmas
+   for the height shims. *)
+
+(* Generic parameters of the height shims. *)
 Module Type UtilParams.
 
   Parameter amin : Floats.float.
@@ -19,19 +23,49 @@ Module Type UtilParams.
 
 End UtilParams.
 
-Module Util (Import Params : UtilParams).
+(* Definitions for implementing the height shims
+   in the source language. *)
+Module UtilSrc (Import Params : UtilParams).
 
   Definition amininv : NowTerm := (/amin)%SL.
 
   Definition sdist_src (v:NowTerm) : NowTerm :=
     (v^^2*(NatInvN 2)*(--amininv))%SL.
 
-  Definition sdist (v:Term) : Term :=
-    v^^2*(/2)%R*(--amininv).
-
   Definition tdist_src (v:NowTerm) (a:NowTerm) (t:NowTerm)
     : NowTerm :=
     (v*t + (NatInvN 2)%R*a*t^^2)%SL.
+
+  Definition CtrlTerm_src (H V a1 a2 t1 t2:NowTerm)
+    : NowTerm :=
+    (H + tdist_src V a1 t1 +
+     tdist_src (V + a1*d) a2 t2 +
+     sdist_src (V + a1*d + a2*t2))%SL.
+
+  Definition CtrlTermUB_src (H V a1 a2 t1 t2:NowTerm)
+    : FlatFormula :=
+    (CtrlTerm_src H V a1 a2 t1 t2 <= ub)%SL.
+
+End UtilSrc.
+
+(* Lemmas for reasoning about the height shims
+   in TLA. We need to separate these two modules
+   so that the controller definitions only depend
+   on the UtilSrc module. This allows us to extract
+   the controller definitions without extracting
+   the following modules. This is good because the
+   following module depends on axioms about real
+   numbers, which the extraction mechanism asks
+   us to realize. *)
+Module Util (Import Params : UtilParams).
+
+  (* We need the definition of amininv, so
+     we import it here. *)
+  Module Src := UtilSrc(Params).
+  Import Src.
+
+  Definition sdist (v:Term) : Term :=
+    v^^2*(/2)%R*(--amininv).
 
   Lemma tdist_sdist_incr : forall v1 v2 a1 a2 d1 d2,
     |- v1 <= v2 --> a1 <= a2 --> d1 <= d2 -->
@@ -89,16 +123,6 @@ Module Util (Import Params : UtilParams).
     R_simplify; solve_linear.
     solve_nonlinear.
   Qed.
-
-  Definition CtrlTerm_src (H V a1 a2 t1 t2:NowTerm)
-    : NowTerm :=
-    (H + tdist_src V a1 t1 +
-     tdist_src (V + a1*d) a2 t2 +
-     sdist_src (V + a1*d + a2*t2))%SL.
-
-  Definition CtrlTermUB_src (H V a1 a2 t1 t2:NowTerm)
-    : FlatFormula :=
-    (CtrlTerm_src H V a1 a2 t1 t2 <= ub)%SL.
 
   Definition CtrlTerm (H V:Term) (a1 a2:Term) (t1 t2:R)
     : Term :=

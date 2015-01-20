@@ -52,56 +52,54 @@ Import Params.
 
 (* Specialize some useful definitions
    and lemmas to this system. *)
+Module UtilSrc := UtilSrc(Params).
+Import UtilSrc.
 Module Util := Util(Params).
 Import Util.
 
 (* The system specification *)
-Module System.
+(* Read sensors and the current time *)
+Definition Read : progr :=
+  ([PIF FTRUE
+    PTHEN ["T" !!= "t", "H" !!= "h", "V" !!= "v"]])%SL.
 
-  (* Read sensors and the current time *)
-  Definition Read : progr :=
-    ([PIF FTRUE
-      PTHEN ["T" !!= "t", "H" !!= "h", "V" !!= "v"]])%SL.
+(* The continuous dynamics of the system *)
+Definition Evolve : Formula :=
+  Continuous (["h"' ::= "v",
+               "v"' ::= "a",
+               "a"' ::= 0,
+               "t"' ::= 1,
+               "H"' ::= 0,
+               "T"' ::= 0,
+               "V"' ::= 0]).
 
-  (* The continuous dynamics of the system *)
-  Definition Evolve : Formula :=
-    Continuous (["h"' ::= "v",
-                 "v"' ::= "a",
-                 "a"' ::= 0,
-                 "t"' ::= 1,
-                 "H"' ::= 0,
-                 "T"' ::= 0,
-                 "V"' ::= 0]).
+(* Specialize the control Term to this
+   system's parameters *)
+Definition CtrlTermUB_src :=
+  CtrlTermUB_src "H" "V" amax amax.
 
-  (* Specialize the control Term to this
-     system's parameters *)
-  Definition CtrlTermUB_src :=
-    CtrlTermUB_src "H" "V" amax amax.
+(* The controller *)
+Definition Ctrl : progr :=
+  ([PIF CtrlTermUB_src d d /\ CtrlTermUB_src 0 d /\
+        "A" <= amax PTHEN ["a" !!= "A"],
+    PIF FTRUE PTHEN ["a" !!= amin]])%SL.
 
-  (* The controller *)
-  Definition Ctrl : progr :=
-    ([PIF CtrlTermUB_src d d /\ CtrlTermUB_src 0 d /\
-           "A" <= amax PTHEN ["a" !!= "A"],
-      PIF FTRUE PTHEN ["a" !!= amin]])%SL.
+(* The transition formula for the whole system *)
+Definition Next : Formula :=
+     (Evolve /\ "t"! <= "T" + d)
+  \/ (Ctrl /\ Read /\ Unchanged (["h", "v", "t"])).
 
-  (* The transition formula for the whole system *)
-  Definition Next : Formula :=
-       (Evolve /\ "t"! <= "T" + d)
-    \/ (Ctrl /\ Read /\ Unchanged (["h", "v", "t"])).
+(* We don't write an initial state predicate here
+   because we're going to use the initial state
+   predicate of the abstract controller of which
+   this will be a refinement. See AbstractCtrl
+   below. *)
 
-  (* We don't write an initial state predicate here
-     because we're going to use the initial state
-     predicate of the abstract controller of which
-     this will be a refinement. See AbstractCtrl
-     below. *)
+(* The safety condition *)
+Definition Safe : Formula :=
+  "h" <= ub.
 
-  (* The safety condition *)
-  Definition Safe : Formula :=
-    "h" <= ub.
-
-End System.
-
-Import System.
+(* End of system specification *)
 
 (* Now we want to prove safety of the system.
    We'll use AbstractIndAccCtrl for this. We
