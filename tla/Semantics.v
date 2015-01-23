@@ -1,5 +1,6 @@
 Require Import TLA.Syntax.
 Require Import Coq.Reals.Rdefinitions.
+Require Import Coq.Reals.Rtrigo_def.
 
 (* The semantics of our restricted TLA *)
 
@@ -40,9 +41,14 @@ Fixpoint eval_term (t:Term) (s1 s2:state) : R :=
      | VarNextT x => s2 x
      | NatT n => Raxioms.INR n
      | RealT r => r
-     | PlusT t1 t2 => (eval_term t1 s1 s2) + (eval_term t2 s1 s2)
-     | MinusT t1 t2 => (eval_term t1 s1 s2) - (eval_term t2 s1 s2)
-     | MultT t1 t2 => (eval_term t1 s1 s2) * (eval_term t2 s1 s2)
+     | PlusT t1 t2 =>
+       (eval_term t1 s1 s2) + (eval_term t2 s1 s2)
+     | MinusT t1 t2 =>
+       (eval_term t1 s1 s2) - (eval_term t2 s1 s2)
+     | MultT t1 t2 =>
+       (eval_term t1 s1 s2) * (eval_term t2 s1 s2)
+     | CosT t => cos (eval_term t s1 s2)
+     | SinT t => sin (eval_term t s1 s2)
    end)%R.
 
 (* Semantics of comparison operators *)

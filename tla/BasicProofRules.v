@@ -12,14 +12,18 @@ Open Scope HP_scope.
 (* Puts ! on all variables in a Term *)
 Fixpoint next_term (t:Term) :=
   match t with
+    | NatT n => NatT n
+    | RealT r => RealT r
     | VarNowT x => VarNextT x
+    | VarNextT x => VarNextT x
     | PlusT t1 t2 => PlusT (next_term t1)
                            (next_term t2)
     | MinusT t1 t2 => MinusT (next_term t1)
                              (next_term t2)
     | MultT t1 t2 => MultT (next_term t1)
                            (next_term t2)
-    | _ => t
+    | CosT t => CosT (next_term t)
+    | SinT t => SinT (next_term t)
   end.
 
 (* Puts ! on all variables in a Formula *)
@@ -41,6 +45,9 @@ Fixpoint next (F:Formula) :=
 (* Returns true iff the Term has no ! *)
 Fixpoint is_st_term (t:Term) : bool :=
   match t with
+    | NatT _ => true
+    | RealT _ => true
+    | VarNowT _ => true
     | VarNextT x => false
     | PlusT t1 t2 => andb (is_st_term t1)
                           (is_st_term t2)
@@ -48,7 +55,8 @@ Fixpoint is_st_term (t:Term) : bool :=
                            (is_st_term t2)
     | MultT t1 t2 => andb (is_st_term t1)
                           (is_st_term t2)
-    | _ => true
+    | CosT t => is_st_term t
+    | SinT t => is_st_term t
   end.
 
 (* Prop expressing that the Formula has no
@@ -113,7 +121,7 @@ Proof.
   intros t s1 s2 s3 Hst.
   induction t; auto; simpl in *;
   try discriminate;
-  try (apply andb_prop in Hst; intuition;
+  try (try apply andb_prop in Hst; intuition;
        rewrite H1; rewrite H2; auto).
 Qed.
 
@@ -123,11 +131,14 @@ Lemma next_formula_tl : forall F tr,
    eval_formula F (tl tr)).
 Proof.
   intros F tr Hst; induction F; simpl in *;
-  try tauto; try solve [firstorder].
+  try tauto.
   - unfold eval_comp in *. simpl in *.
     rewrite <- next_term_tl with (s1:=hd tr) (t:=t).
     rewrite <- next_term_tl with (s1:=hd tr) (t:=t0).
     intuition. intuition. intuition.
+  - split; intro He; destruct He as [x ?];
+    exists x; apply H; auto.
+  - split; intros; apply H; auto.
 Qed.
 
 (* And finally the proof rules *)
@@ -147,89 +158,88 @@ Qed.
 
 (* A variety of basic propositional
    and temporal logic proof rules *)
-
 Lemma imp_trans : forall F1 F2 F3,
   (|- F1 --> F2) ->
   (|- F2 --> F3) ->
   (|- F1 --> F3).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma always_imp : forall F1 F2,
   (|- F1 --> F2) ->
   (|- []F1 --> []F2).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma always_and_left : forall F1 F2 F3,
   (|- [](F1 /\ F2) --> F3) ->
   (|- (([]F1) /\ ([]F2)) --> F3).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma and_right : forall F1 F2 F3,
   (|- F1 --> F2) ->
   (|- F1 --> F3) ->
   (|- F1 --> (F2 /\ F3)).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma and_left1 : forall F1 F2 F3,
   (|- F1 --> F3) ->
   (|- (F1 /\ F2) --> F3).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma and_left2 : forall F1 F2 F3,
   (|- F2 --> F3) ->
   (|- (F1 /\ F2) --> F3).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma imp_id : forall F,
   |- F --> F.
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma or_next : forall F1 F2 N1 N2,
   (|- (F1 /\ N1) --> F2) ->
   (|- (F1 /\ N2) --> F2) ->
   (|- (F1 /\ (N1 \/ N2)) --> F2).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma or_left : forall F1 F2 F3,
   (|- F1 --> F3) ->
   (|- F2 --> F3) ->
   (|- (F1 \/ F2) --> F3).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma or_right1 : forall F1 F2 F3,
   (|- F1 --> F2) ->
   (|- F1 --> (F2 \/ F3)).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma or_right2 : forall F1 F2 F3,
   (|- F1 --> F3) ->
   (|- F1 --> (F2 \/ F3)).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma imp_right : forall F1 F2 F3,
   (|- (F1 /\ F2) --> F3) ->
   (|- F1 --> (F2 --> F3)).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma imp_strengthen : forall F1 F2 F3,
   (|- F1 --> F2) ->
   (|- (F1 /\ F2) --> F3) ->
   (|- F1 --> F3).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma and_assoc_left : forall F1 F2 F3 F4,
   (|- (F1 /\ (F2 /\ F3)) --> F4) ->
   (|- ((F1 /\ F2) /\ F3) --> F4).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma and_comm_left : forall F1 F2 F3,
   (|- (F2 /\ F1) --> F3) ->
   (|- (F1 /\ F2) --> F3).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Lemma forall_right : forall T F G,
   (forall x, |- F --> G x) ->
   (|- F --> Forall T G).
-Proof. firstorder. Qed.
+Proof. simpl; intuition. Qed.
 
 Close Scope HP_scope.

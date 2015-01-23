@@ -16,7 +16,9 @@ Inductive Term :=
 | RealT : R -> Term
 | PlusT : Term -> Term -> Term
 | MinusT : Term -> Term -> Term
-| MultT : Term -> Term -> Term.
+| MultT : Term -> Term -> Term
+| CosT : Term -> Term
+| SinT : Term -> Term.
 
 (* Comparison operations *)
 Inductive CompOp :=
@@ -68,6 +70,8 @@ Fixpoint pow (t : Term) (n : nat) :=
   | S n => MultT t (pow t n)
   end.
 Notation "t ^^ n" := (pow t n) (at level 10) : HP_scope.
+Notation "cos( x )" := (CosT x).
+Notation "sin( x )" := (SinT x).
 
 (* Comparisons *)
 Notation "t1 > t2" := (Comp t1 t2 Gt) : HP_scope.
