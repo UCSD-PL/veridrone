@@ -17,6 +17,7 @@ Inductive Term :=
 | PlusT : Term -> Term -> Term
 | MinusT : Term -> Term -> Term
 | MultT : Term -> Term -> Term
+| DivT : Term -> Term -> Term
 | CosT : Term -> Term
 | SinT : Term -> Term.
 
@@ -70,6 +71,7 @@ Fixpoint pow (t : Term) (n : nat) :=
   | S n => MultT t (pow t n)
   end.
 Notation "t ^^ n" := (pow t n) (at level 10) : HP_scope.
+Notation "x / y" := (DivT x y) : HP_scope.
 Notation "cos( x )" := (CosT x).
 Notation "sin( x )" := (SinT x).
 

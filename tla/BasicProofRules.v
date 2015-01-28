@@ -22,6 +22,8 @@ Fixpoint next_term (t:Term) :=
                              (next_term t2)
     | MultT t1 t2 => MultT (next_term t1)
                            (next_term t2)
+    | DivT t1 t2 => DivT (next_term t1)
+                         (next_term t2)
     | CosT t => CosT (next_term t)
     | SinT t => SinT (next_term t)
   end.
@@ -55,6 +57,8 @@ Fixpoint is_st_term (t:Term) : bool :=
                            (is_st_term t2)
     | MultT t1 t2 => andb (is_st_term t1)
                           (is_st_term t2)
+    | DivT t1 t2 => andb (is_st_term t1)
+                         (is_st_term t2)
     | CosT t => is_st_term t
     | SinT t => is_st_term t
   end.

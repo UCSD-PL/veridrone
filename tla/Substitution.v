@@ -36,11 +36,15 @@ Fixpoint subst_term_term (t1 t2 : Term) (x : Var)
     | MultT t3 t4 =>
       MultT (subst_term_term t3 t2 x next)
             (subst_term_term t4 t2 x next)
+    | DivT t3 t4 =>
+      DivT (subst_term_term t3 t2 x next)
+           (subst_term_term t4 t2 x next)
     | CosT t =>
       CosT (subst_term_term t t2 x next)
     | SinT t =>
       SinT (subst_term_term t t2 x next)
-    | _ => t1
+    | NatT _ => t1
+    | RealT _ => t1
   end.
 
 (* If next is true, substitutes t for x! in F.

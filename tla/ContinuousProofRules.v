@@ -104,6 +104,8 @@ Fixpoint term_unchanged (t:Term) (eqs:list DiffEq) : bool :=
       andb (term_unchanged t1 eqs) (term_unchanged t2 eqs)
     | MultT t1 t2 =>
       andb (term_unchanged t1 eqs) (term_unchanged t2 eqs)
+    | DivT t1 t2 =>
+      andb (term_unchanged t1 eqs) (term_unchanged t2 eqs)
     | CosT t => term_unchanged t eqs
     | SinT t => term_unchanged t eqs
   end.
