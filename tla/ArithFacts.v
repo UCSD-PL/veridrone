@@ -10,6 +10,11 @@ Lemma Rmult_0_le : forall r1 r2,
    0 <= r1*r2)%R.
 Proof. solve_nonlinear. Qed.
 
+Lemma Rmult_0_lt : forall r1 r2,
+  (0 < r1 -> 0 < r2 ->
+   0 < r1*r2)%R.
+Proof. solve_nonlinear. Qed.
+
 Lemma pow_0_le : forall r,
   (0 <= r * (r * 1))%R.
 Proof. solve_nonlinear. Qed.
@@ -50,6 +55,10 @@ Proof. solve_linear. Qed.
 
 Lemma Rmult_neg_le_algebra : forall r1 r2,
   (r2 < 0 -> r1*r2 >= 0 -> r1 <= 0)%R.
+Proof. solve_nonlinear. Qed.
+
+Lemma Rmult_neg_ge_algebra : forall r1 r2,
+  (r2 < 0 -> r1*r2 <= 0 -> r1 >= 0)%R.
 Proof. solve_nonlinear. Qed.
 
 Lemma Rmult_pos_ge_algebra : forall r1 r2,
@@ -106,8 +115,3 @@ Proof.
   apply Rminus_le_algebra in H0.
   apply Rmult_le_algebra in H0; auto.
 Qed.
-
-Lemma Rmult_0_lt : forall r1 r2,
-  (0 < r1 -> 0 < r2 ->
-   0 < r1*r2)%R.
-Proof. solve_nonlinear. Qed.

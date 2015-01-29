@@ -28,13 +28,12 @@ Locate mkprogram.
 Inductive NowTerm : Type :=
 | VarNowN : Var -> NowTerm
 | NatN : nat -> NowTerm
-| NatInvN : nat -> NowTerm
 (*| RealN : Rdefinitions.R -> NowTerm*)
 | FloatN : Floats.float -> NowTerm
-| FloatInvN : Floats.float -> NowTerm
 | PlusN : NowTerm -> NowTerm -> NowTerm
 | MinusN : NowTerm -> NowTerm -> NowTerm
-| MultN : NowTerm -> NowTerm -> NowTerm.
+| MultN : NowTerm -> NowTerm -> NowTerm
+| InvN : NowTerm -> NowTerm.
 
 (* peeled from Haskell, because it's beautiful *)
 Definition app {A B: Type} (f : A -> B) (x : A) : B := f x.
@@ -45,7 +44,8 @@ Infix "+" := (PlusN) : SrcLang_scope.
 Infix "-" := (MinusN) : SrcLang_scope.
 Notation "-- x" := (MinusN (NatN 0) x)
                      (at level 0) : SrcLang_scope.
-Notation "/ f" := (FloatInvN f) : SrcLang_scope.
+Notation "/ x" := (InvN x) : SrcLang_scope.
+Notation "x / y" := (MultN x (InvN y)) : SrcLang_scope.
 Infix "*" := (MultN) : SrcLang_scope.
 Definition NatC (n:nat) : NowTerm :=
   NatN n.
@@ -84,9 +84,8 @@ Fixpoint denowify (nt : NowTerm) : Term :=
   match nt with
     | VarNowN v => VarNowT v
     | NatN n => NatT n
-    | NatInvN n => RealT (/Raxioms.INR n)%R
     | FloatN f => RealT $ f
-    | FloatInvN f => RealT $ (/f)%R
+    | InvN t => InvT (denowify t)
     | PlusN t1 t2 => PlusT (denowify t1) (denowify t2)
     | MinusN t1 t2 => MinusT (denowify t1) (denowify t2)
     | MultN t1 t2 => MultT (denowify t1) (denowify t2)
@@ -325,14 +324,8 @@ Fixpoint nowTerm_to_clight (nt : NowTerm) : VMS expr :=
       ret $ Evar idx c_float
     | NatN n =>
       ret $ Econst_float (nat_to_float n) c_float
-    | NatInvN n =>
-      ret $ Ebinop Odiv (Econst_float 1 c_float)
-          (Econst_float n c_float) c_float
     | FloatN f =>
       ret $ Econst_float f c_float
-    | FloatInvN f =>
-      ret $ Ebinop Odiv (Econst_float 1 c_float)
-          (Econst_float f c_float) c_float
     | PlusN nt1 nt2 =>
       clnt1 <- nowTerm_to_clight nt1;;
       clnt2 <- nowTerm_to_clight nt2;;
@@ -345,6 +338,10 @@ Fixpoint nowTerm_to_clight (nt : NowTerm) : VMS expr :=
       clnt1 <- nowTerm_to_clight nt1;;
       clnt2 <- nowTerm_to_clight nt2;;
       ret $ Ebinop Omul clnt1 clnt2 c_float
+    | InvN nt =>
+      clnt <- nowTerm_to_clight nt;;
+      ret $ Ebinop Odiv (Econst_float 1 c_float)
+      clnt c_float
   end.
 
 Definition progr_assn_to_clight (assn : progr_assn) : VMS statement :=

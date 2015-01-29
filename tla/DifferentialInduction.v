@@ -77,7 +77,7 @@ Fixpoint deriv_term (t:Term) (eqs:list DiffEq)
                  (option_map (fun t => MultT t t2)
                              (deriv_term t1 eqs))
                  (option_map (MultT t1) (deriv_term t2 eqs))
-  | DivT _ _ => None
+  | InvT _ => None
   | CosT t =>
     option_map2 MultT
                 (Some --sin(t))

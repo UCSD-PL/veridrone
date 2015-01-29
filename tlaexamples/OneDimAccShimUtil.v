@@ -27,14 +27,12 @@ End UtilParams.
    in the source language. *)
 Module UtilSrc (Import Params : UtilParams).
 
-  Definition amininv : NowTerm := (/amin)%SL.
-
   Definition sdist_src (v:NowTerm) : NowTerm :=
-    (v^^2*(NatInvN 2)*(--amininv))%SL.
+    ((v^^2)/(--2*amin))%SL.
 
   Definition tdist_src (v:NowTerm) (a:NowTerm) (t:NowTerm)
     : NowTerm :=
-    (v*t + (NatInvN 2)%R*a*t^^2)%SL.
+    (v*t + (/2)*a*t^^2)%SL.
 
   Definition CtrlTerm_src (H V a1 a2 t1 t2:NowTerm)
     : NowTerm :=
@@ -59,13 +57,8 @@ End UtilSrc.
    us to realize. *)
 Module Util (Import Params : UtilParams).
 
-  (* We need the definition of amininv, so
-     we import it here. *)
-  Module Src := UtilSrc(Params).
-  Import Src.
-
   Definition sdist (v:Term) : Term :=
-    v^^2*(/2)%R*(--amininv).
+    (v^^2)/(--2*amin).
 
   Lemma tdist_sdist_incr : forall v1 v2 a1 a2 d1 d2,
     |- v1 <= v2 --> a1 <= a2 --> d1 <= d2 -->
@@ -75,7 +68,7 @@ Module Util (Import Params : UtilParams).
        tdist v2 a2 d2 + sdist (v2 + a2*d2).
   Proof.
     simpl; unfold eval_comp; simpl; intros.
-    unfold amininv. pose proof Hamin.
+    pose proof Hamin.
     repeat match goal with
              | [ _ : context [eval_term ?t ?s1 ?s2] |- _ ]
                => generalize dependent (eval_term t s1 s2)
@@ -87,7 +80,8 @@ Module Util (Import Params : UtilParams).
     apply Rplus_le_algebra.
     apply Rmult_neg_le_algebra with (r2:=amin);
       unfold FloatToR in *; auto.
-    apply Rmult_pos_ge_algebra with (r2:=2%R); solve_linear.
+    apply Rmult_neg_ge_algebra with (r2:=(-4)%R);
+      solve_linear.
     R_simplify; simpl; solve_linear.
     solve_nonlinear.
   Qed.
@@ -98,16 +92,12 @@ Module Util (Import Params : UtilParams).
   Proof.
     pose proof Hamin.
     simpl; unfold eval_comp; simpl;
-    unfold amininv; intros.
+    intros.
     apply Rmult_le_compat; solve_linear.
     - apply Rmult_0_le; solve_linear.
-      apply pow_0_le.
-    - rewrite <- Rplus_0_r at 1.
-      apply Rplus_le_compat_l.
-      solve_linear.
+    - apply inv_0_le.
+      solve_nonlinear.
     - apply Rmult_le_compat; solve_linear.
-      + apply Rmult_0_le; solve_linear.
-      + apply Rle_sq_pos; solve_linear.
   Qed.
 
   Lemma sdist_tdist : forall v t,
@@ -115,11 +105,12 @@ Module Util (Import Params : UtilParams).
   Proof.
     pose proof Hamin.
     simpl; unfold eval_comp; simpl;
-    unfold amininv; intros.
+    intros.
     apply Rplus_le_algebra.
     apply Rmult_neg_le_algebra with (r2:=amin);
       unfold FloatToR in *; auto.
-    apply Rmult_pos_ge_algebra with (r2:=2%R); solve_linear.
+    apply Rmult_neg_ge_algebra with (r2:=(-4)%R);
+      solve_linear.
     R_simplify; solve_linear.
     solve_nonlinear.
   Qed.
@@ -141,13 +132,12 @@ Module Util (Import Params : UtilParams).
   Proof.
     pose proof Hd. pose proof Hamin.
     simpl; unfold eval_comp; simpl;
-    unfold amininv, FloatToR in *. intros.
+    unfold FloatToR in *. intros.
     repeat rewrite Rplus_assoc.
     apply Rplus_le_compat_l.
     R_simplify; solve_linear.
-    apply Rmult_le_compat_neg_r; solve_linear.
-    - apply inv_le_0; solve_linear; 
-      apply Rmult_le_0.
+    apply Rmult_le_compat_r; solve_linear.
+    - apply inv_0_le; solve_linear.
     - unfold Rminus. repeat rewrite Rplus_assoc.
       apply Rplus_le_compat_l.
       R_simplify; simpl.
