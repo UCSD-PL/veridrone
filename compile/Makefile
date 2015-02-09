@@ -1,16 +1,14 @@
-MODULES := Compile
-VS := $(MODULES:%=%.v)
+# copied from tla directory, with some changes...
 
-.PHONY: coq clean compcert
+VS := Compile2.v
 
-compcert:
-	$(MAKE) -C compcert
+.PHONY: coq clean
 
 coq: Makefile.coq
 	$(MAKE) -f Makefile.coq
 
 Makefile.coq: Makefile $(VS)
-	coq_makefile -f ./_CoqProject -o Makefile.coq
+	coq_makefile $(VS) -f _CoqProject -o Makefile.coq
 
 clean:: Makefile.coq
 	$(MAKE) -f Makefile.coq clean

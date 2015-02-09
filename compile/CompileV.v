@@ -172,6 +172,7 @@ Notation "'PIF' cs 'PTHEN' yas" :=
 Notation "'PIF' cs 'PTHEN' yas 'PUNKNOWN' unas" := 
   (mk_progr_stmt cs yas unas) (at level 59).
 *)
+Check (PIF FTRUE PTHEN nil).
 
 Definition progr : Set := list progr_stmt.
 
@@ -225,6 +226,7 @@ Definition derp : progr :=
    In the long run we're going to have to figure out how to deal with converting from real numbers
    into floating point. There's no easy way to go back. *)
 Opaque B2R.
+Eval compute in (progr_to_tla derp).
 
 (* bool type in C, briefly *)
 Locate Tint.
@@ -537,6 +539,36 @@ Definition progr_to_clight (pr : progr) (ws : wrapspec) : (program) :=
   let pVMS := progr_to_clight' pr ws in
   evalState pVMS init_state.
 
+(* Pretty-printing adapter utilities below *)
+
+(* Convert string into list of chars *)
+Require Import String.
+Check String.String.
+Fixpoint str_to_nats (s : String.string) : list nat :=
+  match s with
+    | String.String a s' =>
+      (nat_of_ascii a) :: (str_to_nats s')
+    | EmptyString => nil
+  end.
+
+(* Convert var list for easier input into pretty printer
+   Which expects a hash table from positive -> string.
+   We do the hashtable conversion in ML. *)
+
+Fixpoint convert_var_list' (l : list Var) (p : positive) : list (positive * (list nat)) :=
+  match l with
+    | nil => nil
+    | h :: t =>
+      (p, str_to_nats h) :: convert_var_list' t (p + 1)%positive
+  end.
+
+Definition convert_var_list (l : list Var) : list (positive * (list nat)) :=
+  convert_var_list' l 1%positive.
+
+(* Emit program and converted version of its var list *)
+Definition prepare_pretty_print (pr : progr) (ws : wrapspec) : (program * list (positive * list nat)) :=
+  let (prog, vars) := runState (progr_to_clight' pr ws) init_state in
+  (prog, convert_var_list vars).
 
 Check bigstep_program_diverges.
 
@@ -552,32 +584,46 @@ Definition height_wrapspec : wrapspec :=
   postspec := ["write_outputs"]
 |}.
 
+Eval compute in (runState (process_wrapspec height_wrapspec) nil).
+
+Definition pp_derp := prepare_pretty_print derp height_wrapspec.
+Definition ex_derp_prog := fst pp_derp.
+Definition ex_derp_vars := snd pp_derp.
+Eval compute in ex_derp_vars.
+Definition coqmap := map.
+(* Package everything upto extract it all at once *)
+Definition extract_derp := (ex_derp_prog, ex_derp_vars, coqmap).
+Extraction "derp.ml" extract_derp.
 
 Check fold_right.
 
+Eval compute in (progr_to_clight derp).
+Print binary_float.
 Check Econst_float.
 
 (* Experiments with semantics follow below this point *)
 
 Check bigstep_semantics.
 Locate bigstep_semantics.
+Print bigstep_semantics.
+Print Smallstep.bigstep_semantics.
 (* for now, assume output program not divergent *)
 (* these take a default state to fill in if compcert trace contains
    a state that's meaningless in TLA *)
-
-(*
 Axiom trans_trace_fin : compcert.common.Events.trace -> state -> TLA.Semantics.trace.
 Axiom trans_trace_inf : compcert.common.Events.traceinf -> state -> TLA.Semantics.trace.
 
 (* to support non-divergent programs we just need to change this to trace*)
 (* statement that if a progr compiles to a divergent C program, the (infinite) trace
    will be identical to the TLA version of the trace *)
-Axiom compile_correct : forall (p : progr) (tri : compcert.common.Events.traceinf)
+Theorem compile_correct : forall (p : progr) (tri : compcert.common.Events.traceinf)
                                  (s : state),
                             bigstep_program_terminates (progr_to_clight p) tri ->
                             eval_formula (progr_to_tla p) (trans_trace_inf tri s).
-*)
+
                             
 (* Theorem compile_correct2: 
                             bigstep_program_terminates
                               (progr_to_clight p) (trans_trace_fin tr) retcode /\ *)
+                            
+*)

@@ -1,4 +1,4 @@
-Require Import String.
+Require Import Strings.String.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 
