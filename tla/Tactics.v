@@ -125,6 +125,7 @@ Fixpoint unnext_term (t:Term) : Term :=
       MinusT (unnext_term t1) (unnext_term t2)
     | MultT t1 t2 =>
       MultT (unnext_term t1) (unnext_term t2)
+    | InvT t => InvT (unnext_term t)
     | CosT t => CosT (unnext_term t)
     | SinT t => SinT (unnext_term t)
   end.

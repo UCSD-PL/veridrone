@@ -36,11 +36,14 @@ Fixpoint subst_term_term (t1 t2 : Term) (x : Var)
     | MultT t3 t4 =>
       MultT (subst_term_term t3 t2 x next)
             (subst_term_term t4 t2 x next)
+    | InvT t =>
+      InvT (subst_term_term t t2 x next)
     | CosT t =>
       CosT (subst_term_term t t2 x next)
     | SinT t =>
       SinT (subst_term_term t t2 x next)
-    | _ => t1
+    | NatT _ => t1
+    | RealT _ => t1
   end.
 
 (* If next is true, substitutes t for x! in F.
@@ -107,6 +110,7 @@ Proof.
   - destruct (String.string_dec x v); auto.
   - rewrite IHt1; intuition.
   - rewrite IHt1; intuition.
+  - rewrite IHt1; intuition.
 Qed.
 
 Lemma next_subst_formula : forall F t x,
@@ -132,6 +136,7 @@ Proof.
     subst x; auto.
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
+  - rewrite IHt1; auto.
 Qed.
 
 Lemma subst_term_term_eq_varnow : forall t1 t2 (x:Var),
@@ -144,6 +149,7 @@ Proof.
        rewrite IHt1_2; auto).
   - destruct (String.string_dec x v); auto.
     subst x; auto.
+  - rewrite IHt1; auto.
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
 Qed.
@@ -161,6 +167,7 @@ Proof.
     destruct (String.string_dec x v); auto.
   - destruct b; auto.
     destruct (String.string_dec x v); auto.
+  - rewrite IHt1; auto.
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
 Qed.
@@ -255,6 +262,7 @@ Proof.
       intuition.
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
+  - rewrite IHt1; auto.
 Qed.
 
 Lemma subst_term_formula_comm : forall F t1 t2 x y b1 b2,
@@ -312,6 +320,7 @@ Proof.
        rewrite IHt1_2; auto).
   - destruct (String.string_dec x v);
     simpl; congruence.
+  - rewrite IHt1; auto.
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
 Qed.

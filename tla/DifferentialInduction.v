@@ -77,6 +77,7 @@ Fixpoint deriv_term (t:Term) (eqs:list DiffEq)
                  (option_map (fun t => MultT t t2)
                              (deriv_term t1 eqs))
                  (option_map (MultT t1) (deriv_term t2 eqs))
+  | InvT _ => None
   | CosT t =>
     option_map2 MultT
                 (Some --sin(t))
@@ -125,27 +126,6 @@ Fixpoint deriv_formula (F:Formula) (eqs:list DiffEq) :=
 (* Now we have a bunch of messy lemmas that we'll use
    to prove the differential induction (diff_ind) rule.
    Perhaps some day someone will clean these up. *)
-(*Lemma term_is_derivable : forall (f : R -> state) (e : Term) s,
-  (forall x, derivable (fun t => f t x)) ->
-  derivable (fun t => eval_term e (f t) s).
-Proof.
-  intros f e s.
-  induction e; unfold eval_term;
-  simpl; intro is_derivable.
-    - auto.
-    - apply derivable_const.
-    - apply derivable_const.
-    - apply derivable_const.
-    - apply derivable_plus; auto.
-    - apply derivable_minus; auto.
-    - apply derivable_mult; auto.
-    - apply (derivable_comp
-               (fun t => eval_term e (f t) s) cos); auto.
-      apply derivable_cos.
-    - apply (derivable_comp
-               (fun t => eval_term e (f t) s) sin); auto.
-      apply derivable_sin.
-Qed.*)
 
 Lemma get_deriv_in : forall x eqs t,
   get_deriv x eqs = Some t ->
@@ -258,6 +238,7 @@ Proof.
         as Hderiv.
       unfold derive, mult_fct in *. rewrite Hderiv.
       simpl. rewrite IHe1; auto; rewrite IHe2; auto.
+    - discriminate.
     - destruct (deriv_term e eqs);
       simpl in *; try discriminate. inversion H0; subst e'.
       specialize (IHe t (Logic.eq_refl _)).
@@ -406,6 +387,7 @@ Proof.
     unfold eval_term in *; simpl in *;
     erewrite IHt1; eauto;
     erewrite IHt2; eauto.
+  - discriminate.
   - destruct (deriv_term t eqs) eqn:?;
              try discriminate.
     unfold eval_term in *; simpl in *;
@@ -449,6 +431,7 @@ Proof.
     unfold eval_term in *; simpl in *;
     erewrite IHt1; eauto;
     erewrite IHt2; eauto.
+  - discriminate.
   - destruct (deriv_term t eqs) eqn:?;
              try discriminate.
     unfold eval_term in *; simpl in *;

@@ -198,9 +198,7 @@ Proof.
   apply Rplus_le_compat_l.
   apply Rmult_0_le; solve_linear.
   apply Rmult_0_le; solve_linear.
-  apply pow_0_le.
-  rewrite <- Rplus_0_r at 1.
-  apply Rplus_le_compat_l.
+  apply inv_0_le.
   solve_linear.
 Qed.
 
@@ -239,8 +237,9 @@ Proof.
                          rewrite Rmult_comm;
                          apply Rmult_le_0; solve_linear
                 end.
-              * intuition. unfold amininv in *.
+              * intuition.
                 eapply Rle_trans; eauto.
+                apply Rplus_le_algebra.
                 R_simplify; solve_linear.
             + eapply Rle_trans; eauto.
               rewrite_real_zeros.
@@ -404,12 +403,12 @@ Proof.
               * assert (0 <= Semantics.hd tr "v")%R
                   by solve_linear.
                 intuition. eapply Rle_trans; eauto.
-                unfold amininv. apply Rplus_le_algebra.
+                apply Rplus_le_algebra.
                 R_simplify; simpl; solve_linear.
-                { apply Rmult_le_0.
+                { rewrite Rmult_comm. apply Rmult_le_0.
+                  - apply inv_0_le. solve_linear.
                   - unfold InvParams.d in *.
-                    solve_nonlinear.
-                  - apply inv_le_0. solve_linear. }
+                    solve_nonlinear. }
             + assert (Semantics.hd tr "v" < 0)%R.
               * { apply Rle_lt_trans
                   with (r2:=(Semantics.hd tr "v"+
@@ -492,11 +491,10 @@ Proof.
                              (Semantics.hd tr "a"*d+0*d))*
                             ((Semantics.hd tr "V"+
                               (Semantics.hd tr "a"*d+0*d))*1)
-                            * / 2 * (0 - /amin))%R.
+                            * / ((0 - 2) * amin))%R.
                     + apply Rmult_0_le.
                       * apply Rmult_0_le; solve_linear.
-                        apply pow_0_le.
-                      * unfold amininv. rewrite Rminus_0_l.
+                      * apply inv_0_le.
                         solve_linear.
                     + solve_linear. }
             + destruct (Rlt_dec (Semantics.hd tr "v") R0).
@@ -540,11 +538,10 @@ Proof.
                              (Semantics.hd tr "a"*d+0*d))*
                             ((Semantics.hd tr "V"+
                               (Semantics.hd tr "a"*d+0*d))*1)
-                            * / 2 * (0 - /amin))%R.
+                            * / ((0 - 2)*amin))%R.
                     + apply Rmult_0_le.
-                      * apply Rmult_0_le; solve_linear.
-                        apply pow_0_le.
-                      * unfold amininv. rewrite Rminus_0_l.
+                      * apply pow_0_le.
+                      * apply inv_0_le.
                         solve_linear.
                     + solve_linear. }
             + eapply Rle_trans; eauto.
@@ -573,11 +570,11 @@ Proof.
               rewrite_real_zeros.
               assert (0<=Semantics.hd tr "V"*
                          (Semantics.hd tr "V"*1)*
-                         /2*(0-/amin))%R.
+                         /((0-2)*amin))%R.
               * { apply Rmult_0_le.
-                  - apply Rmult_0_le; solve_linear.
-                    apply pow_0_le.
-                  - unfold amininv. rewrite Rminus_0_l.
+                  - apply pow_0_le.
+                  - rewrite Rminus_0_l.
+                    apply inv_0_le.
                     solve_linear. }
               * solve_linear.
             + assert (Semantics.hd tr "v" < 0)%R.

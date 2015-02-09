@@ -178,9 +178,7 @@ Proof.
   apply Rplus_le_compat_l.
   apply Rmult_0_le; solve_linear.
   apply Rmult_0_le; solve_linear.
-  apply pow_0_le.
-  rewrite <- Rplus_0_r at 1.
-  apply Rplus_le_compat_l.
+  apply inv_0_le.
   solve_linear.
 Qed.
 
@@ -247,12 +245,11 @@ Proof.
             + eapply Rle_trans; eauto.
               solve_nonlinear.
             + intuition.
-              unfold amininv in *.
               eapply Rle_trans; eauto.
+              apply Rplus_le_algebra.
               R_simplify; solve_linear.
           - destruct (Rle_dec R0 (Semantics.hd tr "v")).
             + intuition.
-              unfold amininv in *.
               eapply Rle_trans; eauto.
               apply Rplus_le_compat_l.
               apply sdist_tdist
@@ -268,12 +265,11 @@ Proof.
             + eapply Rle_trans; eauto.
               solve_nonlinear.
             + intuition.
-              unfold amininv in *.
               eapply Rle_trans; eauto.
+              apply Rplus_le_algebra.
               R_simplify; solve_linear.
           - destruct (Rle_dec R0 (Semantics.hd tr "v")).
             + intuition.
-              unfold amininv in *.
               eapply Rle_trans; eauto.
               apply Rplus_le_compat_l.
               apply sdist_tdist
@@ -296,7 +292,7 @@ Proof.
               assert (amax >= 0)%R by solve_linear.
               simpl in *; unfold eval_comp in *;
               simpl in *; intuition.
-              eapply Rle_trans; eauto;
+              eapply Rle_trans; eauto.
               eapply Rle_trans; eauto.
               rewrite Rplus_assoc.
               match goal with
@@ -313,10 +309,10 @@ Proof.
               * { apply Rmult_le_compat_r.
                   - apply pow_0_le.
                   - apply Rmult_le_compat_l; solve_linear. }
-              * unfold amininv.
-                { repeat apply Rmult_le_compat_r;
+              * { repeat apply Rmult_le_compat_r;
                   solve_linear.
                   - rewrite Rminus_0_l.
+                    apply inv_0_le.
                     solve_linear.
                   - apply Rle_sq_pos; solve_linear.
                     eapply Rplus_rewrite_l; eauto.
@@ -365,7 +361,8 @@ Proof.
                     + apply Rmult_le_compat_l;
                       solve_linear.
                   - repeat apply Rmult_0_le; solve_linear.
-                    unfold amininv. rewrite Rminus_0_l.
+                    rewrite Rminus_0_l.
+                    apply inv_0_le.
                     solve_linear. }
           - clear H9.
             assert (0 <= Semantics.hd tr "V" +
@@ -442,11 +439,10 @@ Proof.
                       * apply pow_0_le.
                       * apply pow_0_le.
                       * apply Rle_sq_pos; solve_linear.
-                    + unfold amininv.
-                      apply Rmult_0_le.
-                      * apply Rmult_0_le; solve_linear.
-                        apply pow_0_le.
+                    + apply Rmult_0_le.
+                      * apply pow_0_le.
                       * rewrite Rminus_0_l.
+                        apply inv_0_le.
                         solve_linear. }
         }
       * solve_linear.

@@ -104,6 +104,7 @@ Fixpoint term_unchanged (t:Term) (eqs:list DiffEq) : bool :=
       andb (term_unchanged t1 eqs) (term_unchanged t2 eqs)
     | MultT t1 t2 =>
       andb (term_unchanged t1 eqs) (term_unchanged t2 eqs)
+    | InvT t => term_unchanged t eqs
     | CosT t => term_unchanged t eqs
     | SinT t => term_unchanged t eqs
   end.
@@ -161,6 +162,9 @@ Proof.
     destruct Hin1 as [d [Hin Heq] ].
     apply diffeq_eqb_ok in Heq.
     subst d; auto.
+  - erewrite IHt; eauto;
+    intros; apply Hin; apply List.in_or_app; auto;
+    intros; apply Hin; apply List.in_or_app; auto.
   - erewrite IHt; eauto;
     intros; apply Hin; apply List.in_or_app; auto;
     intros; apply Hin; apply List.in_or_app; auto.
