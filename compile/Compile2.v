@@ -613,7 +613,7 @@ Print Smallstep.bigstep_semantics.
 (* for now, assume output program not divergent *)
 (* these take a default state to fill in if compcert trace contains
    a state that's meaningless in TLA *)
-(*Axiom trans_trace_fin : compcert.common.Events.trace -> state -> TLA.Semantics.trace.
+Axiom trans_trace_fin : compcert.common.Events.trace -> state -> TLA.Semantics.trace.
 Axiom trans_trace_inf : compcert.common.Events.traceinf -> state -> TLA.Semantics.trace.
 
 (* to support non-divergent programs we just need to change this to trace*)
@@ -621,7 +621,7 @@ Axiom trans_trace_inf : compcert.common.Events.traceinf -> state -> TLA.Semantic
    will be identical to the TLA version of the trace *)
 Theorem compile_correct : forall (p : progr) (tri : compcert.common.Events.traceinf)
                                  (s : state),
-                            bigstep_program_diverges (progr_to_clight p) tri ->
+                            bigstep_program_terminates (progr_to_clight p) tri ->
                             eval_formula (progr_to_tla p) (trans_trace_inf tri s).
 
                             
