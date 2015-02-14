@@ -41,6 +41,7 @@ Fixpoint next (F:Formula) :=
     | PropF P => PropF P
     | Always F => Always (next F)
     | Eventually F => Eventually (next F)
+    | Embed P => Embed (fun _ en => P en en)
   end.
 
 (* Returns true iff the Term has no ! *)

@@ -28,9 +28,6 @@ Fixpoint nth_suf {A} (n:nat) (s:stream A) : stream A :=
     | S n => nth_suf n (tl s)
   end.
 
-(* All variables are real-valued. *)
-Definition state := Var -> R.
-
 (* A TLA behavior, called a trace *)
 Definition trace := stream state.
 
@@ -83,6 +80,7 @@ Fixpoint eval_formula (F:Formula) (tr:trace) :=
     | Forall _ F => forall x, eval_formula (F x) tr
     | Always F => forall n, eval_formula F (nth_suf n tr)
     | Eventually F => exists n, eval_formula F (nth_suf n tr)
+    | Embed P => P (hd tr) (hd (tl tr))
   end.
 
 Notation "|- F" := (forall tr, eval_formula F tr)

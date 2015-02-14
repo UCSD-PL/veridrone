@@ -6,6 +6,8 @@ Require Import Coq.Reals.RIneq.
 (* The syntax of differential dynamic logic.    *)
 (************************************************)
 Definition Var := string.
+Definition Value := R.
+Definition state : Type := Var -> Value.
 
 (* Real-valued terms built using variables, constants
    and arithmetic. *)
@@ -41,7 +43,8 @@ Inductive Formula :=
 | Exists : forall T, (T -> Formula) -> Formula
 | Forall : forall T, (T -> Formula) -> Formula
 | Always : Formula -> Formula
-| Eventually : Formula -> Formula.
+| Eventually : Formula -> Formula
+| Embed : (state -> state -> Prop) -> Formula.
 
 (************************************************)
 (* Some notation for the logic.                 *)
