@@ -228,6 +228,7 @@ SearchAbout (String.string -> String.string -> bool).
 (* String.string_dec *)
 
 (* update state as per an assignment *)
+(* TODO rename these to eval_something *)
 Definition assn_update_state (assn : progr_assn) (st : fstate) : fstate :=
   fun v =>
     if String.string_dec v $ pa_dest assn
@@ -268,6 +269,11 @@ Axiom getBound : rbstate -> NowTerm -> (Term * Term * Formula)%type.
 
 Axiom real_in_float : R -> Floats.float -> Prop.
 
+(*Axiom real_in_float_correct :
+  forall (r : R) (f : Floats.float),
+    real_in_float r f <-> 
+    FloatToR f = r.*)
+
 Definition real_st_in_float_st (rst : Semantics.state) (fst : fstate) : Prop :=
   forall (v : Var), real_in_float (rst v) (fst v).
 
@@ -287,26 +293,139 @@ CoFixpoint infStr {A : Type} (a : A) : stream A :=
 
 Check eval_term.
 
+Print stream.
+
+(* need a predicate for "begins with a transition from s1 to s2" *)
+Fixpoint stream_begins {A : Type} (astream : stream A) (alist : list A) : Prop :=
+  match alist with
+    | nil => True
+    | a :: rest =>
+      match astream with
+        | Cons a' rest' => and (a = a') (stream_begins rest' rest)
+      end
+  end.
+
 Axiom getBound_correct :
   forall (bst : rbstate) (nt : NowTerm) (lb ub : Term) (side : Formula),
     getBound bst nt = (lb, ub, side) ->
-    forall flst rst_next, float_st_in_bound_st flst bst ->
-                let rst := (fun st => FloatToR (flst st)) in
-                eval_formula side (infStr rst) ->
-                (eval_term lb rst rst_next <= FloatToR (eval_NowTerm nt flst) <= eval_term ub rst rst_next)%R.
-  
+    forall flst rst_next tr, float_st_in_bound_st flst bst ->
+                let rst := (fun v => FloatToR (flst v)) in
+                stream_begins tr [rst] ->
+                eval_formula side tr ->
+                (eval_term lb rst rst_next <= FloatToR (eval_NowTerm nt flst) <= eval_term ub rst rst_next)%R.  
 
 (* TODO strict or non-strict inequalities? *)
 Definition convert_assn (assn : progr_assn) (st : rbstate) : Formula :=
   match assn with
     | mk_progr_assn var term =>
-      let '(lb, ub, _) := getBound st term in
-      And (Comp lb (VarNextT var) Le)
-          (Comp (VarNextT var) ub Le)
+      let '(lb, ub, side) := getBound st term in
+      Imp side
+          (And (Comp lb (VarNextT var) Le)
+               (Comp (VarNextT var) ub Le))
   end.
 
+(* correctness for convert_assn *)
+Lemma convert_assn_correct :
+  forall (sf sf' : fstate) (assn : progr_assn),
+    assn_update_state assn sf = sf' ->
+    forall (tr : Semantics.trace)
+           (sr sr' : Semantics.state),
+      real_st_in_float_st sr  sf ->
+      real_st_in_float_st sr' sf' ->
+      stream_begins tr [sr; sr'] ->
+      forall (rbst : rbstate),
+        float_st_in_bound_st sf rbst ->
+        eval_formula (convert_assn assn rbst) tr.
+Proof.
+intros.
+destruct assn; subst; simpl.
+destruct (getBound rbst pa_source0) eqn:gb.
+Check gb.
+destruct p.
+simpl.
+intro.
+destruct tr as [now [next trt]].
+
+simpl. simpl in H2.
+inversion H2; clear H2. inversion H5. clear H5. clear H6.
+subst.
+unfold Semantics.eval_comp.
+simpl.
+Check getBound_correct.
+eapply getBound_correct with
+  (bst := rbst) (nt := pa_source0) (lb := t) (ub := t0)
+  (flst := sf) (rst_next := next)
+  in gb.
+  (* first, prove our conclusion from conclusion of
+     getBound_correct *)
+  - inversion gb. clear gb.
+    split.
+    +
+
+      (* need axiom relating real_in_float
+         to *)
+
+      (* we want to show
+evaluating t with trel1 and trel2 as context
+  is less than the value of pa_dest0 in trel2.
+
+         we know
+evaluating t with sf and trel2 as context is less
+  than the value of pa_source0 with sf as context.
+
+trel1 is contained in sf
+trel2 is contained in "update sf setting pa_dest0 to pa_source0"
+     
+      induction t; simpl in *.
+      unfold real_st_in_float_st in H0.
+
+      (* need an exchange lemma relating real and float states *)
+      
+      
+
+
+      simpl.
+      unfold eval_term.
+unfold real_st_in_float_st in H1.
+
+
+assert ((fun v : Var => sf v) = sf). admit. (* functional extensionality *)
+      Set Printing All.
+      
+      
+      rewrite H5 in H2.
+    
+    real_in_float k trace ->
+    
+
+  + unfold Semantics.eval_comp.
+    unfold real_st_in_float_st in H1.
+    (* need H1 to relate sf to tr1 *)
+    unfold real_st_in_float_st in H0.
+    
+
+    (* needs functional extensionality *)
+    (fun (v : Var) => sf v) = ())
+
+    real_in_float x y ->
+    
+    
+    apply H2.
+      
+
+split; simpl.
+- Check getBound_correct.
+  inversion H.
+  destruct t. simpl.
+  
+Print Semantics.eval_comp.
+
+
+
 (* compilation to TLA *)
-Fixpoint progr_stmt_to_tla (stmts : progr_stmt) (st : rbstate) : Formula :=
+(* TODO need to be able to handle conditionals to do this *)
+(*
+Fixpoint progr_stmts_to_tla (stmts : list progr_stmt) (st : rbstate) : Formula :=
   match pss with
     | mk_progr_stmt conds assns =>
       let conjuncts :=
@@ -319,6 +438,7 @@ Definition progr_to_tla (pr : progr) : Formula :=
   let disjuncts :=
       List.map progr_stmt_to_tla pr in
   self_foldr Or disjuncts FALSE.
+*)
 
 Coercion denowify : NowTerm >-> Term.
 Coercion progr_to_tla : progr >-> Formula.
