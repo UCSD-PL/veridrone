@@ -938,17 +938,13 @@ specialize (bplus_correct truth).
 specialize (bplus_correct truth).
 remember (Rlt_bool (Rabs (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (B2R custom_prec custom_emax eval_expr + B2R custom_prec custom_emax eval_expr2)))  (bpow radix2 custom_emax)) as rltBoolInfo.  destruct rltBoolInfo.
 subst.
-destruct b eqn:b_des.
-{*
 
-destruct b0 eqn:b_des2.
-+
 rewrite <- HeqrltBoolInfo in bplus_correct.
 decompose [and] bplus_correct.  
 rewrite H. 
 
 split.
-- unfold bound_term in *.
+{- unfold bound_term in *.
 remember (fst ((fix bound_term (x : NowTerm) : Term * Term :=
                      match x with
                      | VarNowN _ => (RealT 0, RealT 0)
@@ -1047,8 +1043,8 @@ Qed.
 specialize (Rel_Err precThm (round_mode mode_NE)).
 Definition choiceDef := (fun x => negb (Zeven x)).
 specialize (Rel_Err (valid_rnd_N choiceDef)).
-remember (B754_finite custom_prec custom_emax true m e0 e1) as f.
-remember (B754_finite custom_prec custom_emax true m0 e2 e3) as f0.
+remember (B754_finite custom_prec custom_emax b  m e0 e1) as f.
+remember (B754_finite custom_prec custom_emax b0  m0 e2 e3) as f0.
 
 specialize (Rel_Err ((B2R custom_prec custom_emax f +
       B2R custom_prec custom_emax f0))).
@@ -1106,8 +1102,8 @@ remember (round radix2 (FLT_exp (3 - 1024 - 53) 53)
              (round_mode mode_NE) (B2R 53 1024 f + B2R 53 1024 f0)) as roundedValue.
 remember (B2R 53 1024 f) as f1.
 remember (B2R 53 1024 f0) as f2.
-clear Heqelb1 r0 three r Rel_Err Heqelb2 H noUnderflow expr1 expr2 lb1  Heqf2 Heqf0 e3 Heqf Heqf1 HeqroundedValue  tr m e0 e1 f f0 m0 e2 lb2 .
-simpl.
+clear Heqelb1 r0 three r Rel_Err Heqelb2 H noUnderflow expr1 expr2 lb1  Heqf2 Heqf0  Heqf Heqf1 HeqroundedValue  tr   f f0  lb2 .
+simpl .
 psatz R.
 }
 - unfold Rabs in noUnderflow.
@@ -1179,12 +1175,172 @@ psatz R.
 admit. (*the case when the sum is negative*)
 
 admit. (*the case when there is underflow*)
+} unfold bound_term in *.
+remember  (snd
+                 ((fix bound_term (x : NowTerm) : Term * Term :=
+                     match x with
+                     | VarNowN _ => (RealT 0, RealT 0)
+                     | NatN n => (RealT (INR n), RealT (INR n))
+                     | FloatN f =>
+                         (RealT (B2R 53 1024 f), RealT (B2R 53 1024 f))
+                     | (t1 + t2)%SL =>
+                         (((fst (bound_term t1) + fst (bound_term t2)) *
+                           (RealT 1 - RealT e))%HP,
+                         ((snd (bound_term t1) + snd (bound_term t2)) *
+                          (RealT 1 + RealT e))%HP)
+                     | (t1 - t2)%SL =>
+                         (((fst (bound_term t1) - snd (bound_term t2)) *
+                           (RealT 1 - RealT e))%HP,
+                         ((snd (bound_term t1) - fst (bound_term t2)) *
+                          (RealT 1 + RealT e))%HP)
+                     | (t1 * t2)%SL =>
+                         ((fst (bound_term t1) * fst (bound_term t2) *
+                           (RealT 1 - RealT e))%HP,
+                         (snd (bound_term t1) * snd (bound_term t2) *
+                          (RealT 1 + RealT e))%HP)
+                     end) expr1)) as ub1.
+remember  (snd
+                 ((fix bound_term (x : NowTerm) : Term * Term :=
+                     match x with
+                     | VarNowN _ => (RealT 0, RealT 0)
+                     | NatN n => (RealT (INR n), RealT (INR n))
+                     | FloatN f =>
+                         (RealT (B2R 53 1024 f), RealT (B2R 53 1024 f))
+                     | (t1 + t2)%SL =>
+                         (((fst (bound_term t1) + fst (bound_term t2)) *
+                           (RealT 1 - RealT e))%HP,
+                         ((snd (bound_term t1) + snd (bound_term t2)) *
+                          (RealT 1 + RealT e))%HP)
+                     | (t1 - t2)%SL =>
+                         (((fst (bound_term t1) - snd (bound_term t2)) *
+                           (RealT 1 - RealT e))%HP,
+                         ((snd (bound_term t1) - fst (bound_term t2)) *
+                          (RealT 1 + RealT e))%HP)
+                     | (t1 * t2)%SL =>
+                         ((fst (bound_term t1) * fst (bound_term t2) *
+                           (RealT 1 - RealT e))%HP,
+                         (snd (bound_term t1) * snd (bound_term t2) *
+                          (RealT 1 + RealT e))%HP)
+                     end) expr2)) as ub2.
+
+unfold snd in *.
+
+clear Hequb1 Hequb2 bplus_correct HeqrltBoolInfo H1 H H2.
+pose proof relative_error as Rel_Err.
+remember (FLT_exp (3 - custom_emax - custom_prec) custom_prec) as round_fexp.
+specialize (Rel_Err radix2 round_fexp).
+pose proof validFexpProof.
+subst.
+specialize (Rel_Err validFexpProof (3-custom_emax-custom_prec)%Z custom_prec  precThm (round_mode mode_NE) (valid_rnd_N choiceDef)).
+remember (B754_finite custom_prec custom_emax b m e0 e1) as f.
+remember (B754_finite custom_prec custom_emax b0 m0 e2 e3) as f0.
+specialize (Rel_Err ((B2R custom_prec custom_emax f +
+      B2R custom_prec custom_emax f0))).
+destruct (Rle_dec  (bpow radix2 (3 - custom_emax - custom_prec))  (Rabs (B2R custom_prec custom_emax f + B2R custom_prec custom_emax f0))) as [noUnderflow|underflow].
+apply Rel_Err in noUnderflow.
+unfold custom_prec, custom_emax in *.
+Lemma three2 : forall x1 x2 x3,  x1 <=x2 <= x3 -> x2 <= x3. 
+intros.
+intuition.
+Qed.
+pose proof three2 as three2.
+apply three2 in IHexpr2.
+apply three2 in IHexpr1.
+destruct (Rge_dec (B2R 53 1024 f + B2R 53 1024 f0) R0) as [suml|sumg]. {+ 
+destruct (Rge_dec (round radix2 (FLT_exp (3 - 1024 - 53) 53) (round_mode mode_NE) (B2R 53 1024 f + B2R 53 1024 f0) -(B2R 53 1024 f + B2R 53 1024 f0)) R0) as [roundg | roundl].
 -
+unfold Rabs in *.
+destruct Rcase_abs in noUnderflow.
+* psatz R.
+* destruct Rcase_abs in noUnderflow. 
+{+ psatz R.
+}
+{
++
+unfold eval_term in *. 
+remember ((fix eval_term (t : Term) (s1 s2 : Semantics.state) {struct t} : R :=
+       match t with
+       | VarNowT x => s1 x
+       | (x) !%HP => s2 x
+       | NatT n => INR n
+       | RealT r1 => r1
+       | (t1 + t2)%HP => eval_term t1 s1 s2 + eval_term t2 s1 s2
+       | (t1 - t2)%HP => eval_term t1 s1 s2 - eval_term t2 s1 s2
+       | (t1 * t2)%HP => eval_term t1 s1 s2 * eval_term t2 s1 s2
+       end) ub1 (Semantics.hd tr) (Semantics.hd (Semantics.tl tr))) as eub1.
+remember ((fix eval_term (t : Term) (s1 s2 : Semantics.state) {struct t} : R :=
+       match t with
+       | VarNowT x => s1 x
+       | (x) !%HP => s2 x
+       | NatT n => INR n
+       | RealT r1 => r1
+       | (t1 + t2)%HP => eval_term t1 s1 s2 + eval_term t2 s1 s2
+       | (t1 - t2)%HP => eval_term t1 s1 s2 - eval_term t2 s1 s2
+       | (t1 * t2)%HP => eval_term t1 s1 s2 * eval_term t2 s1 s2
+       end) ub2 (Semantics.hd tr) (Semantics.hd (Semantics.tl tr))) as eub2.
+revert IHexpr1. intros IHexpr1.
+revert IHexpr2. intros IHexpr2.
+unfold e.
+remember (round radix2 (FLT_exp (3 - 1024 - 53) 53) 
+             (round_mode mode_NE) (B2R 53 1024 f + B2R 53 1024 f0)) as roundedValue.
+remember (B2R 53 1024 f) as f1.
+remember (B2R 53 1024 f0) as f2.
+clear Heqeub1 r0 three2  Rel_Err Heqeub2 H expr1 expr2 ub1  Heqf2 Heqf0 e3 Heqf Heqf1 HeqroundedValue  tr m e0 e1 f f0 m0 e2 ub2 .
+simpl in *.
+clear r.
+psatz R.
+}
+- unfold eval_term in *. remember ((fix eval_term (t : Term) (s1 s2 : Semantics.state) {struct t} :
+               R :=
+               match t with
+               | VarNowT x => s1 x
+               | (x) !%HP => s2 x
+               | NatT n => INR n
+               | RealT r => r
+               | (t1 + t2)%HP => eval_term t1 s1 s2 + eval_term t2 s1 s2
+               | (t1 - t2)%HP => eval_term t1 s1 s2 - eval_term t2 s1 s2
+               | (t1 * t2)%HP => eval_term t1 s1 s2 * eval_term t2 s1 s2
+               end) ub2 (Semantics.hd tr) (Semantics.hd (Semantics.tl tr))) as eub2.
 
+remember ((fix eval_term (t : Term) (s1 s2 : Semantics.state) {struct t} :
+               R :=
+               match t with
+               | VarNowT x => s1 x
+               | (x) !%HP => s2 x
+               | NatT n => INR n
+               | RealT r => r
+               | (t1 + t2)%HP => eval_term t1 s1 s2 + eval_term t2 s1 s2
+               | (t1 - t2)%HP => eval_term t1 s1 s2 - eval_term t2 s1 s2
+               | (t1 * t2)%HP => eval_term t1 s1 s2 * eval_term t2 s1 s2
+               end) ub1 (Semantics.hd tr) (Semantics.hd (Semantics.tl tr))) as eub1.
+  unfold Rabs in noUnderflow.
+destruct Rcase_abs in noUnderflow.
+* destruct Rcase_abs in noUnderflow.
+ admit. (*the case when the sum is negative*)
 
+revert IHexpr1 IHexpr2.
+intros IHexpr1 IHexpr2.
+clear  expr1 expr2 m e0 e1 ub1  Heqf  Heqeub1 Heqf0 Heqeub2 e2 e3  H Rel_Err roundl  ub2 tr m0 three2.
+unfold e in *. simpl in *. psatz R.
+ * destruct Rcase_abs in noUnderflow.
+admit. (*the case when the sum is negative*)
+unfold e in *.
+remember (round radix2 (FLT_exp (3 - 1024 - 53) 53) 
+             (round_mode mode_NE) (B2R 53 1024 f + B2R 53 1024 f0)) as roundedValue.
+clear expr1 expr2 m e0 e1 ub1  Heqf  Heqeub1 Heqf0 Heqeub2 e2 e3  H Rel_Err roundl  ub2 tr m0 three2.
+simpl in *.
+psatz R.
+}
+admit. (*the case when the sum is negative*)
+admit. (*the case when there is underflow*)
+admit. (*the case when there is overflow*)
+
++
+
+Print binary_float.
  remember (round radix2 (FLT_exp (3 - 1024 - 53) 53) (round_mode mode_NE) (B2R 53 1024 f + B2R 53 1024 f0)) as roundedValue.
 remember ((B2R 53 1024 f + B2R 53 1024 f0)) as trueValue.
-remember (bpow radix2 (- (53) + 1)) as error.
+remember (bpow radix2 (- (53) + as 1)) as error.
 
 
 
