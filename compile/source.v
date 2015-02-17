@@ -10,10 +10,6 @@ Require Import TLA.Semantics.
 Require Import TLA.Lib. Require Import compcert.flocq.Core.Fcore_defs.
 Require Import compcert.flocq.Appli.Fappli_IEEE.
 Require Import compcert.flocq.Appli.Fappli_IEEE_bits.
-Lemma stupid : bounded 53 1024 5 2 = true.
-admit. Qed.
-Eval compute in (Floats.Float.add (B754_finite 53 1024 true 5 2 stupid) (B754_finite 53 1024 true 5 2 stupid)).
-(*Eval vm_compute in (Floats.Float.add (B754_finite 53 1024 true 5 2 stupid) (B754_finite 53 1024 true 5 2 stupid)).*)
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Structures.MonadState.
 Require Import ExtLib.Data.Monads.StateMonad.
