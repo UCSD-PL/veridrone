@@ -229,6 +229,9 @@ let news := eval_progr_stmt h init in
 eval_progr t news
 end.
 
+
+Definition custom_prec := 53%Z.
+Definition custom_emax:= 1024%Z.
 Definition custom_float_zero := B754_zero custom_prec custom_emax true.
 
 Fixpoint custom_eval_expr (t:NowTerm) := match t with
