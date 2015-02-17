@@ -1,6 +1,6 @@
 # copied from tla directory, with some changes...
 
-VS := Compile2.v
+VS := source.v
 
 .PHONY: coq clean
 
