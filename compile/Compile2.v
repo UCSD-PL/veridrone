@@ -17,12 +17,10 @@ Require Import ExtLib.Data.List.
 Require Import compcert.flocq.Core.Fcore_defs.
 Require Import compcert.flocq.Appli.Fappli_IEEE.
 Require Import compcert.flocq.Appli.Fappli_IEEE_bits.
-Locate ident.
+
 Local Close Scope HP_scope.
 Delimit Scope SrcLang_scope with SL.
 Local Open Scope SrcLang_scope.
-
-Locate mkprogram.
 
 (* Term, sans the next operator *)
 Inductive NowTerm : Type :=
@@ -35,9 +33,8 @@ Inductive NowTerm : Type :=
 | MultN : NowTerm -> NowTerm -> NowTerm
 | InvN : NowTerm -> NowTerm.
 
-(* peeled from Haskell, because it's beautiful *)
-Definition app {A B: Type} (f : A -> B) (x : A) : B := f x.
-Notation "f $ x" := (app f x) (at level 99, right associativity).
+Require Import ExtLib.Programming.Extras.
+Import FunNotation.
 
 (* peeled from Syntax.v *)
 Infix "+" := (PlusN) : SrcLang_scope.
@@ -557,6 +554,8 @@ Check fold_right.
 
 Check Econst_float.
 
+Eval compute in (progr_to_clight derp height_wrapspec).
+
 (* Experiments with semantics follow below this point *)
 
 Check bigstep_semantics.
@@ -581,3 +580,4 @@ Axiom compile_correct : forall (p : progr) (tri : compcert.common.Events.tracein
 (* Theorem compile_correct2: 
                             bigstep_program_terminates
                               (progr_to_clight p) (trans_trace_fin tr) retcode /\ *)
+

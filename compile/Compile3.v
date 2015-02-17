@@ -66,7 +66,7 @@ Definition FloatToR : Floats.float -> R := B2R 53 1024.
 Coercion nat_to_int : nat >-> int.
 Coercion nat_to_float : nat >-> Floats.float.
 Coercion Pos.of_nat : nat >-> positive.
-Coercion FloatToR : Floats.float >-> R.
+(*Coercion FloatToR : Floats.float >-> R.*)
 
 Fixpoint pow (t : NowTerm) (n : nat) :=
   match n with
@@ -81,7 +81,7 @@ Fixpoint denowify (nt : NowTerm) : Term :=
   match nt with
     | VarNowN v => VarNowT v
     (*| NatN n => NatT n*)
-    | FloatN f => RealT f
+    | FloatN f => RealT $ FloatToR f
     (*| InvN t => InvT (denowify t)*)
     | PlusN t1 t2 => PlusT (denowify t1) (denowify t2)
     | MinusN t1 t2 => MinusT (denowify t1) (denowify t2)
@@ -269,10 +269,45 @@ Axiom getBound : rbstate -> NowTerm -> (Term * Term * Formula)%type.
 
 Axiom real_in_float : R -> Floats.float -> Prop.
 
-(*Axiom real_in_float_correct :
+(* this is a very weak condition but hopefully
+   it's all that we need *)
+(* "introduction" rule *)
+Axiom real_in_float_correct0 :
   forall (r : R) (f : Floats.float),
-    real_in_float r f <-> 
-    FloatToR f = r.*)
+    FloatToR f = r ->
+    real_in_float r f.
+
+(* "elimination" rules *)
+(* say conservative things about floats relative to real #s *)
+Axiom real_in_float_correct1lt :
+  forall (r : R) (f f' : Floats.float),
+    real_in_float r f ->
+    (FloatToR f < FloatToR f')%R -> 
+    (r < FloatToR f')%R.
+
+(* these commented out ones are wrong. i think you can
+   only do this for strict inequalities *)
+(*
+Axiom real_in_float_correct1le :
+  forall (r : R) (f f' : Floats.float),
+    real_in_float r f ->
+    (FloatToR f <= FloatToR f')%R -> 
+    (r <= FloatToR f')%R.
+*)
+
+Axiom real_in_float_correct1gt :
+  forall (r : R) (f f' : Floats.float),
+    real_in_float r f ->
+    (FloatToR f > FloatToR f')%R -> 
+    (r > FloatToR f')%R.
+
+(*
+Axiom real_in_float_correct1ge :
+  forall (r : R) (f f' : Floats.float),
+    real_in_float r f ->
+    (FloatToR f >= FloatToR f')%R -> 
+    (r >= FloatToR f')%R.
+*)
 
 Definition real_st_in_float_st (rst : Semantics.state) (fst : fstate) : Prop :=
   forall (v : Var), real_in_float (rst v) (fst v).
@@ -294,7 +329,6 @@ CoFixpoint infStr {A : Type} (a : A) : stream A :=
 Check eval_term.
 
 Print stream.
-
 (* need a predicate for "begins with a transition from s1 to s2" *)
 Fixpoint stream_begins {A : Type} (astream : stream A) (alist : list A) : Prop :=
   match alist with
@@ -324,7 +358,10 @@ Definition convert_assn (assn : progr_assn) (st : rbstate) : Formula :=
                (Comp (VarNextT var) ub Le))
   end.
 
+Require Import FunctionalExtensionality.
+
 (* correctness for convert_assn *)
+(*
 Lemma convert_assn_correct :
   forall (sf sf' : fstate) (assn : progr_assn),
     assn_update_state assn sf = sf' ->
@@ -336,6 +373,46 @@ Lemma convert_assn_correct :
       forall (rbst : rbstate),
         float_st_in_bound_st sf rbst ->
         eval_formula (convert_assn assn rbst) tr.
+*)
+
+(* we need float_bounds *)
+
+(* problem this only works for the discrete part of our state *)
+
+(* we need to bridge tla and c basically. we need to treat tla variables
+   and c variables separately *)
+
+(* choice: change theorem, or let TLA have heterogeneous states *)
+
+(* or, add a premise to the state invariant that says that discrete
+   variables "are actually floats"... do we need a toFloat axiom? *)
+
+(* reading floats written in previous state is WEIRD...
+   we need to split the state. 
+   alternative: compile discrete program into continuous (in terms of states being continuous variables - reals)
+   continuous transitions and discrete real-valued transitions that can be nondeterministic...
+   when we compile, give semantics in terms of hybrid world*)
+
+(* update compiler so it adds boundedness of variables 
+   to TLA formula. change rbst to rbspec, of type Var * (R * R) 
+   (dont make it a map) *)
+
+(* say states are related just on discrete variables
+   have user label which variables are discrete
+   *)
+
+Lemma convert_assn_correct :
+  forall (sf sf' : fstate) (assn : progr_assn),
+    assn_update_state assn sf = sf' ->
+    forall (tr : Semantics.trace)
+           (sr : Semantics.state),
+      real_st_in_float_st sr  sf ->
+      stream_begins tr [sr; float_st_to_real_st sf'] -> (*TODO implement *)
+      forall (rbst : rbstate),
+        float_st_in_bound_st sf rbst ->
+        eval_formula (convert_assn assn rbst) tr.
+
+Print rbstate.
 Proof.
 intros.
 destruct assn; subst; simpl.
@@ -344,8 +421,7 @@ Check gb.
 destruct p.
 simpl.
 intro.
-destruct tr as [now [next trt]].
-
+destruct tr as [nowst [nextst trt]].
 simpl. simpl in H2.
 inversion H2; clear H2. inversion H5. clear H5. clear H6.
 subst.
@@ -353,14 +429,50 @@ unfold Semantics.eval_comp.
 simpl.
 Check getBound_correct.
 eapply getBound_correct with
-  (bst := rbst) (nt := pa_source0) (lb := t) (ub := t0)
-  (flst := sf) (rst_next := next)
+  (nt := pa_source0)
+  (flst := sf) (rst_next := nextst)
   in gb.
   (* first, prove our conclusion from conclusion of
      getBound_correct *)
   - inversion gb. clear gb.
     split.
-    +
+    induction t.
+    simpl. simpl in H2.
+    unfold real_st_in_float_st in *.
+    specialize H0 with v.
+
+    SearchAbout real_in_float.
+    apply real_in_float_
+.
+    Check real_in_float_correct.
+    
+    (* FUNDAMENTALLY right now my issue is
+       strict or non-strict inequality *)
+    
+(*
+    unfold float_st_in_bound_st in *.
+    eapply H3 in H0.
+*)
+
+    assert (FloatToR (eval_NowTerm pa_source0 sf) = eval_term t nowst nextst).
+    admit.
+    split.
+    rewrite <- H5.
+    split.
+    + 
+
+(* need a way to do lookup in nextst *)
+
+(* real_st_in_float_st_correct :
+
+real_in_float r f ->
+
+
+      unfold real_st_
+      extensionality.
+
+FloatToR??real_st_in_float_st st sf ->
+eval_term t st nextst <= 
 
       (* need axiom relating real_in_float
          to *)
