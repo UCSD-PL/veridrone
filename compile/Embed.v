@@ -15,10 +15,10 @@ Section embedding.
   Variable ast : Type.   (** Programs **)
   Variable state : Type. (** Programming language states **)
 
-  (** The standard evaluation relation **)
+  (** The standard evaluation relation for the language **)
   Variable eval : state -> ast -> state -> Prop.
 
-  (** In the state, the variable is represented as the returned real **)
+  (** In the TLA state, the variable is represented as the returned real **)
   Variable asReal : state -> var -> R.
 
   (** This states that the value in the TLA state is exactly
@@ -35,7 +35,8 @@ Section embedding.
   (** Running the given program in the current state. Only the specified
    ** variables are updated by the program when it is run.
    **)
-  Definition embedStep (vars : list (Syntax.Var * var)) (prg : ast) : Syntax.Formula :=
+  Definition embedStep (vars : list (Syntax.Var * var)) (prg : ast)
+  : Syntax.Formula :=
     Syntax.Embed (fun pre post =>
                     exists init_state post_state : state,
                       models vars pre init_state /\

@@ -1,6 +1,6 @@
 # copied from tla directory, with some changes...
 
-VS := source.v bound.v
+VS := source.v bound.v Embed.v
 
 .PHONY: coq clean
 
