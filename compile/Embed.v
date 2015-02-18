@@ -24,7 +24,8 @@ Section embedding.
   Variable asReal : state -> var -> R.
 
   (** The program state is an abstraction of the TLA state **)
-  Fixpoint models (vars : list (Syntax.Var * var)) : Syntax.state -> state -> Prop :=
+  Fixpoint models (vars : list (Syntax.Var * var))
+  : Syntax.state -> state -> Prop :=
     match vars with
     | nil => fun _ _ => True
     | (v,v') :: vars =>
@@ -36,7 +37,8 @@ Section embedding.
   (** On the output, the program gets to write exactly the given values to the
    ** TLA state, so this function computes the new final state using [asReal]
    **)
-  Fixpoint modelsOutput (vars : list (Syntax.Var * var)) (tla_st : Syntax.state) (st : state) : Prop :=
+  Fixpoint modelsOutput (vars : list (Syntax.Var * var))
+           (tla_st : Syntax.state) (st : state) : Prop :=
     match vars with
     | nil => True
     | (v,v') :: vars =>
