@@ -13,3 +13,6 @@ Makefile.coq: Makefile $(VS)
 clean:: Makefile.coq
 	$(MAKE) -f Makefile.coq clean
 	rm -f Makefile.coq
+
+compcert:
+	wget http://compcert.inria.fr/release/compcert-2.4.tgz -O - | tar zxf -

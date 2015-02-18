@@ -12,15 +12,6 @@ Require Import compcert.flocq.Core.Fcore_defs.
 Require Import compcert.flocq.Appli.Fappli_IEEE.
 Require Import compcert.flocq.Appli.Fappli_IEEE_bits.
 
-(*
-Require Import ExtLib.Structures.Monad.
-Require Import ExtLib.Structures.MonadState.
-Require Import ExtLib.Data.Monads.StateMonad.
-
-Require Import ExtLib.Structures.Traversable. (* for sequence function *)
-Require Import ExtLib.Data.List.
-*)
-
 Require Import ExtLib.Programming.Extras.
 Import FunNotation.
 
@@ -164,93 +155,122 @@ Definition self_foldr {A : Type} (f : A -> A -> A) (l : list A) (dflt : A) : A :
     | nil => dflt
     | h :: t =>
       List.fold_right f h t
-end.
+  end.
 
-(* state giving bounds on variables *)
-Definition rbstate := Var -> (R * R)%type.
+Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.String.
+Require Import ExtLib.Data.Option.
+
 
 (* Semantics *)
-Definition fstate := Var -> Floats.float.
+Definition fstate := list (Var * Floats.float).
 
-(* denotation of NowTerm *)
-Fixpoint eval_NowTerm (nt : NowTerm) (st : fstate) : Floats.float :=
-  match nt with
-    | VarNowN v => st v
-    | FloatN f => f
-    | NatN n => nat_to_float n
-    | PlusN l r => Floats.Float.add (eval_NowTerm l st) (eval_NowTerm r st)
-    | MinusN l r => Floats.Float.sub (eval_NowTerm l st) (eval_NowTerm r st)
-    | MultN l r => Floats.Float.mul (eval_NowTerm l st) (eval_NowTerm r st)
+Fixpoint fstate_lookup (f : fstate) (v : Var) : option Floats.float :=
+  match f with
+  | nil => None
+  | (v',f) :: fs =>
+    if v ?[ eq ] v then
+      Some f
+    else fstate_lookup fs v
   end.
 
-(* denotation of comparison functions *)
-Definition eval_comp (op : CompOp) (lhs rhs : NowTerm) (st : fstate) : bool :=
-  let elhs := eval_NowTerm lhs st in
-  let erhs := eval_NowTerm rhs st in
-  let cmp := match op with
-               | Gt => Cgt
-               | Ge => Cge
-               | Lt => Clt
-               | Le => Cle
-               | Eq => Ceq
-             end in
-  Floats.Float.cmp cmp elhs erhs.
+(** This should change **)
+Fixpoint fstate_set (f : fstate) (v : Var) (val : Floats.float) : fstate :=
+  (v,val) :: f.
 
-(* denotation of conditionals *)
-Fixpoint progr_cond_holds (conds : FlatFormula) (st : fstate) : bool :=
-  match conds with
-    | FTRUE => true
-    | FFALSE => false
-    | FComp lhs rhs op => eval_comp op lhs rhs st
-    | FAnd p1 p2 => andb (progr_cond_holds p1 st) (progr_cond_holds p2 st)
-    | FOr p1 p2 => orb (progr_cond_holds p1 st) (progr_cond_holds p2 st)
-  end.
-
-(* String.string_dec *)
-(* update state as per an assignment *)
-(* TODO rename these to eval_something *)
-Definition assn_update_state (assn : progr_assn) (st : fstate) : fstate :=
-  fun v =>
-    if String.string_dec v $ pa_dest assn
-    then eval_NowTerm (pa_source assn) st
-    else st v.
-
-Fixpoint assn_update_states (assns: list progr_assn) (init : fstate) : fstate :=
-  match assns with
-    | nil => init
-    | h :: t =>
-      let news := assn_update_state h init in
-      assn_update_states t news
-  end.
-
-(* denotation of a single program statement *)
-Fixpoint eval_progr_stmt (ps : progr_stmt) (init : fstate) : fstate :=
-  match ps with
-    | mk_progr_stmt conds assns =>
-      if progr_cond_holds conds init
-      then assn_update_states assns init
-      else init
-  end.
-
-(* denotation of a source language program *)
-Fixpoint eval_progr (p : progr) (init : fstate) : fstate :=
-  match p with
-    | nil => init
-    | h :: t =>
-      let news := eval_progr_stmt h init in
-      eval_progr t news
+Definition lift2 {T U V : Type} (f : T -> U -> V) (a : option T) (b : option U) : option V :=
+  match a , b with
+  | Some a , Some b => Some (f a b)
+  | _ , _ => None
   end.
 
 Definition custom_prec := 53%Z.
 Definition custom_emax:= 1024%Z.
 Definition custom_float_zero := B754_zero custom_prec custom_emax true.
 
-Fixpoint custom_eval_expr (t:NowTerm) :=
-  match t with
-    | VarNowN var => custom_float_zero
-    | NatN n => nat_to_float n
-    | FloatN f => f
-    | PlusN t1 t2 => Bplus custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl mode_NE (custom_eval_expr t1) (custom_eval_expr t2) 
-    | MinusN t1 t2 => Bminus custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl mode_NE (custom_eval_expr t1) (custom_eval_expr t2)
-    | MultN t1 t2 => Bmult custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl mode_NE (custom_eval_expr t1) (custom_eval_expr t2)
+Section eval_expr.
+  Variable st : fstate.
+
+  (* denotation of NowTerm *)
+  Fixpoint eval_NowTerm (t:NowTerm) :=
+    match t with
+    | VarNowN var => fstate_lookup st var
+    | NatN n => Some (nat_to_float n)
+    | FloatN f => Some f
+    | PlusN t1 t2 =>
+      lift2 (Bplus custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl mode_NE)
+            (eval_NowTerm t1) (eval_NowTerm t2)
+    | MinusN t1 t2 =>
+      lift2 (Bminus custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl mode_NE)
+            (eval_NowTerm t1) (eval_NowTerm t2)
+    | MultN t1 t2 =>
+      lift2 (Bmult custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl mode_NE)
+            (eval_NowTerm t1) (eval_NowTerm t2)
+    end.
+
+  (* denotation of comparison functions *)
+  Definition eval_comp (op : CompOp) (lhs rhs : NowTerm) : option bool :=
+    let elhs := eval_NowTerm lhs in
+    let erhs := eval_NowTerm rhs in
+    let cmp := match op with
+               | Gt => Cgt
+               | Ge => Cge
+               | Lt => Clt
+               | Le => Cle
+               | Eq => Ceq
+               end in
+    lift2 (Floats.Float.cmp cmp) elhs erhs.
+
+  (* denotation of conditionals *)
+  Fixpoint progr_cond_holds (conds : FlatFormula) : option bool :=
+    match conds with
+    | FTRUE => Some true
+    | FFALSE => Some false
+    | FComp lhs rhs op => eval_comp op lhs rhs
+    | FAnd p1 p2 => lift2 andb (progr_cond_holds p1) (progr_cond_holds p2)
+    | FOr p1 p2 => lift2 orb (progr_cond_holds p1) (progr_cond_holds p2)
+    end.
+End eval_expr.
+
+
+
+(* String.string_dec *)
+(* update state as per an assignment *)
+(* TODO rename these to eval_something *)
+Definition assn_update_state (assn : progr_assn) (st : fstate) : option fstate :=
+  match eval_NowTerm st assn.(pa_source) with
+  | Some val => Some (fstate_set st assn.(pa_dest) val)
+  | None => None
+  end.
+
+Fixpoint assn_update_states (assns: list progr_assn) (acc : fstate) : option fstate :=
+  match assns with
+  | nil => Some acc
+  | h :: t =>
+    match assn_update_state h acc with
+    | Some news => assn_update_states t news
+    | _ => None
+    end
+  end.
+
+(* denotation of a single program statement *)
+Fixpoint eval_progr_stmt (ps : progr_stmt) (init : fstate) : option fstate :=
+  match ps with
+  | mk_progr_stmt conds assns =>
+    match progr_cond_holds init conds with
+    | Some true => assn_update_states assns init
+    | Some false => Some init
+    | None => None
+    end
+  end.
+
+(* denotation of a source language program *)
+Fixpoint eval_progr (p : progr) (init : fstate) : option fstate :=
+  match p with
+  | nil => Some init
+  | h :: t =>
+    match eval_progr_stmt h init with
+    | Some news => eval_progr t news
+    | None => None
+    end
   end.
