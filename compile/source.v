@@ -251,8 +251,6 @@ Fixpoint custom_eval_expr (t:NowTerm) :=
     | NatN n => nat_to_float n
     | FloatN f => f
     | PlusN t1 t2 => Bplus custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl mode_NE (custom_eval_expr t1) (custom_eval_expr t2) 
-    (*need to figure out what to do with Floats.Float.binop_pl - this is some architecture related stuff to handle Nan type values*)
-    (*also may want to have different additions for different kinds of numbers*)
     | MinusN t1 t2 => Bminus custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl mode_NE (custom_eval_expr t1) (custom_eval_expr t2)
     | MultN t1 t2 => Bmult custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl mode_NE (custom_eval_expr t1) (custom_eval_expr t2)
   end.
