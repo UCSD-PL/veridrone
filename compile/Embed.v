@@ -19,7 +19,7 @@ Section embedding.
   Variable eval : state -> ast -> state -> Prop.
 
   (** In the TLA state, the variable is represented as the returned real **)
-  Variable asReal : state -> var -> R.
+  Variable asReal : state -> var -> option R.
 
   (** This states that the value in the TLA state is exactly
    ** equal to the value in the program state.

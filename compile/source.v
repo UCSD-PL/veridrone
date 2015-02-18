@@ -167,16 +167,22 @@ Definition fstate := list (Var * Floats.float).
 
 Fixpoint fstate_lookup (f : fstate) (v : Var) : option Floats.float :=
   match f with
-  | nil => None
-  | (v',f) :: fs =>
-    if v ?[ eq ] v then
-      Some f
+  | nil          => None
+  | (v',b) :: fs =>
+    if v ?[ eq ] v' then
+      Some b
     else fstate_lookup fs v
   end.
 
-(** This should change **)
 Fixpoint fstate_set (f : fstate) (v : Var) (val : Floats.float) : fstate :=
-  (v,val) :: f.
+  match f with
+    | nil           => (v, val) :: nil
+    | (v', b) :: fs =>
+      if v ?[ eq ] v' then
+        (v, val) :: fs
+      else
+        (v', b) :: fstate_set fs v val
+  end.
 
 Definition lift2 {T U V : Type} (f : T -> U -> V) (a : option T) (b : option U) : option V :=
   match a , b with

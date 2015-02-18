@@ -1,5 +1,7 @@
 Require Import source.
 
+(*Require Import bound.*)
+
 Require Import compcert.cfrontend.Clight.
 Require Import compcert.cfrontend.Cop.
 Require Import compcert.cfrontend.Ctypes.
@@ -24,75 +26,11 @@ Local Close Scope HP_scope.
 Delimit Scope SrcLang_scope with SL.
 Local Open Scope SrcLang_scope.
 
-
-Axiom getBound : rbstate -> NowTerm -> (Term * Term * Formula)%type.
-
-(* reasoning about bounds membership - including
-   states being within bounds specified by other states
-   (when variables are considered pointwise) *)
-
-Axiom real_in_float : R -> Floats.float -> Prop.
-
-(* this is a very weak condition but hopefully
-   it's all that we need *)
-(* "introduction" rule *)
-Axiom real_in_float_correct0 :
-  forall (r : R) (f : Floats.float),
-    FloatToR f = r ->
-    real_in_float r f.
-
-(* "elimination" rules *)
-(* say conservative things about floats relative to real #s *)
-Axiom real_in_float_correct1lt :
-  forall (r : R) (f f' : Floats.float),
-    real_in_float r f ->
-    (FloatToR f < FloatToR f')%R -> 
-    (r < FloatToR f')%R.
-
-(* these commented out ones are wrong. i think you can
-   only do this for strict inequalities *)
-(*
-Axiom real_in_float_correct1le :
-  forall (r : R) (f f' : Floats.float),
-    real_in_float r f ->
-    (FloatToR f <= FloatToR f')%R -> 
-    (r <= FloatToR f')%R.
-*)
-
-Axiom real_in_float_correct1gt :
-  forall (r : R) (f f' : Floats.float),
-    real_in_float r f ->
-    (FloatToR f > FloatToR f')%R -> 
-    (r > FloatToR f')%R.
-
-(*
-Axiom real_in_float_correct1ge :
-  forall (r : R) (f f' : Floats.float),
-    real_in_float r f ->
-    (FloatToR f >= FloatToR f')%R -> 
-    (r >= FloatToR f')%R.
-*)
-
-Definition real_st_in_float_st (rst : Syntax.state) (fst : fstate) : Prop :=
-  forall (v : Var), real_in_float (rst v) (fst v).
-
-Definition real_st_in_bound_st (rst : Syntax.state) (rbst : rbstate) : Prop :=
-  forall (v : Var),
-    let (lb, ub) := rbst v in
-    (lb <= rst v <= ub)%R.
-
-(* expresses that all possible real values a float could represent
-   lie in a specific bound - except lifted pointwise over states *)
-Definition float_st_in_bound_st (fst : fstate) (rbst : rbstate) : Prop :=
-  forall (v : Var) (rst : Syntax.state),
-    real_st_in_float_st rst fst -> real_st_in_bound_st rst rbst.
+Axiom getBound : NowTerm -> list (Term * Term * Formula)%type.
 
 CoFixpoint infStr {A : Type} (a : A) : stream A :=
   Semantics.Cons A a (infStr a).
 
-Check eval_term.
-
-Print stream.
 (* need a predicate for "begins with a transition from s1 to s2" *)
 Fixpoint stream_begins {A : Type} (astream : stream A) (alist : list A) : Prop :=
   match alist with
@@ -103,14 +41,84 @@ Fixpoint stream_begins {A : Type} (astream : stream A) (alist : list A) : Prop :
       end
   end.
 
+(* vignesh's correctness lemma takes
+   - trace
+   - NowTerm
+   - newBound expr (Semantics.hd tr) (Semantics.hd (Semantics.tl tr))
+   - newBound :: NowTerm -> Semantics.state -> Semantics.trace -> Prop
+*)
+
+(* c_ means "concrete" *)
+Definition c_asReal (s : fstate) (v : Var) : option R :=
+  match fstate_lookup s v with
+    | Some f => Some (FloatToR f)
+    | None   => None
+  end.
+
+Definition c_eval (si : fstate) (pr : progr) (sf : fstate) : Prop :=
+  (eval_progr pr si = Some sf)%type.
+
+Require Import Embed.
+
+Check @Embed.models.
+
+Check (Embed.models Floats.float fstate c_asReal).
+
+Definition c_models (vars : list (Var * float)) (tla_st : Syntax.state) (fst : fstate) : Prop :=
+  Embed.models (var := float) (
+
+(* change fstate to finite map and fix things up *)
+
+(* for our purposes:
+   var = float
+   state = fstat finite map
+   ast = progr
+   eval = eval_progr = Some...
+   asReal = see above
+*)   
+
+(* tilde relation *)
+Definition c_models :=
+  models Floats.float
+
+Axiom getBound_correct :
+  forall (nt : NowTerm) (lb ub : Term) (side : Formula),
+    getBound nt = (lb, ub, side) ->
+    forall flst rst_next tr,
+      rst ~ flst ->
+      stream_begins tr [rst; rst_next] ->
+      eval_formula side tr ->
+      (eval_term lb rst rst_next <=
+       FloatToR (eval_NowTerm nt flst) <=
+       eval_term ub rst rst_next)%R.  
+
+
+(*
+Axiom getBound_correct :
+  forall (nt : NowTerm) (lb ub : Term) (side : Formula),
+    getBound bst nt = (lb, ub, side) ->
+    forall flst rst_next tr,
+                let rst := (fun v => FloatToR (flst v)) in
+                stream_begins tr [rst; rst_next] ->
+                eval_formula side tr ->
+                (eval_term lb rst rst_next <=
+                 FloatToR (eval_NowTerm nt flst) <=
+                 eval_term ub rst rst_next)%R.  
+*)
+
+(*
 Axiom getBound_correct :
   forall (bst : rbstate) (nt : NowTerm) (lb ub : Term) (side : Formula),
-    getBound bst nt = (lb, ub, side) ->
+    getBound
+ bst nt = (lb, ub, side) ->
     forall flst rst_next tr, float_st_in_bound_st flst bst ->
                 let rst := (fun v => FloatToR (flst v)) in
                 stream_begins tr [rst] ->
                 eval_formula side tr ->
-                (eval_term lb rst rst_next <= FloatToR (eval_NowTerm nt flst) <= eval_term ub rst rst_next)%R.  
+                (eval_term lb rst rst_next <=
+                 FloatToR (eval_NowTerm nt flst) <=
+                 eval_term ub rst rst_next)%R.  
+*)
 
 (* TODO strict or non-strict inequalities? *)
 Definition convert_assn (assn : progr_assn) (st : rbstate) : Formula :=
@@ -168,6 +176,10 @@ Lemma convert_assn_correct :
 (* fstmap is a float state, expressed as a finite map. we will need to rewrite
    these other functions to use fstmaps for float state *)
 
+(* have program compile trivially (FALSE or TRUE) if you fail a check
+   that is, if you try to look up undefined variables in the float state
+   or you try to assign two values into the same variable at once *)
+
 Definition fstmap := list (Var * Floats.float).
 
 (*
@@ -193,7 +205,7 @@ Definition update_floats (sr : Syntax.state) (new_sf : fstmap) : Syntax.state :=
          else sr v)
   end.
 
-
+(*
 Lemma compile_assn_correct_new :
   forall (sf sf' : fstate) (assn : progr_assn),
     assn_update sf = sf' ->
@@ -202,12 +214,18 @@ Lemma compile_assn_correct_new :
       stream_begins tr [sr; update_floats sr sf'] ->
       forall (rbst : rbstate),
         float_st_in_bound_st sf rbst ->
-        eval_formula (compile_assn assn rbst) tr.
+        eval_formula (convert_assn assn rbst) tr.
+*)
+
+Require Import ExtLib.Core.RelDec.
+
+Definition float_st_to_real_st (sf : fstate) : Syntax.state :=
+  (fun v => FloatToR (sf v)).
 
 Lemma convert_assn_correct :
   forall (sf sf' : fstate) (assn : progr_assn),
     assn_update_state assn sf = sf' ->
-    forall (tr : Syntax.trace)
+    forall (tr : Semantics.trace)
            (sr : Syntax.state),
       real_st_in_float_st sr  sf ->
       stream_begins tr [sr; float_st_to_real_st sf'] -> (*TODO implement *)
@@ -215,24 +233,22 @@ Lemma convert_assn_correct :
         float_st_in_bound_st sf rbst ->
         eval_formula (convert_assn assn rbst) tr.
 
-Print rbstate.
 Proof.
 intros.
 destruct assn; subst; simpl.
-destruct (getBound rbst pa_source0) eqn:gb.
+destruct (getBound rbst pa_source) eqn:gb.
 Check gb.
 destruct p.
 simpl.
 intro.
 destruct tr as [nowst [nextst trt]].
-simpl. simpl in H2.
-inversion H2; clear H2. inversion H5. clear H5. clear H6.
+simpl. simpl in H1.
+inversion H1; clear H1. inversion H4. clear H4. clear H5.
 subst.
 unfold Semantics.eval_comp.
 simpl.
-Check getBound_correct.
 eapply getBound_correct with
-  (nt := pa_source0)
+  (nt := pa_source)
   (flst := sf) (rst_next := nextst)
   in gb.
   (* first, prove our conclusion from conclusion of
