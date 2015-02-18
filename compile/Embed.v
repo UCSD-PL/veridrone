@@ -1,4 +1,4 @@
-Require Import Reals.
+Require Import Coq.Reals.Reals.
 Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.String.
