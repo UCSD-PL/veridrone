@@ -401,6 +401,45 @@ Lemma convert_assn_correct :
    have user label which variables are discrete
    *)
 
+(* fstmap is a float state, expressed as a finite map. we will need to rewrite
+   these other functions to use fstmaps for float state *)
+
+Definition fstmap := list (Var * Floats.float).
+
+(*
+Definition real_st_subsumes_float_st (sr : Semantics.state) (sf : fstmap) : Prop :=
+  forall (v : Var),
+    in_fstmap sf v ->
+    real_in_float (sr v) (sf v).
+*)
+
+
+(* updates all the states in the given real state with values drawn from
+   finite map new_sf *)
+
+SearchAbout (String.string -> String.string -> _).
+
+Definition update_floats (sr : Semantics.state) (new_sf : fstmap) : Semantics.state :=
+  match new_sf with
+    | nil => sr
+    | (name, val) :: rest =>
+      (fun v =>
+         if String.string_dec v name
+         then FloatToR val
+         else sr v)
+  end.
+
+
+Lemma compile_assn_correct_new :
+  forall (sf sf' : fstate) (assn : progr_assn),
+    assn_update sf = sf' ->
+    forall (tr : trace) (sr : Semantics.state),
+      real_st_subsumes_float_st sr sf ->
+      stream_begins tr [sr; update_floats sr sf'] ->
+      forall (rbst : rbstate),
+        float_st_in_bound_st sf rbst ->
+        eval_formula (compile_assn assn rbst) tr.
+
 Lemma convert_assn_correct :
   forall (sf sf' : fstate) (assn : progr_assn),
     assn_update_state assn sf = sf' ->
