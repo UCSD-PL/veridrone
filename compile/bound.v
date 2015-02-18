@@ -212,7 +212,7 @@ Definition boundDef (expr:NowTerm) (s1:state) (s2:state) (tr:trace) (fState:fsta
   end.
 
 
-Lemma new_bound_proof : 
+Lemma bound_proof : 
   (forall (tr:Semantics.trace) expr fState, 
       (boundDef expr (Semantics.hd tr) (Semantics.hd (Semantics.tl tr)) tr fState)).
 admit.
