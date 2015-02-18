@@ -181,7 +181,7 @@ Definition getBound (t1 t2:NowTerm)
            boundFunc list1 list2 t1 t2 evalt1 evalt2) 
         (bound_term_func t1 fState) (bound_term_func t2 fState)             (eval_NowTerm fState t1) (eval_NowTerm fState t2).
 
-Fixpoint bound_term x fState : option (list (Term*Term*Formula)):= 
+Fixpoint bound_term (x:NowTerm) (fState:fstate) : option (list (Term*Term*Formula)):= 
   match x with
     | VarNowN var => Some [(RealT R0,RealT R0, TRUE)]
     | NatN n => Some [(RealT (INR n),RealT (INR n) , TRUE)]
