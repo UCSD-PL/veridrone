@@ -15,17 +15,20 @@ Require Import compcert.flocq.Core.Fcore_Raux.
 Require Import source.
 Require Import Coq.Reals.Raxioms.
 
-Definition custom_fst (x:Term*Term*Formula) := match x with 
-| (f,s,t) => f
-end.
+Definition custom_fst (x:Term*Term*Formula) := 
+  match x with 
+    | (f,s,t) => f
+  end.
 
-Definition custom_snd (x:Term*Term*Formula) := match x with 
-| (f,s,t)=> s
-end.
+Definition custom_snd (x:Term*Term*Formula) := 
+  match x with 
+    | (f,s,t)=> s
+  end.
 
-Definition custom_third (x:Term*Term*Formula) := match x with 
-| (f,s,t) => t
-end.
+Definition custom_third (x:Term*Term*Formula) := 
+  match x with 
+    | (f,s,t) => t
+  end.
 
 Local Open Scope HP_scope.
 
@@ -126,32 +129,29 @@ Definition foldListwithList
 
 Definition plusBound 
            (list1 list2: list (Term*Term*Formula)) 
-           (t1 t2:NowTerm) 
-           (evalt1 evalt2 : Floats.float): 
+           (t1 t2:NowTerm): 
   list (Term*Term*Formula):= 
 
-  (foldListwithList list1 list2 PlusT (B2R _ _ evalt1 + B2R _ _ evalt2 >= RealT R0) simpleBound) ++ 
-(foldListwithList list1 list2 PlusT ((B2R _ _ evalt1) + (B2R _ _ evalt2) < RealT R0) simpleBound4).
+  (foldListwithList list1 list2 PlusT (denowify t1 + denowify t2 >= RealT R0) simpleBound) ++ 
+(foldListwithList list1 list2 PlusT (denowify t1 + denowify t2 < RealT R0) simpleBound4).
 
 Definition minusBound 
            (list1 list2: list (Term*Term*Formula)) 
-           (t1 t2:NowTerm) 
-           (evalt1 evalt2 : Floats.float): 
+           (t1 t2:NowTerm): 
   list (Term*Term*Formula):=
   
-  (foldListwithList list1 list2 MinusT ((B2R _ _ evalt1) - (B2R _ _ evalt2) >= RealT R0) simpleBound2) ++ 
-(foldListwithList list1 list2 MinusT ((B2R _ _ evalt1) - (B2R _ _ evalt2) < RealT R0) simpleBound5).
+  (foldListwithList list1 list2 MinusT (denowify t1 - denowify t2 >= RealT R0) simpleBound2) ++ 
+(foldListwithList list1 list2 MinusT (denowify t1 + denowify t2 < RealT R0) simpleBound5).
 
 Definition multBound 
            (list1 list2: list (Term*Term*Formula)) 
-           (t1 t2:NowTerm) 
-           (evalt1 evalt2 : Floats.float): 
+           (t1 t2:NowTerm): 
   list (Term*Term*Formula):=
-  (foldListwithList list1 list2 MultT (B2R _ _ evalt1 >= RealT R0 /\B2R _ _ evalt2 >= RealT R0) simpleBound) ++
-(foldListwithList list1 list2 MultT (B2R _ _ evalt1 < RealT R0 /\ 
-B2R _ _ evalt2 < RealT R0) simpleBound3) ++
- (foldListwithList list1 list2 MultT (B2R _ _ evalt1 > RealT R0 /\ B2R _ _ evalt2 < RealT R0) simpleBound6) ++ 
- (foldListwithList list2 list1 MultT (B2R _ _ evalt1 < RealT R0 /\ B2R _ _ evalt2 > RealT R0) simpleBound6).
+  (foldListwithList list1 list2 MultT (denowify t1 >= RealT R0 /\ denowify t2 >= RealT R0) simpleBound) ++
+(foldListwithList list1 list2 MultT (denowify t1 < RealT R0 /\ 
+denowify t2 < RealT R0) simpleBound3) ++
+ (foldListwithList list1 list2 MultT (denowify t1 > RealT R0 /\ denowify t2 < RealT R0) simpleBound6) ++ 
+ (foldListwithList list2 list1 MultT (denowify t1 < RealT R0 /\ denowify t2 > RealT R0) simpleBound6).
 
 Definition lift4 {T U V W X: Type} 
                  (f : T -> U -> V -> W -> X) 
@@ -166,29 +166,26 @@ Definition lift4 {T U V W X: Type}
   end.
 
 Definition getBound (t1 t2:NowTerm) 
-                     (fState:fstate) 
                      (boundFunc: list (Term*Term*Formula) -> 
                                  list (Term*Term*Formula) -> 
                                  NowTerm -> 
-                                 NowTerm -> Floats.float -> 
-                                 Floats.float -> 
+                                 NowTerm ->
                                  list (Term*Term*Formula)) 
                      (bound_term_func : NowTerm -> 
-                                        fstate -> 
                                         option (list (Term*Term*Formula))) := 
   
-  lift4 (fun list1 list2 evalt1 evalt2 => 
-           boundFunc list1 list2 t1 t2 evalt1 evalt2) 
-        (bound_term_func t1 fState) (bound_term_func t2 fState)             (eval_NowTerm fState t1) (eval_NowTerm fState t2).
+  lift2 (fun list1 list2  => 
+           boundFunc list1 list2 t1 t2) 
+        (bound_term_func t1) (bound_term_func t2).
 
-Fixpoint bound_term (x:NowTerm) (fState:fstate) : option (list (Term*Term*Formula)):= 
+Fixpoint bound_term (x:NowTerm)  : option (list (Term*Term*Formula)):= 
   match x with
-    | VarNowN var => Some [(RealT R0,RealT R0, TRUE)]
+    | VarNowN var => Some [(VarNowT var,VarNowT var, TRUE)]
     | NatN n => Some [(RealT (INR n),RealT (INR n) , TRUE)]
     | FloatN f => Some [( (RealT (B2R _ _ f), RealT (B2R _ _ f)), TRUE)]
-    | PlusN t1 t2 => getBound t1 t2 fState plusBound bound_term
-    | MinusN t1 t2 => getBound t1 t2 fState minusBound bound_term
-    | MultN t1 t2 =>  getBound t1 t2 fState minusBound bound_term
+    | PlusN t1 t2 => getBound t1 t2 plusBound bound_term
+    | MinusN t1 t2 => getBound t1 t2 minusBound bound_term
+    | MultN t1 t2 =>  getBound t1 t2 minusBound bound_term
   end.
 
 
@@ -205,15 +202,17 @@ Definition foldBoundProp     (evalExpr:option Floats.float) (s1:state) (s2:state
              end).
                                                                    
 
-Definition boundDef (expr:NowTerm) (s1:state) (s2:state) (tr:trace) (fState:fstate):Prop:=
-  match (bound_term expr fState) with
+Definition boundDef (expr:NowTerm) (s1:state) (s2:state) (tr:trace) (fState: fstate):Prop:=
+  match (bound_term expr) with
       | Some bound => fold_left (foldBoundProp (eval_NowTerm fState expr) s1 s2 tr) bound True
       | _ => True
   end.
 
 
 Lemma bound_proof : 
-  (forall (tr:Semantics.trace) expr fState, 
+  (forall (tr:Semantics.trace) (expr:NowTerm) (fState:fstate), 
       (boundDef expr (Semantics.hd tr) (Semantics.hd (Semantics.tl tr)) tr fState)).
 admit.
 Qed.
+
+
