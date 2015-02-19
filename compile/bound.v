@@ -15,20 +15,6 @@ Require Import compcert.flocq.Core.Fcore_Raux.
 Require Import source.
 Require Import Coq.Reals.Raxioms.
 
-Definition custom_fst (x:Term*Term*Formula) := 
-  match x with 
-    | (f,s,t) => f
-  end.
-
-Definition custom_snd (x:Term*Term*Formula) := 
-  match x with 
-    | (f,s,t)=> s
-  end.
-
-Definition custom_third (x:Term*Term*Formula) := 
-  match x with 
-    | (f,s,t) => t
-  end.
 
 Local Open Scope HP_scope.
 
@@ -36,117 +22,123 @@ Local Open Scope HP_scope.
 Require Import compcert.flocq.Core.Fcore_Raux.
 Definition error := bpow radix2 (- (53) + 1).
 
+Record singleBoundTerm : Type := mkSBT {lb : Term; 
+                                 ub : Term ; 
+                                 premise : Formula}. 
 
 
 (*used for addition when the result is positive and multiplication when both the arguments are positive*)
+
+Definition bd := mkSBT (RealT R0) (RealT R0) (RealT R0 > RealT R0) .
+
 Definition simpleBound 
-           (triple1 triple2:Term*Term*Formula) 
+           (triple1 triple2:singleBoundTerm) 
            (combFunc:Term->Term->Term)  
            (fla:Formula) : 
-  (Term*Term*Formula) := 
-  ((combFunc (custom_fst triple1)  (custom_fst triple2)) * (RealT R1 - RealT error), 
-   (combFunc (custom_snd triple2) (custom_snd triple2)) * (RealT R1 + RealT error), 
-   fla). 
+  singleBoundTerm := 
+  mkSBT ((combFunc (lb triple1) (lb triple2)) * (RealT R1 - RealT error)) 
+        ((combFunc (ub triple1) (ub triple2)) * (RealT R1 + RealT error)) 
+        fla. 
 
 (*used for subtraction when the result is positive*)
 Definition simpleBound2 
-           (triple1 triple2:Term*Term*Formula) 
+           (triple1 triple2:singleBoundTerm) 
            (combFunc:Term->Term->Term)  
            (fla:Formula) : 
-  (Term*Term*Formula) := 
-  ((combFunc (custom_fst triple2)  (custom_snd triple1)) * (RealT R1- RealT error), 
-   (combFunc (custom_snd triple2) (custom_fst triple1)) * (RealT R1 + RealT error), 
-   fla). 
+  singleBoundTerm := 
+  mkSBT ((combFunc (lb triple2)  (ub triple1)) * (RealT R1- RealT error)) 
+        ((combFunc (ub triple2) (lb triple1)) * (RealT R1 + RealT error)) 
+        fla. 
 
 (*used for multiplication - when both the arguments is negative*)
 Definition simpleBound3 
-           (triple1 triple2:Term*Term*Formula) 
+           (triple1 triple2:singleBoundTerm) 
            (combFunc:Term->Term->Term)  
            (fla:Formula) : 
-  (Term*Term*Formula) := 
-  ((combFunc (custom_snd triple1)  (custom_snd triple2)) * (RealT R1 - RealT error), 
-   (combFunc (custom_fst triple1) (custom_fst triple2)) * (RealT R1 + RealT error), 
- fla).
+  singleBoundTerm := 
+  mkSBT ((combFunc (lb triple1)  (ub triple2)) * (RealT R1 - RealT error)) 
+        ((combFunc (ub triple1) (lb triple2)) * (RealT R1 + RealT error)) 
+        fla.
 
 
 (*used for addition - negative result*)
 Definition simpleBound4 
-           (triple1 triple2:Term*Term*Formula) 
+           (triple1 triple2:singleBoundTerm) 
            (combFunc:Term->Term->Term)  
            (fla:Formula) : 
-  (Term*Term*Formula) := 
-  ((combFunc (custom_fst triple1)  (custom_fst triple2)) * (RealT R1+ RealT error), 
-   (combFunc (custom_snd triple1) (custom_snd triple2)) * (RealT R1 - RealT error), 
-   fla).
+  singleBoundTerm := 
+  mkSBT ((combFunc (lb triple1)  (lb triple2)) * (RealT R1+ RealT error)) 
+        ((combFunc (ub triple1) (ub triple2)) * (RealT R1 - RealT error)) 
+        fla.
 
 
 (*used for subtraction when the result is negative*)
 Definition simpleBound5 
-           (triple1 triple2:Term*Term*Formula) 
+           (triple1 triple2:singleBoundTerm) 
            (combFunc:Term->Term->Term)  
            (fla:Formula) : 
-  (Term*Term*Formula) := 
-  ((combFunc (custom_fst triple2)  (custom_snd triple1)) * (RealT R1+ RealT error), 
-   (combFunc (custom_snd triple2) (custom_fst triple1)) * (RealT R1 - RealT error), 
-   fla).
+  singleBoundTerm := 
+  mkSBT ((combFunc (lb triple2)  (ub triple1)) * (RealT R1+ RealT error)) 
+        ((combFunc (ub triple2) (lb triple1)) * (RealT R1 - RealT error)) 
+        fla.
 
 (*used for multiplication - when one of the arguments is negative*)
 Definition simpleBound6 
-           (triple1 triple2:Term*Term*Formula) 
+           (triple1 triple2:singleBoundTerm) 
            (combFunc:Term->Term->Term)  
            (fla:Formula) : 
-  (Term*Term*Formula) := 
-  ((combFunc (custom_snd triple1)  (custom_fst triple2)) * (RealT R1+ RealT error), 
-   (combFunc (custom_fst triple1) (custom_snd triple2)) * (RealT R1 - RealT error), 
-   fla).
+  singleBoundTerm := 
+  mkSBT ((combFunc (ub triple1)  (lb triple2)) * (RealT R1+ RealT error)) 
+        ((combFunc (lb triple1) (ub triple2)) * (RealT R1 - RealT error)) 
+        fla.
 
 
 Definition mapBoundListWithTriple 
-           (list:list (Term*Term*Formula)) 
-           (triple: (Term*Term*Formula)) 
+           (list:list singleBoundTerm) 
+           (triple: singleBoundTerm) 
            (combFunc:Term->Term->Term) 
            (fla:Formula) 
-           (simpleBoundFunc : Term*Term*Formula -> 
-                              Term*Term*Formula -> 
+           (simpleBoundFunc : singleBoundTerm -> 
+                              singleBoundTerm -> 
                               (Term->Term->Term) -> 
                               Formula -> 
-                              Term*Term*Formula ) := 
+                              singleBoundTerm ) := 
 
   map (fun triple2  =>  simpleBoundFunc triple triple2 combFunc fla) list. 
 
 
 Definition foldListwithList 
-           (list1 list2: list (Term*Term*Formula)) 
+           (list1 list2: list singleBoundTerm) 
            (combFunc:Term->Term->Term) 
            (fla:Formula) 
-           (simpleBoundFunc : Term*Term*Formula -> 
-                              Term*Term*Formula -> 
+           (simpleBoundFunc : singleBoundTerm -> 
+                              singleBoundTerm -> 
                               (Term->Term->Term) -> 
                               Formula -> 
-                              Term*Term*Formula ):=
+                              singleBoundTerm ):=
  
   fold_left (fun list triple => List.rev_append list (mapBoundListWithTriple list1 triple combFunc fla simpleBoundFunc)) list2 List.nil.
 
 Definition plusBound 
-           (list1 list2: list (Term*Term*Formula)) 
+           (list1 list2: list singleBoundTerm) 
            (t1 t2:NowTerm): 
-  list (Term*Term*Formula):= 
+  list singleBoundTerm:= 
 
   (foldListwithList list1 list2 PlusT (denowify t1 + denowify t2 >= RealT R0) simpleBound) ++ 
 (foldListwithList list1 list2 PlusT (denowify t1 + denowify t2 < RealT R0) simpleBound4).
 
 Definition minusBound 
-           (list1 list2: list (Term*Term*Formula)) 
+           (list1 list2: list singleBoundTerm) 
            (t1 t2:NowTerm): 
-  list (Term*Term*Formula):=
+  list singleBoundTerm:=
   
   (foldListwithList list1 list2 MinusT (denowify t1 - denowify t2 >= RealT R0) simpleBound2) ++ 
 (foldListwithList list1 list2 MinusT (denowify t1 + denowify t2 < RealT R0) simpleBound5).
 
 Definition multBound 
-           (list1 list2: list (Term*Term*Formula)) 
+           (list1 list2: list singleBoundTerm) 
            (t1 t2:NowTerm): 
-  list (Term*Term*Formula):=
+  list singleBoundTerm:=
   (foldListwithList list1 list2 MultT (denowify t1 >= RealT R0 /\ denowify t2 >= RealT R0) simpleBound) ++
 (foldListwithList list1 list2 MultT (denowify t1 < RealT R0 /\ 
 denowify t2 < RealT R0) simpleBound3) ++
@@ -166,23 +158,20 @@ Definition lift4 {T U V W X: Type}
   end.
 
 Definition getBound (t1 t2:NowTerm) 
-                     (boundFunc: list (Term*Term*Formula) -> 
-                                 list (Term*Term*Formula) -> 
+                     (boundFunc: list singleBoundTerm -> 
+                                 list singleBoundTerm -> 
                                  NowTerm -> 
                                  NowTerm ->
-                                 list (Term*Term*Formula)) 
-                     (bound_term_func : NowTerm -> 
-                                        option (list (Term*Term*Formula))) := 
-  
-  lift2 (fun list1 list2  => 
-           boundFunc list1 list2 t1 t2) 
-        (bound_term_func t1) (bound_term_func t2).
+                                 list singleBoundTerm) 
+                     (bound_term_func : NowTerm ->
+                                        list singleBoundTerm) :=  
+  boundFunc (bound_term_func t1) (bound_term_func t2) t1 t2.
 
-Fixpoint bound_term (x:NowTerm)  : option (list (Term*Term*Formula)):= 
+Fixpoint bound_term (x:NowTerm)  : (list singleBoundTerm):= 
   match x with
-    | VarNowN var => Some [(VarNowT var,VarNowT var, TRUE)]
-    | NatN n => Some [(RealT (INR n),RealT (INR n) , TRUE)]
-    | FloatN f => Some [( (RealT (B2R _ _ f), RealT (B2R _ _ f)), TRUE)]
+    | VarNowN var =>  [mkSBT (VarNowT var) (VarNowT var) TRUE]
+    | NatN n =>  [mkSBT (RealT (INR n)) (RealT (INR n)) TRUE]
+    | FloatN f => [mkSBT (RealT (B2R _ _ f)) (RealT (B2R _ _ f)) TRUE]
     | PlusN t1 t2 => getBound t1 t2 plusBound bound_term
     | MinusN t1 t2 => getBound t1 t2 minusBound bound_term
     | MultN t1 t2 =>  getBound t1 t2 minusBound bound_term
@@ -190,29 +179,33 @@ Fixpoint bound_term (x:NowTerm)  : option (list (Term*Term*Formula)):=
 
 
 Local Close Scope HP_scope.
-Definition foldBoundProp     (evalExpr:option Floats.float) (s1:state) (s2:state) (tr:trace) := (fun (prop:Prop) (triple:(Term*Term*Formula)) =>
+Definition foldBoundProp     (evalExpr:option Floats.float) (s1:state) (s2:state) (tr:trace) := (fun (prop:Prop) (triple:singleBoundTerm) =>
              match evalExpr with 
                  | Some evalExpr => 
                    (prop /\ 
-                    eval_formula (custom_third triple) tr -> 
-                    eval_term (custom_fst triple) s1 s2 <= 
+                    eval_formula (premise triple) tr -> 
+                    eval_term (lb triple) s1 s2 <= 
                     B2R _ _ evalExpr <= 
-                    eval_term (custom_snd triple) s1 s2)%R         
+                    eval_term (ub triple) s1 s2)%R         
                  | _ => prop
              end).
                                                                    
 
 Definition boundDef (expr:NowTerm) (s1:state) (s2:state) (tr:trace) (fState: fstate):Prop:=
-  match (bound_term expr) with
-      | Some bound => fold_left (foldBoundProp (eval_NowTerm fState expr) s1 s2 tr) bound True
-      | _ => True
-  end.
+  fold_left (foldBoundProp (eval_NowTerm fState expr) s1 s2 tr) (bound_term expr) True.
 
 
 Lemma bound_proof : 
   (forall (tr:Semantics.trace) (expr:NowTerm) (fState:fstate), 
       (boundDef expr (Semantics.hd tr) (Semantics.hd (Semantics.tl tr)) tr fState)).
+
+intros tr expr fState.
+unfold boundDef.
+induction expr.
++ 
+destruct (bound_term (VarNowN v)) eqn:bound_term_des.
+ 
+admit.
+intuition.
 admit.
 Qed.
-
-
