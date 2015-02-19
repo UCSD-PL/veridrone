@@ -29,7 +29,7 @@ Section embedding.
     match vars with
     | nil => True
     | (v,v') :: vars =>
-      tla_st v = asReal st v' /\ models vars tla_st st
+      Some (tla_st v) = asReal st v' /\ models vars tla_st st
     end.
 
   (** Running the given program in the current state. Only the specified
