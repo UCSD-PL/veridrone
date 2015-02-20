@@ -26,10 +26,9 @@ Local Close Scope HP_scope.
 Delimit Scope SrcLang_scope with SL.
 Local Open Scope SrcLang_scope.
 
-Axiom getBound : NowTerm -> list (Term * Term * Formula)%type.
+Require Import bound.
 
-CoFixpoint infStr {A : Type} (a : A) : stream A :=
-  Semantics.Cons A a (infStr a).
+(*Axiom getBound : NowTerm -> list (Term * Term * Formula)%type.*)
 
 (* need a predicate for "begins with a transition from s1 to s2" *)
 Fixpoint stream_begins {A : Type} (astream : stream A) (alist : list A) : Prop :=
@@ -62,26 +61,13 @@ Require Import Embed.
 
 Check @Embed.models.
 
-Check (Embed.models Floats.float fstate c_asReal).
+Definition c_models (vars : list (Var * Var)) (tla_st : Syntax.state) (fst : fstate) : Prop :=
+  Embed.models Var fstate c_asReal vars tla_st fst.
 
-Definition c_models (vars : list (Var * float)) (tla_st : Syntax.state) (fst : fstate) : Prop :=
-  Embed.models (var := float) (
+Require Import bound.
 
-(* change fstate to finite map and fix things up *)
 
-(* for our purposes:
-   var = float
-   state = fstat finite map
-   ast = progr
-   eval = eval_progr = Some...
-   asReal = see above
-*)   
-
-(* tilde relation *)
-Definition c_models :=
-  models Floats.float
-
-Axiom getBound_correct :
+Axiom getBound_correct: 
   forall (nt : NowTerm) (lb ub : Term) (side : Formula),
     getBound nt = (lb, ub, side) ->
     forall flst rst_next tr,
@@ -106,7 +92,8 @@ Axiom getBound_correct :
                  eval_term ub rst rst_next)%R.  
 *)
 
-(*
+(*.
+
 Axiom getBound_correct :
   forall (bst : rbstate) (nt : NowTerm) (lb ub : Term) (side : Formula),
     getBound
@@ -120,19 +107,52 @@ Axiom getBound_correct :
                  eval_term ub rst rst_next)%R.  
 *)
 
+Fixpoint bounds_to_formula (bounds : list singleBoundTerm) (center : Term) : Formula :=
+  match bounds with
+    | nil => TRUE
+    | (mkSBT lb ub side) :: bounds' =>
+      And (bounds_to_formula bounds' center)
+          (Imp side (And (Comp lb center Le)
+                         (Comp center ub Le)))
+  end.
+      
+
 (* TODO strict or non-strict inequalities? *)
-Definition convert_assn (assn : progr_assn) (st : rbstate) : Formula :=
+Definition compile_assn (assn : progr_assn) : Formula :=
   match assn with
-    | mk_progr_assn var term =>
-      let '(lb, ub, side) := getBound st term in
-      Imp side
-          (And (Comp lb (VarNextT var) Le)
-               (Comp (VarNextT var) ub Le))
+    | mk_progr_assn var term => bounds_to_formula (bound_term term) (VarNextT var)
   end.
 
-Require Import FunctionalExtensionality.
+Fixpoint compile_assns (assns : list progr_assn) : Formula :=
+  match assns with
+    | nil         => TRUE
+    | a :: assns' =>
+      And (compile_assn a)
+          (compile_assns assns')
+  end.
+
+Definition compile_progr_stmt (stmt : progr_stmt) : Formula :=
+  match stmt with
+    | mk_progr_stmt conds assns =>
+      And (deflatten_formula conds)
+          (compile_assns assns)
+  end.
+
+Check c_models.
+
+(* Convert a  *)
 
 (* correctness for convert_assn *)
+
+
+Lemma compile_assn_correct :
+  forall (sf sf' : fstate) (assn : progr_assn),
+    assn_update_state assn sf = sf' ->
+    forall (tr : Semantics.trace), (sr sr' : Syntax.state),
+      
+      stream_begins tr [fstateToRstate sf; fstateToRstate sf'] ->
+      eval_formula (compile_assn assn) tr.
+
 (*
 Lemma convert_assn_correct :
   forall (sf sf' : fstate) (assn : progr_assn),
@@ -160,7 +180,7 @@ Lemma convert_assn_correct :
    variables "are actually floats"... do we need a toFloat axiom? *)
 
 (* reading floats written in previous state is WEIRD...
-   we need to split the state. 
+   we need to split the state.
    alternative: compile discrete program into continuous (in terms of states being continuous variables - reals)
    continuous transitions and discrete real-valued transitions that can be nondeterministic...
    when we compile, give semantics in terms of hybrid world*)
@@ -205,6 +225,7 @@ Definition update_floats (sr : Syntax.state) (new_sf : fstmap) : Syntax.state :=
          else sr v)
   end.
 
+(* THIS IS THE RIGHT ONE *)
 (*
 Lemma compile_assn_correct_new :
   forall (sf sf' : fstate) (assn : progr_assn),
