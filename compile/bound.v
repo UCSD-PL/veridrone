@@ -117,7 +117,7 @@ Definition foldListwithList
                               Formula -> 
                               singleBoundTerm ):=
  
-  fold_left (fun list triple => List.rev_append list (mapBoundListWithTriple list1 triple combFunc fla simpleBoundFunc)) list2 List.nil.
+  fold_left (fun list triple => list ++ (mapBoundListWithTriple list1 triple combFunc fla simpleBoundFunc)) list2 List.nil.
 
 Definition plusBound 
            (list1 list2: list singleBoundTerm) 
@@ -179,33 +179,176 @@ Fixpoint bound_term (x:NowTerm)  : (list singleBoundTerm):=
 
 
 Local Close Scope HP_scope.
-Definition foldBoundProp     (evalExpr:option Floats.float) (s1:state) (s2:state) (tr:trace) := (fun (prop:Prop) (triple:singleBoundTerm) =>
-             match evalExpr with 
-                 | Some evalExpr => 
-                   (prop /\ 
-                    eval_formula (premise triple) tr -> 
-                    eval_term (lb triple) s1 s2 <= 
-                    B2R _ _ evalExpr <= 
-                    eval_term (ub triple) s1 s2)%R         
-                 | _ => prop
-             end).
+
+Definition floatToReal (f:Floats.float) : option R :=
+  match f with 
+    | B754_zero _ =>  Some (B2R _ _ f)
+    | B754_infinity _ => None
+    | B754_nan _ _ => None
+    | _ => Some (B2R _ _ f)
+    end.
+
+Definition foldBoundProp (evalExpr:option Floats.float) (s1:state) (s2:state) (tr:trace) := 
+(fun (prop:Prop) (triple:singleBoundTerm) =>
+   match evalExpr with 
+     | Some evalExpr =>  
+       match floatToReal evalExpr with 
+         | Some realEvalExpr => (prop /\ 
+                      eval_formula (premise triple) tr 
+                      -> eval_term (lb triple) s1 s2 <= 
+                          realEvalExpr <= 
+                         eval_term (ub triple) s1 s2)%R 
+         | _ => prop
+       end
+     | None => prop
+   end).
                                                                    
 
-Definition boundDef (expr:NowTerm) (s1:state) (s2:state) (tr:trace) (fState: fstate):Prop:=
-  fold_left (foldBoundProp (eval_NowTerm fState expr) s1 s2 tr) (bound_term expr) True.
+Definition boundDef (expr:NowTerm) (tr:trace) (fState: fstate):Prop:=
+  fold_left (foldBoundProp (eval_NowTerm fState expr) (Semantics.hd tr) (Semantics.hd (Semantics.tl tr)) tr) (bound_term expr) True.
+
 
 
 Lemma bound_proof : 
-  (forall (tr:Semantics.trace) (expr:NowTerm) (fState:fstate), 
-      (boundDef expr (Semantics.hd tr) (Semantics.hd (Semantics.tl tr)) tr fState)).
+forall (tr:Semantics.trace) (expr:NowTerm) (fState:fstate),
+    (forall x y, fstate_lookup fState x = Some y ->
+               Some ((Semantics.hd tr) x) = floatToReal y) -> 
+boundDef expr tr fState.
 
-intros tr expr fState.
+intros tr expr fState f2RPremise.
 unfold boundDef.
 induction expr.
-+ 
-destruct (bound_term (VarNowN v)) eqn:bound_term_des.
- 
-admit.
-intuition.
-admit.
+- unfold bound_term. 
+  unfold foldBoundProp.
+  unfold fold_left.
+  destruct (eval_NowTerm fState (VarNowN v)) eqn:eval_expr.
+  + unfold floatToReal.
+    destruct f eqn:f_des.
+    * simpl in *.
+      specialize (f2RPremise v f).
+      rewrite f_des in f2RPremise.
+      simpl in *.
+      apply f2RPremise in eval_expr.
+      inversion eval_expr.
+      intuition.
+    * intuition.    
+    * intuition.
+    * simpl in *.
+      specialize (f2RPremise v f).
+      rewrite f_des in f2RPremise.
+      apply f2RPremise in eval_expr.
+      unfold floatToReal in *.
+      inversion eval_expr.
+      intuition.
+  +   intuition.
+- admit. (*natural numbers*)
+- simpl in *.
+  unfold floatToReal.
+  destruct f.
+  + intuition.
+  + intuition.
+  + intuition. 
+  + intuition.
+-  unfold eval_NowTerm in *. (*copying should start from this line*)
+  remember ((fix eval_NowTerm (t : NowTerm) : option Floats.float :=
+               match t with
+               | VarNowN var => fstate_lookup fState var
+               | NatN n => Some (nat_to_float n)
+               | FloatN f => Some f
+               | (t1 + t2)%SL =>
+                   lift2
+                     (Bplus custom_prec custom_emax eq_refl eq_refl
+                        Floats.Float.binop_pl mode_NE) 
+                     (eval_NowTerm t1) (eval_NowTerm t2)
+               | (t1 - t2)%SL =>
+                   lift2
+                     (Bminus custom_prec custom_emax eq_refl eq_refl
+                        Floats.Float.binop_pl mode_NE) 
+                     (eval_NowTerm t1) (eval_NowTerm t2)
+               | (t1 * t2)%SL =>
+                   lift2
+                     (Bmult custom_prec custom_emax eq_refl eq_refl
+                        Floats.Float.binop_pl mode_NE) 
+                     (eval_NowTerm t1) (eval_NowTerm t2)
+               end) expr1) as eval_expr1.
+
+
+  remember ((fix eval_NowTerm (t : NowTerm) : option Floats.float :=
+               match t with
+               | VarNowN var => fstate_lookup fState var
+               | NatN n => Some (nat_to_float n)
+               | FloatN f => Some f
+               | (t1 + t2)%SL =>
+                   lift2
+                     (Bplus custom_prec custom_emax eq_refl eq_refl
+                        Floats.Float.binop_pl mode_NE) 
+                     (eval_NowTerm t1) (eval_NowTerm t2)
+               | (t1 - t2)%SL =>
+                   lift2
+                     (Bminus custom_prec custom_emax eq_refl eq_refl
+                        Floats.Float.binop_pl mode_NE) 
+                     (eval_NowTerm t1) (eval_NowTerm t2)
+               | (t1 * t2)%SL =>
+                   lift2
+                     (Bmult custom_prec custom_emax eq_refl eq_refl
+                        Floats.Float.binop_pl mode_NE) 
+                     (eval_NowTerm t1) (eval_NowTerm t2)
+               end) expr2) as eval_expr2.
+  revert IHexpr1 IHexpr2. intros IHexpr1 IHexpr2.
+  clear Heqeval_expr1.
+  clear Heqeval_expr2.
+  unfold bound_term in *.
+  unfold getBound in *.
+  remember ((fix bound_term (x : NowTerm) : list singleBoundTerm :=
+            match x with
+            | VarNowN var =>
+                [{| lb := VarNowT var; ub := VarNowT var; premise := TRUE |}]
+            | NatN n =>
+                [{|
+                 lb := RealT (INR n);
+                 ub := RealT (INR n);
+                 premise := TRUE |}]
+            | FloatN f =>
+                [{|
+                 lb := RealT (B2R 53 1024 f);
+                 ub := RealT (B2R 53 1024 f);
+                 premise := TRUE |}]
+            | (t1 + t2)%SL => plusBound (bound_term t1) (bound_term t2) t1 t2
+            | (t1 - t2)%SL =>
+                minusBound (bound_term t1) (bound_term t2) t1 t2
+            | (t1 * t2)%SL =>
+                minusBound (bound_term t1) (bound_term t2) t1 t2
+            end) expr1) as expr1_boundList.
+  remember ((fix bound_term (x : NowTerm) : list singleBoundTerm :=
+            match x with
+            | VarNowN var =>
+                [{| lb := VarNowT var; ub := VarNowT var; premise := TRUE |}]
+            | NatN n =>
+                [{|
+                 lb := RealT (INR n);
+                 ub := RealT (INR n);
+                 premise := TRUE |}]
+            | FloatN f =>
+                [{|
+                 lb := RealT (B2R 53 1024 f);
+                 ub := RealT (B2R 53 1024 f);
+                 premise := TRUE |}]
+            | (t1 + t2)%SL => plusBound (bound_term t1) (bound_term t2) t1 t2
+            | (t1 - t2)%SL =>
+                minusBound (bound_term t1) (bound_term t2) t1 t2
+            | (t1 * t2)%SL =>
+                minusBound (bound_term t1) (bound_term t2) t1 t2
+            end) expr2) as expr2_boundList.
+revert IHexpr1 IHexpr2. intros IHexpr1 IHexpr2.
+clear Heqexpr1_boundList Heqexpr2_boundList.
+induction expr1_boundList as [ | Iexpr1_boundList].
+  + induction expr2_boundList as [| Iexpr2_boundList].
+    * simpl in *.
+      intuition.
+    * 
+      simpl in *.
+      admit.
+  + admit.
+- admit.
+- admit.
 Qed.
