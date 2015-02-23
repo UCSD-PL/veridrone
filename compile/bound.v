@@ -464,62 +464,165 @@ Lemma fold_right_two_list_opp :forall lst1 lst2 x tr,
   Qed.
   
  Local Open Scope HP_scope.
- Lemma tlaToSourceRelation:
-   forall (tlaExpr:NowTerm) fState tr, (forall x y, fstate_lookup fState x = Some y ->
-                                                    Some ((Semantics.hd tr) x) = floatToReal y) ->  eval_formula ((denowify tlaExpr) > 0) tr->
-                                       (match eval_NowTerm fState (tlaExpr) with 
-                                          | Some f => match (floatToReal f) with
-                                                        | Some num => (num > 0)%R
-                                                        | None => True
-                                                      end
-                                          | None => True
-                                        end).
-   intros.
-   
-   destruct (eval_NowTerm fState tlaExpr) eqn:eval_Nowterm_des.                 
-   + unfold eval_NowTerm.
-     induction tlaExpr.
-     unfold floatToReal.
-     destruct f eqn:f_des.
-     * simpl in *.
-       specialize (H v f).
-       rewrite f_des in H.
-       unfold Semantics.eval_comp in H0.
-       simpl in H0.
-       apply H in eval_Nowterm_des.
-       remember (hd tr v) as num1.
-       admit.
-     * intuition.  
-     * intuition.
-     * admit.
-     * admit.
-     * destruct f eqn:f_des.
-       simpl in *. 
-       unfold Semantics.eval_comp in *.
-       simpl in *.
-       inversion eval_Nowterm_des.
-       rewrite H2 in H0.
-       simpl in *.
-       apply H0.
-       simpl in *.
-       intuition.
-       simpl in *.
-       intuition.
-       simpl in *.
-       inversion eval_Nowterm_des.
-       unfold Semantics.eval_comp in *.
-       simpl in *.
-       rewrite H2 in H0.
-       simpl in H0.
-       apply H0.
-     * destruct f eqn:f_des.
-       simpl in *.
-       unfold Semantics.eval_comp in *.
-       simpl in *.
-       remember  (eval_term (denowify tlaExpr1) (hd tr) (hd (tl tr))) as num1.
-       remember  (eval_term (denowify tlaExpr2) (hd tr) (hd (tl tr))) as num2.
-                               
 
+Lemma deNowifyPlus : forall t1 t2, denowify t1 + denowify t2 = denowify (PlusN t1 t2).
+intros.
+induction t1;
+induction t2;
+repeat simpl; reflexivity.
+Qed.
+
+Local Close Scope HP_scope.
+
+
+Lemma resultImplicationOnArguments: forall fState expr1 expr2 f, eval_NowTerm fState (expr1 + expr2)%SL = Some f -> exists f1 f2, (eval_NowTerm fState expr1 = Some f1 ) /\ (eval_NowTerm fState expr2 = Some f2). 
+         intros.
+         unfold eval_NowTerm in *.
+         remember ((fix eval_NowTerm (t : NowTerm) : option Floats.float :=
+            match t with
+            | VarNowN var => fstate_lookup fState var
+            | NatN n => Some (nat_to_float n)
+            | FloatN f0 => Some f0
+            | (t1 + t2)%SL =>
+                lift2
+                  (Bplus custom_prec custom_emax eq_refl eq_refl
+                     Floats.Float.binop_pl mode_NE) 
+                  (eval_NowTerm t1) (eval_NowTerm t2)
+            | (t1 - t2)%SL =>
+                lift2
+                  (Bminus custom_prec custom_emax eq_refl eq_refl
+                     Floats.Float.binop_pl mode_NE) 
+                  (eval_NowTerm t1) (eval_NowTerm t2)
+            | (t1 * t2)%SL =>
+                lift2
+                  (Bmult custom_prec custom_emax eq_refl eq_refl
+                     Floats.Float.binop_pl mode_NE) 
+                  (eval_NowTerm t1) (eval_NowTerm t2)
+            end) expr1) as eval_expr1.
+         remember ((fix eval_NowTerm (t : NowTerm) : option Floats.float :=
+      match t with
+      | VarNowN var => fstate_lookup fState var
+      | NatN n => Some (nat_to_float n)
+      | FloatN f0 => Some f0
+      | (t1 + t2)%SL =>
+          lift2
+            (Bplus custom_prec custom_emax eq_refl eq_refl
+               Floats.Float.binop_pl mode_NE) (eval_NowTerm t1)
+            (eval_NowTerm t2)
+      | (t1 - t2)%SL =>
+          lift2
+            (Bminus custom_prec custom_emax eq_refl eq_refl
+               Floats.Float.binop_pl mode_NE) (eval_NowTerm t1)
+            (eval_NowTerm t2)
+      | (t1 * t2)%SL =>
+          lift2
+            (Bmult custom_prec custom_emax eq_refl eq_refl
+               Floats.Float.binop_pl mode_NE) (eval_NowTerm t1)
+            (eval_NowTerm t2)
+      end) expr2) as eval_expr2.
+       unfold lift2 in H.
+       destruct eval_expr1 eqn:eval_expr1_des.
+         - destruct eval_expr2 eqn:eval_expr2_des.
+           + exists f0. exists f1.
+             intuition.
+           +  exists f0.
+              exists f.
+              intuition.
+         -   destruct eval_expr2 eqn:eval_expr2_des.
+             + exists f. exists f0.
+               intuition.
+             + exists f. exists f.            
+               intuition.
+       Qed.
+
+Local Open Scope HP_scope.
+ Lemma tlaToRealRelation:
+   forall (tlaExpr:NowTerm) fState (tr:stream state), 
+     (forall x y, fstate_lookup fState x = Some y -> Some ((Semantics.hd tr) x) = floatToReal y) ->  
+    ( eval_formula ((denowify tlaExpr) >= R0) tr ->
+     (match eval_NowTerm fState (tlaExpr) with 
+        | Some f => match (floatToReal f) with
+                      | Some num => (num >= 0)%R
+                      | None => True
+                    end
+        | None => True
+      end)) 
+     /\ 
+     (eval_formula ((denowify tlaExpr) < R0) tr ->
+     (match eval_NowTerm fState (tlaExpr) with 
+        | Some f => match (floatToReal f) with
+                      | Some num => (num < 0)%R
+                      | None => True
+                    end
+        | None => True
+      end)).
+
+                                         
+
+   intros.
+   split.
+   intros.
+   induction tlaExpr.
+   destruct (eval_NowTerm fState (VarNowN v)) eqn:fstate_lookUp_des.
+   - destruct f eqn:f_des.
+     + simpl in *.
+       apply H in fstate_lookUp_des.
+       unfold eval_comp in H0.
+       simpl in *.
+       inversion fstate_lookUp_des.
+       psatz R.
+     + simpl in *.
+       intuition.
+     + simpl in *.
+       intuition.
+     + simpl in *.
+       apply H in fstate_lookUp_des.
+       unfold eval_comp in H0.
+       simpl in *.
+       inversion fstate_lookUp_des.
+       apply H0.
+   -  intuition.
+   -  simpl in *.
+      (*natural numbers*)
+      admit.
+   - simpl in *.
+     destruct f eqn:f_des.
+     + simpl in *.
+       psatz R.
+     + simpl in *.
+       intuition.
+     + simpl in *.
+       intuition.
+     + simpl in *.
+       intuition.
+   - unfold eval_formula in *.
+     unfold eval_comp in *.
+     pose proof deNowifyPlus as deNowifyPlus.
+     rewrite <- deNowifyPlus in H0.
+     simpl in IHtlaExpr2. 
+     simpl in IHtlaExpr1.
+     pose proof Rge_dec as Rge_dec1.
+     pose proof Rge_dec as Rge_dec2.
+     remember (eval_term (denowify tlaExpr1) (hd tr) (hd (tl tr)))%R as expr1.
+     remember (eval_term (denowify tlaExpr2) (hd tr) (hd (tl tr)))%R as expr2.
+     specialize (Rge_dec1 expr1 R0).
+     specialize (Rge_dec2 expr2 R0).
+     destruct Rge_dec1 eqn:Rge_dec1_des.
+     +
+       destruct Rge_dec2 eqn:Rge_dec2_des.
+       *     
+         assert (r':=r).
+         apply IHtlaExpr1 in r'.
+         assert (r0':=r0).
+         apply IHtlaExpr2 in r0'.
+         simpl in *.
+         admit.
+       * admit.
+     + admit.
+     - admit.
+     - admit.
+     - admit.
+ Qed.
 Lemma bound_proof : 
 forall (tr:Semantics.trace) (expr:NowTerm) (fState:fstate),
     (forall x y, fstate_lookup fState x = Some y ->
@@ -561,7 +664,7 @@ induction expr.
   + intuition. 
   + intuition.
 -  unfold eval_NowTerm in *. (*copying should start from this line*)
-  remember ((fix eval_NowTerm (t : NowTerm) : option Floats.float :=
+   remember ((fix eval_NowTerm (t : NowTerm) : option Floats.float :=
                match t with
                | VarNowN var => fstate_lookup fState var
                | NatN n => Some (nat_to_float n)
@@ -606,7 +709,6 @@ induction expr.
                      (eval_NowTerm t1) (eval_NowTerm t2)
                end) expr2) as eval_expr2.
   revert IHexpr1 IHexpr2. intros IHexpr1 IHexpr2.
-  clear Heqeval_expr1 Heqeval_expr2.
   unfold bound_term in *.
   unfold getBound in *.
   remember ((fix bound_term (x : NowTerm) : list singleBoundTerm :=
@@ -650,6 +752,7 @@ induction expr.
                 minusBound (bound_term t1) (bound_term t2) t1 t2
             end) expr2) as expr2_boundList.
 revert IHexpr1 IHexpr2. intros IHexpr1 IHexpr2.
+clear Heqexpr1_boundList Heqexpr2_boundList.
 induction expr1_boundList as [ | Iexpr1_bound].
   + induction expr2_boundList as [| Iexpr2_bound].
     * simpl in *.
@@ -728,16 +831,22 @@ induction expr1_boundList as [ | Iexpr1_bound].
          revert IHexpr1'. intros IHexpr1'.
          unfold foldBoundProp in *.
          pose proof Bplus_correct as bplusCorrect. (*plus specific*)
+         assert (Heqeval_expr1':=Heqeval_expr1).
+         assert (Heqeval_expr2':=Heqeval_expr2).
          destruct eval_expr1 eqn: eval_expr1_des.
          -  destruct eval_expr2 eqn: eval_expr2_des.
             + specialize (bplusCorrect custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl mode_NE f f0).  (*proving it for the round to nearest case*) 
               unfold floatToReal in *.
-              unfold lift2 in *.
+              unfold lift2.
+              unfold lift2 in IHexpr1'.
+              unfold lift2 in IHexpr2'.
               revert IHexpr2' IHexpr1'.
               intros IHexpr2' IHexpr1'.
+              
               destruct f eqn:f_des.
               * destruct f0 eqn:f0_des.
                 {
+                  
                   unfold Bplus in *.
                   destruct Bool.eqb.
                   - simpl.
@@ -758,7 +867,7 @@ induction expr1_boundList as [ | Iexpr1_bound].
                         decompose [and] H.
                         intuition.
                         simpl.
-                        clear  fold_right_inferring_sublist_truth_from_list_truth IHexpr1_boundList IHexpr2_boundList Heqexpr1_boundList Heqexpr2_boundList.
+                        clear  fold_right_inferring_sublist_truth_from_list_truth IHexpr1_boundList IHexpr2_boundList   Heqeval_expr1 Heqeval_expr2.
                         revert IHexpr1 IHexpr2. intros IHexpr1 IHexpr2.
                         decompose [and] IHexpr1.
                         decompose [and] IHexpr2.
@@ -772,7 +881,7 @@ induction expr1_boundList as [ | Iexpr1_bound].
                         remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1.
                         remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2.
                         remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
-                        clear HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0  HeqIexpr2Withexpr1Gt0  Iexpr1Andexp1Withexpr2Lt0  HeqIexpr1Andexp1Withexpr2Lt0  Iexpr2Withexpr1Lt0  HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0  Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2'  IHexpr1' Heqlb2  Hequb2 IHexpr1  Heqlb1  Hequb1  Hequb1  H H0 H1 H2 H6 IHexpr2 premGt0 expr1WithExpr2Lt0  expr1Withexpr2Gt0 expr1Withexpr2Gt0 eval_expr1 eval_expr2  eval_expr2_des eval_expr1_des Iexpr1_bound Iexpr2_bound f2RPremise  expr1_boundList  expr2_boundList f0_des  f_des expr1 expr2 fState f b f0 .
+                        clear Heqeval_expr1' Heqeval_expr2' HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0  HeqIexpr2Withexpr1Gt0  Iexpr1Andexp1Withexpr2Lt0  HeqIexpr1Andexp1Withexpr2Lt0  Iexpr2Withexpr1Lt0  HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0  Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2'  IHexpr1' Heqlb2  Hequb2 IHexpr1  Heqlb1  Hequb1  Hequb1  H H0 H1 H2 H6 IHexpr2 premGt0 expr1WithExpr2Lt0  expr1Withexpr2Gt0 expr1Withexpr2Gt0 eval_expr1 eval_expr2  eval_expr2_des eval_expr1_des Iexpr1_bound Iexpr2_bound f2RPremise  expr1_boundList  expr2_boundList f0_des  f_des expr1 expr2 fState f b f0 .
                         unfold error.
                         simpl in *.
                         psatz R.
@@ -792,7 +901,7 @@ induction expr1_boundList as [ | Iexpr1_bound].
                         decompose [and] H.
                         intuition.
                         simpl.
-                        clear fold_right_inferring_sublist_truth_from_list_truth IHexpr1_boundList IHexpr2_boundList Heqexpr1_boundList Heqexpr2_boundList.
+                        clear  Heqeval_expr1 Heqeval_expr2 fold_right_inferring_sublist_truth_from_list_truth IHexpr1_boundList IHexpr2_boundList .
                         revert IHexpr1 IHexpr2. intros IHexpr1 IHexpr2.
                         decompose [and] IHexpr1.
                         decompose [and] IHexpr2.
@@ -806,7 +915,7 @@ induction expr1_boundList as [ | Iexpr1_bound].
                         remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1.
                         remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2.
                         remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
-                        clear HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0  HeqIexpr2Withexpr1Gt0  Iexpr1Andexp1Withexpr2Lt0  HeqIexpr1Andexp1Withexpr2Lt0  Iexpr2Withexpr1Lt0  HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0  Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2'  IHexpr1' Heqlb2  Hequb2 IHexpr1  Heqlb1  Hequb1  Hequb1  H H0 H1 H2 H6 IHexpr2 premGt0 expr1WithExpr2Lt0  expr1Withexpr2Gt0 expr1Withexpr2Gt0 eval_expr1 eval_expr2  eval_expr2_des eval_expr1_des Iexpr1_bound Iexpr2_bound f2RPremise  expr1_boundList  expr2_boundList f0_des  f_des expr1 expr2 fState f b f0 .
+                        clear Heqeval_expr1' Heqeval_expr2' HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0  HeqIexpr2Withexpr1Gt0  Iexpr1Andexp1Withexpr2Lt0  HeqIexpr1Andexp1Withexpr2Lt0  Iexpr2Withexpr1Lt0  HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0  Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2'  IHexpr1' Heqlb2  Hequb2 IHexpr1  Heqlb1  Hequb1  Hequb1  H H0 H1 H2 H6 IHexpr2 premGt0 expr1WithExpr2Lt0  expr1Withexpr2Gt0 expr1Withexpr2Gt0 eval_expr1 eval_expr2  eval_expr2_des eval_expr1_des Iexpr1_bound Iexpr2_bound f2RPremise  expr1_boundList  expr2_boundList f0_des  f_des expr1 expr2 fState f b f0 .
                         unfold error.
                         simpl in *.
                         psatz R.
@@ -828,7 +937,7 @@ induction expr1_boundList as [ | Iexpr1_bound].
                           decompose [and] H.
                           intuition.
                           simpl.
-                          clear  fold_right_inferring_sublist_truth_from_list_truth IHexpr1_boundList IHexpr2_boundList Heqexpr1_boundList Heqexpr2_boundList.
+                          clear   Heqeval_expr1 Heqeval_expr2 fold_right_inferring_sublist_truth_from_list_truth IHexpr1_boundList IHexpr2_boundList.
                           revert IHexpr1 IHexpr2. intros IHexpr1 IHexpr2.
                           decompose [and] IHexpr1.
                           decompose [and] IHexpr2.
@@ -842,7 +951,7 @@ induction expr1_boundList as [ | Iexpr1_bound].
                           remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1.
                           remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2.
                           remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
-                          clear HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0  HeqIexpr2Withexpr1Gt0  Iexpr1Andexp1Withexpr2Lt0  HeqIexpr1Andexp1Withexpr2Lt0  Iexpr2Withexpr1Lt0  HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0  Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2'  IHexpr1' Heqlb2  Hequb2 IHexpr1  Heqlb1  Hequb1  Hequb1  H H0 H1 H2 H6 IHexpr2 premGt0 expr1WithExpr2Lt0  expr1Withexpr2Gt0 expr1Withexpr2Gt0 eval_expr1 eval_expr2  eval_expr2_des eval_expr1_des Iexpr1_bound Iexpr2_bound f2RPremise  expr1_boundList  expr2_boundList f0_des  f_des expr1 expr2 fState f b f0 .
+                          clear Heqeval_expr1' Heqeval_expr2' Heqeval_expr1' Heqeval_expr2' HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0  HeqIexpr2Withexpr1Gt0  Iexpr1Andexp1Withexpr2Lt0  HeqIexpr1Andexp1Withexpr2Lt0  Iexpr2Withexpr1Lt0  HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0  Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2'  IHexpr1' Heqlb2  Hequb2 IHexpr1  Heqlb1  Hequb1  Hequb1  H H0 H1 H2 H6 IHexpr2 premGt0 expr1WithExpr2Lt0  expr1Withexpr2Gt0 expr1Withexpr2Gt0 eval_expr1 eval_expr2  eval_expr2_des eval_expr1_des Iexpr1_bound Iexpr2_bound f2RPremise  expr1_boundList  expr2_boundList f0_des  f_des expr1 expr2 fState f b f0 .
                           unfold error.
                           simpl in *.
                           psatz R.
@@ -863,7 +972,7 @@ induction expr1_boundList as [ | Iexpr1_bound].
                           decompose [and] H.
                           intuition.
                           simpl.
-                          clear fold_right_inferring_sublist_truth_from_list_truth IHexpr1_boundList IHexpr2_boundList Heqexpr1_boundList Heqexpr2_boundList.
+                          clear  Heqeval_expr1 Heqeval_expr2 fold_right_inferring_sublist_truth_from_list_truth IHexpr1_boundList IHexpr2_boundList.
                           revert IHexpr1 IHexpr2. intros IHexpr1 IHexpr2.
                           decompose [and] IHexpr1.
                           decompose [and] IHexpr2.
@@ -877,7 +986,7 @@ induction expr1_boundList as [ | Iexpr1_bound].
                           remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1.
                           remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2.
                           remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
-                          clear HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0  HeqIexpr2Withexpr1Gt0  Iexpr1Andexp1Withexpr2Lt0  HeqIexpr1Andexp1Withexpr2Lt0  Iexpr2Withexpr1Lt0  HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0  Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2'  IHexpr1' Heqlb2  Hequb2 IHexpr1  Heqlb1  Hequb1  Hequb1  H H0 H1 H2 H6 IHexpr2 premGt0 expr1WithExpr2Lt0  expr1Withexpr2Gt0 expr1Withexpr2Gt0 eval_expr1 eval_expr2  eval_expr2_des eval_expr1_des Iexpr1_bound Iexpr2_bound f2RPremise  expr1_boundList  expr2_boundList f0_des  f_des expr1 expr2 fState f b f0 .
+                          clear Heqeval_expr1' Heqeval_expr2' HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0  HeqIexpr2Withexpr1Gt0  Iexpr1Andexp1Withexpr2Lt0  HeqIexpr1Andexp1Withexpr2Lt0  Iexpr2Withexpr1Lt0  HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0  Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2'  IHexpr1' Heqlb2  Hequb2 IHexpr1  Heqlb1  Hequb1  Hequb1  H H0 H1 H2 H6 IHexpr2 premGt0 expr1WithExpr2Lt0  expr1Withexpr2Gt0 expr1Withexpr2Gt0 eval_expr1 eval_expr2  eval_expr2_des eval_expr1_des Iexpr1_bound Iexpr2_bound f2RPremise  expr1_boundList  expr2_boundList f0_des  f_des expr1 expr2 fState f b f0 .
                           unfold error.
                           simpl in *.
                           psatz R.
@@ -892,7 +1001,10 @@ induction expr1_boundList as [ | Iexpr1_bound].
                   intuition.
                 }
                 {
-                   unfold Bplus in *.
+                   
+                   unfold Bplus.
+                   unfold Bplus in IHexpr1'.
+                   unfold Bplus in IHexpr2'.
                    simpl.
                    simpl in IHexpr1'.
                    simpl in IHexpr2'.
@@ -900,18 +1012,114 @@ induction expr1_boundList as [ | Iexpr1_bound].
                    apply fold_right_two_list in IHexpr1'.
                    apply fold_right_two_list_opp.
                    split. (*Ltac this full thing*)
-                   + apply fold_right_two_list_opp.
+                   - apply fold_right_two_list_opp.
                      split.
-                     * decompose [and] IHexpr2'.
+                     + decompose [and] IHexpr2'.
                        intuition.
-                     * apply fold_right_combine.
+                     + 
+                       apply fold_right_combine.
                        split.
-                       decompose [and] IHexpr1'.
-                       apply fold_right_inferr_sublist in H.
-                       decompose [and] H.
+                       *
+                         decompose [and] IHexpr1'.
+                         apply fold_right_inferr_sublist in H.
+                         decompose [and] H.
+                         intuition.
+                       * simpl.
+                         clear  fold_right_inferring_sublist_truth_from_list_truth IHexpr1_boundList IHexpr2_boundList.
+                         revert IHexpr1 IHexpr2. intros IHexpr1 IHexpr2.
+                         decompose [and] IHexpr1.
+                         decompose [and] IHexpr2.
+                         simpl in H0.
+                         simpl in H2.
+                         intros premGt0. 
+                         decompose [and] premGt0.
+                         apply H0 in H5.
+                         apply H2 in H3.
+                         remember  (eval_term (lb Iexpr2_bound) (hd tr) (hd (tl tr))) as lb1.
+                         remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1.
+                         remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2.
+                         remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
+                         clear Heqeval_expr1 Heqeval_expr2 HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0  HeqIexpr2Withexpr1Gt0  Iexpr1Andexp1Withexpr2Lt0  HeqIexpr1Andexp1Withexpr2Lt0  Iexpr2Withexpr1Lt0  HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0  Heqexpr1WithExpr2Lt0
+                               bplusCorrect IHexpr2'  IHexpr1' Heqlb2  Hequb2 IHexpr1  Heqlb1  Hequb1 Hequb1  H H0 H1 H2 H6 IHexpr2   expr1WithExpr2Lt0  expr1Withexpr2Gt0 expr1Withexpr2Gt0  expr1_boundList  expr2_boundList f0_des  f_des  f  f0 .                       
+                         unfold error.
+                         simpl in *.
+                         remember ( F2R {| Fnum := cond_Zopp b0 (Z.pos m); Fexp := e |}) as num.
+                         pose proof tlaToRealRelation as tlaToSourceRelation.
+                         decompose [and] premGt0.
+                         simpl in H2.
+                         pose proof deNowifyPlus.
+                         rewrite H0 in H2.
+                         remember (expr1 + expr2)%SL as res.
+                         specialize (tlaToSourceRelation res fState tr f2RPremise).
+                         simpl in tlaToSourceRelation.
+                         decompose [and] tlaToSourceRelation.
+                         specialize (H4 H2). 
+                         remember (lift2 (Bplus custom_prec custom_emax eq_refl eq_refl
+                                                Floats.Float.binop_pl mode_NE) (eval_expr1) (eval_expr2)) as floatRes. 
+                         rewrite Heqres in H4.
+                         rewrite eval_expr1_des in HeqfloatRes.
+                         rewrite eval_expr2_des  in HeqfloatRes.
+                         simpl in HeqfloatRes.
+                         Local Close Scope HP_scope.
+                         Definition lift {T U : Type} 
+                                    (f : T-> option U) 
+                                    (a : option T)
+                           : option U :=
+                           match a with
+                             | Some a => (f a)
+                             | _ => None
+                           end.
+                         unfold eval_NowTerm in H4.                
+                         simpl in H4.  
+                         rewrite <- Heqeval_expr1' in H4.
+                         rewrite <- Heqeval_expr2' in H4.
+                         simpl in H4.
+                         clear Heqeval_expr1' Heqeval_expr2' f2RPremise eval_expr1_des eval_expr2_des.
+                         clear premGt0.
+                         rewrite <- Heqnum in H4.
+                         clear Heqres  H H1 H2 H0 Heqres.
+                         clear Heqnum.
+                         clear HeqfloatRes.
+                         clear floatRes.
+                         clear Iexpr1_bound Iexpr2_bound.
+                         clear tlaToSourceRelation.
+                         clear H6.
+                         Require Import TLA.Tactics.
+                         destruct H3.
+                         destruct H5.
+                         split.
+                         {
+                           Declare ML Module "z3Tactic".
+                           repeat match goal with
+                                    | H : @eq R _ _ |- _ => revert H
+                                    | H : @Rle _ _ |- _ => revert H
+                                    | H : @Rge _ _ |- _ => revert H
+                                    | H : @Rlt _ _ |- _ => revert H
+                                    | H :@ Rgt _ _ |- _ => revert H
+                                    | H : @Rge _ _ |- _ => revert H
+                                  end.
+                           z3Tactic.
+                           
+                           psatz R.
+                         }
+                       {
+                         psatz R.
+                       }
+                   - (*copied from above*)
+                     apply fold_right_two_list_opp.
+                     split.
+                     + decompose [and] IHexpr2'.
                        intuition.
-                       simpl.
-                       clear  fold_right_inferring_sublist_truth_from_list_truth IHexpr1_boundList IHexpr2_boundList Heqexpr1_boundList Heqexpr2_boundList.
+                     + 
+                       apply fold_right_combine.
+                       split.
+                       *
+                         decompose [and] IHexpr1'.
+                         apply fold_right_inferr_sublist in H0.
+                         decompose [and] H0.
+                         intuition.
+                       *   simpl.
+                       clear  fold_right_inferring_sublist_truth_from_list_truth IHexpr1_boundList IHexpr2_boundList.
                        revert IHexpr1 IHexpr2. intros IHexpr1 IHexpr2.
                        decompose [and] IHexpr1.
                        decompose [and] IHexpr2.
@@ -925,11 +1133,330 @@ induction expr1_boundList as [ | Iexpr1_bound].
                        remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1.
                        remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2.
                        remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
-                       clear HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0  HeqIexpr2Withexpr1Gt0  Iexpr1Andexp1Withexpr2Lt0  HeqIexpr1Andexp1Withexpr2Lt0  Iexpr2Withexpr1Lt0  HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0  Heqexpr1WithExpr2Lt0
-bplusCorrect IHexpr2'  IHexpr1' Heqlb2  Hequb2 IHexpr1  Heqlb1  Hequb1 Hequb1  H H0 H1 H2 H6 IHexpr2  expr1WithExpr2Lt0  expr1Withexpr2Gt0 expr1Withexpr2Gt0  eval_expr2_des eval_expr1_des f2RPremise  expr1_boundList  expr2_boundList f0_des  f_des  fState f b f0 .
+                       clear Heqeval_expr1 Heqeval_expr2 HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0  HeqIexpr2Withexpr1Gt0  Iexpr1Andexp1Withexpr2Lt0  HeqIexpr1Andexp1Withexpr2Lt0  Iexpr2Withexpr1Lt0  HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0  Heqexpr1WithExpr2Lt0
+bplusCorrect IHexpr2'  IHexpr1' Heqlb2  Hequb2 IHexpr1  Heqlb1  Hequb1 Hequb1  H H0 H1 H2 H6 IHexpr2   expr1WithExpr2Lt0  expr1Withexpr2Gt0 expr1Withexpr2Gt0  expr1_boundList  expr2_boundList f0_des  f_des  f  f0 .                       
                        unfold error.
                        simpl in *.
                        remember ( F2R {| Fnum := cond_Zopp b0 (Z.pos m); Fexp := e |}) as num.
-                       clear Heqnum.
+                       pose proof tlaToRealRelation as tlaToSourceRelation.
+                       decompose [and] premGt0.
+                       simpl in H2.
+                       pose proof deNowifyPlus.
+                       rewrite H0 in H2.
+                       remember (expr1 + expr2)%SL as res.
+                       specialize (tlaToSourceRelation res fState tr f2RPremise).
+                       simpl in tlaToSourceRelation.
+                       decompose [and] tlaToSourceRelation.
+                       specialize (H6 H2). 
+                       remember (lift2 (Bplus custom_prec custom_emax eq_refl eq_refl
+                        Floats.Float.binop_pl mode_NE) (eval_expr1) (eval_expr2)) as floatRes. 
+                       rewrite Heqres in H6.
+                       rewrite eval_expr1_des in HeqfloatRes.
+                       rewrite eval_expr2_des  in HeqfloatRes.
+                       simpl in HeqfloatRes.
+                       Local Close Scope HP_scope.
+                       unfold eval_NowTerm in H6.                
+                       simpl in H6.  
+                       rewrite <- Heqeval_expr1' in H6.
+                        rewrite <- Heqeval_expr2' in H6.
+                        simpl in H6.
+                        clear Heqeval_expr1' Heqeval_expr2' f2RPremise eval_expr1_des eval_expr2_des.
+                        clear premGt0.
+                        rewrite <- Heqnum in H6.
+                        clear Heqres  H H1 H2 H0 Heqres.
+                        clear Heqnum.
+                        clear HeqfloatRes.
+                        clear floatRes.
+                        clear Iexpr1_bound Iexpr2_bound.
+                        clear tlaToSourceRelation.
+                       clear H4.
+                       destruct H3.
+                       destruct H5.
+                       split.
+                       {
+                         repeat match goal with
+                                  | H : @eq R _ _ |- _ => revert H
+                                  | H : @Rle _ _ |- _ => revert H
+                                  | H : @Rge _ _ |- _ => revert H
+                                  | H : @Rlt _ _ |- _ => revert H
+                                  | H :@ Rgt _ _ |- _ => revert H
+                                  | H : @Rge _ _ |- _ => revert H
+                                end.
+                         z3Tactic.
+                         psatz R.
+                       }
+                       {
+                         psatz R.
+                       }
+                   (*copied part is over*)
+                }
+                
+              * destruct f0 eqn:f0_des.
+                {   
+                  repeat unfold Bplus in *. 
+                  rewrite fold_right_truth.
+                  intuition.
+                }
+                {
+                  unfold Bplus in *. 
+                  destruct Bool.eqb. 
+                  -
+                    rewrite fold_right_truth.
+                    intuition.
+                  - rewrite fold_right_truth.
+                    intuition.
+                }
+                {
+                  unfold Bplus in *.
+                  rewrite fold_right_truth.
+                  intuition.
+                }
+                {
+                  unfold Bplus in *.
+                  rewrite fold_right_truth.
+                  intuition.
+                }
+              * destruct f0 eqn:f0_des.
+                {   
+                  repeat unfold Bplus in *. 
+                  rewrite fold_right_truth.
+                  intuition.
+                }
+                {
+                  unfold Bplus in *. 
+                  rewrite fold_right_truth.
+                  intuition.
+                }
+                {
+                  unfold Bplus in *.
+                  rewrite fold_right_truth.
+                  intuition.
+                }
+                {
+                  unfold Bplus in *.
+                  rewrite fold_right_truth.
+                  intuition.
+                }
+              * destruct f0 eqn:f0_des.
+                 {
+                   
+                   unfold Bplus.
+                   unfold Bplus in IHexpr1'.
+                   unfold Bplus in IHexpr2'.
+                   simpl.
+                   simpl in IHexpr1'.
+                   simpl in IHexpr2'.
+                   apply fold_right_two_list in IHexpr2'.
+                   apply fold_right_two_list in IHexpr1'.
+                   apply fold_right_two_list_opp.
+                   split. (*Ltac this full thing*)
+                   - apply fold_right_two_list_opp.
+                     split.
+                     + decompose [and] IHexpr2'.
+                       intuition.
+                     + 
+                       apply fold_right_combine.
+                       split.
+                       *
+                         decompose [and] IHexpr1'.
+                         apply fold_right_inferr_sublist in H.
+                         decompose [and] H.
+                         intuition.
+                       * simpl.
+                         clear  fold_right_inferring_sublist_truth_from_list_truth IHexpr1_boundList IHexpr2_boundList.
+                         revert IHexpr1 IHexpr2. intros IHexpr1 IHexpr2.
+                         decompose [and] IHexpr1.
+                         decompose [and] IHexpr2.
+                         simpl in H0.
+                         simpl in H2.
+                         intros premGt0. 
+                         decompose [and] premGt0.
+                         apply H0 in H5.
+                         apply H2 in H3.
+                         remember  (eval_term (lb Iexpr2_bound) (hd tr) (hd (tl tr))) as lb1.
+                         remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1.
+                         remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2.
+                         remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
+                         clear Heqeval_expr1 Heqeval_expr2 HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0  HeqIexpr2Withexpr1Gt0  Iexpr1Andexp1Withexpr2Lt0  HeqIexpr1Andexp1Withexpr2Lt0  Iexpr2Withexpr1Lt0  HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0  Heqexpr1WithExpr2Lt0
+                               bplusCorrect IHexpr2'  IHexpr1' Heqlb2  Hequb2 IHexpr1  Heqlb1  Hequb1 Hequb1  H H0 H1 H2 H6 IHexpr2   expr1WithExpr2Lt0  expr1Withexpr2Gt0 expr1Withexpr2Gt0  expr1_boundList  expr2_boundList f0_des  f_des  f  f0 .                       
+                         unfold error.
+                         simpl in *.
+                         remember ( F2R {| Fnum := cond_Zopp b (Z.pos m); Fexp := e |}) as num.
+                         pose proof tlaToRealRelation as tlaToSourceRelation.
+                         decompose [and] premGt0.
+                         simpl in H2.
+                         pose proof deNowifyPlus.
+                         rewrite H0 in H2.
+                         remember (expr1 + expr2)%SL as res.
+                         specialize (tlaToSourceRelation res fState tr f2RPremise).
+                         simpl in tlaToSourceRelation.
+                         decompose [and] tlaToSourceRelation.
+                         specialize (H4 H2). 
+                         remember (lift2 (Bplus custom_prec custom_emax eq_refl eq_refl
+                                                Floats.Float.binop_pl mode_NE) (eval_expr1) (eval_expr2)) as floatRes. 
+                         rewrite Heqres in H4.
+                         rewrite eval_expr1_des in HeqfloatRes.
+                         rewrite eval_expr2_des  in HeqfloatRes.
+                         simpl in HeqfloatRes.
+                         Local Close Scope HP_scope.
+                         unfold eval_NowTerm in H4.                
+                         simpl in H4.  
+                         rewrite <- Heqeval_expr1' in H4.
+                         rewrite <- Heqeval_expr2' in H4.
+                         simpl in H4.
+                         clear Heqeval_expr1' Heqeval_expr2' f2RPremise eval_expr1_des eval_expr2_des.
+                         clear premGt0.
+                         rewrite <- Heqnum in H4.
+                         clear Heqres  H H1 H2 H0 Heqres.
+                         clear Heqnum.
+                         clear HeqfloatRes.
+                         clear floatRes.
+                         clear Iexpr1_bound Iexpr2_bound.
+                         clear tlaToSourceRelation.
+                         clear H6.
+                         Require Import TLA.Tactics.
+                         destruct H3.
+                         destruct H5.
+                         split.
+                         {
+                           Declare ML Module "z3Tactic".
+                           repeat match goal with
+                                    | H : @eq R _ _ |- _ => revert H
+                                    | H : @Rle _ _ |- _ => revert H
+                                    | H : @Rge _ _ |- _ => revert H
+                                    | H : @Rlt _ _ |- _ => revert H
+                                    | H :@ Rgt _ _ |- _ => revert H
+                                    | H : @Rge _ _ |- _ => revert H
+                                  end.
+                           z3Tactic.
+                           
+                           psatz R.
+                         }
+                       {
+                         psatz R.
+                       }
+                   - (*copied from above*)
+                     apply fold_right_two_list_opp.
+                     split.
+                     + decompose [and] IHexpr2'.
+                       intuition.
+                     + 
+                       apply fold_right_combine.
+                       split.
+                       *
+                         decompose [and] IHexpr1'.
+                         apply fold_right_inferr_sublist in H0.
+                         decompose [and] H0.
+                         intuition.
+                       *   simpl.
+                       clear  fold_right_inferring_sublist_truth_from_list_truth IHexpr1_boundList IHexpr2_boundList.
+                       revert IHexpr1 IHexpr2. intros IHexpr1 IHexpr2.
+                       decompose [and] IHexpr1.
+                       decompose [and] IHexpr2.
+                       simpl in H0.
+                       simpl in H2.
+                       intros premGt0. 
+                       decompose [and] premGt0.
+                       apply H0 in H5.
+                       apply H2 in H3.
+                       remember  (eval_term (lb Iexpr2_bound) (hd tr) (hd (tl tr))) as lb1.
+                       remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1.
+                       remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2.
+                       remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
+                       clear Heqeval_expr1 Heqeval_expr2 HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0  HeqIexpr2Withexpr1Gt0  Iexpr1Andexp1Withexpr2Lt0  HeqIexpr1Andexp1Withexpr2Lt0  Iexpr2Withexpr1Lt0  HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0  Heqexpr1WithExpr2Lt0
+bplusCorrect IHexpr2'  IHexpr1' Heqlb2  Hequb2 IHexpr1  Heqlb1  Hequb1 Hequb1  H H0 H1 H2 H6 IHexpr2   expr1WithExpr2Lt0  expr1Withexpr2Gt0 expr1Withexpr2Gt0  expr1_boundList  expr2_boundList f0_des  f_des  f  f0 .                       
+                       unfold error.
+                       simpl in *.
+                       remember ( F2R {| Fnum := cond_Zopp b (Z.pos m); Fexp := e |}) as num.
+                       pose proof tlaToRealRelation as tlaToSourceRelation.
+                       decompose [and] premGt0.
+                       simpl in H2.
+                       pose proof deNowifyPlus.
+                       rewrite H0 in H2.
+                       remember (expr1 + expr2)%SL as res.
+                       specialize (tlaToSourceRelation res fState tr f2RPremise).
+                       simpl in tlaToSourceRelation.
+                       decompose [and] tlaToSourceRelation.
+                       specialize (H6 H2). 
+                       remember (lift2 (Bplus custom_prec custom_emax eq_refl eq_refl
+                        Floats.Float.binop_pl mode_NE) (eval_expr1) (eval_expr2)) as floatRes. 
+                       rewrite Heqres in H6.
+                       rewrite eval_expr1_des in HeqfloatRes.
+                       rewrite eval_expr2_des  in HeqfloatRes.
+                       simpl in HeqfloatRes.
+                       Local Close Scope HP_scope.
+                       unfold eval_NowTerm in H6.                
+                       simpl in H6.  
+                       rewrite <- Heqeval_expr1' in H6.
+                        rewrite <- Heqeval_expr2' in H6.
+                        simpl in H6.
+                        clear Heqeval_expr1' Heqeval_expr2' f2RPremise eval_expr1_des eval_expr2_des.
+                        clear premGt0.
+                        rewrite <- Heqnum in H6.
+                        clear Heqres  H H1 H2 H0 Heqres.
+                        clear Heqnum.
+                        clear HeqfloatRes.
+                        clear floatRes.
+                        clear Iexpr1_bound Iexpr2_bound.
+                        clear tlaToSourceRelation.
+                       clear H4.
+                       destruct H3.
+                       destruct H5.
+                       split.
+                       {
+                         repeat match goal with
+                                  | H : @eq R _ _ |- _ => revert H
+                                  | H : @Rle _ _ |- _ => revert H
+                                  | H : @Rge _ _ |- _ => revert H
+                                  | H : @Rlt _ _ |- _ => revert H
+                                  | H :@ Rgt _ _ |- _ => revert H
+                                  | H : @Rge _ _ |- _ => revert H
+                                end.
+                         z3Tactic.
+                         psatz R.
+                       }
+                       {
+                         psatz R.
+                       }
+                   (*copied part is over*)
+                }
+                {   
+                  repeat unfold Bplus in *. 
+                  rewrite fold_right_truth.
+                  intuition.
+                }
+                {
+                  unfold Bplus in *. 
+                  rewrite fold_right_truth.
+                  intuition.
+                }
+                {
+                  admit.
+                }
+            +
+              simpl in *.
+              rewrite fold_right_truth.
+              intuition.
+         -
+           simpl in *.
+           rewrite fold_right_truth.
+           intuition.
+         }
+         intros.
+       unfold foldBoundProp in IHexpr1.
+       apply fold_right_inferring_sublist_truth_from_list_truth in IHexpr1.
+       apply IHexpr1_boundList in IHexpr1.
+       revert IHexpr1. intros IHexpr1.
+       unfold plusBound in *.
+       simpl in *.
+       remember (foldListwithList expr1_boundList expr2_boundList PlusT
+                  (denowify expr1 + denowify expr2 >= RealT 0)%HP simpleBound) as expr1Expr2GT0.
+       remember (foldListwithList expr1_boundList expr2_boundList PlusT
+                 (denowify expr1 + denowify expr2 < RealT 0)%HP simpleBound4) as expr1Expr2LT0.
+       unfold foldBoundProp in *.
+       simpl in *.
+       (*need to prove this*)
+      .
+                         
                       (*proof done till here*)
                        Admitted.
