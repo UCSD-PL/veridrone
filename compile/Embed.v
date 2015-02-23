@@ -35,12 +35,34 @@ Section embedding.
   (** Running the given program in the current state. Only the specified
    ** variables are updated by the program when it is run.
    **)
-  Definition embedStep (vars : list (Syntax.Var * var)) (prg : ast)
+
+  (** This version supports predicated refinement, e.g. we can compile
+   **   [x = y /\ x! = 3]
+   ** as an [if] statement. The problem with it is that it does not
+   ** correctly capture the behavior of non-deterministic programs.
+   ** I.e. it has angelic non-determinism which is not realistic.
+   **
+  Definition embedStep_ex (vars : list (Syntax.Var * var)) (prg : ast)
   : Syntax.Formula :=
     Syntax.Embed (fun pre post =>
                     exists init_state post_state : state,
                       models vars pre init_state /\
                       eval init_state prg post_state /\
                       models vars post post_state).
+    **)
+
+  (** This embeds with a more demonic form of non-determinism,
+   ** which is more realistic in practice. However, it does not enjoy
+   ** the same expressivity as TLA because it is required to have a
+   ** safe step in all instances where it can be run.
+   **)
+  Definition embedStep (vars : list (Syntax.Var * var)) (prg : ast)
+  : Syntax.Formula :=
+    Syntax.Embed (fun pre post =>
+                    forall init_state : state,
+                      models vars pre init_state ->
+                      exists post_state : state,
+                        eval init_state prg post_state /\
+                        models vars post post_state).
 
 End embedding.
