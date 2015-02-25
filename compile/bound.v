@@ -1673,6 +1673,9 @@ induction expr1_boundList as [ | Iexpr1_bound].
                       remember ( F2R {| Fnum := cond_Zopp b0 (Z.pos m0); Fexp := e1 |}) as res2.
                       remember ( F2R {| Fnum := cond_Zopp b (Z.pos m); Fexp := e |}) as res1.
                       unfold floatMax.
+                      Admitted.
+
+(*
                       z3Tactic.
                       
                       psatz R.
@@ -2087,3 +2090,4 @@ intros.
                 
                       (*proof done till here*)
                        Admitted.
+*)
