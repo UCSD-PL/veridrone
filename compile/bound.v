@@ -96,6 +96,7 @@ Definition simpleBound6
         fla.
 
 Definition floatMax:= bpow radix2 custom_emax.
+Definition floatMin := bpow radix2 (-1021)%Z.
 
 
 Definition plusMinusfoldBoundListWithTriple 
@@ -117,12 +118,16 @@ Definition plusMinusfoldBoundListWithTriple
   fold_right (fun triple2 curList => ((simpleBoundFunc1 triple triple2 combFunc 
                                                       (premise triple /\ 
                                                        premise triple2 /\ 
-                                                       (ub triple + ub triple2 < floatMax) /\  
+                                                       ((floatMin <= lb triple + lb triple2) \/ (floatMin <= ((0 - lb triple) + (0 - lb triple2))) \/ ((lb triple + lb triple =0) /\ (ub triple + ub triple =0))) /\ 
+                                                       (ub triple + ub triple2 < floatMax) /\
+                                                             ((0- ub triple) + (0 - ub triple2) < floatMax) /\ 
                                                        (lb triple + lb triple2 >= R0)))
                                        :: ((simpleBoundFunc2 triple triple2 combFunc 
                                                             (premise triple /\ 
                                                              premise triple2 /\ 
-                                                             (ub triple + ub triple2 < floatMax) /\  
+                                                            ((floatMin <= lb triple + lb triple2) \/ (floatMin <= ((0 - lb triple) + (0 - lb triple2))) \/ ((lb triple + lb triple =0) /\ (ub triple + ub triple =0))) /\ 
+                                                             (ub triple + ub triple2 < floatMax) /\
+                                                             ((0 - ub triple) + (0 - ub triple2) < floatMax) /\ 
                                                              (ub triple + ub triple2 < R0))) ::
                                              curList))) List.nil list. 
 
@@ -155,22 +160,31 @@ Definition multfoldBoundListWithTriple
   fold_right (fun triple2 curList => (simpleBoundFunc1 triple triple2 combFunc 
                                                       (premise triple /\ 
                                                        premise triple2 /\ 
+                                                       ((floatMin <= lb triple + lb triple2) \/ (floatMin <= ((0 - lb triple) + (0 - lb triple2))) \/ ((lb triple + lb triple =0) /\ (ub triple + ub triple =0)))/\
                                                        (ub triple + ub triple2 < floatMax) /\  
+                                                         ((0 - ub triple) + (0 - ub triple2) < floatMax) /\
                                                        (lb triple >= R0) /\ (lb triple2 >= R0)))
                                        :: ((simpleBoundFunc2 triple triple2 combFunc 
                                                             (premise triple /\ 
                                                              premise triple2 /\ 
-                                                             (ub triple + ub triple2 < floatMax) /\  
+                                                             ((floatMin <= lb triple + lb triple2) \/ (floatMin <= ((0 - lb triple) + (0 - lb triple2))) \/ ((lb triple + lb triple =0) /\ (ub triple + ub triple =0))) /\ 
+                                                             
+                                                             (ub triple + ub triple2 < floatMax) /\
+                                                             ((0 - ub triple) + (0 - ub triple2) < floatMax) /\
                                                              (ub triple < R0) /\ (ub triple2 < R0)))
                                              :: ((simpleBoundFunc3 triple triple2 combFunc 
                                                             (premise triple /\ 
                                                              premise triple2 /\ 
-                                                             (ub triple + ub triple2 < floatMax) /\  
+                                                             ((floatMin <= lb triple + lb triple2) \/ (floatMin <= ((0 - lb triple) + (0 - lb triple2))) \/ ((lb triple + lb triple =0) /\ (ub triple + ub triple =0))) /\ 
+                                                             (ub triple + ub triple2 < floatMax) /\
+                                                             ((0 - ub triple) + (0 - ub triple2) < floatMax) /\
                                                              (lb triple >= R0) /\ (ub triple2 < R0)))
                                                    :: ((simpleBoundFunc4 triple triple2 combFunc 
                                                             (premise triple /\ 
                                                              premise triple2 /\ 
-                                                             (ub triple + ub triple2 < floatMax) /\  
+                                                             ((floatMin <= lb triple + lb triple2) \/ (floatMin <= ((0 - lb triple) + (0 - lb triple2))) \/ ((lb triple + lb triple =0) /\ (ub triple + ub triple =0))) /\ 
+                                                             ((ub triple + ub triple2 < floatMax) /\
+                                                             ((0 - ub triple) + (0 - ub triple2) < floatMax)) /\ 
                                                              (ub triple < R0) /\ (lb triple2 >= R0)))
                                                    ::   
                                                    curList)))) List.nil list. 
@@ -580,17 +594,23 @@ Lemma resultImplicationOnArguments: forall fState expr1 expr2 f, eval_NowTerm fS
             | FloatN f0 => Some f0
             | (t1 + t2)%SL =>
                 lift2
-                  (Bplus custom_prec custom_emax eq_refl eq_refl
+                  (Bplus custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax))
                      Floats.Float.binop_pl mode_NE) 
                   (eval_NowTerm t1) (eval_NowTerm t2)
             | (t1 - t2)%SL =>
                 lift2
-                  (Bminus custom_prec custom_emax eq_refl eq_refl
+                  (Bminus custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) 
                      Floats.Float.binop_pl mode_NE) 
                   (eval_NowTerm t1) (eval_NowTerm t2)
             | (t1 * t2)%SL =>
                 lift2
-                  (Bmult custom_prec custom_emax eq_refl eq_refl
+                  (Bmult custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) 
                      Floats.Float.binop_pl mode_NE) 
                   (eval_NowTerm t1) (eval_NowTerm t2)
             end) expr1) as eval_expr1.
@@ -601,17 +621,23 @@ Lemma resultImplicationOnArguments: forall fState expr1 expr2 f, eval_NowTerm fS
       | FloatN f0 => Some f0
       | (t1 + t2)%SL =>
           lift2
-            (Bplus custom_prec custom_emax eq_refl eq_refl
+            (Bplus custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) 
                Floats.Float.binop_pl mode_NE) (eval_NowTerm t1)
             (eval_NowTerm t2)
       | (t1 - t2)%SL =>
           lift2
-            (Bminus custom_prec custom_emax eq_refl eq_refl
+            (Bminus custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) 
                Floats.Float.binop_pl mode_NE) (eval_NowTerm t1)
             (eval_NowTerm t2)
       | (t1 * t2)%SL =>
           lift2
-            (Bmult custom_prec custom_emax eq_refl eq_refl
+            (Bmult custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) 
                Floats.Float.binop_pl mode_NE) (eval_NowTerm t1)
             (eval_NowTerm t2)
       end) expr2) as eval_expr2.
@@ -778,7 +804,19 @@ Local Open Scope HP_scope.
  Qed.
 
 
-
+ Lemma rltProof : forall r1 r2, (false = Rlt_bool r1 r2) -> (r1 >= r2)%R. 
+                         intros.
+                         unfold Rlt_bool in *.
+                         Transparent Rcompare.
+                         unfold Rcompare in *.
+                         Transparent total_order_T.
+                         destruct (total_order_T r1 r2).
+                         destruct s.
+                         intuition.
+                         intuition.
+                         intuition
+                         intuition.
+                         Qed.
 
 
 Lemma bound_proof : 
@@ -829,17 +867,23 @@ induction expr.
                | FloatN f => Some f
                | (t1 + t2)%SL =>
                    lift2
-                     (Bplus custom_prec custom_emax eq_refl eq_refl
+                     (Bplus custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax))
                         Floats.Float.binop_pl mode_NE) 
                      (eval_NowTerm t1) (eval_NowTerm t2)
                | (t1 - t2)%SL =>
                    lift2
-                     (Bminus custom_prec custom_emax eq_refl eq_refl
+                     (Bminus custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax))
                         Floats.Float.binop_pl mode_NE) 
                      (eval_NowTerm t1) (eval_NowTerm t2)
                | (t1 * t2)%SL =>
                    lift2
-                     (Bmult custom_prec custom_emax eq_refl eq_refl
+                     (Bmult custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax))
                         Floats.Float.binop_pl mode_NE) 
                      (eval_NowTerm t1) (eval_NowTerm t2)
                end) expr1) as eval_expr1.
@@ -852,21 +896,28 @@ induction expr.
                | FloatN f => Some f
                | (t1 + t2)%SL =>
                    lift2
-                     (Bplus custom_prec custom_emax eq_refl eq_refl
+                     (Bplus custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax))
                         Floats.Float.binop_pl mode_NE) 
                      (eval_NowTerm t1) (eval_NowTerm t2)
                | (t1 - t2)%SL =>
                    lift2
-                     (Bminus custom_prec custom_emax eq_refl eq_refl
+                     (Bminus custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax))
                         Floats.Float.binop_pl mode_NE) 
                      (eval_NowTerm t1) (eval_NowTerm t2)
                | (t1 * t2)%SL =>
                    lift2
-                     (Bmult custom_prec custom_emax eq_refl eq_refl
+                     (Bmult custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax))
                         Floats.Float.binop_pl mode_NE) 
                      (eval_NowTerm t1) (eval_NowTerm t2)
                end) expr2) as eval_expr2.
   revert IHexpr1 IHexpr2. intros IHexpr1 IHexpr2.
+
   unfold bound_term in *.
   unfold getBound in *.
   remember ((fix bound_term (x : NowTerm) : list singleBoundTerm :=
@@ -988,6 +1039,7 @@ induction expr1_boundList as [ | Iexpr1_bound].
                      expr1_boundList) List.nil expr2_boundList) as expr1WithExpr2Lt0.
          revert IHexpr1'. intros IHexpr1'.
          unfold foldBoundProp in *.
+
          pose proof Bplus_correct as bplusCorrect. (*plus specific*)
          assert (Heqeval_expr1':=Heqeval_expr1).
          assert (Heqeval_expr2':=Heqeval_expr2).
@@ -1003,7 +1055,10 @@ induction expr1_boundList as [ | Iexpr1_bound].
               
               destruct f eqn:f_des.
               * destruct f0 eqn:f0_des;
-                solve [ unfold Bplus in *;
+
+
+
+ solve [ unfold Bplus in *;
                         destruct Bool.eqb ;        
                         simpl in IHexpr1';
                         simpl in IHexpr2';
@@ -1027,17 +1082,18 @@ induction expr1_boundList as [ | Iexpr1_bound].
                                             decompose [and] premGt0;
                                             apply H3 in H8;
                                             apply H5 in H6;
-                                            unfold eval_comp in H7;
-                                            simpl in H7;
                                             unfold eval_comp in H10;
                                             simpl in H10;
+                                            unfold eval_comp in H12;
+                                            simpl in H12;
+                                            destruct H7;
                                             remember (eval_term (lb Iexpr2_bound) (hd tr) (hd (tl tr))) as lb1;
                                             remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1;
                                             remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2;
                                             remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2;
                                             destruct H8;
                                             destruct H6;
-                                            clear H3 IHexpr1_boundList IHexpr2_boundList Heqeval_expr1 Heqeval_expr2 HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0 HeqIexpr2Withexpr1Gt0 Iexpr1Andexp1Withexpr2Lt0 HeqIexpr1Andexp1Withexpr2Lt0 Iexpr2Withexpr1Lt0 HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0 Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2' IHexpr1' Heqlb2 Hequb2 IHexpr1 Heqlb1 Hequb1 Hequb1 H H0 H1 H2 H4 H5 IHexpr2 expr1WithExpr2Lt0 expr1Withexpr2Gt0 expr1Withexpr2Gt0 expr1_boundList expr2_boundList f0_des f_des f f0 Heqeval_expr1' Heqeval_expr2' fold_right_inferring_sublist_truth_from_list_truth premGt0 f2RPremise;
+                                            clear H3 H7 H9 H10  IHexpr1_boundList IHexpr2_boundList Heqeval_expr1 Heqeval_expr2 HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0 HeqIexpr2Withexpr1Gt0 Iexpr1Andexp1Withexpr2Lt0 HeqIexpr1Andexp1Withexpr2Lt0 Iexpr2Withexpr1Lt0 HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0 Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2' IHexpr1' Heqlb2 Hequb2 IHexpr1 Heqlb1 Hequb1 Hequb1 H H0 H1 H2 H4 H5 IHexpr2 expr1WithExpr2Lt0 expr1Withexpr2Gt0 expr1Withexpr2Gt0 expr1_boundList expr2_boundList f0_des f_des f f0 Heqeval_expr1' Heqeval_expr2' fold_right_inferring_sublist_truth_from_list_truth premGt0 f2RPremise;
                                             unfold error;
                                             simpl;
                                             repeat match goal with
@@ -1076,17 +1132,17 @@ induction expr1_boundList as [ | Iexpr1_bound].
                                           decompose [and] premGt0;
                                           apply H3 in H8;
                                           apply H5 in H6;
-                                          unfold eval_comp in H7;
-                                          simpl in H7;
                                           unfold eval_comp in H10;
                                           simpl in H10;
+                                          unfold eval_comp in H12;
+                                          simpl in H12;
                                           remember (eval_term (lb Iexpr2_bound) (hd tr) (hd (tl tr))) as lb1;
                                           remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1;
                                           remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2;
                                           remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2;
                                           destruct H8;
                                           destruct H6;
-                                          clear H3 IHexpr1_boundList IHexpr2_boundList Heqeval_expr1 Heqeval_expr2 HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0 HeqIexpr2Withexpr1Gt0 Iexpr1Andexp1Withexpr2Lt0 HeqIexpr1Andexp1Withexpr2Lt0 Iexpr2Withexpr1Lt0 HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0 Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2' IHexpr1' Heqlb2 Hequb2 IHexpr1 Heqlb1 Hequb1 Hequb1 H H0 H1 H2 H4 H5 IHexpr2 expr1WithExpr2Lt0 expr1Withexpr2Gt0 expr1Withexpr2Gt0 expr1_boundList expr2_boundList f0_des f_des f f0 Heqeval_expr1' Heqeval_expr2' fold_right_inferring_sublist_truth_from_list_truth premGt0 f2RPremise;
+                                          clear H3 H7 H9 H10 IHexpr1_boundList IHexpr2_boundList Heqeval_expr1 Heqeval_expr2 HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0 HeqIexpr2Withexpr1Gt0 Iexpr1Andexp1Withexpr2Lt0 HeqIexpr1Andexp1Withexpr2Lt0 Iexpr2Withexpr1Lt0 HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0 Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2' IHexpr1' Heqlb2 Hequb2 IHexpr1 Heqlb1 Hequb1 Hequb1 H H0 H1 H2 H4 H5 IHexpr2 expr1WithExpr2Lt0 expr1Withexpr2Gt0 expr1Withexpr2Gt0 expr1_boundList expr2_boundList f0_des f_des f f0 Heqeval_expr1' Heqeval_expr2' fold_right_inferring_sublist_truth_from_list_truth premGt0 f2RPremise;
                                           unfold error;
                                           simpl;
                                           repeat match goal with
@@ -1097,28 +1153,937 @@ induction expr1_boundList as [ | Iexpr1_bound].
                                                    | H :@ Rgt _ _ |- _ => revert H
                                                    | H : @Rge _ _ |- _ => revert H
                                                  end;
-                                          psatz R]]]
-       ].
-                (*f is zero and the rest*)
+                                          psatz R]]]].
+                  
 
-           *     
-             destruct f0 eqn:f0_des;
+ (*f is zero and the rest*)
+
+              *     
+                destruct f0 eqn:f0_des;
                 solve [simpl;
-                  rewrite fold_right_truth;
-                  intuition |  unfold Bplus;
-                destruct Bool.eqb;
-                rewrite fold_right_truth;
-                intuition].
-              *   (*f is infinity and the rest*)   
-             destruct f0 eqn:f0_des;
+                        rewrite fold_right_truth;
+                        intuition |  unfold Bplus;
+                                    destruct Bool.eqb;
+                                    rewrite fold_right_truth;
+                                    intuition].
+              *   (*f is infinity and the rest*)  
+
+                destruct f0 eqn:f0_des;
                 solve [simpl;
+                        rewrite fold_right_truth;
+                        intuition |  unfold Bplus;
+                                    destruct Bool.eqb;
+                                    rewrite fold_right_truth;
+                                    intuition].
+              (*f is nan and the rest*)
+              *
+                destruct f0 eqn:f0_des.
+
+                 
+                  solve [ 
+                      simpl;
+                      simpl in IHexpr1';
+                      simpl in IHexpr2';
+                      apply fold_right_two_list_opp;
+                      apply fold_right_two_list in IHexpr1';
+                      split;
+                      solve [ apply IHexpr2'|
+                              apply  fold_right_combine;
+                                decompose [and] IHexpr1';
+                                repeat split;
+                                solve [ apply H0 |
+                                        simpl;
+                                          revert IHexpr1 IHexpr2;
+                                          intros IHexpr1 IHexpr2;
+                                          decompose [and] IHexpr1;
+                                          decompose [and] IHexpr2;
+                                          simpl in H3;
+                                          simpl in H5;
+                                          assert (premGt0:= H1);
+                                          simpl in premGt0;
+                                          decompose [and] premGt0;
+                                          apply H3 in H8;
+                                          apply H5 in H6;
+                                          unfold eval_comp in H12;
+                                          simpl in H12;
+                                          unfold eval_comp in H10;
+                                          simpl in H10;
+                                          remember (eval_term (lb Iexpr2_bound) (hd tr) (hd (tl tr))) as lb1;
+                                          remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1;
+                                          remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2;
+                                          remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2;
+                                          destruct H8;
+                                          destruct H6;
+      
+                                          clear H3 H7 H9 H10 IHexpr1_boundList IHexpr2_boundList Heqeval_expr1 Heqeval_expr2 HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0 HeqIexpr2Withexpr1Gt0 Iexpr1Andexp1Withexpr2Lt0 HeqIexpr1Andexp1Withexpr2Lt0 Iexpr2Withexpr1Lt0 HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0 Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2' IHexpr1' Heqlb2 Hequb2 IHexpr1 Heqlb1 Hequb1 Hequb1 H H0 H1 H2 H4 H5 IHexpr2 expr1WithExpr2Lt0 expr1Withexpr2Gt0 expr1Withexpr2Gt0 expr1_boundList expr2_boundList f0_des f_des f f0 Heqeval_expr1' Heqeval_expr2' fold_right_inferring_sublist_truth_from_list_truth premGt0 f2RPremise;
+                                          unfold error;
+                                          simpl;
+                                          repeat match goal with
+                                                   | H : @eq R _ _ |- _ => revert H
+                                                   | H : @Rle _ _ |- _ => revert H
+                                                   | H : @Rge _ _ |- _ => revert H
+                                                   | H : @Rlt _ _ |- _ => revert H
+                                                   | H :@ Rgt _ _ |- _ => revert H
+                                                   | H : @Rge _ _ |- _ => revert H
+                                                 end;
+                                          psatz R]]].
+
+            
+
+                simpl;
                   rewrite fold_right_truth;
-                  intuition |  unfold Bplus;
-                destruct Bool.eqb;
-                rewrite fold_right_truth;
-                intuition].
-                (*f is nan and the rest*)
+                  intuition. (*one is infinity and other is finite*)
+
+                simpl;
+                  rewrite fold_right_truth;
+                  intuition.
+
+                
+                match goal with 
+                  | |- fold_right (fun x y => match match ?plusResult with _ => _ end with _ => _ end) _ _ => 
+                    remember plusResult
+                end.
+                
+                
+                match goal with 
+                  | |- fold_right (fun x y => match ?result with _ => _ end) _ _ => 
+                    remember result
+                end.
+
+                destruct o eqn:o_des.
+                {
+                  apply fold_right_two_list_opp.
+                  repeat split.
+                  -
+                    apply IHexpr2'.
+                  - 
+                    apply fold_right_two_list in IHexpr1'.
+                    decompose [and] IHexpr1'.
+                    apply H0.
+                  -
+                     inversion Heqo.
+                     inversion H1.
+                     simpl.
+                     revert IHexpr1 IHexpr2.
+                     intros IHexpr1 IHexpr2.
+                     decompose [and] IHexpr1.
+                     decompose [and] IHexpr2.
+                     simpl in H1.
+                     simpl in H3.
+                     assert (premGt0:= H).
+                     simpl in premGt0.
+                     decompose [and] premGt0. 
+                     apply H5 in H6.
+                     apply H3 in H8.
+                     unfold eval_comp in H10.
+                     unfold eval_comp in H12.
+                     unfold eval_comp in H7.
+                     unfold eval_comp in H9.
+                     simpl in H10.
+                     simpl in H12.
+                     simpl in H7.
+                     simpl in H9.
+                     remember (eval_term (lb Iexpr2_bound) (hd tr) (hd (tl tr))) as lb1;
+                       remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1;
+                       remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2;
+                       remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
+                     destruct H6.
+                     destruct H8.
+                     destruct b1 eqn: b1_des. 
+                     + 
+                       simpl in Heqo.
+                       inversion Heqo.
+                       
+                      
+                      clear o_des  Heqo H3 H4 H5 IHexpr1_boundList IHexpr2_boundList Heqeval_expr1 Heqeval_expr2 HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0 HeqIexpr2Withexpr1Gt0 Iexpr1Andexp1Withexpr2Lt0 HeqIexpr1Andexp1Withexpr2Lt0 Iexpr2Withexpr1Lt0 HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0 Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2' IHexpr1' Heqlb2 Hequb2 IHexpr1 Heqlb1 Hequb1 Hequb1 H H0 H1 H2 IHexpr2 expr1WithExpr2Lt0 expr1Withexpr2Gt0 expr1Withexpr2Gt0 expr1_boundList expr2_boundList f0_des f_des f f0 Heqeval_expr1' Heqeval_expr2' fold_right_inferring_sublist_truth_from_list_truth premGt0 f2RPremise.
+                      
+                      repeat match goal with
+                             | H : @eq R _ _ |- _ => revert H
+                             | H : @Rle _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
+                             | H : @Rlt _ _ |- _ => revert H
+                             | H :@ Rgt _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
+                           end.
+                      Declare ML Module "z3Tactic".
+                      unfold error.
+                      simpl.
+                      z3Tactic.
+                      
+                      psatz R.
+                     + 
+                       inversion H1.
+                     +
+                       inversion H1.
+                     + 
+                       inversion H1.
+
+
+                         Require Import compcert.flocq.Prop.Fprop_relative.
+                         
+                         pose proof relative_error as Rel_Err.
+                         Require Import compcert.flocq.Core.Fcore_FLT.
+                         remember (FLT_exp (3 - custom_emax - custom_prec) custom_prec) as round_fexp.
+                         specialize (Rel_Err radix2 round_fexp).
+                         Require Import compcert.flocq.Core.Fcore_generic_fmt.
+                         Lemma validFexpProof : Valid_exp (FLT_exp (3 - custom_emax - custom_prec) custom_prec).
+                           unfold Valid_exp,custom_prec,custom_emax;
+                           intros.
+                           split.
+                           intros.
+                           unfold FLT_exp in *.
+                           Search (Z-> Z ->{_}+{_}).
+                           lia.
+                           intros. split. unfold FLT_exp in *.
+                           unfold FLT_exp in *.
+                           lia.
+                           intros. unfold FLT_exp in *.
+                           lia.
+                         Qed.
+                         
+                         pose proof validFexpProof.
+                         subst.
+                         specialize (Rel_Err validFexpProof).
+                         Definition custom_emin := (-1021)%Z.
+                         specialize (Rel_Err (custom_emin)%Z custom_prec).
+
+                         Lemma precThm: (forall k : Z, (custom_emin < k)%Z -> (custom_prec <= k - FLT_exp (3-custom_emax - custom_prec) custom_prec k)%Z).
+                           intros.
+                           unfold custom_emax in *. unfold custom_prec in *. unfold FLT_exp. unfold custom_emin in *. 
+                           unfold Z.max.
+                           Search (Z->Z -> {_}+{_}).
+                           pose proof Z_lt_ge_dec ((k - 53)%Z) ((3 - 1024 - 53)%Z).
+                           pose (k - 53 ?= 3 - 1024 - 53)%Z.
+                           Print Datatypes.Eq.
+                           Search (_ -> Datatypes.comparison).
+                           Print Cge.
+                           destruct H0 eqn:H0_des. 
+                           destruct (k - 53 ?= 3 - 1024 - 53)%Z eqn:des.
+                           lia.  simpl in *. 
+                           clear des.
+                           simpl in *.
+                           lia. 
+                           lia.
+                           destruct ( k - 53 ?= 3 - 1024 - 53)%Z.
+                           lia.
+                           lia.
+                           lia.
+                           
+                         Qed.
+                         
+                         specialize (Rel_Err precThm (round_mode mode_NE)).
+                         Definition choiceDef := (fun x => negb (Zeven x)).
+                         specialize (Rel_Err (valid_rnd_N choiceDef)).
+                         revert Rel_Err. intros Rel_Err.
+
+
+                       pose proof Bplus_correct as bplus_correct.
+                       specialize (bplus_correct custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) Floats.Float.binop_pl mode_NE (B754_finite 53 1024 b m e e0) (B754_finite 53 1024 b0 m0 e1 e2)).
+                       unfold is_finite in bplus_correct.
+                       specialize (bplus_correct simpleTruth simpleTruth).
+                       remember (Rlt_bool
+                       (Rabs
+                          (Fcore_generic_fmt.round radix2
+                             (Fcore_FLT.FLT_exp
+                                (3 - custom_emax - custom_prec) custom_prec)
+                             (round_mode mode_NE)
+                             (B2R custom_prec custom_emax
+                                (B754_finite 53 1024 b m e e0) +
+                              B2R custom_prec custom_emax
+                                (B754_finite 53 1024 b0 m0 e1 e2))))
+                       (bpow radix2 custom_emax)) as rltBoolInfo. 
+                       destruct rltBoolInfo eqn:rltBoolInfo_des.
+                       *
+                         decompose [and] bplus_correct.
+                         revert Heqb1 H15. intros Heqb1 H15.
+                         
+                         simpl in H15.
+                         simpl in Heqb1.
+                         rewrite <- Heqb1 in H15.
+                         
+                         simpl in H15.
+                         rewrite H15.
+                         
+                         
                        
                          
+                         revert H10 H12 H8 H13 H11 H6 H7 H9. intros  H10 H12 H8 H13 H11 H6 H7 H9. 
+                         simpl in H11. simpl in H6.
+                         remember (eval_term (lb Iexpr2_bound) (hd tr) (hd (tl tr))) as lb1;
+                           remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1;
+                           remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2;
+                           remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
+                         
+                         remember (F2R {| Fnum := cond_Zopp b (Z.pos m); Fexp := e |}) as res1.
+                         remember (F2R {| Fnum := cond_Zopp b0 (Z.pos m0); Fexp := e1 |}) as res2.
+                         specialize (Rel_Err (res1+res2)%R).
+                         clear Heqeval_expr1 IHexpr1_boundList IHexpr2_boundList fold_right_inferring_sublist_truth_from_list_truth  Heqeval_expr1'  HeqrltBoolInfo Hequb2  Hequb1 H1 H2 H5 Heqlb2 IHexpr1 bplus_correct H3 IHexpr2 Heqlb1 IHexpr1' IHexpr2' Heqo H14  Heqres2  bplusCorrect H18 Heqres1 Heqb1 H17 H4 H0 H Heqeval_expr2' Heqeval_expr2 premGt0 e4 f2RPremise  e2 Iexpr1_bound expr2_boundList e2 Iexpr1_bound expr2_boundList Iexpr2_bound expr1_boundList e0.
+                         
+                         destruct (Rle_dec (bpow radix2 custom_emin)  (Rabs (res1 + res2))).
+                       {
+                         apply Rel_Err in r.
+                         unfold Rabs in *.
+                         destruct Rcase_abs in r. 
+                         
+                         -
+                           clear Rel_Err.
+                           destruct Rcase_abs in r.
+                           +
+                             
+                             simpl in *.
+
+                             match goal with 
+                               | |- Rle _ ?Y => remember Y 
+                             end.
+                             clear Heqr2.
+                             clear H10 H9.
+
+                             repeat match goal with
+                                      | H : @eq R _ _ |- _ => revert H
+                                      | H : @Rle _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                      | H : @Rlt _ _ |- _ => revert H
+                                      | H :@ Rgt _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                    end.
+                             unfold error.
+                             simpl. 
+                             z3Tactic.
+                             psatz R.                         
+                             
+                           +
+                              simpl in *.
+
+                             match goal with 
+                               | |- Rle _ ?Y => remember Y 
+                             end.
+                             clear Heqr2.
+                             clear H10 H9.
+
+                             repeat match goal with
+                                      | H : @eq R _ _ |- _ => revert H
+                                      | H : @Rle _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                      | H : @Rlt _ _ |- _ => revert H
+                                      | H :@ Rgt _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                    end.
+                             unfold error.
+                             simpl. 
+                             z3Tactic.
+                             psatz R.     
+                           
+                         -
+                           clear Rel_Err.
+                           destruct Rcase_abs in r.
+                           +
+                             simpl in *.
+                             match goal with 
+                               | |- Rle _ ?Y => remember Y 
+                             end.
+                             clear Heqr2.
+                             clear H10 H9.
+                             
+                             repeat match goal with
+                                      | H : @eq R _ _ |- _ => revert H
+                                      | H : @Rle _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                      | H : @Rlt _ _ |- _ => revert H
+                                      | H :@ Rgt _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                    end.
+                             unfold error.
+                             simpl. 
+                             z3Tactic.
+                             clear H7.
+                             (* psatz R.*) admit.
+                             
+                           +
+                             simpl in *.
+                             match goal with 
+                               | |- Rle _ ?Y => remember Y 
+                             end.
+                             clear Heqr2.
+                             clear H10 H9.
+                             
+                             repeat match goal with
+                                      | H : @eq R _ _ |- _ => revert H
+                                      | H : @Rle _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                      | H : @Rlt _ _ |- _ => revert H
+                                      | H :@ Rgt _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                    end.
+                             unfold error.
+                             simpl. 
+                             z3Tactic.
+                             clear H7.
+                             psatz R.   
+                             
+                       }                         
+                       {
+                         unfold floatMin in *.
+                         unfold floatMax in *.
+                         match goal with 
+                           | |- Rle _ ?Y => remember Y 
+                         end.
+                         unfold Rabs in n.
+                         clear Heqr Rel_Err H10.
+                         unfold error.
+                         apply Rnot_le_lt in n.
+                         
+                         simpl in *.
+                         destruct Rcase_abs in n.
+                         -
+                           destruct H7.
+                           +
+                             clear  H9.
+                             repeat match goal with
+                                      | H : @eq R _ _ |- _ => revert H
+                                      | H : @Rle _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                      | H : @Rlt _ _ |- _ => revert H
+                                      | H :@ Rgt _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                    end.
+                             (* z3Tactic.*)
+                             (* psatz R.*)
+                             admit.
+                           +  
+                             destruct H.
+                             *
+                               clear H12 H9.
+                               repeat match goal with
+                                        | H : @eq R _ _ |- _ => revert H
+                                        | H : @Rle _ _ |- _ => revert H
+                                        | H : @Rge _ _ |- _ => revert H
+                                        | H : @Rlt _ _ |- _ => revert H
+                                        | H :@ Rgt _ _ |- _ => revert H
+                                        | H : @Rge _ _ |- _ => revert H
+                                      end.
+                               (* z3Tactic.*) (*did not work*) 
+                               (*psatz R*)
+                               admit.
+                             *
+                               decompose [and] H.
+                               clear H.
+                               clear H8 H9 H13 r0 n H11 H0 H6.
+                             
+                             repeat match goal with
+                                        | H : @eq R _ _ |- _ => revert H
+                                        | H : @Rle _ _ |- _ => revert H
+                                        | H : @Rge _ _ |- _ => revert H
+                                        | H : @Rlt _ _ |- _ => revert H
+                                        | H :@ Rgt _ _ |- _ => revert H
+                                        | H : @Rge _ _ |- _ => revert H
+                                    end.
+                            
+                             z3Tactic. (*this is also wrong*)
+                             admit.
+                         -
+                           simpl in *.
+                           admit.
+                       }
+                       *
+                         
+                         apply rltProof in HeqrltBoolInfo.
+                         revert HeqrltBoolInfo.
+                         intros HeqrltBoolInfo.
+                         unfold Rabs in HeqrltBoolInfo.
+                         destruct Rcase_abs in HeqrltBoolInfo.
+                         {
+                           revert H6 H5 H13 H9 H10 H12 H8 H7 H3. intros H6 H5 H13 H9 H10 H12 H8 H7 H3.
+                           clear bplus_correct.
+                           simpl in *.
+                           
+                           remember (eval_term (lb Iexpr2_bound) (hd tr) (hd (tl tr))) as lb1;
+                             remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1;
+                             remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2;
+                             remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
+                           
+                           remember (F2R {| Fnum := cond_Zopp b0 (Z.pos m0); Fexp := e1 |}) as res2.
+                           remember (F2R {| Fnum := cond_Zopp b (Z.pos m); Fexp := e |}) as res1.
+
+
+                           specialize (Rel_Err (res1+res2)%R).
+
+                           remember (round radix2 (FLT_exp (-1074) custom_prec)
+                                           (Znearest (fun x : Z => negb (Zeven x))) 
+                                           (res1 + res2)) as roundedValue.
+
+                           admit.
+
+                         }
+                         {
+                           admit.
+                         }
+                  -
+                     
+
+                     inversion Heqo.
+                     inversion H1.
+                     simpl.
+                     revert IHexpr1 IHexpr2.
+                     intros IHexpr1 IHexpr2.
+                     decompose [and] IHexpr1.
+                     decompose [and] IHexpr2.
+                     simpl in H1.
+                     simpl in H3.
+                     assert (premGt0:= H).
+                     simpl in premGt0.
+                     decompose [and] premGt0. 
+                     apply H5 in H6.
+                     apply H3 in H8.
+                     unfold eval_comp in H10.
+                     unfold eval_comp in H12.
+                     unfold eval_comp in H7.
+                     unfold eval_comp in H9.
+                     simpl in H10.
+                     simpl in H12.
+                     simpl in H7.
+                     simpl in H9.
+                     remember (eval_term (lb Iexpr2_bound) (hd tr) (hd (tl tr))) as lb1;
+                       remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1;
+                       remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2;
+                       remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
+                     destruct H6.
+                     destruct H8.
+                     simpl in *.
+                     destruct b1 eqn: b1_des. 
+                     + 
+                       simpl in Heqo.
+                       inversion Heqo.
+                       
+                      
+                      clear o_des  Heqo H3 H4 H5 IHexpr1_boundList IHexpr2_boundList Heqeval_expr1 Heqeval_expr2 HeqIexpr1Andexpr1Withexpr2Gt0 Iexpr1Andexpr1Withexpr2Gt0 Iexpr2Withexpr1Gt0 HeqIexpr2Withexpr1Gt0 Iexpr1Andexp1Withexpr2Lt0 HeqIexpr1Andexp1Withexpr2Lt0 Iexpr2Withexpr1Lt0 HeqIexpr2Withexpr1Lt0 Heqexpr1Withexpr2Gt0 Heqexpr1WithExpr2Lt0 bplusCorrect IHexpr2' IHexpr1' Heqlb2 Hequb2 IHexpr1 Heqlb1 Hequb1 Hequb1 H H0 H1 H2 IHexpr2 expr1WithExpr2Lt0 expr1Withexpr2Gt0 expr1Withexpr2Gt0 expr1_boundList expr2_boundList f0_des f_des f f0 Heqeval_expr1' Heqeval_expr2' fold_right_inferring_sublist_truth_from_list_truth premGt0 f2RPremise.
+                      
+                      repeat match goal with
+                             | H : @eq R _ _ |- _ => revert H
+                             | H : @Rle _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
+                             | H : @Rlt _ _ |- _ => revert H
+                             | H :@ Rgt _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
+                           end.
+                      Declare ML Module "z3Tactic".
+                      unfold error.
+                      simpl.
+                      remember ( F2R {| Fnum := cond_Zopp b0 (Z.pos m0); Fexp := e1 |}) as res2.
+                      remember ( F2R {| Fnum := cond_Zopp b (Z.pos m); Fexp := e |}) as res1.
+                      unfold floatMax.
+                      z3Tactic.
+                      
+                      psatz R.
+                     + 
+                       inversion H1.
+                     +
+                       inversion H1.
+                     + 
+                       inversion H1.
+
+
+                         Require Import compcert.flocq.Prop.Fprop_relative.
+                         
+                         pose proof relative_error as Rel_Err.
+                         Require Import compcert.flocq.Core.Fcore_FLT.
+                         remember (FLT_exp (3 - custom_emax - custom_prec) custom_prec) as round_fexp.
+                         specialize (Rel_Err radix2 round_fexp).
+                         Require Import compcert.flocq.Core.Fcore_generic_fmt.
+                         Lemma validFexpProof : Valid_exp (FLT_exp (3 - custom_emax - custom_prec) custom_prec).
+                           unfold Valid_exp,custom_prec,custom_emax;
+                           intros.
+                           split.
+                           intros.
+                           unfold FLT_exp in *.
+                           Search (Z-> Z ->{_}+{_}).
+                           lia.
+                           intros. split. unfold FLT_exp in *.
+                           unfold FLT_exp in *.
+                           lia.
+                           intros. unfold FLT_exp in *.
+                           lia.
+                         Qed.
+                         
+                         pose proof validFexpProof.
+                         subst.
+                         specialize (Rel_Err validFexpProof).
+                         Definition custom_emin := (-1021)%Z.
+                         specialize (Rel_Err (custom_emin)%Z custom_prec).
+
+                         Lemma precThm: (forall k : Z, (custom_emin < k)%Z -> (custom_prec <= k - FLT_exp (3-custom_emax - custom_prec) custom_prec k)%Z).
+                           intros.
+                           unfold custom_emax in *. unfold custom_prec in *. unfold FLT_exp. unfold custom_emin in *. 
+                           unfold Z.max.
+                           Search (Z->Z -> {_}+{_}).
+                           pose proof Z_lt_ge_dec ((k - 53)%Z) ((3 - 1024 - 53)%Z).
+                           pose (k - 53 ?= 3 - 1024 - 53)%Z.
+                           Print Datatypes.Eq.
+                           Search (_ -> Datatypes.comparison).
+                           Print Cge.
+                           destruct H0 eqn:H0_des. 
+                           destruct (k - 53 ?= 3 - 1024 - 53)%Z eqn:des.
+                           lia.  simpl in *. 
+                           clear des.
+                           simpl in *.
+                           lia. 
+                           lia.
+                           destruct ( k - 53 ?= 3 - 1024 - 53)%Z.
+                           lia.
+                           lia.
+                           lia.
+                           
+                         Qed.
+                         
+                         specialize (Rel_Err precThm (round_mode mode_NE)).
+                         Definition choiceDef := (fun x => negb (Zeven x)).
+                         specialize (Rel_Err (valid_rnd_N choiceDef)).
+                         revert Rel_Err. intros Rel_Err.
+
+
+                       pose proof Bplus_correct as bplus_correct.
+                       specialize (bplus_correct custom_prec custom_emax (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) (@eq_refl Datatypes.comparison
+                   (Z.compare custom_prec custom_emax)) Floats.Float.binop_pl mode_NE (B754_finite 53 1024 b m e e0) (B754_finite 53 1024 b0 m0 e1 e2)).
+                       unfold is_finite in bplus_correct.
+                       specialize (bplus_correct simpleTruth simpleTruth).
+                       remember (Rlt_bool
+                       (Rabs
+                          (Fcore_generic_fmt.round radix2
+                             (Fcore_FLT.FLT_exp
+                                (3 - custom_emax - custom_prec) custom_prec)
+                             (round_mode mode_NE)
+                             (B2R custom_prec custom_emax
+                                (B754_finite 53 1024 b m e e0) +
+                              B2R custom_prec custom_emax
+                                (B754_finite 53 1024 b0 m0 e1 e2))))
+                       (bpow radix2 custom_emax)) as rltBoolInfo. 
+                       destruct rltBoolInfo eqn:rltBoolInfo_des.
+                       *
+                         decompose [and] bplus_correct.
+                         revert Heqb1 H15. intros Heqb1 H15.
+                         
+                         simpl in H15.
+                         simpl in Heqb1.
+                         rewrite <- Heqb1 in H15.
+                         
+                         simpl in H15.
+                         rewrite H15.
+                         
+                         
+                       
+                         
+                         revert H10 H12 H8 H13 H11 H6 H7 H9. intros  H10 H12 H8 H13 H11 H6 H7 H9. 
+                         simpl in H11. simpl in H6.
+                         remember (eval_term (lb Iexpr2_bound) (hd tr) (hd (tl tr))) as lb1;
+                           remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1;
+                           remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2;
+                           remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
+                         
+                         remember (F2R {| Fnum := cond_Zopp b (Z.pos m); Fexp := e |}) as res1.
+                         remember (F2R {| Fnum := cond_Zopp b0 (Z.pos m0); Fexp := e1 |}) as res2.
+                         specialize (Rel_Err (res1+res2)%R).
+                         clear Heqeval_expr1 IHexpr1_boundList IHexpr2_boundList fold_right_inferring_sublist_truth_from_list_truth  Heqeval_expr1'  HeqrltBoolInfo Hequb2  Hequb1 H1 H2 H5 Heqlb2 IHexpr1 bplus_correct H3 IHexpr2 Heqlb1 IHexpr1' IHexpr2' Heqo H14  Heqres2  bplusCorrect H18 Heqres1 Heqb1 H17 H4 H0 H Heqeval_expr2' Heqeval_expr2 premGt0 e4 f2RPremise  e2 Iexpr1_bound expr2_boundList e2 Iexpr1_bound expr2_boundList Iexpr2_bound expr1_boundList e0.
+                         
+                         destruct (Rle_dec (bpow radix2 custom_emin)  (Rabs (res1 + res2))).
+                       {
+                         apply Rel_Err in r.
+                         unfold Rabs in *.
+                         destruct Rcase_abs in r. 
+                         
+                         -
+                           clear Rel_Err.
+                           destruct Rcase_abs in r.
+                           +
+                             
+                             simpl in *.
+
+                             match goal with 
+                               | |- Rle _ ?Y => remember Y 
+                             end.
+                             clear Heqr2.
+                             clear H10 H9.
+
+                             repeat match goal with
+                                      | H : @eq R _ _ |- _ => revert H
+                                      | H : @Rle _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                      | H : @Rlt _ _ |- _ => revert H
+                                      | H :@ Rgt _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                    end.
+                             unfold error.
+                             simpl. 
+                             z3Tactic.
+                             psatz R.                         
+                             
+                           +
+                              simpl in *.
+
+                             match goal with 
+                               | |- Rle _ ?Y => remember Y 
+                             end.
+                             clear Heqr2.
+                             clear H10 H9.
+
+                             repeat match goal with
+                                      | H : @eq R _ _ |- _ => revert H
+                                      | H : @Rle _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                      | H : @Rlt _ _ |- _ => revert H
+                                      | H :@ Rgt _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                    end.
+                             unfold error.
+                             simpl. 
+                             z3Tactic.
+                             psatz R.     
+                           
+                         -
+                           clear Rel_Err.
+                           destruct Rcase_abs in r.
+                           +
+                             simpl in *.
+                             match goal with 
+                               | |- Rle _ ?Y => remember Y 
+                             end.
+                             clear Heqr2.
+                             clear H10 H9.
+                             
+                             repeat match goal with
+                                      | H : @eq R _ _ |- _ => revert H
+                                      | H : @Rle _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                      | H : @Rlt _ _ |- _ => revert H
+                                      | H :@ Rgt _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                    end.
+                             unfold error.
+                             simpl. 
+                             z3Tactic.
+                             clear H7.
+                             (* psatz R.*) admit.
+                             
+                           +
+                             simpl in *.
+                             match goal with 
+                               | |- Rle _ ?Y => remember Y 
+                             end.
+                             clear Heqr2.
+                             clear H10 H9.
+                             
+                             repeat match goal with
+                                      | H : @eq R _ _ |- _ => revert H
+                                      | H : @Rle _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                      | H : @Rlt _ _ |- _ => revert H
+                                      | H :@ Rgt _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                    end.
+                             unfold error.
+                             simpl. 
+                             z3Tactic.
+                             clear H7.
+                             psatz R.   
+                             
+                       }                         
+                       {
+                         unfold floatMin in *.
+                         unfold floatMax in *.
+                         match goal with 
+                           | |- Rle _ ?Y => remember Y 
+                         end.
+                         unfold Rabs in n.
+                         clear Heqr Rel_Err H10.
+                         unfold error.
+                         apply Rnot_le_lt in n.
+                         
+                         simpl in *.
+                         destruct Rcase_abs in n.
+                         -
+                           destruct H7.
+                           +
+                             clear  H9.
+                             repeat match goal with
+                                      | H : @eq R _ _ |- _ => revert H
+                                      | H : @Rle _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                      | H : @Rlt _ _ |- _ => revert H
+                                      | H :@ Rgt _ _ |- _ => revert H
+                                      | H : @Rge _ _ |- _ => revert H
+                                    end.
+                             (* z3Tactic.*)
+                             (* psatz R.*)
+                             admit.
+                           +  
+                             destruct H.
+                             *
+                               clear H12 H9.
+                               repeat match goal with
+                                        | H : @eq R _ _ |- _ => revert H
+                                        | H : @Rle _ _ |- _ => revert H
+                                        | H : @Rge _ _ |- _ => revert H
+                                        | H : @Rlt _ _ |- _ => revert H
+                                        | H :@ Rgt _ _ |- _ => revert H
+                                        | H : @Rge _ _ |- _ => revert H
+                                      end.
+                               (* z3Tactic.*) (*did not work*) 
+                               (*psatz R*)
+                               admit.
+                             *
+                               decompose [and] H.
+                               clear H.
+                               clear H8 H9 H13 r0 n H11 H0 H6.
+                             
+                             repeat match goal with
+                                        | H : @eq R _ _ |- _ => revert H
+                                        | H : @Rle _ _ |- _ => revert H
+                                        | H : @Rge _ _ |- _ => revert H
+                                        | H : @Rlt _ _ |- _ => revert H
+                                        | H :@ Rgt _ _ |- _ => revert H
+                                        | H : @Rge _ _ |- _ => revert H
+                                    end.
+                            
+                             z3Tactic. (*this is also wrong*)
+                             admit.
+                         -
+                           simpl in *.
+                           admit.
+                       }
+                       *
+                         
+                         apply rltProof in HeqrltBoolInfo.
+                         revert HeqrltBoolInfo.
+                         intros HeqrltBoolInfo.
+                         unfold Rabs in HeqrltBoolInfo.
+                         destruct Rcase_abs in HeqrltBoolInfo.
+                         {
+                           revert H6 H5 H13 H9 H10 H12 H8 H7 H3. intros H6 H5 H13 H9 H10 H12 H8 H7 H3.
+                           clear bplus_correct.
+                           simpl in *.
+                           
+                           remember (eval_term (lb Iexpr2_bound) (hd tr) (hd (tl tr))) as lb1;
+                             remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1;
+                             remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2;
+                             remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
+                           
+                           remember (F2R {| Fnum := cond_Zopp b0 (Z.pos m0); Fexp := e1 |}) as res2.
+                           remember (F2R {| Fnum := cond_Zopp b (Z.pos m); Fexp := e |}) as res1.
+
+
+                           specialize (Rel_Err (res1+res2)%R).
+
+                           remember (round radix2 (FLT_exp (-1074) custom_prec)
+                                           (Znearest (fun x : Z => negb (Zeven x))) 
+                                           (res1 + res2)) as roundedValue.
+
+                           admit.
+
+                         }
+                         {
+                           admit.
+                         }
+                    
+}
+destruct Rabs in HeqrltBoolInfo.
+intros.
+                       *
+                         rewrite <- H15.
+                         simpl in *.
+                         remember (F2R {| Fnum := cond_Zopp b0 (Z.pos m0); Fexp := e1 |}) as res1.
+                         remember (F2R {| Fnum := cond_Zopp b (Z.pos m); Fexp := e |}) as res2.
+                         Print Bplus_correct.
+                         rewrite <- H6.
+                         rewrite <- H11.
+                         clear f2RPremise.
+                         
+                         admit. admit.
+                       Qed.
+                       Set Printing All.
+                       match goal with
+                             | H : @eq (binary_float custom_prec custom_emax) ?X ?Y |- _ => remember Y
+                       end.
+                       
+                       match 
+                       rewrite <- Heqb1 in H12.
+                       unfold B2R in H12.
+                       
+                       simpl bplus_correct.
+                       
+                       destruct Rabs.
+                       unfold Rabs in bplus_correct.
+                       Print Rabs.
+                    unfold eval_comp in H5.
+                    simpl in H5.
+                    unfold eval_comp in H8.
+                    simpl in H8.
+                    remember (eval_term (lb Iexpr2_bound) (hd tr) (hd (tl tr))) as lb1;
+                    remember (eval_term (ub Iexpr2_bound) (hd tr) (hd (tl tr))) as ub1;
+                    remember (eval_term (lb Iexpr1_bound) (hd tr) (hd (tl tr))) as lb2;
+                    remember (eval_term (ub Iexpr1_bound) (hd tr) (hd (tl tr))) as ub2.
+                    destruct H4;
+                    destruct H6.
+                    
+                    clear Heqeval_expr1
+                    
+                    unfold error.
+                    simpl.
+                    
+                    repeat match goal with
+                             | H : @eq R _ _ |- _ => revert H
+                             | H : @Rle _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
+                             | H : @Rlt _ _ |- _ => revert H
+                             | H :@ Rgt _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
+                           end.
+                    psatz R
+                    
+                    unfold error.
+                    
+                }
+
+                apply 
+                
+                  
+                
+                Print eq_refl.
+                
+                remember (  
+                    match
+                      Bplus custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl
+                            mode_NE (B754_finite 53 1024 b m e e0)
+                            (B754_finite 53 1024 b0 m0 e1 e2)
+                    with
+                      | B754_zero _ =>
+                        Some
+                          (B2R 53 1024
+                               (Bplus custom_prec custom_emax eq_refl eq_refl
+                                      Floats.Float.binop_pl mode_NE
+                                      (B754_finite 53 1024 b m e e0)
+                                      (B754_finite 53 1024 b0 m0 e1 e2)))
+                      | B754_infinity _ => None
+                      | B754_nan _ _ => None
+                      | B754_finite _ _ _ _ =>
+                        Some
+                          (B2R 53 1024
+                               (Bplus custom_prec custom_emax eq_refl eq_refl
+                                      Floats.Float.binop_pl mode_NE
+                                      (B754_finite 53 1024 b m e e0)
+                                      (B754_finite 53 1024 b0 m0 e1 e2)))
+                    end) as bplusResult.
+                
+                
+                
+                
+                destruct bplusResult eqn:bplusResult_des.
+                
+                 
+                 Eval compute in (Pos.compare (xI (xO (xI (xO (xI xH)))))
+                  (xO (xO (xO (xO (xO (xO (xO (xO (xO (xO xH))))))))))).
+                 simpl.
+                 apply fold_right_two_list_opp.
+                
                       (*proof done till here*)
                        Admitted.
