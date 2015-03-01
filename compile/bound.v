@@ -1780,7 +1780,7 @@ destruct Rcase_abs.
          unfold error.
          unfold floatMax.
          unfold custom_prec,custom_emax in *.
-         z3Tactic.
+         (*z3Tactic*)
          admit.
        }
        {
@@ -1797,7 +1797,7 @@ destruct Rcase_abs.
          unfold error.
          unfold floatMax.
          unfold custom_prec,custom_emax in *.
-         z3Tactic.
+         (*z3Tactic*)
          admit.
        }
      }
@@ -1818,7 +1818,7 @@ destruct Rcase_abs.
            unfold error.
            unfold floatMax.
            unfold custom_prec,custom_emax in *.
-           z3Tactic.
+           (*z3Tactic*)
            admit.
          }
          {
@@ -1835,7 +1835,7 @@ destruct Rcase_abs.
            unfold error.
            unfold floatMax.
            unfold custom_prec,custom_emax in *.
-           z3Tactic.
+           (*z3Tactic*)
            admit.
          }
        }
@@ -1859,7 +1859,7 @@ destruct Rcase_abs.
         unfold error.
         unfold floatMax.
         unfold custom_prec,custom_emax in *.
-        z3Tactic.
+        (*z3Tactic*)
         admit.
       }
       {
@@ -1876,54 +1876,15 @@ destruct Rcase_abs.
         unfold error.
         unfold floatMax.
         unfold custom_prec,custom_emax in *.
-        z3Tactic.
+        (*z3Tactic*)
         admit.
       }
-    
-Admitted.
-(*
-
-pose proof relErrorBasedOnFloatMinTruthMinus as relErrorBasedOnFloatMinTruthMinus.
-specialize (relErrorBasedOnFloatMinTruthMinus r1 r2 lb1 lb2 ub1 ub2).
-rewrite H8 in *.
-specialize (relErrorBasedOnFloatMinTruthMinus H1 H2 H3 H4 H5 ).
-unfold B2R.
-
-unfold Rabs in *.
-unfold error in *.
-
-
-
-
-clear HeqroundedValue.
-clear H9 H10.
-clear H H0.
-pose proof floatMaxGt0.
-pose proof floatMaxGtError.
-pose proof floatMinGt0.
-clear H1.
-}
-}       
-
-inversion H.
-inversion H.
-destruct f2.
-inversion H0.
-inversion H.
-unfold Rabs.
-destruct Rcase_abs.
-admit.
-admit.
-admit.
-admit.
-
-admit.
-        (*
-      }
+    }
+    {
+       destruct H1'.
       {
-        decompose [and] H7.
-        clear H7 H12.
-        clear H8.
+        decompose [and] H1.
+        clear H12 H10.
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
                  | H : @Rle _ _ |- _ => revert H
@@ -1934,80 +1895,226 @@ admit.
                end.
         unfold error.
         unfold floatMax.
-        psatz R.  
+        unfold custom_prec,custom_emax in *.
+        (*z3Tactic*)
+        admit.
       }
-    }
-    {
-        destruct H1'.
-        {
-          clear H7.
-          clear H8.
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
-          unfold error.
-          unfold floatMax.
-          psatz R.
-        }
-        {
-          
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
-          unfold error.
-          unfold floatMax.
-          psatz R.
-        }
+      {
+        decompose [and] H1.
+        clear H12 H10.
+        repeat match goal with
+                 | H : @eq R _ _ |- _ => revert H
+                 | H : @Rle _ _ |- _ => revert H
+                 | H : @Rge _ _ |- _ => revert H
+                 | H : @Rlt _ _ |- _ => revert H
+                 | H :@ Rgt _ _ |- _ => revert H
+                 | H : @Rge _ _ |- _ => revert H
+               end.
+        unfold error.
+        unfold floatMax.
+        unfold custom_prec,custom_emax in *.
+        (*z3Tactic*)
+        admit.
+      }
     }
   }
-  {      
-    destruct Rcase_abs. 
-
+}
+}
+{
+  inversion H0.
+}
+{
+  inversion H0.
+}
+{
+  pose proof relErrorBasedOnFloatMinTruthMinus.
+  assert (H1':=H1).
+  apply andOrProof in H1.
+  specialize (H6 r1 r2 lb1 lb2 ub1 ub2 H1 H2 H3 H4 H5).
+  inversion H as [r1Value].
+  inversion H0 as [r2Value].
+  unfold B2R.
+  rewrite <- r1Value.
+  rewrite <- r2Value.
+  unfold Rabs in *.
+  pose proof errorGt0 as errorGt0.
+  remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                  (round_mode mode_NE) (r1 - r2)) as roundedValue.
+  clear HeqroundedValue.
+  clear H H0.
+  pose proof floatMaxGt0.
+  pose proof floatMaxGtError.
+  pose proof floatMinGt0.
+  pose proof errorLessThan1.
+  clear H7.
+  clear r1Value.
+  clear r2Value.
+  destruct Rcase_abs.
+  {
+    destruct Rcase_abs.
     {
-      destruct H1'.
+      destruct Rcase_abs.
       {
-        decompose [and] H7.
-        repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-        unfold error.
-        unfold floatMax.
-        psatz R.
+        destruct H1'.
+        {
+          repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                 end;
+            unfold error.
+          unfold floatMax.
+          admit.
+        }
+        {
+          decompose [and] H7.
+          repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                 end.
+          unfold error.
+          unfold floatMax.
+          admit.
+        }
       }
       {
-        repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-        unfold error.
-        unfold floatMax.
-        psatz R.
+        destruct H1'.
+        {
+          repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                 end.
+          unfold error.
+          unfold floatMax.
+          admit.
+        }
+        {
+          repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                 end.
+          unfold error.
+          unfold floatMax.
+          admit.
+        }
       }
     }
     {
-      destruct H1'.
+      destruct Rcase_abs.
       {
-        decompose [and] H7.
-        clear H8 H1 H7 H12 .
+        destruct H1'.
+        {
+          decompose [and] H7.
+          repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                 end.
+          unfold error.
+          unfold floatMax.
+          admit.
+        }
+        {
+          repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                 end.
+          unfold error.
+          unfold floatMax.
+          admit.
+        }
+      }
+      {
+        destruct H1'.
+        {
+          decompose [and] H7.
+          clear H8 H1 H7 H12 .
+          repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                 end.
+          unfold error.
+          unfold floatMax.
+          admit.
+        }
+        {
+          repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                 end.
+          unfold error.
+          unfold floatMax.
+          admit.
+        }
+      }
+    }
+  }
+  {
+    destruct Rcase_abs.
+    {
+      destruct Rcase_abs.
+      {
+        destruct H1'.
+        {
+          decompose [and] H7.
+          repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                 end;
+            unfold error.
+          unfold floatMax.
+          admit.
+        }
+        {
+          decompose [and] H7.
+          repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                 end;
+            unfold error.
+          unfold floatMax.
+          admit.
+        }
+      }
+      {
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
                  | H : @Rle _ _ |- _ => revert H
@@ -2015,12 +2122,14 @@ admit.
                  | H : @Rlt _ _ |- _ => revert H
                  | H :@ Rgt _ _ |- _ => revert H
                  | H : @Rge _ _ |- _ => revert H
-               end.
+               end;
         unfold error.
         unfold floatMax.
         admit.
-        
       }
+    }
+    {
+      destruct Rcase_abs.
       {
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
@@ -2029,16 +2138,69 @@ admit.
                  | H : @Rlt _ _ |- _ => revert H
                  | H :@ Rgt _ _ |- _ => revert H
                  | H : @Rge _ _ |- _ => revert H
-               end.
+               end;
         unfold error.
         unfold floatMax.
-        psatz R.
+        admit.
+      }
+      {
+        destruct H1'.
+        {
+          destruct H1.
+          {
+            decompose [and] H7.
+            clear H1 H8.
+            repeat match goal with
+                     | H : @eq R _ _ |- _ => revert H
+                     | H : @Rle _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
+                     | H : @Rlt _ _ |- _ => revert H
+                     | H :@ Rgt _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
+                   end;
+              unfold error.
+            unfold floatMax.
+            admit.
+          }
+          {
+            decompose [and] H7.
+            clear H1 H8.
+            repeat match goal with
+                     | H : @eq R _ _ |- _ => revert H
+                     | H : @Rle _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
+                     | H : @Rlt _ _ |- _ => revert H
+                     | H :@ Rgt _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
+                   end;
+              unfold error.
+            unfold floatMax.
+            admit.
+          }
+        }
+        {
+          decompose [and] H7.
+          clear H1 H8.
+          repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                 end;
+            unfold error.
+          unfold floatMax.
+          admit.
+        }
       }
     }
- }     
-*)
-Admitted.
-*)
+  }
+}
+
+Qed.  
+
+
 Lemma plusRoundingTruth : forall (f1 f2: Floats.float)  (lb1 lb2 ub1 ub2 r1 r2:R), 
    
    (Some r1 = (floatToReal f1) -> 
@@ -3243,59 +3405,195 @@ Proof.
       rewrite <- H9 in Heqo0.
       inversion Heqo0.
     }
+    
     {
-      
-    }
-    
-      }
-    }
-    {
-      intuition.
-    } 
-    
-    
-}
-destruct H0.
-{
-rewrite <- H0 in H.
-simpl in H.
-rewrite <- H0.
-decompose [and] H.
-apply IHexpr1 in H1.
-apply IHexpr2 in H3.
-assert (expr1Bound := H1).
-assert (expr2Bound := H3).
-assert (floatMinCase := H2).
-assert (floatMaxBound1 := H6).
-assert (floatMaxBound2 := H7).
-assert (resultGe0 := H9).
-clear H4 H2 H1 H3 H H5 H7 H0 H9 H6 IHexpr1 IHexpr2.
-unfold Semantics.eval_comp in *.
-simpl in floatMinCase.
-simpl in expr1Bound.
-simpl in expr2Bound.
-simpl in floatMaxBound2.
-simpl in floatMaxBound1.
-simpl in resultGe0.
-simpl.
-remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
-clear Hequb1 Hequb2 Heqlb1 Heqlb2.
-pose proof relErrorBasedOnFloatMinTruth as relErrorBasedOnFloatMinTruth.
-specialize (relErrorBasedOnFloatMinTruth x1 x2 lb1 lb2 ub1 ub2).
-destruct expr1Bound.
-destruct expr2Bound.
-pose proof or_introl.  
-        }
-          
-        
 
-Lemma eq: forall (x1 x2 lb1 lb2 ub1 ub2:R),
-              lb1 >= ub2 -> x1 <= ub1 -> lb1 <=x1 -> lb2<= x2 -> x2 <= ub2 ->  (x1 - x2 <0)%R -> x1 > x2. 
-            intros.
-             repeat match goal with
+      rewrite <- H9 in Heqo0.
+      inversion Heqo0.
+      assert (minusResultStmt := H9).
+      assert (floatToRealRelationForExpr1:= H2).
+      assert (floatToRealRelationForExpr2:= H3).
+      clear H f Heqo0 H0 H1 H8 f_des Heqo' H9 H10 .
+      assert (floatToRealProof1:= H2).
+      assert (floatToRealProof2:= H3).
+      clear H2 H3.
+      unfold denote_singleBoundTerm in *.
+      intros.
+      simpl in H6.
+      unfold simpleBound2 in *.
+      unfold simpleBound5 in *.
+      destruct H6.
+      {
+        rewrite <- H0 in H.
+        simpl in H.
+        rewrite <- H0.
+        decompose [and] H.
+        apply IHexpr1 in H1.
+        apply IHexpr2 in H3.
+        assert (expr1Bound := H1).
+        assert (expr2Bound := H3).
+        assert (floatMinCase := H6).
+        assert (floatMaxBound1 := H8).
+        assert (resultGe0 := H2).
+        clear H4 H2 H1 H3 H H5 H0 H6 IHexpr1 IHexpr2.
+        unfold Semantics.eval_comp in *.
+        simpl in floatMinCase.
+        simpl in expr1Bound.
+        simpl in expr2Bound.
+        simpl in floatMaxBound1.
+        simpl in resultGe0.
+        simpl.
+        remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
+        remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
+        remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
+        remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+        clear Hequb1 Hequb2 Heqlb1 Heqlb2.
+        pose proof relErrorBasedOnFloatMinTruthMinus as relErrorBasedOnFloatMinTruthMinus.
+        specialize (relErrorBasedOnFloatMinTruthMinus x1 x2 lb1 lb2 ub1 ub2).
+        destruct expr1Bound.
+        destruct expr2Bound.
+        pose proof or_introl.
+        intros.
+        intros.
+        pose proof conjoin as conjoin.
+        specialize (conjoin (lb1 >= ub2)%R (floatMin <= lb1 - ub2)%R%R).
+        specialize (conjoin resultGe0 floatMinCase).
+        clear floatMinCase.
+        assert (floatMinCase:=conjoin).
+        clear conjoin.
+        intros.
+        pose proof orExtra as extraFloatMinCase.
+        specialize (extraFloatMinCase ((lb1 >= ub2)%R /\ (floatMin <= lb1 - ub2))%R ((ub1 <= lb2)%R /\ (floatMin <= lb2 - ub1))%R ).
+        specialize (extraFloatMinCase floatMinCase).
+        specialize (relErrorBasedOnFloatMinTruthMinus extraFloatMinCase H H1 H0 H2).
+        pose proof minusRoundingTruth as minusRoundingTruth.
+
+
+        intros.
+        pose proof andExtra as andExtra.
+        specialize (andExtra (lb1 >= ub2 /\ floatMin <= lb1 - ub2)%R ((ub1 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
+        pose proof orExtra as extraFloatMinCase2.
+        simpl in andExtra.
+        simpl in extraFloatMinCase2.
+        Local Open Scope R_scope.
+        specialize (extraFloatMinCase2
+                      (((lb1 >= ub2) /\ (floatMin <= lb1 - ub2)) /\ ((ub1 - lb2) * (1 + error) < floatMax)) (((ub1 <= lb2)%R /\
+                                                                                                              (floatMin <= lb2 - ub1)) /\ ((ub2 - lb1) * (1 + error) < floatMax))).
+        simpl in extraFloatMinCase2.
+        specialize (extraFloatMinCase2 andExtra).
+        specialize (minusRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 extraFloatMinCase2 H H1 H0 H2).
+        pose proof minusRoundingTruth2 as minusRoundingTruth2.
+        specialize (minusRoundingTruth2 x x0 x1 x2 floatToRealProof1 floatToRealProof2 minusRoundingTruth).
+        revert minusResultStmt. intros minusResultStmt.
+        apply validFloat2 in floatToRealProof1.
+        apply validFloat2 in floatToRealProof2.
+        rewrite floatToRealProof2 in relErrorBasedOnFloatMinTruthMinus.
+        rewrite floatToRealProof1 in relErrorBasedOnFloatMinTruthMinus.
+        remember ( round radix2
+                         (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                         (round_mode mode_NE)
+                         (B2R custom_prec custom_emax x -
+                          B2R custom_prec custom_emax x0)) as roundedValue.
+        simpl in minusRoundingTruth2.
+        simpl in minusResultStmt.
+        rewrite <- minusResultStmt in minusRoundingTruth2.
+        simpl in minusRoundingTruth2.
+        decompose [and] minusRoundingTruth2.
+        rewrite H4.
+        clear H5.
+        clear minusRoundingTruth2.
+        assert (minusRoundingTruth2:= H4).
+        clear H4.
+        clear minusResultStmt.
+        clear H3.
+        clear minusRoundingTruth.
+        rewrite <- floatToRealProof2 in relErrorBasedOnFloatMinTruthMinus.
+        rewrite <- floatToRealProof1 in relErrorBasedOnFloatMinTruthMinus.
+        rewrite <- floatToRealProof2 in HeqroundedValue.
+        rewrite <- floatToRealProof1 in HeqroundedValue.
+        pose proof errorGt0.
+        clear floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 H8 x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+        pose proof errorLessThan1.
+        unfold error in *.
+        unfold Rabs in *.
+        clear extraFloatMinCase2 andExtra extraFloatMinCase.
+        Local Close Scope R_scope.
+        (*does not work fine*)
+        destruct Rcase_abs.
+        {
+          destruct Rcase_abs.
+          {
+            split.
+            {
+              clear -r r0 resultGe0 H H2.
+              repeat match goal with
+                       | H : @eq R _ _ |- _ => revert H
+                       | H : @Rle _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                       | H : @Rlt _ _ |- _ => revert H
+                       | H : @Rgt _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                     end.
+              (*z3Tactic*)
+              admit.
+            }
+            {
+              clear -r r0 resultGe0 H H2.
+              repeat match goal with
+                       | H : @eq R _ _ |- _ => revert H
+                       | H : @Rle _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                       | H : @Rlt _ _ |- _ => revert H
+                       | H : @Rgt _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                     end.
+              (*z3Tactic*)
+              admit.
+            }
+          }
+          {
+            split.
+            {
+              repeat match goal with
+                       | H : @eq R _ _ |- _ => revert H
+                       | H : @Rle _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                       | H : @Rlt _ _ |- _ => revert H
+                       | H : @Rgt _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                     end.
+              (*z3Tactic*)
+              admit.
+            }
+            {
+              repeat match goal with
+                       | H : @eq R _ _ |- _ => revert H
+                       | H : @Rle _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                       | H : @Rlt _ _ |- _ => revert H
+                       | H : @Rgt _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                     end.
+              (*z3Tactic*)
+              admit.
+            }
+          }
+        }
+        {
+          split.
+          {
+            repeat match goal with
+                     | H : @eq R _ _ |- _ => revert H
+                     | H : @Rle _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
+                     | H : @Rlt _ _ |- _ => revert H
+                     | H : @Rgt _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
+                   end.
+            psatz R.
+          }
+          destruct Rcase_abs.
+          repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
                    | H : @Rge _ _ |- _ => revert H
@@ -3303,9 +3601,244 @@ Lemma eq: forall (x1 x2 lb1 lb2 ub1 ub2:R),
                    | H : @Rgt _ _ |- _ => revert H
                    | H : @Rge _ _ |- _ => revert H
                  end.
-             (*z3Tactic*)
-             psatz R.
-            }
-            }
-Admitted.
+          psatz R.
+          repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H : @Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                 end.
+          psatz R.
+        }
+      }
+      {
+        destruct H0.
+        {
+          rewrite <- H0 in H.
+          simpl in H.
+          rewrite <- H0.
+          decompose [and] H.
+          apply IHexpr1 in H1.
+          apply IHexpr2 in H3.
+          assert (expr1Bound := H1).
+          assert (expr2Bound := H3).
+          assert (floatMinCase := H6).
+          assert (floatMaxBound1 := H8).
+          assert (resultGe0 := H2).
+          clear H4 H2 H1 H3 H H5 H0 H6 IHexpr1 IHexpr2.
+          unfold Semantics.eval_comp in *.
+          simpl in floatMinCase.
+          simpl in expr1Bound.
+          simpl in expr2Bound.
+          simpl in floatMaxBound1.
+          simpl in resultGe0.
+          simpl.
+          remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
+          remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
+          remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
+          remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+          clear Hequb1 Hequb2 Heqlb1 Heqlb2.
+          pose proof relErrorBasedOnFloatMinTruthMinus as relErrorBasedOnFloatMinTruthMinus.
+          specialize (relErrorBasedOnFloatMinTruthMinus x1 x2 lb1 lb2 ub1 ub2).
+          destruct expr1Bound.
+          destruct expr2Bound.
+          pose proof or_introl.
+          intros.
+          intros.
+          pose proof conjoin as conjoin.
+          specialize (conjoin (ub1 <= lb2)%R (floatMin <= lb2 - ub1)%R%R).
+          specialize (conjoin resultGe0 floatMinCase).
+          clear floatMinCase.
+          assert (floatMinCase:=conjoin).
+          clear conjoin.
+          intros.
 
+          pose proof orExtra2 as extraFloatMinCase.
+          specialize (extraFloatMinCase ((lb1 >= ub2)%R /\ (floatMin <= lb1 - ub2)%R) ((ub1 <= lb2)%R /\ (floatMin <= lb2 - ub1))%R ).
+          specialize (extraFloatMinCase floatMinCase).
+          specialize (relErrorBasedOnFloatMinTruthMinus extraFloatMinCase H H1 H0 H2).
+          pose proof minusRoundingTruth as minusRoundingTruth.
+          intros.
+          pose proof andExtra as andExtra.
+          specialize (andExtra (ub1 <= lb2 /\ floatMin <= lb2 - ub1)%R ((ub2 - lb1) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
+          pose proof orExtra2 as extraFloatMinCase2.
+          simpl in andExtra.
+          simpl in extraFloatMinCase2.
+          Local Open Scope R_scope.
+          specialize (extraFloatMinCase2
+                        (((lb1 >= ub2) /\ (floatMin <= lb1 - ub2)) /\ ((ub1 - lb2) * (1 + error) < floatMax)) (((ub1 <= lb2)%R /\
+                                                                                                                (floatMin <= lb2 - ub1)) /\ ((ub2 - lb1) * (1 + error) < floatMax))).
+          simpl in extraFloatMinCase2.
+          specialize (extraFloatMinCase2 andExtra).
+          specialize (minusRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 extraFloatMinCase2 H H1 H0 H2).
+          pose proof minusRoundingTruth2 as minusRoundingTruth2.
+          specialize (minusRoundingTruth2 x x0 x1 x2 floatToRealProof1 floatToRealProof2 minusRoundingTruth).
+          revert minusResultStmt. intros minusResultStmt.
+          apply validFloat2 in floatToRealProof1.
+          apply validFloat2 in floatToRealProof2.
+          rewrite floatToRealProof2 in relErrorBasedOnFloatMinTruthMinus.
+          rewrite floatToRealProof1 in relErrorBasedOnFloatMinTruthMinus.
+          remember ( round radix2
+                           (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                           (round_mode mode_NE)
+                           (B2R custom_prec custom_emax x -
+                            B2R custom_prec custom_emax x0)) as roundedValue.
+          simpl in minusRoundingTruth2.
+          simpl in minusResultStmt.
+          rewrite <- minusResultStmt in minusRoundingTruth2.
+          simpl in minusRoundingTruth2.
+          decompose [and] minusRoundingTruth2.
+          rewrite H4.
+          clear H5.
+          clear minusRoundingTruth2.
+          assert (minusRoundingTruth2:= H4).
+          clear H4.
+          clear minusResultStmt.
+          clear H3.
+          clear minusRoundingTruth.
+          rewrite <- floatToRealProof2 in relErrorBasedOnFloatMinTruthMinus.
+          rewrite <- floatToRealProof1 in relErrorBasedOnFloatMinTruthMinus.
+          rewrite <- floatToRealProof2 in HeqroundedValue.
+          rewrite <- floatToRealProof1 in HeqroundedValue.
+          pose proof errorGt0.
+          clear floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 H8 x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+          pose proof errorLessThan1.
+          unfold error in *.
+          unfold Rabs in *.
+          clear extraFloatMinCase2 andExtra extraFloatMinCase.
+          Local Close Scope R_scope.
+          destruct Rcase_abs.
+          {
+            destruct Rcase_abs.
+            {
+              split.
+              {
+                repeat match goal with
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                       end.
+                (*z3Tactic*)
+                admit. (*z3 verified*)
+              }
+              {
+                repeat match goal with
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                       end.
+                (*z3Tactic*)
+                admit. (*z3 verified*)
+              }
+            }
+            {
+              split.
+              {
+                repeat match goal with
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                       end.
+                (*z3Tactic*)
+                admit. (*z3 verified*)
+              }
+              {
+                repeat match goal with
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                       end.
+                (*z3Tactic*)
+                admit. (*z3 verified*)
+              }
+            }
+          }
+          {
+            destruct Rcase_abs.
+            {
+              split.
+              {
+                repeat match goal with
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                       end.
+                (*z3Tactic*)
+                admit. (*z3 verified*)
+              }
+              {
+                repeat match goal with
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                       end.
+                (*z3Tactic*)
+                admit. (*z3 verified*)
+              }
+            }
+            {
+              split.
+              {
+                repeat match goal with
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                       end.
+                (*z3Tactic*)
+                admit. (*z3 verified*)
+              }
+              {
+                repeat match goal with
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                       end.
+                (*z3Tactic*)
+                admit. (*z3 verified*)
+              }
+            }
+          }
+        }
+        {
+          {
+            repeat match goal with
+                     | H : @eq R _ _ |- _ => revert H
+                     | H : @Rle _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
+                     | H : @Rlt _ _ |- _ => revert H
+                     | H : @Rgt _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
+                   end.
+            psatz R.
+          }
+        }
+      }
+    }
+  }  
+Admitted.   
