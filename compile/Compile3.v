@@ -74,11 +74,25 @@ Fixpoint gen_id_varmap (fst : fstate) : list (Var * Var) :=
       (hvar, hvar) :: gen_id_varmap t
   end.
 
-Definition real_st_in_float_st (tla_st : Syntax.state) (fst : fstate) : Prop :=
+(* We can define real_st_subsumes_float_st in terms of Embed primitives, or not.
+   For now, let's not. *)
+(*
+Definition real_st_subsumes_float_st (tla_st : Syntax.state) (fst : fstate) : Prop :=
   c_models (gen_id_varmap fst) tla_st fst.
+*)
 
-Check In.
-Print singleBoundTerm.
+Definition real_st_subsumes_float_st
+           (tla_st : Syntax.state) (fst : fstate) : Prop :=
+  forall (v : Var) (f : Floats.float),
+  In (v, f) fst -> tla_st v = FloatToR f.
+
+Notation "a ~=~ b" := (real_st_subsumes_float_st a b) (at level 80).
+
+(*
+  Forall (fun vf => let '(v, f) := vf in
+                    eq (FloatToR f) (tla_st v)) fst.
+*)
+
 
 Axiom getBound_correct: 
   forall (nt : NowTerm) (bounds : list singleBoundTerm)
@@ -86,14 +100,13 @@ Axiom getBound_correct:
     bound_term nt = bounds ->
     In bound bounds ->
     forall flst rst rst_next tr res,
-      real_st_in_float_st rst flst ->
+      rst ~=~ flst ->
       stream_begins tr [rst; rst_next] ->
       eval_formula (premise bound) tr ->
       eval_NowTerm flst nt = Some res ->
       (eval_term (lb bound) rst rst_next <=
        FloatToR res <=
        eval_term (ub bound) rst rst_next)%R.  
-
 
 Fixpoint bounds_to_formula (bounds : list singleBoundTerm) (center : Term) : Formula :=
   match bounds with
@@ -126,31 +139,72 @@ Definition compile_progr_stmt (stmt : progr_stmt) : Formula :=
           (compile_assns assns)
   end.
 
+Print boundDef'.
+Check Forall.
+Check bound_term.
+
+(* Lemma relating behavior of boundDef to bounds_to_formula *)
+Lemma boundDef_bounds_to_formula :
+  forall (nt : NowTerm) (tr : trace) (fst : fstate),
+    boundDef' nt tr fst <->
+    eval_formula (bounds_to_formula (bound_term nt)) tr.
+
 Check c_models.
-
-
+Print boundDef.
+(* define c_models so its stronger  *)
 Lemma compile_assn_correct :
   forall (sf sf' : fstate) (assn : progr_assn),
-    assn_update_state assn sf = sf' ->
+    assn_update_state assn sf = Some sf' ->
     forall (tr : Semantics.trace)
-           (sr sr' : Syntax.state),
-      
-      stream_begins tr [fstateToRstate sf; fstateToRstate sf'] ->
-      eval_formula (compile_assn assn) tr.
-
-(*
-Lemma convert_assn_correct :
-  forall (sf sf' : fstate) (assn : progr_assn),
-    assn_update_state assn sf = sf' ->
-    forall (tr : Semantics.trace)
-           (sr sr' : Semantics.state),
-      real_st_in_float_st sr  sf ->
-      real_st_in_float_st sr' sf' ->
+           (sr sr' : Syntax.state)
+           (vm : list (Var * Var)),
+      sr  ~=~ sf ->
+      sr' ~=~ sf' ->
       stream_begins tr [sr; sr'] ->
-      forall (rbst : rbstate),
-        float_st_in_bound_st sf rbst ->
-        eval_formula (convert_assn assn rbst) tr.
-*)
+      eval_formula (compile_assn assn) tr.
+Proof.
+intros.
+destruct assn; simpl; subst.
+remember tr as tr0.
+destruct tr as [t1 [t2 tr]].
+generalize H2; intro Hbeg.
+simpl in H2. rewrite Heqtr0 in H2. destruct H2 as [Hsr [Hsr' _]].
+subst sr sr'.
+specialize (fun (bound : singleBoundTerm)
+                (Hin : In bound (bound_term pa_source))
+                (res : Floats.float)  =>
+              getBound_correct pa_source (bound_term pa_source) bound eq_refl
+                               Hin sf t1 t2 tr0 res H0 Hbeg).
+intro Hgb_corr.
+
+unfold assn_update_state in H.
+destruct (eval_NowTerm sf (source.pa_source (pa_dest !!= pa_source))) eqn:Hevalsf;
+try (solve [inversion H]).
+{
+  inversion H; clear H; subst sf'.
+  simpl in Hevalsf.
+  unfold real_st_subsumes_float_st in H0, H1.
+  subst.
+  Print eval_NowTerm.
+  unfold bounds_to_formula.
+  unfold eval_formula.
+  
+  induction pa_source. simpl.
+  split. constructor.
+  intro. unfold eval_comp.
+  eapply Hgbc.
+  unfold bounds_to_formula.
+  simpl.
+}
+{
+  inversion H.
+}
+  
+Destr
+Print assn_update_state.
+
+unfold eval_formula.
+simpl.
 
 (* we need float_bounds *)
 
@@ -159,27 +213,6 @@ Lemma convert_assn_correct :
 (* we need to bridge tla and c basically. we need to treat tla variables
    and c variables separately *)
 
-(* choice: change theorem, or let TLA have heterogeneous states *)
-
-(* or, add a premise to the state invariant that says that discrete
-   variables "are actually floats"... do we need a toFloa taxiom? *)
-
-(* reading floats written in previous state is WEIRD...
-   we need to split the state.
-   alternative: compile discrete program into continuous (in terms of states being continuous variables - reals)
-   continuous transitions and discrete real-valued transitions that can be nondeterministic...
-   when we compile, give semantics in terms of hybrid world*)
-
-(* update compiler so it adds boundedness of variables 
-   to TLA formula. change rbst to rbspec, of type Var * (R * R) 
-   (dont make it a map) *)
-
-(* say states are related just on discrete variables
-   have user label which variables are discrete
-   *)
-
-(* fstmap is a float state, expressed as a finite map. we will need to rewrite
-   these other functions to use fstmaps for float state *)
 
 (* have program compile trivially (FALSE or TRUE) if you fail a check
    that is, if you try to look up undefined variables in the float state
