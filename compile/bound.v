@@ -1633,6 +1633,7 @@ destruct Rcase_abs.
          clear H.
          clear H1 H11.
          clear r0 r errorGt0 H9 H10 H12.
+         clear -H6 r3 H7 H2 H3 H4 H5 H8. 
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
                  | H : @Rle _ _ |- _ => revert H
@@ -1644,8 +1645,8 @@ destruct Rcase_abs.
         unfold error.
         unfold floatMax.
         unfold custom_prec,custom_emax in *.
-        (*z3Tactic*)
-        admit.
+        z3Tactic.
+        psatz R.
       }
     }
     {
@@ -1664,8 +1665,7 @@ destruct Rcase_abs.
           unfold error.
           unfold floatMax.
           unfold custom_prec,custom_emax in *.
-          (*z3Tactic*)
-          admit.
+          psatz R.
         }
         {
           
@@ -1680,8 +1680,7 @@ destruct Rcase_abs.
           unfold error.
           unfold floatMax.
           unfold custom_prec,custom_emax in *.
-          (*z3Tactic*)
-          admit.
+          psatz R.
         }
     }
   }
@@ -1702,8 +1701,7 @@ destruct Rcase_abs.
         unfold error.
         unfold floatMax.
         unfold custom_prec,custom_emax in *.
-        (*z3Tactic*)
-        admit.
+        psatz R.
       }
       {
         repeat match goal with
@@ -1717,8 +1715,7 @@ destruct Rcase_abs.
         unfold error.
         unfold floatMax.
         unfold custom_prec,custom_emax in *.
-        (*z3Tactic*)
-        admit.
+        psatz R.
       }
     }
     {
@@ -1737,8 +1734,7 @@ destruct Rcase_abs.
         unfold error.
         unfold floatMax.
         unfold custom_prec,custom_emax in *.
-        (*z3Tactic*)
-        admit.
+        psatz R.
       }
       {
         decompose [and]  H.
@@ -1754,8 +1750,7 @@ destruct Rcase_abs.
         unfold error.
         unfold floatMax.
         unfold custom_prec,custom_emax in *.
-        (*z3Tactic*)
-        admit.
+        psatz R.
       }
     }
   }   
@@ -1780,8 +1775,7 @@ destruct Rcase_abs.
          unfold error.
          unfold floatMax.
          unfold custom_prec,custom_emax in *.
-         (*z3Tactic*)
-         admit.
+         psatz R.
        }
        {
          decompose [and] H.
@@ -1797,8 +1791,7 @@ destruct Rcase_abs.
          unfold error.
          unfold floatMax.
          unfold custom_prec,custom_emax in *.
-         (*z3Tactic*)
-         admit.
+         psatz R.
        }
      }
      {
@@ -1818,8 +1811,7 @@ destruct Rcase_abs.
            unfold error.
            unfold floatMax.
            unfold custom_prec,custom_emax in *.
-           (*z3Tactic*)
-           admit.
+           psatz R.
          }
          {
             decompose [and] H.
@@ -1835,8 +1827,7 @@ destruct Rcase_abs.
            unfold error.
            unfold floatMax.
            unfold custom_prec,custom_emax in *.
-           (*z3Tactic*)
-           admit.
+           psatz R.
          }
        }
      }
@@ -1859,8 +1850,7 @@ destruct Rcase_abs.
         unfold error.
         unfold floatMax.
         unfold custom_prec,custom_emax in *.
-        (*z3Tactic*)
-        admit.
+        psatz R.
       }
       {
         decompose [and] H1.
@@ -1876,15 +1866,15 @@ destruct Rcase_abs.
         unfold error.
         unfold floatMax.
         unfold custom_prec,custom_emax in *.
-        (*z3Tactic*)
-        admit.
+        psatz R.
       }
     }
     {
        destruct H1'.
       {
-        decompose [and] H1.
-        clear H12 H10.
+        decompose [and] H.
+        clear H11 H H10 H9.
+        clear -errorGt0 H6 H7 H3 H4.
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
                  | H : @Rle _ _ |- _ => revert H
@@ -1896,12 +1886,11 @@ destruct Rcase_abs.
         unfold error.
         unfold floatMax.
         unfold custom_prec,custom_emax in *.
-        (*z3Tactic*)
-        admit.
+        psatz R.
       }
       {
-        decompose [and] H1.
-        clear H12 H10.
+        decompose [and] H.
+        clear H11 H H10 H9.        
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
                  | H : @Rle _ _ |- _ => revert H
@@ -1913,8 +1902,7 @@ destruct Rcase_abs.
         unfold error.
         unfold floatMax.
         unfold custom_prec,custom_emax in *.
-        (*z3Tactic*)
-        admit.
+        psatz R.
       }
     }
   }
@@ -1957,6 +1945,9 @@ destruct Rcase_abs.
       {
         destruct H1'.
         {
+          decompose [and] H7.
+          clear H12 H0 H8 H12 H7 H6 r3 r.
+          clear H H10 errorGt0.
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -1967,10 +1958,14 @@ destruct Rcase_abs.
                  end;
             unfold error.
           unfold floatMax.
-          admit.
+          
+          z3Tactic.
+          psatz R.
         }
         {
           decompose [and] H7.
+          clear H0 H8 H12 r0.
+          clear -errorGt0 H r H6 H10 H2 H5. 
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -1981,12 +1976,14 @@ destruct Rcase_abs.
                  end.
           unfold error.
           unfold floatMax.
-          admit.
+          psatz R.
         }
       }
       {
         destruct H1'.
         {
+          decompose [and] H7.
+          clear -r0 H2 H3 H4 H5 H11.
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -1997,9 +1994,13 @@ destruct Rcase_abs.
                  end.
           unfold error.
           unfold floatMax.
-          admit.
+          z3Tactic.
+          psatz R.
         }
         {
+          decompose [and] H7.
+           clear H0 H8 H12 r0.
+          clear -errorGt0 H r H6 H10 H2 H5. 
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2010,7 +2011,7 @@ destruct Rcase_abs.
                  end.
           unfold error.
           unfold floatMax.
-          admit.
+          psatz R.
         }
       }
     }
@@ -2020,6 +2021,8 @@ destruct Rcase_abs.
         destruct H1'.
         {
           decompose [and] H7.
+           clear H0 H8 H12 r0.
+         clear -errorGt0 H r H6 H10 H3 H4. 
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2030,9 +2033,12 @@ destruct Rcase_abs.
                  end.
           unfold error.
           unfold floatMax.
-          admit.
+          psatz R.          
         }
         {
+          decompose [and] H7.
+           clear H0 H8 H12.
+           clear -errorGt0 r H6 H3 H4 H11. 
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2043,7 +2049,7 @@ destruct Rcase_abs.
                  end.
           unfold error.
           unfold floatMax.
-          admit.
+          psatz R.
         }
       }
       {
@@ -2051,6 +2057,7 @@ destruct Rcase_abs.
         {
           decompose [and] H7.
           clear H8 H1 H7 H12 .
+          clear -errorGt0 H r H10 H3 H4. 
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2061,9 +2068,13 @@ destruct Rcase_abs.
                  end.
           unfold error.
           unfold floatMax.
-          admit.
+          psatz R.
         }
         {
+          decompose [and] H7.
+           clear H8 H1 H7 H12 .
+           
+           clear -r r3 H3 H4 H11. 
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2074,7 +2085,7 @@ destruct Rcase_abs.
                  end.
           unfold error.
           unfold floatMax.
-          admit.
+          psatz R.
         }
       }
     }
@@ -2087,6 +2098,8 @@ destruct Rcase_abs.
         destruct H1'.
         {
           decompose [and] H7.
+          clear H8 H0 H1 H7 H12.
+          clear -r0 H11 H2 H5. 
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2097,10 +2110,12 @@ destruct Rcase_abs.
                  end;
             unfold error.
           unfold floatMax.
-          admit.
+          psatz R.
         }
         {
           decompose [and] H7.
+          clear H8 H0 H1 H7 H12.
+          clear -errorGt0 H r0 H6 H10 r H2 H5.
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2111,22 +2126,42 @@ destruct Rcase_abs.
                  end;
             unfold error.
           unfold floatMax.
-          admit.
+          psatz R.
         }
       }
       {
-        repeat match goal with
+        destruct H1'.
+        {
+          decompose [and] H7.
+          clear H8 H0 H1 H7 H12.
+          repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
                  | H : @Rle _ _ |- _ => revert H
                  | H : @Rge _ _ |- _ => revert H
                  | H : @Rlt _ _ |- _ => revert H
                  | H :@ Rgt _ _ |- _ => revert H
                  | H : @Rge _ _ |- _ => revert H
-               end;
-        unfold error.
-        unfold floatMax.
-        admit.
+               end.
+          unfold error.
+          unfold floatMax.
+          psatz R.
       }
+      {
+        decompose [and] H7.
+          clear H8 H0 H1 H7 H12.
+          repeat match goal with
+                 | H : @eq R _ _ |- _ => revert H
+                 | H : @Rle _ _ |- _ => revert H
+                 | H : @Rge _ _ |- _ => revert H
+                 | H : @Rlt _ _ |- _ => revert H
+                 | H :@ Rgt _ _ |- _ => revert H
+                 | H : @Rge _ _ |- _ => revert H
+               end.
+          unfold error.
+          unfold floatMax.
+          psatz R.
+      }
+    }
     }
     {
       destruct Rcase_abs.
@@ -2141,7 +2176,7 @@ destruct Rcase_abs.
                end;
         unfold error.
         unfold floatMax.
-        admit.
+        psatz R.
       }
       {
         destruct H1'.
@@ -2160,7 +2195,7 @@ destruct Rcase_abs.
                    end;
               unfold error.
             unfold floatMax.
-            admit.
+            psatz R.
           }
           {
             decompose [and] H7.
@@ -2175,7 +2210,7 @@ destruct Rcase_abs.
                    end;
               unfold error.
             unfold floatMax.
-            admit.
+            psatz R.
           }
         }
         {
@@ -2191,7 +2226,7 @@ destruct Rcase_abs.
                  end;
             unfold error.
           unfold floatMax.
-          admit.
+          psatz R.
         }
       }
     }
@@ -3074,8 +3109,7 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit.
+              psatz R.
             }
             {
               clear -r r0 resultGe0 H H2.
@@ -3087,8 +3121,7 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit.
+              psatz R.
             }
           }
           
@@ -3104,8 +3137,7 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit.
+              psatz R.
             }
             {
             repeat match goal with
@@ -3116,8 +3148,7 @@ Proof.
                      | H : @Rgt _ _ |- _ => revert H
                      | H : @Rge _ _ |- _ => revert H
                    end.
-            (*z3Tactic*)
-            admit.
+            psatz R.
           }
         }
         }
@@ -3276,8 +3307,7 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit. (*z3 verified*)
+              psatz R.
             }
             {
               repeat match goal with
@@ -3288,8 +3318,7 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit. (*z3 verified*)
+              psatz R.
             }
           }
           
@@ -3304,8 +3333,7 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit. (*z3 verified*)
+              psatz R.
             }
             {
               repeat match goal with
@@ -3316,8 +3344,7 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit. (*z3 verified*)
+              psatz R.
             }
           }
         }
@@ -3334,8 +3361,7 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit. (*z3 verified*)
+              psatz R.
             }
             {
               repeat match goal with
@@ -3346,8 +3372,7 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit. (*z3 verified*)
+              psatz R.
             }
           }
           
@@ -3362,9 +3387,8 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit. (*z3 verified*)
-            }
+              psatz R.
+           }
             {
               repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
@@ -3375,8 +3399,7 @@ Proof.
                        | H : @Rge _ _ |- _ => revert H
                      end.
               
-              (*z3Tactic*)
-              admit. (*z3 verified*)
+              psatz R. 
             }
           }
         }
@@ -3534,8 +3557,7 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit.
+              psatz R.
             }
             {
               clear -r r0 resultGe0 H H2.
@@ -3547,8 +3569,8 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit.
+              psatz R.
+              
             }
           }
           {
@@ -3562,8 +3584,8 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit.
+              psatz R.
+              
             }
             {
               repeat match goal with
@@ -3574,8 +3596,7 @@ Proof.
                        | H : @Rgt _ _ |- _ => revert H
                        | H : @Rge _ _ |- _ => revert H
                      end.
-              (*z3Tactic*)
-              admit.
+              psatz R.
             }
           }
         }
@@ -3723,8 +3744,7 @@ Proof.
                          | H : @Rgt _ _ |- _ => revert H
                          | H : @Rge _ _ |- _ => revert H
                        end.
-                (*z3Tactic*)
-                admit. (*z3 verified*)
+                psatz R.
               }
               {
                 repeat match goal with
@@ -3735,8 +3755,7 @@ Proof.
                          | H : @Rgt _ _ |- _ => revert H
                          | H : @Rge _ _ |- _ => revert H
                        end.
-                (*z3Tactic*)
-                admit. (*z3 verified*)
+                psatz R.
               }
             }
             {
@@ -3750,8 +3769,7 @@ Proof.
                          | H : @Rgt _ _ |- _ => revert H
                          | H : @Rge _ _ |- _ => revert H
                        end.
-                (*z3Tactic*)
-                admit. (*z3 verified*)
+                psatz R.
               }
               {
                 repeat match goal with
@@ -3762,8 +3780,8 @@ Proof.
                          | H : @Rgt _ _ |- _ => revert H
                          | H : @Rge _ _ |- _ => revert H
                        end.
-                (*z3Tactic*)
-                admit. (*z3 verified*)
+                psatz R.
+                
               }
             }
           }
@@ -3780,8 +3798,7 @@ Proof.
                          | H : @Rgt _ _ |- _ => revert H
                          | H : @Rge _ _ |- _ => revert H
                        end.
-                (*z3Tactic*)
-                admit. (*z3 verified*)
+                psatz R.
               }
               {
                 repeat match goal with
@@ -3792,8 +3809,7 @@ Proof.
                          | H : @Rgt _ _ |- _ => revert H
                          | H : @Rge _ _ |- _ => revert H
                        end.
-                (*z3Tactic*)
-                admit. (*z3 verified*)
+                psatz R.
               }
             }
             {
@@ -3807,8 +3823,7 @@ Proof.
                          | H : @Rgt _ _ |- _ => revert H
                          | H : @Rge _ _ |- _ => revert H
                        end.
-                (*z3Tactic*)
-                admit. (*z3 verified*)
+                psatz R.
               }
               {
                 repeat match goal with
@@ -3819,8 +3834,7 @@ Proof.
                          | H : @Rgt _ _ |- _ => revert H
                          | H : @Rge _ _ |- _ => revert H
                        end.
-                (*z3Tactic*)
-                admit. (*z3 verified*)
+                psatz R.
               }
             }
           }
