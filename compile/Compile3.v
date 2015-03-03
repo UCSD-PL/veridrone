@@ -1,7 +1,7 @@
 Require Import source.
 
 (*Require Import bound.*)
-
+Require Import Coq.micromega.Psatz.
 Require Import compcert.cfrontend.Clight.
 Require Import compcert.cfrontend.Cop.
 Require Import compcert.cfrontend.Ctypes.
@@ -59,8 +59,6 @@ Definition c_eval (si : fstate) (pr : progr) (sf : fstate) : Prop :=
 
 Require Import Embed.
 
-Check @Embed.models.
-
 Definition c_models (vars : list (Var * Var)) (tla_st : Syntax.state) (fst : fstate) : Prop :=
   Embed.models Var fstate c_asReal vars tla_st fst.
 
@@ -93,6 +91,8 @@ Notation "a ~=~ b" := (real_st_subsumes_float_st a b) (at level 80).
                     eq (FloatToR f) (tla_st v)) fst.
 *)
 
+Notation "a ::: b" := (Cons _ a b) (at level 79, right associativity).
+
 
 Axiom getBound_correct: 
   forall (nt : NowTerm) (bounds : list singleBoundTerm)
@@ -101,8 +101,7 @@ Axiom getBound_correct:
     In bound bounds ->
     forall flst rst rst_next tr res,
       rst ~=~ flst ->
-      stream_begins tr [rst; rst_next] ->
-      eval_formula (premise bound) tr ->
+      eval_formula (premise bound) (rst ::: rst_next ::: tr) ->
       eval_NowTerm flst nt = Some res ->
       (eval_term (lb bound) rst rst_next <=
        FloatToR res <=
@@ -139,99 +138,97 @@ Definition compile_progr_stmt (stmt : progr_stmt) : Formula :=
           (compile_assns assns)
   end.
 
-Print boundDef'.
-Check Forall.
-Check bound_term.
-
 (* Lemma relating behavior of boundDef to bounds_to_formula *)
-Lemma boundDef_bounds_to_formula :
-  forall (nt : NowTerm) (tr : trace) (fst : fstate),
-    boundDef' nt tr fst <->
-    eval_formula (bounds_to_formula (bound_term nt)) tr.
+Lemma forall_cons_iff : 
+  forall T P l ls,
+    @Forall T P (l :: ls) <->
+    P l /\ @Forall T P ls.
+Proof.
+  intros.
+  split; inversion 1. subst; tauto.
+  constructor; tauto.
+Qed.
 
-Check c_models.
-Print boundDef.
-(* define c_models so its stronger  *)
+Lemma boundDef_bounds_to_formula :
+  forall (tr : trace) (t : Term) (bounds : list singleBoundTerm),
+    List.Forall (fun sbt => eval_formula 
+                              (Imp sbt.(premise) (And (Comp sbt.(lb) t Le)
+                                                      (Comp t sbt.(ub) Le))) tr) bounds
+    <->
+    eval_formula (bounds_to_formula bounds t) tr.
+Proof.
+induction bounds.
+{
+  split; constructor.
+}
+{
+  rewrite forall_cons_iff.
+  rewrite IHbounds.
+  destruct a.
+  simpl.
+  rewrite and_comm.
+  reflexivity.
+}
+Qed.
+
+Lemma in_fstate_set :
+  forall sf v f,
+    In (v, f) (fstate_set sf v f).
+Proof.
+intros.
+induction sf; simpl; intuition.
+destruct (RelDec.rel_dec v a0); simpl; tauto.
+Qed.
+
 Lemma compile_assn_correct :
   forall (sf sf' : fstate) (assn : progr_assn),
     assn_update_state assn sf = Some sf' ->
     forall (tr : Semantics.trace)
-           (sr sr' : Syntax.state)
-           (vm : list (Var * Var)),
+           (sr sr' : Syntax.state),
       sr  ~=~ sf ->
       sr' ~=~ sf' ->
-      stream_begins tr [sr; sr'] ->
-      eval_formula (compile_assn assn) tr.
+      eval_formula (compile_assn assn) (sr ::: sr' ::: tr).
 Proof.
 intros.
-destruct assn; simpl; subst.
-remember tr as tr0.
-destruct tr as [t1 [t2 tr]].
-generalize H2; intro Hbeg.
-simpl in H2. rewrite Heqtr0 in H2. destruct H2 as [Hsr [Hsr' _]].
-subst sr sr'.
+destruct assn eqn:Hassn; simpl.
 specialize (fun (bound : singleBoundTerm)
                 (Hin : In bound (bound_term pa_source))
                 (res : Floats.float)  =>
-              getBound_correct pa_source (bound_term pa_source) bound eq_refl
-                               Hin sf t1 t2 tr0 res H0 Hbeg).
+              getBound_correct pa_source (bound_term pa_source)
+                               bound eq_refl
+                               Hin sf sr sr' tr res H0).
 intro Hgb_corr.
 
 unfold assn_update_state in H.
 destruct (eval_NowTerm sf (source.pa_source (pa_dest !!= pa_source))) eqn:Hevalsf;
 try (solve [inversion H]).
+inversion H; clear H; subst sf'.
+simpl in Hevalsf.
+apply boundDef_bounds_to_formula.
+apply Forall_forall. intros.
+simpl. intro.
+specialize (Hgb_corr x H f H2 Hevalsf).
+unfold eval_comp.
+cut ((eval_term (pa_dest!)%HP sr sr') = FloatToR f).
 {
-  inversion H; clear H; subst sf'.
-  simpl in Hevalsf.
-  unfold real_st_subsumes_float_st in H0, H1.
-  subst.
-  Print eval_NowTerm.
-  unfold bounds_to_formula.
-  unfold eval_formula.
-  
-  induction pa_source. simpl.
-  split. constructor.
-  intro. unfold eval_comp.
-  eapply Hgbc.
-  unfold bounds_to_formula.
-  simpl.
+  intro. rewrite H3.
+  assumption.
 }
-{
-  inversion H.
-}
-  
-Destr
-Print assn_update_state.
-
-unfold eval_formula.
 simpl.
+apply H1.
 
-(* we need float_bounds *)
 
-(* problem this only works for the discrete part of our state *)
-
-(* we need to bridge tla and c basically. we need to treat tla variables
-   and c variables separately *)
-
+apply in_fstate_set.
+Qed.
 
 (* have program compile trivially (FALSE or TRUE) if you fail a check
    that is, if you try to look up undefined variables in the float state
    or you try to assign two values into the same variable at once *)
 
-Definition fstmap := list (Var * Floats.float).
 
 (*
-Definition real_st_subsumes_float_st (sr : Semantics.state) (sf : fstmap) : Prop :=
-  forall (v : Var),
-    in_fstmap sf v ->
-    real_in_float (sr v) (sf v).
-*)
-
-
 (* updates all the states in the given real state with values drawn from
    finite map new_sf *)
-
-SearchAbout (String.string -> String.string -> _).
 
 Definition update_floats (sr : Syntax.state) (new_sf : fstmap) : Syntax.state :=
   match new_sf with
@@ -242,155 +239,9 @@ Definition update_floats (sr : Syntax.state) (new_sf : fstmap) : Syntax.state :=
          then FloatToR val
          else sr v)
   end.
-
-(* THIS IS THE RIGHT ONE *)
-(*
-Lemma compile_assn_correct_new :
-  forall (sf sf' : fstate) (assn : progr_assn),
-    assn_update sf = sf' ->
-    forall (tr : trace) (sr : Syntax.state),
-      real_st_subsumes_float_st sr sf ->
-      stream_begins tr [sr; update_floats sr sf'] ->
-      forall (rbst : rbstate),
-        float_st_in_bound_st sf rbst ->
-        eval_formula (convert_assn assn rbst) tr.
 *)
 
 Require Import ExtLib.Core.RelDec.
-
-Definition float_st_to_real_st (sf : fstate) : Syntax.state :=
-  (fun v => FloatToR (sf v)).
-
-Lemma convert_assn_correct :
-  forall (sf sf' : fstate) (assn : progr_assn),
-    assn_update_state assn sf = sf' ->
-    forall (tr : Semantics.trace)
-           (sr : Syntax.state),
-      real_st_in_float_st sr  sf ->
-      stream_begins tr [sr; float_st_to_real_st sf'] -> (*TODO implement *)
-      forall (rbst : rbstate),
-        float_st_in_bound_st sf rbst ->
-        eval_formula (convert_assn assn rbst) tr.
-
-Proof.
-intros.
-destruct assn; subst; simpl.
-destruct (getBound rbst pa_source) eqn:gb.
-Check gb.
-destruct p.
-simpl.
-intro.
-destruct tr as [nowst [nextst trt]].
-simpl. simpl in H1.
-inversion H1; clear H1. inversion H4. clear H4. clear H5.
-subst.
-unfold Semantics.eval_comp.
-simpl.
-eapply getBound_correct with
-  (nt := pa_source)
-  (flst := sf) (rst_next := nextst)
-  in gb.
-  (* first, prove our conclusion from conclusion of
-     getBound_correct *)
-  - inversion gb. clear gb.
-    split.
-    induction t.
-    simpl. simpl in H2.
-    unfold real_st_in_float_st in *.
-    specialize H0 with v.
-
-    SearchAbout real_in_float.
-    apply real_in_float_
-.
-    Check real_in_float_correct.
-    
-    (* FUNDAMENTALLY right now my issue is
-       strict or non-strict inequality *)
-    
-(*
-    unfold float_st_in_bound_st in *.
-    eapply H3 in H0.
-*)
-
-    assert (FloatToR (eval_NowTerm pa_source0 sf) = eval_term t nowst nextst).
-    admit.
-    split.
-    rewrite <- H5.
-    split.
-    + 
-
-(* need a way to do lookup in nextst *)
-
-(* real_st_in_float_st_correct :
-
-real_in_float r f ->
-
-
-      unfold real_st_
-      extensionality.
-
-FloatToR??real_st_in_float_st st sf ->
-eval_term t st nextst <= 
-
-      (* need axiom relating real_in_float
-         to *)
-
-      (* we want to show
-evaluating t with trel1 and trel2 as context
-  is less than the value of pa_dest0 in trel2.
-
-         we know
-evaluating t with sf and trel2 as context is less
-  than the value of pa_source0 with sf as context.
-
-trel1 is contained in sf
-trel2 is contained in "update sf setting pa_dest0 to pa_source0"
-     
-      induction t; simpl in *.
-      unfold real_st_in_float_st in H0.
-
-      (* need an exchange lemma relating real and float states *)
-      
-      
-
-
-      simpl.
-      unfold eval_term.
-unfold real_st_in_float_st in H1.
-
-
-assert ((fun v : Var => sf v) = sf). admit. (* functional extensionality *)
-      Set Printing All.
-      
-      
-      rewrite H5 in H2.
-    
-    real_in_float k trace ->
-    
-
-  + unfold Semantics.eval_comp.
-    unfold real_st_in_float_st in H1.
-    (* need H1 to relate sf to tr1 *)
-    unfold real_st_in_float_st in H0.
-    
-
-    (* needs functional extensionality *)
-    (fun (v : Var) => sf v) = ())
-
-    real_in_float x y ->
-    
-    
-    apply H2.
-      
-
-split; simpl.
-- Check getBound_correct.
-  inversion H.
-  destruct t. simpl.
-  
-Print Semantics.eval_comp.
-
-
 
 (* compilation to TLA *)
 (* TODO need to be able to handle conditionals to do this *)
@@ -410,14 +261,9 @@ Definition progr_to_tla (pr : progr) : Formula :=
   self_foldr Or disjuncts FALSE.
 *)
 
-Coercion denowify : NowTerm >-> Term.
-Coercion progr_to_tla : progr >-> Formula.
-
-
-Local Open Scope string_scope.
-
+(*
 Definition derp : progr :=
   ([PIF (FTRUE  /\
         (FloatN 1 = FloatN 1))
    PTHEN ["ab" !!= FloatN 1]])%SL.
-
+*)
