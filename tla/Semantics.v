@@ -1,32 +1,10 @@
-Require Import TLA.Syntax.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Rtrigo_def.
+Require Import TLA.Syntax.
+Require Import TLA.Stream.
+Require Export Charge.Logics.ILogic.
 
 (* The semantics of our restricted TLA *)
-
-(* A behavior of TLA is an infinite stream
-   of states. *)
-CoInductive stream (A:Type) :=
-| Cons : A -> stream A -> stream A.
-
-(* The head of a stream *)
-Definition hd {A} (s:stream A) : A :=
-  match s with
-    | Cons a _ => a
-  end.
-
-(* The tail of a stream *)
-Definition tl {A} (s:stream A) : stream A :=
-  match s with
-    | Cons _ s' => s'
-  end.
-
-(* The nth suffix of a stream *)
-Fixpoint nth_suf {A} (n:nat) (s:stream A) : stream A :=
-  match n with
-    | O => s
-    | S n => nth_suf n (tl s)
-  end.
 
 (* A TLA behavior, called a trace *)
 Definition trace := stream state.
@@ -76,12 +54,40 @@ Fixpoint eval_formula (F:Formula) (tr:trace) :=
     | Imp F1 F2 => eval_formula F1 tr ->
                    eval_formula F2 tr
     | PropF P => P
-    | Exists _ F => exists x, eval_formula (F x) tr
-    | Forall _ F => forall x, eval_formula (F x) tr
+    | Syntax.Exists _ F => exists x, eval_formula (F x) tr
+    | Syntax.Forall _ F => forall x, eval_formula (F x) tr
     | Always F => forall n, eval_formula F (nth_suf n tr)
     | Eventually F => exists n, eval_formula F (nth_suf n tr)
     | Embed P => P (hd tr) (hd (tl tr))
   end.
 
+
+(*
 Notation "|- F" := (forall tr, eval_formula F tr)
                      (at level 100) : HP_scope.
+*)
+
+(** Formulas are Logics *)
+Definition tlaEntails (P Q : Formula) : Prop :=
+  forall tr, eval_formula P tr -> eval_formula Q tr.
+
+Global Instance ILogicOps_Formula : ILogicOps Formula :=
+{ lentails := tlaEntails
+; ltrue    := TRUE
+; lfalse   := FALSE
+; land     := And
+; lor      := Or
+; limpl    := Imp
+; lforall  := Syntax.Forall
+; lexists  := Syntax.Exists
+}.
+
+Global Instance ILogic_Formula : ILogic Formula.
+Proof.
+  constructor;
+  try solve [ cbv beta iota zeta delta - [ eval_formula ];
+              simpl; intros; intuition eauto ].
+  cbv beta iota zeta delta - [ eval_formula ];
+              simpl; intros; intuition eauto.
+  destruct H0. eauto.
+Qed.

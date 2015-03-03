@@ -1,6 +1,6 @@
-Require Import TLA.Tactics.
 Require Import Rdefinitions.
 Require Import RIneq.
+Require Import TLA.Tactics.
 
 (* Some obvious but useful real arithmetic
    facts. *)

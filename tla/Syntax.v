@@ -88,6 +88,7 @@ Notation "t1 = t2" := (Comp t1 t2 Eq) : HP_scope.
 Notation "x <= y <= z" :=
   (And (Comp x y Le) (Comp y z Le)) : HP_scope.
 
+(*
 (* Propositional Logic *)
 Infix "/\" := (And) : HP_scope.
 Infix "\/" := (Or) : HP_scope.
@@ -104,8 +105,10 @@ Notation "'\A' ( x : T ) , p" :=
 (*Notation "'Exists' x .. y , p" :=
   (Exists (fun x => .. (Exists (fun y => p)) ..))
     (at level 100, x binder, y binder) : HP_scope.*)
+*)
+
 
 Notation "[] f" := (Always f)
-                     (at level 95) : HP_scope.
+                     (at level 72) : HP_scope.
 Notation "<> f" := (Eventually f)
-                     (at level 95) : HP_scope.
+                     (at level 72) : HP_scope.

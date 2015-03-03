@@ -338,10 +338,12 @@ Section Ctrl.
          /\ "a"! = "A")
     \/ ("a"! <= 0).
 
+  (* We are going to prove that this is a refinement of AbstractCtrl *)
   Definition Ctrl1 : Formula :=
        ("A"*d + "v" <= ub /\ "a"! = "A")
     \/ ("a"! <= 0).
 
+  (* We are going to prove that this is a refinement of AbstractCtrl *)
   Definition Ctrl2 : Formula :=
        "V"! = "v"
     /\   (("a" >= 0 /\ "A"*d + "V" + "a"*d <= ub /\ "a"! = "A")
@@ -392,11 +394,34 @@ Section Ctrl.
     - apply always_imp. solve_nonlinear.
   Qed.
 
+  (** TODO: move this **)
+  Lemma ex_right : forall {T} P (F : T -> Formula),
+      (exists (x : T), |- P --> F x) ->
+      (|- P --> Exists _ F).
+  Proof.
+    simpl. intros. destruct H.
+    exists x. eauto.
+  Qed.
+
+  Theorem ctrl1_refinement
+  : |- Ctrl1 --> AbstractCtrl.
+  Proof.
+    unfold Ctrl1, AbstractCtrl.
+    apply or_left.
+    * apply or_right1.
+      apply and_right.
+      - eapply ex_right.
+        exists "v".
+        solve_linear.
+      - apply and_left2. apply imp_id.
+    * apply or_right2. apply imp_id.
+  Qed.
+
   Theorem ctrl1_safety :
     |- Ctrl1Sys --> []Safe.
   Proof.
     apply imp_trans with (F2:=AbstractSys).
-    - apply and_right.
+    - apply and_right. (** this proof should just be rewrite **)
       + apply and_left1. apply imp_id.
       + apply and_left2. apply always_imp.
         apply or_left.
@@ -413,7 +438,7 @@ Section Ctrl.
   Theorem ctrl2_bound1 :
     |- Ctrl2Sys --> Bound1.
   Proof.
-    admit.
+    
   Qed.
 
   Definition Bound2 : Formula :=
@@ -425,16 +450,33 @@ Section Ctrl.
     admit.
   Qed.
 
-Lemma always_and_left2 : forall F1 F2 F3 F4,
-  (|- (([](F1 /\ F2)) /\ F4) --> F3) ->
-  (|- (([]F1) /\ ([]F2) /\ F4) --> F3).
-Proof. simpl; intuition. Qed.
+  Lemma always_and_left2 : forall F1 F2 F3 F4,
+      (|- (([](F1 /\ F2)) /\ F4) --> F3) ->
+      (|- (([]F1) /\ ([]F2) /\ F4) --> F3).
+  Proof. simpl; intuition. Qed.
 
-Lemma or_left1 : forall F1 F2 F3 F4,
-  (|- (F1 /\ F3) --> F4) ->
-  (|- (F2 /\ F3) --> F4) ->
-  (|- ((F1 \/ F2) /\ F3) --> F4).
-Proof. simpl; intuition. Qed.
+  Lemma or_left1 : forall F1 F2 F3 F4,
+      (|- (F1 /\ F3) --> F4) ->
+      (|- (F2 /\ F3) --> F4) ->
+      (|- ((F1 \/ F2) /\ F3) --> F4).
+  Proof. simpl; intuition. Qed.
+
+  Lemma or_left2 : forall F1 F2 F3 F4,
+      (|- (F3 /\ F1) --> F4) ->
+      (|- (F3 /\ F2) --> F4) ->
+      (|- (F3 /\ (F1 \/ F2)) --> F4).
+  Proof. simpl; intuition. Qed.
+
+  Lemma ctrl2_refinement
+  : |- (Bound1 /\ Ctrl2) --> AbstractCtrl.
+  Proof.
+    unfold Ctrl2, AbstractCtrl.
+    repeat apply or_left2.
+    { apply or_right1.
+      apply and_right.
+      { apply ex_right. exists ("V" + "a" * d).
+        solve_linear.
+*)
 
   Theorem ctrl2_safety :
     |- Ctrl2Sys --> []Safe.

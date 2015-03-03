@@ -1,12 +1,12 @@
+Require Import Coq.Reals.Rdefinitions.
+Require Import Coq.Reals.RIneq.
 Require Import Coq.micromega.Psatz.
+Require Import Z3.Tactic.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.Lib.
 Require Import TLA.ProofRules.
-Require Import Rdefinitions.
-Require Import Coq.Reals.RIneq.
 
-Declare ML Module "z3Tactic".
 
 (* Some useful tactics for our examples. *)
 
@@ -51,7 +51,7 @@ Ltac z3_solve :=
    state into hypothesis and goals. *)
 Ltac rewrite_next_st :=
   repeat match goal with
-           | [ H : eq (hd (tl _) _)  _ |- _ ]
+           | [ H : eq (Stream.hd (Stream.tl _) _)  _ |- _ ]
              => rewrite H in *
          end.
 
@@ -105,7 +105,7 @@ Ltac prove_diff_inv known :=
   match goal with
       |- context [ Continuous ?eqs ] =>
       match goal with
-          |- (|- _ --> Comp (next_term ?t1)
+          |- (|-- _ -->> Comp (next_term ?t1)
                    (next_term ?t2) ?op) =>
           apply diff_ind with
           (Hyps:=known) (G:=Comp t1 t2 op) (cp:=eqs)
@@ -147,7 +147,7 @@ Ltac prove_inductive :=
   match goal with
     | [ |- context [Continuous ?deqs] ] =>
       match goal with
-        | [ |- (|- _ --> (?HH --> ?GG))] =>
+        | [ |- (|-- _ -->> (?HH -->> ?GG))] =>
           abstract (apply diff_ind_imp
                     with (eqs:=deqs) (H:=unnext HH)
                                      (G:=unnext GG);
@@ -158,7 +158,7 @@ Ltac prove_inductive :=
           abstract
             (apply unchanged_continuous with (eqs:=deqs);
              solve_linear)
-        | [ |- (|- _ --> ?GG) ] =>
+        | [ |- (|-- _ -->> ?GG) ] =>
           abstract (eapply diff_ind
                     with (cp:=deqs) (G:=unnext GG)
                                     (Hyps:=TRUE);

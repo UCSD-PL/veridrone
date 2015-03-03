@@ -1,4 +1,4 @@
--R ../Z3-plugin Exploit
+-R ../Z3-plugin Z3
 -R ../tla TLA
 -R ../coq-ext-lib/theories ExtLib
 -I ../compile

@@ -55,14 +55,14 @@ Fixpoint subst_term_formula (F:Formula) (t : Term) (x : Var)
       Comp (subst_term_term t1 t x next)
            (subst_term_term t2 t x next) op
     | And F1 F2 =>
-      And (subst_term_formula F1 t x next)
-          (subst_term_formula F2 t x next)
+           (subst_term_formula F1 t x next)
+      //\\ (subst_term_formula F2 t x next)
     | Or F1 F2 =>
-      Or (subst_term_formula F1 t x next)
-         (subst_term_formula F2 t x next)
+           (subst_term_formula F1 t x next)
+      \\// (subst_term_formula F2 t x next)
     | Imp F1 F2 =>
-      Imp (subst_term_formula F1 t x next)
-          (subst_term_formula F2 t x next)
+           (subst_term_formula F1 t x next)
+      -->> (subst_term_formula F2 t x next)
     | _ => F
   end.
 
@@ -125,7 +125,7 @@ Proof.
 Qed.
 
 Lemma subst_term_term_eq_varnext : forall t1 t2 x,
-  |- x! = t2 -->
+  |-- x! = t2 -->>
      subst_term_term t1 t2 x true = t1.
 Proof.
   induction t1; simpl; unfold eval_comp;
