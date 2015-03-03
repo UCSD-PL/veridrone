@@ -66,46 +66,34 @@ Definition c_models (vars : list (Var * Var)) (tla_st : Syntax.state) (fst : fst
 
 Require Import bound.
 
+(* generate an identity var-map for use by models *)
+Fixpoint gen_id_varmap (fst : fstate) : list (Var * Var) :=
+  match fst with
+    | nil => nil
+    | (hvar, _) :: t =>
+      (hvar, hvar) :: gen_id_varmap t
+  end.
+
+Definition real_st_in_float_st (tla_st : Syntax.state) (fst : fstate) : Prop :=
+  c_models (gen_id_varmap fst) tla_st fst.
+
+Check In.
+Print singleBoundTerm.
 
 Axiom getBound_correct: 
-  forall (nt : NowTerm) (lb ub : Term) (side : Formula),
-    getBound nt = (lb, ub, side) ->
-    forall flst rst_next tr,
-      rst ~ flst ->
+  forall (nt : NowTerm) (bounds : list singleBoundTerm)
+         (bound : singleBoundTerm),
+    bound_term nt = bounds ->
+    In bound bounds ->
+    forall flst rst rst_next tr res,
+      real_st_in_float_st rst flst ->
       stream_begins tr [rst; rst_next] ->
-      eval_formula side tr ->
-      (eval_term lb rst rst_next <=
-       FloatToR (eval_NowTerm nt flst) <=
-       eval_term ub rst rst_next)%R.  
+      eval_formula (premise bound) tr ->
+      eval_NowTerm flst nt = Some res ->
+      (eval_term (lb bound) rst rst_next <=
+       FloatToR res <=
+       eval_term (ub bound) rst rst_next)%R.  
 
-
-(*
-Axiom getBound_correct :
-  forall (nt : NowTerm) (lb ub : Term) (side : Formula),
-    getBound bst nt = (lb, ub, side) ->
-    forall flst rst_next tr,
-                let rst := (fun v => FloatToR (flst v)) in
-                stream_begins tr [rst; rst_next] ->
-                eval_formula side tr ->
-                (eval_term lb rst rst_next <=
-                 FloatToR (eval_NowTerm nt flst) <=
-                 eval_term ub rst rst_next)%R.  
-*)
-
-(*.
-
-Axiom getBound_correct :
-  forall (bst : rbstate) (nt : NowTerm) (lb ub : Term) (side : Formula),
-    getBound
- bst nt = (lb, ub, side) ->
-    forall flst rst_next tr, float_st_in_bound_st flst bst ->
-                let rst := (fun v => FloatToR (flst v)) in
-                stream_begins tr [rst] ->
-                eval_formula side tr ->
-                (eval_term lb rst rst_next <=
-                 FloatToR (eval_NowTerm nt flst) <=
-                 eval_term ub rst rst_next)%R.  
-*)
 
 Fixpoint bounds_to_formula (bounds : list singleBoundTerm) (center : Term) : Formula :=
   match bounds with
@@ -140,15 +128,12 @@ Definition compile_progr_stmt (stmt : progr_stmt) : Formula :=
 
 Check c_models.
 
-(* Convert a  *)
-
-(* correctness for convert_assn *)
-
 
 Lemma compile_assn_correct :
   forall (sf sf' : fstate) (assn : progr_assn),
     assn_update_state assn sf = sf' ->
-    forall (tr : Semantics.trace), (sr sr' : Syntax.state),
+    forall (tr : Semantics.trace)
+           (sr sr' : Syntax.state),
       
       stream_begins tr [fstateToRstate sf; fstateToRstate sf'] ->
       eval_formula (compile_assn assn) tr.
@@ -177,7 +162,7 @@ Lemma convert_assn_correct :
 (* choice: change theorem, or let TLA have heterogeneous states *)
 
 (* or, add a premise to the state invariant that says that discrete
-   variables "are actually floats"... do we need a toFloat axiom? *)
+   variables "are actually floats"... do we need a toFloa taxiom? *)
 
 (* reading floats written in previous state is WEIRD...
    we need to split the state.
