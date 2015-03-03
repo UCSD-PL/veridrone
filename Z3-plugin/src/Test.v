@@ -1,10 +1,9 @@
-Declare ML Module "z3Tactic".
-
+Require Import Z3.Tactic.
 
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 
-Section test. 
+Section test.
 
   Variable A B C D G Y Z: Prop.
   Variable d:R.
@@ -186,7 +185,7 @@ Definition Init1:Formula:= H5.
 Definition Ind1:Formula := ("t" <= (8%R)).
 Lemma ind_inv_init : |- Init1 --> Ind1.
 simpl  in *. intros. Check hd. unfold eval_comp in *.
-simpl in *. decompose [and] H. 
+simpl in *. decompose [and] H.
 repeat match goal with
             | H : @eq R _ _ |- _ => revert H
             | H : @Rle _ _ |- _ => revert H
@@ -202,10 +201,4 @@ psatz R.
 
 Qed.
 
-
-
-
-
-
-
-End test. 
+End test.

@@ -1,5 +1,5 @@
-MODULES :=  src/z3Tactic.ml4 src/Exploit.v
-NAME := Exploit
+MODULES :=  src/z3Tactic.ml4 src/Tactic.v src/Test.v
+NAME := Z3
 ROOT := ./
 .PHONY: coq clean
 
