@@ -120,7 +120,8 @@ Fixpoint bounds_to_formula (bounds : list singleBoundTerm) (center : Term) : For
 (* TODO strict or non-strict inequalities? *)
 Definition compile_assn (assn : progr_assn) : Formula :=
   match assn with
-    | mk_progr_assn var term => bounds_to_formula (bound_term term) (VarNextT var)
+    | mk_progr_assn var term => bounds_to_formula (bound_term term)
+                                                  (VarNextT var)
   end.
 
 Fixpoint compile_assns (assns : list progr_assn) : Formula :=
@@ -131,11 +132,67 @@ Fixpoint compile_assns (assns : list progr_assn) : Formula :=
           (compile_assns assns')
   end.
 
+Print Formula.
+Print singleBoundTerm.
+Check bound_term.
+
+Check cross.
+
+Check fold_right.
+
+(* Fold a list with its first element as starting accumulator
+Takes function and list, as well as default element to return if list is nil *)
+Definition self_foldr {A : Type} (f : A -> A -> A) (l : list A) (dflt : A) : A :=
+  match l with
+    | nil => dflt
+    | h :: t =>
+      List.fold_right f h t
+  end.
+
+(* bound comparison operation with a single bound *)
+Definition singleBound_comp (op : CompOp) (t1 t2 : singleBoundTerm) : list Formula :=
+  match op with
+    | Gt => Comp (ub t1) (lb t2) Gt
+    | Ge => Comp (ub t1) (lb t2) Ge
+    | Lt => Comp (lb t1) (ub t2) Lt
+    | Le => Comp (lb t1) (ub t2) Le
+    | Eq => And
+              (Comp (ub t1) (lb t2) Ge)
+              (Comp (ub t2) (lb t1) Ge)
+  end :: nil.
+
+(* Emit bounds for a comparison, guarding a body *)
+Definition bound_comp (op : CompOp) (t1 t2 : NowTerm) : Formula :=
+  let forms :=
+      cross (singleBound_comp op) (bound_term t1) (bound_term t2)
+  in self_foldr And forms FALSE.
+
+(* TODO we can probably do a smarter job with these bounds
+   for AND and OR (we aren't using all the information we
+   potentially have, thought we may not need to)*)
+Fixpoint compile_if (conds : FlatFormula) (body : Formula) : Formula :=
+  match conds with
+    | FTRUE          => body
+    | FFALSE         => TRUE
+    | FComp t1 t2 op => And (bound_comp op t1 t2) body 
+    | FAnd  f1 f2    => And (compile_if f1 body)
+                            (compile_if f2 body)
+    | FOr   f1 f2    => Or  (compile_if f1 body)
+                            (compile_if f2 body)
+  end.
+
 Definition compile_progr_stmt (stmt : progr_stmt) : Formula :=
   match stmt with
     | mk_progr_stmt conds assns =>
-      And (deflatten_formula conds)
-          (compile_assns assns)
+      compile_if conds (compile_assns assns)
+  end.
+
+Fixpoint compile_progr_stmts (stmts : list progr_stmt) : Formula :=
+  match stmts with
+    | nil => TRUE
+    | st :: rest =>
+      Or (compile_progr_stmt st)
+         (compile_progr_stmts rest)
   end.
 
 (* Lemma relating behavior of boundDef to bounds_to_formula *)
@@ -181,11 +238,11 @@ destruct (RelDec.rel_dec v a0); simpl; tauto.
 Qed.
 
 Lemma compile_assn_correct :
-  forall (sf sf' : fstate) (assn : progr_assn),
+  forall (assn : progr_assn) (sf sf' : fstate),
     assn_update_state assn sf = Some sf' ->
     forall (tr : Semantics.trace)
            (sr sr' : Syntax.state),
-      sr  ~=~ sf ->
+      sr  ~=~ sf  ->
       sr' ~=~ sf' ->
       eval_formula (compile_assn assn) (sr ::: sr' ::: tr).
 Proof.
@@ -216,10 +273,63 @@ cut ((eval_term (pa_dest!)%HP sr sr') = FloatToR f).
 }
 simpl.
 apply H1.
-
-
 apply in_fstate_set.
 Qed.
+(*
+Lemma compile_assns_correct :
+  forall (assns : list progr_assn) (sf sf' : fstate),
+    assns_update_state assns sf = Some sf' ->
+    forall (int tr : Semantics.trace)
+           (sr sr' : Syntax.state),
+      sr  ~=~ sf  ->
+      sr' ~=~ sf' ->
+      eval_formula (compile_assns assns) (sr ::: sr' ::: tr).
+Proof.
+induction assns.
+simpl; constructor.
+{
+  intros.
+  unfold assns_update_state in H.
+  destruct (assn_update_state a sf) eqn:Haus.
+  {
+    fold assns_update_state in H.
+    unfold compile_assns.
+    fold compile_assns.
+    simpl.
+    split.
+    {
+      (* need to compute some update real states? *)
+      eapply compile_assn_correct.
+      eassumption. eassumption.
+      
+      
+    apply IHassns with (sr := sr) (sr' := sr') (tr := tr) in H.
+    - split.
+      {
+        apply compile_assn_correct with (sf := sf) (sf' := f).
+        - assumption.
+        - assumption.
+        - admit.
+      }
+    -
+  
+  
+}
+intros.
+        
+
+Lemma compile_progr_stmt_correct :
+  forall (sf sf' : fstate) (stmt : progr_stmt),
+    eval_progr_stmt stmt sf = Some sf' ->
+    forall (tr : Semantics.trace)
+           (sr sr' : Syntax.state),
+      sr  ~=~ sf  ->
+      sr' ~=~ sf' ->
+      eval_formula (compile_progr_stmt stmt) (sr ::: sr' ::: tr).
+Proof.
+intros.
+destruct stmt eqn:Hstmt; simpl.
+specialize (
 
 (* have program compile trivially (FALSE or TRUE) if you fail a check
    that is, if you try to look up undefined variables in the float state
@@ -266,4 +376,5 @@ Definition derp : progr :=
   ([PIF (FTRUE  /\
         (FloatN 1 = FloatN 1))
    PTHEN ["ab" !!= FloatN 1]])%SL.
+*)
 *)
