@@ -636,36 +636,6 @@ Proof.
       ]).
 Qed.
 
-(*
-(* Differential induction proof rule plus soundness
-   proof. *)
-Lemma diff_ind : forall cp Hyps,
-  is_st_formula Hyps ->
-  (|- (Hyps /\ Continuous cp) --> next Hyps) ->
-  forall G,
-    is_st_formula G ->
-    (|- [](Hyps --> deriv_formula G cp) -->
-          (Continuous cp /\ G /\ Hyps) --> next G).
-Proof.
-Opaque Continuous.
-  induction G.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - simpl in *; intros.
-    decompose [or and] H3; clear H3.
-    + left. eapply IHG1; eauto; try tauto.
-      intros.
-      clear - H2. intuition.
-      
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.*)
-
 (* Differential induction proof rule plus soundness
    proof. *)
 Lemma diff_ind : forall Hyps G cp F,
