@@ -249,12 +249,12 @@ Definition assn_update_state (assn : progr_assn) (st : fstate) : option fstate :
   | None => None
   end.
 
-Fixpoint assn_update_states (assns: list progr_assn) (acc : fstate) : option fstate :=
+Fixpoint assns_update_state (assns: list progr_assn) (acc : fstate) : option fstate :=
   match assns with
   | nil => Some acc
   | h :: t =>
     match assn_update_state h acc with
-    | Some news => assn_update_states t news
+    | Some news => assns_update_state t news
     | _ => None
     end
   end.
@@ -264,7 +264,7 @@ Fixpoint eval_progr_stmt (ps : progr_stmt) (init : fstate) : option fstate :=
   match ps with
   | mk_progr_stmt conds assns =>
     match progr_cond_holds init conds with
-    | Some true => assn_update_states assns init
+    | Some true => assns_update_state assns init
     | Some false => Some init
     | None => None
     end
