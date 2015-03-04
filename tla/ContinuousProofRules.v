@@ -218,9 +218,9 @@ Proof.
   assert (|- (F /\ next H) --> H) by
       (eapply extract_vars_0; eauto).
   apply diff_ind with (Hyps:=H) (cp:=eqs); auto.
-  - apply and_comm_left. eapply extract_vars_0; eauto.
-    apply imp_id.      
   - apply and_left1; auto.
+  - apply and_comm_left. eapply extract_vars_0; eauto.
+    apply imp_id.
   - apply imp_trans with (F2:=F/\H); auto.
     apply and_right; auto. apply and_left1.
     apply imp_id.

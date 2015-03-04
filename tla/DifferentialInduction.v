@@ -120,6 +120,9 @@ Fixpoint deriv_formula (F:Formula) (eqs:list DiffEq) :=
       end
     | And F1 F2 => And (deriv_formula F1 eqs)
                        (deriv_formula F2 eqs)
+    | Imp F1 F2 =>
+      (Continuous eqs --> ((F1 --> next F1) /\ (next F1 --> F1)))
+      /\ (F1 --> (deriv_formula F2 eqs))
     | _ => FALSE
   end.
 
@@ -633,21 +636,52 @@ Proof.
       ]).
 Qed.
 
+(*
+(* Differential induction proof rule plus soundness
+   proof. *)
+Lemma diff_ind : forall cp Hyps,
+  is_st_formula Hyps ->
+  (|- (Hyps /\ Continuous cp) --> next Hyps) ->
+  forall G,
+    is_st_formula G ->
+    (|- [](Hyps --> deriv_formula G cp) -->
+          (Continuous cp /\ G /\ Hyps) --> next G).
+Proof.
+Opaque Continuous.
+  induction G.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - simpl in *; intros.
+    decompose [or and] H3; clear H3.
+    + left. eapply IHG1; eauto; try tauto.
+      intros.
+      clear - H2. intuition.
+      
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.*)
+
 (* Differential induction proof rule plus soundness
    proof. *)
 Lemma diff_ind : forall Hyps G cp F,
   is_st_formula G ->
   is_st_formula Hyps ->
-  (|- (Hyps /\ Continuous cp) --> next Hyps) ->
   (|- F --> Continuous cp) ->
+  (|- (Hyps /\ Continuous cp) --> next Hyps) ->
   (|- F --> G) ->
   (|- F --> Hyps) ->
   (|- Hyps --> deriv_formula G cp) ->
   (|- F --> next G).
 Proof.
+  Opaque Continuous.
   intros Hyps G; generalize dependent Hyps;
   induction G;
-    intros Hyps cp F HstG HstH Hhyps Hcont Hbase HhypsF Hind;
+    intros Hyps cp F HstG HstH Hcont Hhyps Hbase HhypsF Hind;
   simpl in *; intros; eauto;
   try discriminate; try solve [exfalso; eapply Hind; eauto].
   destruct HstG as [HstG1 HstG2].
@@ -672,6 +706,11 @@ Proof.
       * intuition.
       * apply Hbase; auto.
       * apply Hind; auto.
+  - eapply IHG2 with (Hyps:=Hyps /\ G1) (F:=F /\ G1); eauto;
+    simpl; intuition.
+    + apply Hind; auto.
+    + apply Hind; auto.
+    + apply Hind; auto.
 Qed.
 
 Close Scope HP_scope.
