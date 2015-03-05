@@ -275,7 +275,38 @@ simpl.
 apply H1.
 apply in_fstate_set.
 Qed.
-(*
+
+(* Strongest postcondition calculation, starting from TRUE.
+   We need a language of assertions that supports rewriting *)
+
+(* alternate idea: have abstractor produce not a formula, but
+   a (String -> Expr) -> Formula. Parameterized over substitution. *)
+
+(* do this weird language thing and then yeah soundness *)
+
+(* or, dont do the language thing. Need sp function for strongest
+   postcondition calculation (src -> (tlastate -> prop) -> (tlastate -> prop)).
+   or even use Formula instead of prop. Maybe (var -> expr) -> formula *)
+
+(* strongest postcondition calculations *)
+
+Print progr_assn.
+
+(* x gets xold; otherwise apply subs *)
+(* need to do rewriting in nowterms *)
+
+Definition sp_progr_assn (assn : progr_assn) (P : (Var -> expr) -> Formula) : (Var -> expr) -> Formula :=
+  fun (subs : Var -> expr) =>
+    let '(mk_progr_assn lhs rhs) := assn in
+    let newsubs := (fun v => if  v ?[ eq ] lhs then)
+      And (P subs)
+          ().
+  (* exists xold, p[lhs -> xold] /\ lhs = rhs[lhs -> xold] *)
+
+Definition strongest_postcondition_assn (progr_assn -> 
+
+
+(* well formedness of assns? *)
 Lemma compile_assns_correct :
   forall (assns : list progr_assn) (sf sf' : fstate),
     assns_update_state assns sf = Some sf' ->
@@ -300,7 +331,9 @@ simpl; constructor.
     {
       (* need to compute some update real states? *)
       eapply compile_assn_correct.
-      eassumption. eassumption.
+      eassumption.
+      eassumption.
+eassumption.
       
       
     apply IHassns with (sr := sr) (sr' := sr') (tr := tr) in H.
@@ -377,4 +410,4 @@ Definition derp : progr :=
         (FloatN 1 = FloatN 1))
    PTHEN ["ab" !!= FloatN 1]])%SL.
 *)
-*)
+
