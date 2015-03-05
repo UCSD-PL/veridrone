@@ -1,6 +1,6 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Rtrigo_def.
-Require Import TLA.Syntax.
+Require Export TLA.Syntax.
 Require Import TLA.Stream.
 Require Export Charge.Logics.ILogic.
 

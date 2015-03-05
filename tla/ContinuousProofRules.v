@@ -1,12 +1,13 @@
 Require Import Coq.micromega.Psatz.
+Require Import Coq.Reals.Rdefinitions.
+Require Import Coq.Reals.Ranalysis1.
+Require Import Coq.Reals.MVT.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.Lib.
 Require Import TLA.BasicProofRules.
 Require Import TLA.DifferentialInduction.
-Require Import Rdefinitions.
-Require Import Ranalysis1.
-Require Import MVT.
+Require Import TLA.Automation.
 
 Open Scope HP_scope.
 

@@ -4,6 +4,7 @@
 Stream.v
 Syntax.v
 Semantics.v
+LogicLemmas.v
 Lib.v
 BasicProofRules.v
 DifferentialInduction.v
@@ -12,3 +13,4 @@ ProofRules.v
 ArithFacts.v
 Substitution.v
 Tactics.v
+Automation.v

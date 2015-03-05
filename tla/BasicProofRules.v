@@ -1,6 +1,7 @@
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.Lib.
+Require Import TLA.Automation.
 
 (* Various proof rules for TLA in general *)
 
@@ -157,9 +158,6 @@ Qed.
 
 (* A variety of basic propositional
    and temporal logic proof rules *)
-Ltac breakAbstraction :=
-  simpl in *; unfold tlaEntails in *; simpl in *.
-
 Lemma imp_trans : forall F1 F2 F3,
   (|-- F1 -->> F2) ->
   (|-- F2 -->> F3) ->

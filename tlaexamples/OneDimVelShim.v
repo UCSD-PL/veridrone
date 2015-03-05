@@ -5,7 +5,7 @@ Import LibNotations.
 Require Import TLA.ProofRules.
 Require Import TLA.Tactics.
 Require Import TLA.ArithFacts.
-Require Import TLA.Substitution.
+(*Require Import TLA.Substitution. *)
 Require Import Coq.Reals.Rdefinitions.
 
 Open Scope HP_scope.
@@ -334,51 +334,51 @@ Section Ctrl.
                  "t"' ::= --1]).
 
   Definition AbstractCtrl : Formula :=
-       ((Exists Term (fun e => "v" <= e /\ "A"*d + e <= ub))
-         /\ "a"! = "A")
-    \/ ("a"! <= 0).
+       (Exists e : Term, "v" <= e //\\ "A"*d + e <= ub
+         //\\ "a"! = "A")
+    \\// ("a"! <= 0).
 
   (* We are going to prove that this is a refinement of AbstractCtrl *)
   Definition Ctrl1 : Formula :=
-       ("A"*d + "v" <= ub /\ "a"! = "A")
-    \/ ("a"! <= 0).
+       ("A"*d + "v" <= ub //\\ "a"! = "A")
+    \\// ("a"! <= 0).
 
   (* We are going to prove that this is a refinement of AbstractCtrl *)
   Definition Ctrl2 : Formula :=
        "V"! = "v"
-    /\   (("a" >= 0 /\ "A"*d + "V" + "a"*d <= ub /\ "a"! = "A")
-       \/ ("a" < 0 /\ "A"*d + "V" <= ub /\ "a"! = "A")
-       \/ "a"! <= 0).
+    //\\   (("a" >= 0 //\\ "A"*d + "V" + "a"*d <= ub //\\ "a"! = "A")
+       \\// ("a" < 0 //\\ "A"*d + "V" <= ub //\\ "a"! = "A")
+       \\// "a"! <= 0).
 
   Definition Next (Ctrl:Formula) : Formula :=
-       (Evolve /\ "t"! >= 0)
-    \/ (Ctrl /\ "t"! = d /\ Unchanged (["v"])).
+       (Evolve //\\ "t"! >= 0)
+    \\// (Ctrl //\\ "t"! = d //\\ Unchanged (["v"])).
 
   Definition Init : Formula :=
-    "v" <= ub /\ "v" + "a"*d <= ub /\ 0 <= "t" <= d.
+    "v" <= ub //\\ "v" + "a"*d <= ub //\\ 0 <= "t" <= d.
 
   Definition AbstractSys : Formula :=
-    Init /\ [](Next AbstractCtrl).
+    Init //\\ [](Next AbstractCtrl).
 
   Definition Ctrl1Sys : Formula :=
-    Init /\ [](Next Ctrl1).
+    Init //\\ [](Next Ctrl1).
 
   Definition Ctrl2Sys : Formula :=
-    Init /\ [](Next Ctrl2).
+    Init //\\ [](Next Ctrl2).
 
   Definition Safe : Formula :=
     "v" <= ub.
 
   Definition IndInv : Formula :=
-       ("a" <  0 --> Safe)
-    /\ ("a" >= 0 --> "a"*"t" + "v" <= ub)
-    /\ 0 <= "t" <= d.
+       ("a" <  0 -->> Safe)
+    //\\ ("a" >= 0 -->> "a"*"t" + "v" <= ub)
+    //\\ 0 <= "t" <= d.
 
   Theorem abstract_safety :
-    |- AbstractSys --> []Safe.
+    |-- AbstractSys -->> []Safe.
   Proof.
     apply imp_trans with (F2:=[]IndInv).
-    - apply imp_trans with (F2:=IndInv /\ [](Next AbstractCtrl)).
+    - apply imp_trans with (F2:=IndInv //\\ [](Next AbstractCtrl)).
       + simpl; intuition; solve_nonlinear.
       + apply inv_discr_ind.
         * compute; tauto.
@@ -396,15 +396,15 @@ Section Ctrl.
 
   (** TODO: move this **)
   Lemma ex_right : forall {T} P (F : T -> Formula),
-      (exists (x : T), |- P --> F x) ->
-      (|- P --> Exists _ F).
+      (exists (x : T), |-- P -->> F x) ->
+      (|-- P -->> Exists _ F).
   Proof.
     simpl. intros. destruct H.
     exists x. eauto.
   Qed.
 
   Theorem ctrl1_refinement
-  : |- Ctrl1 --> AbstractCtrl.
+  : |-- Ctrl1 -->> AbstractCtrl.
   Proof.
     unfold Ctrl1, AbstractCtrl.
     apply or_left.
@@ -418,7 +418,7 @@ Section Ctrl.
   Qed.
 
   Theorem ctrl1_safety :
-    |- Ctrl1Sys --> []Safe.
+    |-- Ctrl1Sys -->> []Safe.
   Proof.
     apply imp_trans with (F2:=AbstractSys).
     - apply and_right. (** this proof should just be rewrite **)
@@ -433,42 +433,42 @@ Section Ctrl.
   Qed.
 
   Definition Bound1 : Formula :=
-    []("a" >= 0 --> "V" + "a"*d >= "v").
+    []("a" >= 0 -->> "V" + "a"*d >= "v").
 
   Theorem ctrl2_bound1 :
-    |- Ctrl2Sys --> Bound1.
+    |-- Ctrl2Sys -->> Bound1.
   Proof.
     
   Qed.
 
   Definition Bound2 : Formula :=
-    []("a" < 0 --> "V" >= "v").
+    []("a" < 0 -->> "V" >= "v").
 
   Theorem ctrl2_bound2 :
-    |- Ctrl2Sys --> Bound2.
+    |-- Ctrl2Sys -->> Bound2.
   Proof.
     admit.
   Qed.
 
   Lemma always_and_left2 : forall F1 F2 F3 F4,
-      (|- (([](F1 /\ F2)) /\ F4) --> F3) ->
-      (|- (([]F1) /\ ([]F2) /\ F4) --> F3).
+      (|-- (([](F1 //\\ F2)) //\\ F4) -->> F3) ->
+      (|-- (([]F1) //\\ ([]F2) //\\ F4) -->> F3).
   Proof. simpl; intuition. Qed.
 
   Lemma or_left1 : forall F1 F2 F3 F4,
-      (|- (F1 /\ F3) --> F4) ->
-      (|- (F2 /\ F3) --> F4) ->
-      (|- ((F1 \/ F2) /\ F3) --> F4).
+      (|-- (F1 //\\ F3) -->> F4) ->
+      (|-- (F2 //\\ F3) -->> F4) ->
+      (|-- ((F1 \/ F2) //\\ F3) -->> F4).
   Proof. simpl; intuition. Qed.
 
   Lemma or_left2 : forall F1 F2 F3 F4,
-      (|- (F3 /\ F1) --> F4) ->
-      (|- (F3 /\ F2) --> F4) ->
-      (|- (F3 /\ (F1 \/ F2)) --> F4).
+      (|-- (F3 //\\ F1) -->> F4) ->
+      (|-- (F3 //\\ F2) -->> F4) ->
+      (|-- (F3 //\\ (F1 \/ F2)) -->> F4).
   Proof. simpl; intuition. Qed.
 
   Lemma ctrl2_refinement
-  : |- (Bound1 /\ Ctrl2) --> AbstractCtrl.
+  : |-- (Bound1 //\\ Ctrl2) -->> AbstractCtrl.
   Proof.
     unfold Ctrl2, AbstractCtrl.
     repeat apply or_left2.
@@ -479,12 +479,12 @@ Section Ctrl.
 *)
 
   Theorem ctrl2_safety :
-    |- Ctrl2Sys --> []Safe.
+    |-- Ctrl2Sys -->> []Safe.
   Proof.
     apply imp_trans with (F2:=AbstractSys).
     - apply and_right.
       + apply and_left1. apply imp_id.
-      + apply imp_strengthen with (F2:=Bound1 /\ Bound2);
+      + apply imp_strengthen with (F2:=Bound1 //\\ Bound2);
         try (apply and_right; (apply ctrl2_bound1 ||
                                      apply ctrl2_bound2)).
         apply and_assoc_left. apply and_left2.

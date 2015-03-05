@@ -1,6 +1,6 @@
-Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.ProofRules.
+Require Import TLA.Automation.
 
 Open Scope HP_scope.
 
@@ -125,10 +125,12 @@ Proof.
 Qed.
 
 Lemma subst_term_term_eq_varnext : forall t1 t2 x,
-  |-- x! = t2 -->>
-     subst_term_term t1 t2 x true = t1.
+  x! = t2 |-- subst_term_term t1 t2 x true = t1.
 Proof.
-  induction t1; simpl; unfold eval_comp;
+  Opaque lentails.
+  induction t1; intros; simpl; try tlaRefl.
+
+simpl; unfold eval_comp;
   simpl; auto; intros;
   try (rewrite IHt1_1; auto;
        rewrite IHt1_2; auto).

@@ -1,6 +1,7 @@
--R ../Z3-plugin Z3
+-R ../Z3-plugin/src Z3
 -R ../tla TLA
 -R ../coq-ext-lib/theories ExtLib
 -I ../compile
+-I ../../Charge/Charge!/bin
 AbstractIndAccCtrl.v
 OneDimAccShimUtil.v
