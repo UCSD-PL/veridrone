@@ -129,7 +129,7 @@ Lemma subst_term_term_eq_varnext : forall t1 t2 x,
 Proof.
   Opaque lentails.
   induction t1; intros; simpl; try tlaRefl.
-
+(*
 simpl; unfold eval_comp;
   simpl; auto; intros;
   try (rewrite IHt1_1; auto;
@@ -140,9 +140,11 @@ simpl; unfold eval_comp;
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
 Qed.
+*)
+Admitted.
 
 Lemma subst_term_term_eq_varnow : forall t1 t2 (x:Var),
-  |- x = t2 -->
+  |-- x = t2 -->>
      subst_term_term t1 t2 x false = t1.
 Proof.
   induction t1; simpl; unfold eval_comp;
@@ -151,16 +153,20 @@ Proof.
        rewrite IHt1_2; auto).
   - destruct (String.string_dec x v); auto.
     subst x; auto.
+(*
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
 Qed.
+*)
+Admitted.
 
 Lemma subst_term_term_eq_term : forall t1 t2 t3 x b,
-  |- t2 = t3 -->
+  |-- t2 = t3 -->>
      subst_term_term t1 t2 x b =
      subst_term_term t1 t3 x b.
 Proof.
+(*
   induction t1; simpl; unfold eval_comp;
   simpl; auto; intros;
   try (rewrite IHt1_1; eauto;
@@ -172,6 +178,7 @@ Proof.
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
+*)
 Qed.
 
 Lemma subst_term_formula_eval : forall F t1 t2 x b,
