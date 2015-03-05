@@ -11,40 +11,114 @@ Require Import Coq.Reals.Rdefinitions.
 Open Scope HP_scope.
 Open Scope string_scope.
 
-Definition World (world : list DiffEq) (d : R) : Formula :=
-  Continuous (("t"'::=--1)::world) /\ "t"! >= 0 /\ "pc" = 0.
+Definition World (dvars : list Var)
+           (world : list DiffEq) : Formula :=
+  Continuous (("t"'::=--1)::world ++
+                          (List.map
+                             (fun x => x ' ::= 0) dvars))%list /\
+  "pc" = 0.
 
-Definition Discr (Prog : Formula) (d : R) : Formula :=
-  Prog /\ "t"! = d /\ "pc" = 1.
+Definition Discr (cvars : list Var)
+           (Prog : Formula) (d : R) : Formula :=
+  Prog /\ "t"! = d /\ "pc" = 1 /\ Unchanged cvars.
 
-Definition Sys (Init Prog: Formula) (world : list DiffEq)
+
+Definition Sys (dvars cvars : list Var)
+           (Init Prog: Formula) (world : list DiffEq)
            (d : R) : Formula :=
-  Init /\ [](World world d \/ Discr Prog d).
+  ("t" <= d /\ Init) /\
+     [](((World dvars world \/ Discr cvars Prog d)
+        /\ "t" >= 0) \/
+        Unchanged (dvars++cvars++"t"::"pc"::nil)%list).
 
-Theorem sys_by_induction : forall Init Prog Inv IndInv w d,
+Lemma nth_suf_Sn : forall A n (s:stream A),
+  nth_suf (S n) s =
+  tl (nth_suf n s).
+Proof.
+  intros A n; induction n; intro s;
+  firstorder.
+Qed.
+
+Lemma next_inv : forall N I,
+  is_st_formula I ->
+  (|- [](N /\ I) --> [](N /\ I /\ next I)).
+Proof.
+  simpl; intuition.
+  - apply H0.
+  - apply H0.
+  - apply next_formula_tl; auto.
+    rewrite <- nth_suf_Sn.
+    apply H0.
+Qed.
+
+(* This rule should say something about the time bound,
+   since we know that about every system. *)
+Theorem sys_by_induction :
+  forall dvars cvars Init Prog Inv IndInv w (d:R),
   is_st_formula IndInv ->
   (|- Init --> IndInv) ->
-  (|- IndInv --> Inv) ->
-  (|- (IndInv /\ World w d) --> next IndInv) ->
-  (|- (IndInv /\ Discr Prog d) --> next IndInv) ->
-  (|- Sys Init Prog w d --> [] Inv).
+  (|- (IndInv /\ 0 <= "t" <= d) --> Inv) ->
+  (|- (IndInv /\ World dvars w) --> next IndInv) ->
+  (|- (IndInv /\ 0 <= "t" <= d /\ 0 <= "t"! <= d /\ "pc" = 1
+       /\ Discr cvars Prog d) --> next IndInv) ->
+  (|- Sys dvars cvars Init Prog w d --> [] Inv).
 Proof.
-  intros Init Prog Inv IndInv w d Hst Hinit Hinv Hw Hdiscr.
+  Opaque Continuous.
+  intros dvars cvars Init Prog Inv IndInv w d
+         Hst Hinit Hinv Hw Hdiscr.
   apply imp_trans with (F2:=[]IndInv).
-  - apply imp_trans with (F2:=Sys IndInv Prog w d).
+  - apply imp_trans with
+    (F2:=Sys dvars cvars IndInv Prog w d).
     + unfold Sys. apply and_right.
-      * apply and_left1; assumption.
+      * apply and_right.
+        { apply and_left1. apply and_left1. apply imp_id. }
+        { apply and_left1. apply and_left2. assumption. }
       * apply and_left2; apply imp_id.
-    + apply inv_discr_ind.
+    + repeat apply and_assoc_left. apply and_left2.
+      apply and_left2. apply inv_discr_ind.
       * assumption.
-      * apply or_next; assumption.
+      * simpl in *; intros; specialize (Hdiscr tr);
+        specialize (Hw tr); intuition. apply H7; solve_linear.
   - apply always_imp; assumption.
 Qed.
+
+Definition all_in {T} (l1 l2 : list T) :=
+  forall x, List.In x l1 -> List.In x l2.
+
+Theorem all_in_dec_ok : forall (l1 l2 : list Var),
+  List.forallb
+    (fun x => if List.in_dec String.string_dec x l2
+              then true else false) l1 = true ->
+  all_in l1 l2.
+Proof.
+  red. intros.
+  rewrite List.forallb_forall in H.
+  apply H in H0.
+  destruct (List.in_dec String.string_dec x l2);
+    auto; discriminate.
+Qed.
+
+Theorem weaken_sys : forall dvars dvars' cvars cvars'
+                            I I' P P' w w' d d',
+  all_in dvars dvars' ->
+  all_in cvars cvars' ->
+  (|- I' --> I) ->
+  (|- "pc" = 1 --> P' --> P) ->
+  all_in w w' ->
+  (d >= d')%R ->
+  (|- Sys dvars' cvars' I' P' w' d' -->
+      Sys dvars cvars I P w d).
+Proof.
+  do 12 intro.
+  intros Hdvars Hcvars HI HP Hw Hd.
+Admitted.
 
 Section SenseCtrl.
 
   Variable Is : Formula.
   Variable Ic : Formula.
+  Variable dvars : list Var.
+  Variable cvars : list Var.
   Variable w : list DiffEq.
   Variable d : R.
   Variable S : Formula.
@@ -53,24 +127,29 @@ Section SenseCtrl.
   Variable E : Formula.
 
   Theorem sense_ctrl :
-    (|- Sys Is S w d --> []E) ->
-    (|- Sys Ic (C /\ E) w d --> []P) ->
-    (|- Sys (Is /\ Ic) (S /\ C) w d --> [](P /\ E)).
+    (|- Sys dvars cvars Is S w d --> []E) ->
+    (|- Sys dvars cvars Ic (C /\ E) w d --> []P) ->
+    (|- Sys dvars cvars (Is /\ Ic) (S /\ C) w d --> [](P /\ E)).
   Proof.
     Opaque World Discr.
     simpl. intros Hs Hc tr [ [HIs HIc] HN] n.
     split.
     - apply Hc. intuition.
-      pose proof (HN n0). intuition.
-      right. Transparent Discr. revert H0.
-      unfold Discr. simpl. intuition.
-      apply Hs. intuition.
-      specialize (HN n1). intuition.
-      right. simpl in *. intuition.
+      + pose proof (HN n0). intuition.
+        right. Transparent Discr. revert H.
+        unfold Discr. simpl. intuition.
+(*        apply Hs. intuition.
+        * specialize (HN n1). intuition.
+          right. simpl in *. intuition.
+        * apply HN.
+      + apply HN.
     - apply Hs. intuition.
-      specialize (HN n0). intuition.
-      right. simpl in *. intuition.
+      + specialize (HN n0). intuition.
+        right. simpl in *. intuition.
+      + apply HN.
   Qed.
+*)
+Admitted.
 
 End SenseCtrl.
 
@@ -84,11 +163,15 @@ Section SensorWithError.
   Definition Sense : Formula :=
     Xmax = Xmin + err /\ Xmin <= x <= Xmax.
 
+  Definition SenseWithDelay : Formula :=
+    Xmax = Xmin + err /\ Xmin <= x <= Xmax.
+
   Definition SenseSafe : Formula :=
     "pc" = 1 --> Xmin <= x <= Xmax.
 
   Theorem sense_safe : forall w d,
-    |- Sys SenseSafe Sense w d --> []SenseSafe.
+    |- Sys (Xmax::Xmin::nil)%list (x::nil)%list
+           SenseSafe Sense w d --> []SenseSafe.
   Proof.
     intros w d. apply and_left2.
     apply always_imp. solve_linear.
@@ -104,10 +187,11 @@ Section Ctrl.
      controller. *)
   Variable d : R.
   Hypothesis d_gt_0 : (d > 0)%R.
+  Variable err : R.
   
   (* The continuous dynamics of the system *)
   Definition world : list DiffEq :=
-    ["v"' ::= "a", "a"' ::= 0].
+    ["v"' ::= "a"].
 
   Definition Ctrl : Formula :=
        ("A"*d + "Vmax" <= ub /\ "a"! = "A")
@@ -138,13 +222,76 @@ Section Ctrl.
 
   Definition IndInv : Formula :=
        ("a" <  0 --> Safe)
-    /\ ("a" >= 0 --> "a"*"t" + "v" <= ub)
-    /\ 0 <= "t" <= d.
+    /\ ("a" >= 0 --> "a"*"t" + "v" <= ub).
 
   Theorem ctrl_safe :
-    |- Sys Ic (Ctrl /\ "Vmax" >= "v") world d --> []"v" <= ub.
+    |- Sys ("a"::nil) ("v"::nil)
+           Ic (Ctrl /\ "Vmax" >= "v") world d --> []"v" <= ub.
   Proof.
-    
+(*    Existing Class is_st_formula.
+    Hint Extern 1(is_st_formula _) => (simpl; intuition)
+                                     : typeclass_instances.
+    Typeclasses eauto := debug.
+*)
+    apply sys_by_induction with (IndInv:=IndInv).
+    - simpl; intuition.
+    - solve_nonlinear.
+    - solve_nonlinear.
+    - eapply diff_ind with (Hyps:=TRUE).
+      + simpl; intuition.
+      + simpl; intuition.
+      + apply and_left2; apply and_left1; apply imp_id.
+      + simpl; intuition.
+      + apply and_left1; apply imp_id.
+      + simpl; intuition.
+      + simpl deriv_formula.
+        repeat apply and_right; try solve [solve_linear].
+        Lemma go_away_Q : forall Q P,
+            (|- P) -> (|- Q --> P).
+        Proof. simpl; intuition. Qed.
+        * apply go_away_Q.
+          eapply unchanged_continuous;
+            [apply imp_id | solve_linear].
+        * apply go_away_Q.
+          eapply unchanged_continuous;
+            [apply imp_id | solve_linear].
+    - solve_nonlinear.
+  Qed.
+
+  Definition SenseCtrlSys :=
+    Sys ("a"::"Vmax"::"Vmin"::nil)%list ("v"::nil)%list
+        (SenseSafe "v" "Vmax" "Vmin" /\ Ic)
+        (Sense "v" "Vmax" "Vmin" err /\ Ctrl) 
+        world d.
+
+  Require Import RelationClasses.
+  Instance Reflexive_all_in {T} : Reflexive (@all_in T).
+  Proof. red; red; tauto. Qed.
+
+  Instance Reflexive_Rge : Reflexive Rge.
+  Proof. Require Import RIneq.
+         red. intro. apply Req_ge. reflexivity.
+  Qed.
+
+  Ltac sys_apply_with_weaken H :=
+    eapply imp_trans; [ | apply H ];
+    eapply weaken_sys; [ | | | | | ];
+      try solve [ apply all_in_dec_ok ; reflexivity
+                | apply imp_id
+                | reflexivity ].
+      
+  Theorem SenseCtrlSys_safe :
+    |- SenseCtrlSys --> [](Safe /\ SenseSafe "v" "Vmax" "Vmin").
+  Proof.
+    apply sense_ctrl.
+    + sys_apply_with_weaken sense_safe.
+      apply go_away_Q. apply imp_id.
+    + sys_apply_with_weaken ctrl_safe.
+      unfold SenseSafe. solve_linear.
+  Qed.
+
+End Ctrl.
+
 
 (*
   Definition AbstractSys : Formula :=
