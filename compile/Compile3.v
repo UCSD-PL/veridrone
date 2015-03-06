@@ -82,7 +82,7 @@ Definition real_st_subsumes_float_st (tla_st : Syntax.state) (fst : fstate) : Pr
 Definition real_st_subsumes_float_st
            (tla_st : Syntax.state) (fst : fstate) : Prop :=
   forall (v : Var) (f : Floats.float),
-  In (v, f) fst -> tla_st v = FloatToR f.
+  In (v, f) fst -> Some (tla_st v) = floatToReal f.
 
 Notation "a ~=~ b" := (real_st_subsumes_float_st a b) (at level 80).
 
@@ -93,19 +93,76 @@ Notation "a ~=~ b" := (real_st_subsumes_float_st a b) (at level 80).
 
 Notation "a ::: b" := (Cons _ a b) (at level 79, right associativity).
 
+Lemma fstate_lookup_In :
+  forall (flst : fstate) (x : Var) (y : Floats.float),
+    fstate_lookup flst x = Some y -> In (x, y) flst.
+Proof.
+  induction flst.
+  intros. simpl. inversion H.
+  {
+    intros.
+    simpl in H.
+    destruct a eqn:Ha.
+    destruct (RelDec.rel_dec x v) eqn:Hrd.
+    {
+      inversion H.
+      subst.
+      unfold RelDec.rel_dec in Hrd.
+      simpl in Hrd.
+      apply String.string_dec_sound in Hrd.
+      subst.
+      constructor.
+      reflexivity.
+    }
+    {
+      simpl. right.
+      apply IHflst. auto.
+    }
+  }
+Qed.
 
-Axiom getBound_correct: 
+Lemma related_subsumption :
+  forall (flst : fstate) (rst : Syntax.state),
+    rst ~=~ flst -> related flst rst.
+Proof.
+  intros. unfold related.
+  intros.
+  unfold real_st_subsumes_float_st in H.
+  apply H.
+  simpl.
+  apply fstate_lookup_In.
+  assumption.
+Qed.
+
+Lemma getBound_correct: 
   forall (nt : NowTerm) (bounds : list singleBoundTerm)
          (bound : singleBoundTerm),
     bound_term nt = bounds ->
     In bound bounds ->
-    forall flst rst rst_next tr res,
+    forall flst rst rst_next tr float_res real_res,
       rst ~=~ flst ->
       eval_formula (premise bound) (rst ::: rst_next ::: tr) ->
-      eval_NowTerm flst nt = Some res ->
+      eval_NowTerm flst nt = Some float_res ->
+      floatToReal float_res = Some real_res ->
       (eval_term (lb bound) rst rst_next <=
-       FloatToR res <=
-       eval_term (ub bound) rst rst_next)%R.  
+       real_res <=
+       eval_term (ub bound) rst rst_next)%R.
+Proof.
+  generalize bound_proof'. intro BP.
+  intros.
+  specialize (BP (rst ::: rst_next ::: tr) nt flst).
+  simpl in BP.
+  apply related_subsumption in H1.
+  generalize H1. intro H1'.
+  apply BP in H1.
+  unfold boundDef' in H1.
+  rewrite H3 in H1.
+  rewrite H4 in H1.
+  eapply Forall_forall in H1.
+  unfold denote_singleBoundTerm in H1. simpl in H1.
+  eapply H1. eassumption.
+  subst. eassumption.
+Qed.
 
 Fixpoint bounds_to_formula (bounds : list singleBoundTerm) (center : Term) : Formula :=
   match bounds with
@@ -237,6 +294,23 @@ induction sf; simpl; intuition.
 destruct (RelDec.rel_dec v a0); simpl; tauto.
 Qed.
 
+Lemma fstate_set_subsumed :
+  forall (sr' : Syntax.state) (sf : fstate) (v : Var) (f : Floats.float) (r : R),
+    sr' ~=~ fstate_set sf v f ->
+    Some r = floatToReal f ->
+    sr' v = r.
+Proof.
+  intros.
+  unfold real_st_subsumes_float_st in H.
+  cut (Some (sr' v) = Some r).
+  {
+    intro H'. inversion H'. reflexivity.
+  }
+  rewrite H0.
+  apply H.
+  apply in_fstate_set.
+Qed.
+
 Lemma compile_assn_correct :
   forall (assn : progr_assn) (sf sf' : fstate),
     assn_update_state assn sf = Some sf' ->
@@ -248,12 +322,13 @@ Lemma compile_assn_correct :
 Proof.
 intros.
 destruct assn eqn:Hassn; simpl.
+Check getBound_correct.
 specialize (fun (bound : singleBoundTerm)
                 (Hin : In bound (bound_term pa_source))
-                (res : Floats.float)  =>
+                (fl_res : Floats.float) (r_res : R)  =>
               getBound_correct pa_source (bound_term pa_source)
                                bound eq_refl
-                               Hin sf sr sr' tr res H0).
+                               Hin sf sr sr' tr fl_res r_res H0).
 intro Hgb_corr.
 
 unfold assn_update_state in H.
@@ -264,16 +339,33 @@ simpl in Hevalsf.
 apply boundDef_bounds_to_formula.
 apply Forall_forall. intros.
 simpl. intro.
-specialize (Hgb_corr x H f H2 Hevalsf).
-unfold eval_comp.
-cut ((eval_term (pa_dest!)%HP sr sr') = FloatToR f).
+destruct (floatToReal f) eqn:F2Rf.
 {
-  intro. rewrite H3.
-  assumption.
+  specialize (Hgb_corr x H f r H2 Hevalsf).
+  unfold eval_comp.
+  cut ((eval_term (pa_dest!)%HP sr sr') = r).
+  {
+    intro. rewrite H3.
+    auto.
+  }
+  simpl.
+  eapply fstate_set_subsumed.
+  apply H1. symmetry. assumption.
 }
-simpl.
-apply H1.
-apply in_fstate_set.
+{
+  elimtype False.
+  unfold real_st_subsumes_float_st in H1.
+  cut (exists v, (eq (Some (sr' v)) (floatToReal f))).
+  {
+    intros.
+    inversion H3.
+    rewrite <- H4 in F2Rf.
+    inversion F2Rf.
+  }
+  eexists.
+  apply H1.
+  apply in_fstate_set.
+}
 Qed.
 
 (* Strongest postcondition calculation, starting from TRUE.
