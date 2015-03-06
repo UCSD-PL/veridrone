@@ -1,3 +1,4 @@
+Require Import RelationClasses.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 
@@ -5,6 +6,14 @@ Require Import TLA.Semantics.
 Ltac breakAbstraction :=
   simpl in *; unfold tlaEntails in *; simpl in *.
 
+Ltac restoreAbstraction :=
+  change And    with (@land Formula _) in *;
+  change Imp    with (@limpl Formula _) in *;
+  change Or     with (@lor Formula _) in *;
+  change TRUE   with (@ltrue Formula _) in *;
+  change FALSE  with (@lfalse Formula _) in *;
+  change Syntax.Forall with (@lforall Formula _) in *;
+  change Syntax.Exists with (@lexists Formula _) in *.
 
 Lemma tlaRefl
 : forall G l o,
@@ -35,10 +44,26 @@ Ltac tlaAssume :=
 
 Fixpoint conj (ls : list Formula) : Formula :=
   match ls with
-  | nil => TRUE
+  | nil => ltrue
   | l :: nil => l
   | l :: ls => l //\\ conj ls
   end%list.
+
+Lemma conj_app : forall b a,
+    conj (a ++ b) -|- conj a //\\ conj b.
+Proof.
+  induction a; simpl; restoreAbstraction.
+  { intros. rewrite landtrueL. reflexivity. }
+  { intros.
+    destruct a0.
+    { simpl in *. restoreAbstraction.
+      rewrite landtrueL in IHa.
+      destruct b. simpl; restoreAbstraction.
+      rewrite landtrueR. reflexivity. reflexivity. }
+    { simpl in *; restoreAbstraction.
+      rewrite landA.
+      rewrite IHa. reflexivity. } }
+Qed.
 
 Fixpoint tlaSimplify (Hyps : list Formula) (f : Formula) : list Formula :=
   match f with
@@ -76,7 +101,7 @@ Proof.
     specialize (IHG2 Hs).
     destruct (tlaSimplify Hs G1);
       destruct (tlaSimplify Hs G2); simpl in *;
-      change And with (@land Formula _).
+      restoreAbstraction.
     { apply landR; eauto. }
     { apply landR; eauto. }
     { destruct l.
@@ -85,10 +110,22 @@ Proof.
       eapply IHG1.
       rewrite H. rewrite List.app_nil_r. reflexivity. }
     { apply landR.
-      { admit. }
+      { apply IHG1.
+        rewrite H.
+        admit. }
       { admit. } } }
-  { simpl. admit. }
-  { admit. }
+  { simpl in *; restoreAbstraction.
+    admit. }
+  { simpl in *; restoreAbstraction; intros.
+    specialize (IHG2 (G1 :: Hs)%list).
+    destruct (tlaSimplify (G1 :: Hs) G2).
+    { apply IHG2 in H.
+      apply limplAdj. rewrite <- H.
+      simpl.
+      destruct Hs; simpl; restoreAbstraction.
+      tlaAssume.
+      tlaSplit; try tlaAssume. }
+    { admit. } }
 Qed.
 
 Theorem tlaSimplify_sound : forall G H,

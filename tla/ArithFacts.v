@@ -101,7 +101,7 @@ Proof. solve_linear. Qed.
 
 Lemma Rmult_le_algebra : forall r1 r2 r3,
   (r2 > 0 -> r1 <= r2*r3 -> r1 * (/r2) <= r3)%R.
-Proof. 
+Proof.
   intros.
   apply (Rmult_le_reg_r r2); solve_linear.
   rewrite Rmult_assoc.
