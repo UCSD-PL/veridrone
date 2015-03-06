@@ -1,6 +1,7 @@
 Require Import RelationClasses.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
+Require Import TLA.LogicLemmas.
 
 (** NOTE: Avoid using this **)
 Ltac breakAbstraction :=
@@ -41,6 +42,102 @@ Ltac tlaAssume :=
           | apply landL1 ; tlaAssume
           | apply landL2 ; tlaAssume ]
   end.
+
+(** Rewriting **)
+Section RW_Impl.
+  Variable P : Formula.
+  Definition RW_Impl (A B : Formula) : Prop :=
+    P |-- A -->> B.
+
+  Global Instance Reflexive_RW_Impl : Reflexive RW_Impl.
+  Proof.
+    red; red. intros. apply limplAdj. tlaAssume.
+  Qed.
+
+  Global Instance Transitive_RW_Impl : Transitive RW_Impl.
+  Proof.
+    red; red. intros. apply limplAdj.
+    eapply lcut. instantiate (1 := y).
+    apply landAdj. apply H.
+    apply landL1. apply H0.
+  Qed.
+
+  Require Import Setoid.
+
+  Global Add Parametric Relation : Formula RW_Impl
+   reflexivity proved by Reflexive_RW_Impl
+   transitivity proved by Transitive_RW_Impl
+   as RW_Impl_rel.
+
+  Global Add Parametric Morphism : (@land Formula _) with
+    signature (RW_Impl ==> RW_Impl ==> RW_Impl)
+    as RW_Impl_and_mor.
+  Proof.
+    unfold RW_Impl. simpl.
+    breakAbstraction. simpl. intuition.
+  Qed.
+
+  Global Add Parametric Morphism : (@land Formula _) with
+    signature (RW_Impl --> RW_Impl --> Basics.flip RW_Impl)
+    as RW_Impl_and_flip_mor.
+  Proof.
+    unfold RW_Impl. simpl.
+    breakAbstraction. simpl. intuition.
+  Qed.
+
+  Global Add Parametric Morphism : (@lor Formula _) with
+    signature (RW_Impl ==> RW_Impl ==> RW_Impl)
+    as RW_Impl_or_mor.
+  Proof.
+    unfold RW_Impl. simpl.
+    breakAbstraction. simpl. intuition.
+  Qed.
+
+  Global Add Parametric Morphism : (@lor Formula _) with
+    signature (RW_Impl --> RW_Impl --> Basics.flip RW_Impl)
+    as RW_Impl_or_flip_mor.
+  Proof.
+    unfold RW_Impl. simpl.
+    breakAbstraction. simpl. intuition.
+  Qed.
+
+  Global Add Parametric Morphism : (@limpl Formula _) with
+    signature (RW_Impl --> RW_Impl ==> RW_Impl)
+    as RW_Impl_impl_mor.
+  Proof.
+    unfold RW_Impl. simpl.
+    breakAbstraction. simpl. intuition.
+  Qed.
+
+  Global Add Parametric Morphism : (@limpl Formula _) with
+    signature (RW_Impl ==> RW_Impl --> Basics.flip RW_Impl)
+    as RW_Impl_impl_flip_mor.
+  Proof.
+    unfold RW_Impl. simpl.
+    breakAbstraction. simpl. intuition.
+  Qed.
+
+  Global Add Parametric Morphism : (@lentails Formula _ P) with
+    signature (RW_Impl ==> Basics.impl)
+    as RW_Impl_entails_mor.
+  Proof.
+    unfold RW_Impl, Basics.impl. simpl.
+    breakAbstraction. simpl. intuition.
+  Qed.
+
+  Global Add Parametric Morphism : (@lentails Formula _ P) with
+    signature (RW_Impl --> Basics.flip Basics.impl)
+    as RW_Impl_flip_entails_mor.
+  Proof.
+    unfold RW_Impl, Basics.impl. simpl.
+    breakAbstraction. simpl. intuition.
+  Qed.
+
+  Definition rw_impl {A B : Formula} (H : P |-- A -->> B) : RW_Impl A B := H.
+
+End RW_Impl.
+
+Arguments rw_impl {P A B} _ _ _ _.
 
 Fixpoint conj (ls : list Formula) : Formula :=
   match ls with
