@@ -6,6 +6,7 @@ Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.Lib.
 Require Import TLA.ProofRules.
+Require Import TLA.Automation.
 
 
 (* Some useful tactics for our examples. *)
@@ -13,14 +14,14 @@ Require Import TLA.ProofRules.
 (* This solves linear real arithmetic goals.
    It should be complete. *)
 Ltac solve_linear :=
-  simpl; intros; unfold eval_comp in *;
+  breakAbstraction; intros; unfold eval_comp in *;
   simpl in *; intuition; try psatzl R.
 
 (* This tries to solve nonlinear real
    arithmetic goals. It is not complete
    and can be incredibly inefficient. *)
 Ltac solve_nonlinear :=
-  simpl; intros; unfold eval_comp in *;
+  breakAbstraction; intros; unfold eval_comp in *;
   simpl in *; intuition; try psatz R.
 
 (* This simplifies real arithmetic goals.

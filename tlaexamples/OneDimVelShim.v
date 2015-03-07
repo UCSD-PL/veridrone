@@ -1,12 +1,9 @@
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
-Require Import TLA.Lib.
+Require Import Coq.Reals.Rdefinitions.
+Require Import TLA.TLA.
 Import LibNotations.
 Require Import TLA.ProofRules.
-Require Import TLA.Tactics.
 Require Import TLA.ArithFacts.
 (*Require Import TLA.Substitution. *)
-Require Import Coq.Reals.Rdefinitions.
 
 Open Scope HP_scope.
 Open Scope string_scope.
@@ -15,25 +12,25 @@ Definition World (dvars : list Var)
            (world : list DiffEq) : Formula :=
   Continuous (("t"'::=--1)::world ++
                           (List.map
-                             (fun x => x ' ::= 0) dvars))%list /\
+                             (fun x => x ' ::= 0) dvars))%list //\\
   "pc" = 0.
 
 Definition Discr (cvars : list Var)
            (Prog : Formula) (d : R) : Formula :=
-  Prog /\ "t"! = d /\ "pc" = 1 /\ Unchanged cvars.
+  Prog //\\ "t"! = d //\\ "pc" = 1 //\\ Unchanged cvars.
 
 
 Definition Sys (dvars cvars : list Var)
            (Init Prog: Formula) (world : list DiffEq)
            (d : R) : Formula :=
-  ("t" <= d /\ Init) /\
-     [](((World dvars world \/ Discr cvars Prog d)
-        /\ "t" >= 0) \/
+  ("t" <= d //\\ Init) //\\
+     [](((World dvars world \\// Discr cvars Prog d)
+        //\\ "t" >= 0) \\//
         Unchanged (dvars++cvars++"t"::"pc"::nil)%list).
 
-Lemma nth_suf_Sn : forall A n (s:stream A),
-  nth_suf (S n) s =
-  tl (nth_suf n s).
+Lemma nth_suf_Sn : forall A n (s:Stream.stream A),
+  Stream.nth_suf (S n) s =
+  Stream.tl (Stream.nth_suf n s).
 Proof.
   intros A n; induction n; intro s;
   firstorder.
@@ -41,14 +38,14 @@ Qed.
 
 Lemma next_inv : forall N I,
   is_st_formula I ->
-  (|- [](N /\ I) --> [](N /\ I /\ next I)).
+  (|-- [](N //\\ I) -->> [](N //\\ I //\\ next I)).
 Proof.
-  simpl; intuition.
-  - apply H0.
-  - apply H0.
+  intros. breakAbstraction. intuition.
+  - apply H1.
+  - apply H1.
   - apply next_formula_tl; auto.
     rewrite <- nth_suf_Sn.
-    apply H0.
+    apply H1.
 Qed.
 
 (* This rule should say something about the time bound,
@@ -56,12 +53,12 @@ Qed.
 Theorem sys_by_induction :
   forall dvars cvars Init Prog Inv IndInv w (d:R),
   is_st_formula IndInv ->
-  (|- Init --> IndInv) ->
-  (|- (IndInv /\ 0 <= "t" <= d) --> Inv) ->
-  (|- (IndInv /\ World dvars w) --> next IndInv) ->
-  (|- (IndInv /\ 0 <= "t" <= d /\ 0 <= "t"! <= d /\ "pc" = 1
-       /\ Discr cvars Prog d) --> next IndInv) ->
-  (|- Sys dvars cvars Init Prog w d --> [] Inv).
+  (|-- Init -->> IndInv) ->
+  (|-- (IndInv //\\ 0 <= "t" <= d) -->> Inv) ->
+  (|-- (IndInv //\\ World dvars w) -->> next IndInv) ->
+  (|-- (IndInv //\\ 0 <= "t" <= d //\\ 0 <= "t"! <= d //\\ "pc" = 1
+       //\\ Discr cvars Prog d) -->> next IndInv) ->
+  (|-- Sys dvars cvars Init Prog w d -->> [] Inv).
 Proof.
   Opaque Continuous.
   intros dvars cvars Init Prog Inv IndInv w d
@@ -77,7 +74,7 @@ Proof.
     + repeat apply and_assoc_left. apply and_left2.
       apply and_left2. apply inv_discr_ind.
       * assumption.
-      * simpl in *; intros; specialize (Hdiscr tr);
+      * breakAbstraction; intros. specialize (Hdiscr tr);
         specialize (Hw tr); intuition. apply H7; solve_linear.
   - apply always_imp; assumption.
 Qed.
@@ -128,8 +125,8 @@ Section SenseCtrl.
 
   Theorem sense_ctrl :
     (|- Sys dvars cvars Is S w d --> []E) ->
-    (|- Sys dvars cvars Ic (C /\ E) w d --> []P) ->
-    (|- Sys dvars cvars (Is /\ Ic) (S /\ C) w d --> [](P /\ E)).
+    (|- Sys dvars cvars Ic (C //\\ E) w d --> []P) ->
+    (|- Sys dvars cvars (Is //\\ Ic) (S //\\ C) w d --> [](P //\\ E)).
   Proof.
     Opaque World Discr.
     simpl. intros Hs Hc tr [ [HIs HIc] HN] n.
@@ -161,10 +158,10 @@ Section SensorWithError.
   Variable err : R.
 
   Definition Sense : Formula :=
-    Xmax = Xmin + err /\ Xmin <= x <= Xmax.
+    Xmax = Xmin + err //\\ Xmin <= x <= Xmax.
 
   Definition SenseWithDelay : Formula :=
-    Xmax = Xmin + err /\ Xmin <= x <= Xmax.
+    Xmax = Xmin + err //\\ Xmin <= x <= Xmax.
 
   Definition SenseSafe : Formula :=
     "pc" = 1 --> Xmin <= x <= Xmax.
@@ -194,39 +191,39 @@ Section Ctrl.
     ["v"' ::= "a"].
 
   Definition Ctrl : Formula :=
-       ("A"*d + "Vmax" <= ub /\ "a"! = "A")
+       ("A"*d + "Vmax" <= ub //\\ "a"! = "A")
     \/ ("a"! <= 0).
 
 (*
   Definition Ctrl1 : Formula :=
-       ("A"*d + "v" <= ub /\ "a"! = "A")
+       ("A"*d + "v" <= ub //\\ "a"! = "A")
     \/ ("a"! <= 0).
 
   Definition Ctrl2 : Formula :=
        "V"! = "v"
-    /\   (("a" >= 0 /\ "A"*d + "V" + "a"*d <= ub /\ "a"! = "A")
-       \/ ("a" < 0 /\ "A"*d + "V" <= ub /\ "a"! = "A")
+    //\\   (("a" >= 0 //\\ "A"*d + "V" + "a"*d <= ub //\\ "a"! = "A")
+       \/ ("a" < 0 //\\ "A"*d + "V" <= ub //\\ "a"! = "A")
        \/ "a"! <= 0).
 
   Definition Next (Ctrl:Formula) : Formula :=
-       (Evolve /\ "t"! >= 0)
-    \/ (Ctrl /\ "t"! = d /\ Unchanged (["v"])).
+       (Evolve //\\ "t"! >= 0)
+    \/ (Ctrl //\\ "t"! = d //\\ Unchanged (["v"])).
 *)
 
   Definition Ic : Formula :=
-    "v" <= ub /\ "v" + "a"*d <= ub /\
-    0 <= "t" <= d /\ "Vmax" >= "v".
+    "v" <= ub //\\ "v" + "a"*d <= ub /\
+    0 <= "t" <= d //\\ "Vmax" >= "v".
 
   Definition Safe : Formula :=
     "v" <= ub.
 
   Definition IndInv : Formula :=
        ("a" <  0 --> Safe)
-    /\ ("a" >= 0 --> "a"*"t" + "v" <= ub).
+    //\\ ("a" >= 0 --> "a"*"t" + "v" <= ub).
 
   Theorem ctrl_safe :
     |- Sys ("a"::nil) ("v"::nil)
-           Ic (Ctrl /\ "Vmax" >= "v") world d --> []"v" <= ub.
+           Ic (Ctrl //\\ "Vmax" >= "v") world d --> []"v" <= ub.
   Proof.
 (*    Existing Class is_st_formula.
     Hint Extern 1(is_st_formula _) => (simpl; intuition)
@@ -260,8 +257,8 @@ Section Ctrl.
 
   Definition SenseCtrlSys :=
     Sys ("a"::"Vmax"::"Vmin"::nil)%list ("v"::nil)%list
-        (SenseSafe "v" "Vmax" "Vmin" /\ Ic)
-        (Sense "v" "Vmax" "Vmin" err /\ Ctrl) 
+        (SenseSafe "v" "Vmax" "Vmin" //\\ Ic)
+        (Sense "v" "Vmax" "Vmin" err //\\ Ctrl) 
         world d.
 
   Require Import RelationClasses.
@@ -281,7 +278,7 @@ Section Ctrl.
                 | reflexivity ].
       
   Theorem SenseCtrlSys_safe :
-    |- SenseCtrlSys --> [](Safe /\ SenseSafe "v" "Vmax" "Vmin").
+    |- SenseCtrlSys --> [](Safe //\\ SenseSafe "v" "Vmax" "Vmin").
   Proof.
     apply sense_ctrl.
     + sys_apply_with_weaken sense_safe.
@@ -295,25 +292,25 @@ End Ctrl.
 
 (*
   Definition AbstractSys : Formula :=
-    Init /\ [](Next AbstractCtrl).
+    Init //\\ [](Next AbstractCtrl).
 
   Definition Ctrl1Sys : Formula :=
-    Init /\ [](Next Ctrl1).
+    Init //\\ [](Next Ctrl1).
 
   Definition Ctrl2Sys : Formula :=
-    Init /\ [](Next Ctrl2).
+    Init //\\ [](Next Ctrl2).
 *)
 
   Definition Safe : Formula :=
     "v" <= ub.
 
   Lemma ctrl_safe :
-    |- Sys Ic (Ctrl /\ VBound) w d --> []Safe.
+    |- Sys Ic (Ctrl //\\ VBound) w d --> []Safe.
 
   Definition IndInv : Formula :=
        ("a" <  0 --> Safe)
-    /\ ("a" >= 0 --> "a"*"t" + "v" <= ub)
-    /\ 0 <= "t" <= d.
+    //\\ ("a" >= 0 --> "a"*"t" + "v" <= ub)
+    //\\ 0 <= "t" <= d.
 
   Theorem abstract_safety :
     |- AbstractSys --> []Safe.

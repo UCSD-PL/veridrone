@@ -14,3 +14,4 @@ ArithFacts.v
 Substitution.v
 Tactics.v
 Automation.v
+TLA.v

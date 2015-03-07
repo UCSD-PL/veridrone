@@ -14,7 +14,8 @@ Ltac restoreAbstraction :=
   change TRUE   with (@ltrue Formula _) in *;
   change FALSE  with (@lfalse Formula _) in *;
   change Syntax.Forall with (@lforall Formula _) in *;
-  change Syntax.Exists with (@lexists Formula _) in *.
+  change Syntax.Exists with (@lexists Formula _) in *;
+  fold eval_formula.
 
 Lemma tlaRefl
 : forall G l o,
@@ -42,6 +43,14 @@ Ltac tlaAssume :=
           | apply landL1 ; tlaAssume
           | apply landL2 ; tlaAssume ]
   end.
+
+Ltac tlaIntro :=
+  first [ apply lforallR; intro
+        | apply limplAdj_true
+        | apply limplAdj ].
+
+Ltac tlaIntuition :=
+  breakAbstraction ; intuition ; restoreAbstraction.
 
 (** Rewriting **)
 Section RW_Impl.

@@ -16,4 +16,11 @@ Section logic.
     eapply landR. reflexivity. assumption.
   Qed.
 
+  Theorem limplAdj_true : forall P Q,
+      P |-- Q ->
+      ltrue |-- P -->> Q.
+  Proof.
+    intros. apply limplAdj. apply landL2. assumption.
+  Qed.
+
 End logic.

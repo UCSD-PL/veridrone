@@ -156,92 +156,111 @@ Proof.
   auto.
 Qed.
 
+Lemma discr_ind : forall P A I N,
+    is_st_formula I ->
+    (P |-- [] A) ->
+    (A |-- I //\\ N -->> next I) ->
+    (P |-- (I //\\ []N) -->> []I).
+Proof.
+  intros. rewrite H0; clear H0.
+  intro. simpl; intros.
+  induction n.
+  { simpl. tauto. }
+  { simpl. rewrite Stream.nth_suf_tl.
+    apply next_formula_tl; auto.
+    apply H1; auto.
+    split; auto. destruct H2. apply H3. }
+Qed.
+
+Section in_context.
+  Variable C : Formula.
+
 (* A variety of basic propositional
    and temporal logic proof rules *)
 Lemma imp_trans : forall F1 F2 F3,
-  (|-- F1 -->> F2) ->
-  (|-- F2 -->> F3) ->
-  (|-- F1 -->> F3).
-Proof. breakAbstraction; eauto. Qed.
+  (C |-- F1 -->> F2) ->
+  (C |-- F2 -->> F3) ->
+  (C |-- F1 -->> F3).
+Proof. tlaIntuition. Qed.
 
 Lemma always_imp : forall F1 F2,
   (|-- F1 -->> F2) ->
-  (|-- []F1 -->> []F2).
-Proof.
-  breakAbstraction. intros. intuition.
-Qed.
+  (C |-- []F1 -->> []F2).
+Proof. tlaIntuition. Qed.
 
 Lemma always_and_left : forall F1 F2 F3,
-  (|-- [](F1 //\\ F2) -->> F3) ->
-  (|-- ([]F1 //\\ []F2) -->> F3).
-Proof. breakAbstraction; intuition. Qed.
+  (C |-- [](F1 //\\ F2) -->> F3) ->
+  (C |-- ([]F1 //\\ []F2) -->> F3).
+Proof. tlaIntuition. Qed.
 
 Lemma and_right : forall F1 F2 F3,
-  (|-- F1 -->> F2) ->
-  (|-- F1 -->> F3) ->
-  (|-- F1 -->> (F2 /\ F3)).
-Proof. breakAbstraction; intuition. Qed.
+  (C |-- F1 -->> F2) ->
+  (C |-- F1 -->> F3) ->
+  (C |-- F1 -->> (F2 //\\ F3)).
+Proof. tlaIntuition. Qed.
 
 Lemma and_left1 : forall F1 F2 F3,
-  (|-- F1 -->> F3) ->
-  (|-- (F1 //\\ F2) -->> F3).
-Proof. breakAbstraction; intuition. Qed.
+  (C |-- F1 -->> F3) ->
+  (C |-- (F1 //\\ F2) -->> F3).
+Proof. tlaIntuition. Qed.
 
 Lemma and_left2 : forall F1 F2 F3,
-  (|-- F2 -->> F3) ->
-  (|-- (F1 //\\ F2) -->> F3).
-Proof. breakAbstraction; intuition. Qed.
+  (C |-- F2 -->> F3) ->
+  (C |-- (F1 //\\ F2) -->> F3).
+Proof. tlaIntuition. Qed.
 
 Lemma imp_id : forall F,
   |-- F -->> F.
-Proof. breakAbstraction; intuition. Qed.
+Proof. tlaIntuition. Qed.
 
 Lemma or_next : forall F1 F2 N1 N2,
-  (|-- (F1 //\\ N1) -->> F2) ->
-  (|-- (F1 //\\ N2) -->> F2) ->
-  (|-- (F1 //\\ (N1 \/ N2)) -->> F2).
-Proof. breakAbstraction; intuition. Qed.
+  (C |-- (F1 //\\ N1) -->> F2) ->
+  (C |-- (F1 //\\ N2) -->> F2) ->
+  (C |-- (F1 //\\ (N1 \\// N2)) -->> F2).
+Proof. tlaIntuition. Qed.
 
 Lemma or_left : forall F1 F2 F3,
-  (|-- F1 -->> F3) ->
-  (|-- F2 -->> F3) ->
-  (|-- (F1 \/ F2) -->> F3).
-Proof. breakAbstraction; intuition. Qed.
+  (C |-- F1 -->> F3) ->
+  (C |-- F2 -->> F3) ->
+  (C |-- (F1 \\// F2) -->> F3).
+Proof. tlaIntuition. Qed.
 
 Lemma or_right1 : forall F1 F2 F3,
-  (|-- F1 -->> F2) ->
-  (|-- F1 -->> (F2 \/ F3)).
-Proof. breakAbstraction; intuition. Qed.
+  (C |-- F1 -->> F2) ->
+  (C |-- F1 -->> (F2 \\// F3)).
+Proof. tlaIntuition. Qed.
 
 Lemma or_right2 : forall F1 F2 F3,
-  (|-- F1 -->> F3) ->
-  (|-- F1 -->> (F2 \/ F3)).
-Proof. breakAbstraction; intuition. Qed.
+  (C |-- F1 -->> F3) ->
+  (C |-- F1 -->> (F2 \\// F3)).
+Proof. tlaIntuition. Qed.
 
 Lemma imp_right : forall F1 F2 F3,
-  (|-- (F1 //\\ F2) -->> F3) ->
-  (|-- F1 -->> (F2 -->> F3)).
-Proof. breakAbstraction; intuition. Qed.
+  (C |-- (F1 //\\ F2) -->> F3) ->
+  (C |-- F1 -->> (F2 -->> F3)).
+Proof. tlaIntuition. Qed.
 
 Lemma imp_strengthen : forall F1 F2 F3,
-  (|-- F1 -->> F2) ->
-  (|-- (F1 //\\ F2) -->> F3) ->
-  (|-- F1 -->> F3).
-Proof. breakAbstraction; intuition. Qed.
+  (C |-- F1 -->> F2) ->
+  (C |-- (F1 //\\ F2) -->> F3) ->
+  (C |-- F1 -->> F3).
+Proof. tlaIntuition. Qed.
 
 Lemma and_assoc_left : forall F1 F2 F3 F4,
-  (|-- (F1 //\\ (F2 //\\ F3)) -->> F4) ->
-  (|-- ((F1 //\\ F2) //\\ F3) -->> F4).
-Proof. breakAbstraction; intuition. Qed.
+  (C |-- (F1 //\\ (F2 //\\ F3)) -->> F4) ->
+  (C |-- ((F1 //\\ F2) //\\ F3) -->> F4).
+Proof. tlaIntuition. Qed.
 
 Lemma and_comm_left : forall F1 F2 F3,
-  (|-- (F2 //\\ F1) -->> F3) ->
-  (|-- (F1 //\\ F2) -->> F3).
-Proof. breakAbstraction; intuition. Qed.
+  (C |-- (F2 //\\ F1) -->> F3) ->
+  (C |-- (F1 //\\ F2) -->> F3).
+Proof. tlaIntuition. Qed.
 
 Lemma forall_right : forall T F G,
   (forall x, |-- F -->> G x) ->
-  (|-- F -->> @lforall Formula _ T G).
-Proof. breakAbstraction; intuition. Qed.
+  (C |-- F -->> @lforall Formula _ T G).
+Proof. tlaIntuition. Qed.
 
 Close Scope HP_scope.
+
+End in_context.
