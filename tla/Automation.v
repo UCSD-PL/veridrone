@@ -16,6 +16,7 @@ Ltac restoreAbstraction :=
   change FALSE  with (@lfalse Formula _) in *;
   change Syntax.Forall with (@lforall Formula _) in *;
   change Syntax.Exists with (@lexists Formula _) in *;
+  change tlaEntails with (@lentails Formula _) in *;
   fold eval_formula.
 
 Lemma tlaRefl

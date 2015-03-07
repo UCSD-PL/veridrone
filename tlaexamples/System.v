@@ -17,8 +17,7 @@ Definition World (dvars : list Var)
 
 Definition Discr (cvars : list Var)
            (Prog : Formula) (d : R) : Formula :=
-  Prog //\\ "t"! = d //\\ "pc" = 1 //\\ Unchanged cvars.
-
+  Prog //\\ "t"! <= d //\\ "pc" = 1 //\\ Unchanged cvars.
 
 Definition Sys (dvars cvars : list Var)
            (Init Prog: Formula) (world : list DiffEq)
@@ -156,6 +155,30 @@ Lemma World_weaken : forall dvars dvars' w w',
 Proof.
 Admitted.
 
+Lemma Unchanged_In : forall ls l,
+    List.In l ls ->
+    Unchanged ls |-- l! = l.
+Proof.
+  induction ls; simpl.
+  { inversion 1. }
+  { intros. destruct H; restoreAbstraction.
+    { subst. charge_tauto. }
+    { rewrite IHls; eauto. charge_tauto. } }
+Qed.
+
+Lemma Unchanged_weaken : forall vars' vars,
+    all_in vars' vars ->
+    Unchanged vars |-- Unchanged vars'.
+Proof.
+  induction vars'.
+  { intros. tlaIntuition. }
+  { intros. red in H.
+    simpl. restoreAbstraction.
+    tlaSplit.
+    { apply Unchanged_In. apply H. left. reflexivity. }
+    { eapply IHvars'. red. intros. eapply H. right. assumption. } }
+Qed.
+
 Lemma Discr_weaken : forall cvars cvars' P P' d d',
     all_in cvars cvars' ->
     |-- "pc" = 1 -->> P' -->> P ->
@@ -163,7 +186,8 @@ Lemma Discr_weaken : forall cvars cvars' P P' d d',
     Discr cvars' P' d' |-- Discr cvars P d.
 Proof.
   unfold Discr. intros.
-Abort.
+  rewrite Unchanged_weaken; eauto. solve_linear.
+Qed.
 
 Theorem Sys_weaken : forall dvars dvars' cvars cvars'
                             I I' P P' w w' d d',
@@ -172,7 +196,7 @@ Theorem Sys_weaken : forall dvars dvars' cvars cvars'
   (|-- I' -->> I) ->
   (|-- "pc" = 1 -->> P' -->> P) ->
   all_in w w' ->
-  (d >= d')%R -> (** This weakening is non-trivial for discrete formula **)
+  (d >= d')%R ->
   (Sys dvars' cvars' I' P' w' d' |-- Sys dvars cvars I P w d).
 Proof.
   do 12 intro.
@@ -189,7 +213,13 @@ Proof.
     rewrite landC. tlaRevert. apply forget_prem.
     tlaIntro.
     erewrite World_weaken by eauto.
-    admit. }
+    erewrite Discr_weaken by eauto.
+    erewrite Unchanged_weaken. reflexivity.
+    revert Hdvars Hcvars.
+    clear.
+    unfold all_in. intros. specialize (Hdvars x).
+    specialize (Hcvars x).
+    revert H. repeat rewrite List.in_app_iff. intuition. }
 Qed.
 
 Theorem sys_by_induction :
