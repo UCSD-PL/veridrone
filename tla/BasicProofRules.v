@@ -264,3 +264,55 @@ Proof. tlaIntuition. Qed.
 Close Scope HP_scope.
 
 End in_context.
+
+Lemma always_tauto : forall G P, |-- P -> G |-- [] P.
+Proof. tlaIntuition. Qed.
+
+Lemma next_inv : forall N I,
+  is_st_formula I ->
+  (|-- [](N //\\ I) -->> [](N //\\ I //\\ next I)).
+Proof.
+  intros. breakAbstraction. intuition.
+  - apply H1.
+  - apply H1.
+  - apply next_formula_tl; auto.
+    rewrite <- Stream.nth_suf_Sn.
+    apply H1.
+Qed.
+
+Lemma next_inv' : forall G P Q Z,
+  is_st_formula Q ->
+  (|-- P -->> Q) ->
+  (|-- P //\\ next Q -->> Z) ->
+  (G |-- []P -->> []Z).
+Proof.
+  tlaIntuition.
+  - apply H1; auto.
+    split; auto.
+    apply next_formula_tl; auto.
+    rewrite <- Stream.nth_suf_Sn. auto.
+Qed.
+
+Lemma Always_and : forall P Q,
+    []P //\\ []Q -|- [](P //\\ Q).
+Proof.
+  intros. split.
+  { breakAbstraction. intros. intuition. }
+  { breakAbstraction; split; intros; edestruct H; eauto. }
+Qed.
+
+Lemma Always_or : forall P Q,
+    []P \\// []Q |-- [](P \\// Q).
+Proof. tlaIntuition. Qed.
+
+Lemma always_st : forall Q,
+    is_st_formula Q ->
+    [] Q -|- [] (Q //\\ next Q).
+Proof.
+  intros. split.
+  { rewrite <- Always_and. charge_split; try charge_tauto.
+    breakAbstraction. intros.
+    rewrite next_formula_tl; auto.
+    rewrite <- Stream.nth_suf_Sn. eauto. }
+  { rewrite <- Always_and. charge_tauto. }
+Qed.

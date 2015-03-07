@@ -3,5 +3,9 @@
 -R ../coq-ext-lib/theories ExtLib
 -I ../compile
 -I ../../Charge/Charge!/bin
-AbstractIndAccCtrl.v
-OneDimAccShimUtil.v
+-R . Examples
+System.v
+OneDimVelShim.v
+
+# AbstractIndAccCtrl.v
+# OneDimAccShimUtil.v

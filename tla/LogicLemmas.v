@@ -36,6 +36,20 @@ Section logic.
       P |-- Q ->
       P |-- R.
   Proof. intros; eapply lcut; eauto. Qed.
+
+  Lemma land_lor_distr : forall P Q R,
+      P //\\ (Q \\// R) -|- (P //\\ Q) \\// (P //\\ R).
+  Proof.
+    intros. split.
+    { rewrite landC. apply landAdj.
+      apply lorL; apply limplAdj.
+      { apply lorR1. rewrite landC. reflexivity. }
+      { apply lorR2. rewrite landC. reflexivity. } }
+    { apply lorL; apply landR; try solve [ apply landL1 ; reflexivity ].
+      { apply lorR1. apply landL2. reflexivity. }
+      { apply lorR2. apply landL2. reflexivity. } }
+  Qed.
+
 End logic.
 
 Ltac charge_split := apply landR.
@@ -104,6 +118,36 @@ Section logic2.
   Context {ILO : ILogicOps L}.
   Context {IL : ILogic L}.
 
+  Definition liff (A B : L) : L :=
+    (A -->> B) //\\ (B -->> A).
+
+  Notation "x <<-->> y" := (liff x y) (at level 78).
+
+
+  Lemma ltrue_liff : forall A B,
+      |-- A <<-->> B <-> A -|- B.
+  Proof.
+    unfold liff. split.
+    { intros. split.
+      { apply landAdj_true.
+        rewrite H. apply landL1. reflexivity. }
+      { apply landAdj_true.
+        rewrite H. apply landL2. reflexivity. } }
+    { intro. rewrite H.
+      apply landR; apply limplAdj_true; reflexivity. }
+  Qed.
+
+  Lemma land_cancel : forall A B C,
+      A |-- B <<-->> C ->
+      A //\\ B -|- A //\\ C.
+  Proof.
+    intros. split.
+    { charge_split; try charge_tauto.
+      rewrite H. charge_tauto. }
+    { charge_split; try charge_tauto.
+      rewrite H. charge_tauto. }
+  Qed.
+
   Lemma uncurry : forall P Q R,
       (P //\\ Q -->> R) -|- (P -->> Q -->> R).
   Proof.
@@ -124,3 +168,5 @@ Section logic2.
   Proof. intros; charge_tauto. Qed.
 
 End logic2.
+
+Notation "x <<-->> y" := (liff x y) (at level 78).

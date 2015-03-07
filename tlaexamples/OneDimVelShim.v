@@ -1,114 +1,12 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
 Import LibNotations.
-Require Import TLA.ProofRules.
 Require Import TLA.ArithFacts.
+Require Import Examples.System.
 (*Require Import TLA.Substitution. *)
 
 Open Scope HP_scope.
 Open Scope string_scope.
-
-Definition World (dvars : list Var)
-           (world : list DiffEq) : Formula :=
-  Continuous (("t"'::=--1)::world ++
-                          (List.map
-                             (fun x => x ' ::= 0) dvars))%list //\\
-  "pc" = 0.
-
-Definition Discr (cvars : list Var)
-           (Prog : Formula) (d : R) : Formula :=
-  Prog //\\ "t"! = d //\\ "pc" = 1 //\\ Unchanged cvars.
-
-
-Definition Sys (dvars cvars : list Var)
-           (Init Prog: Formula) (world : list DiffEq)
-           (d : R) : Formula :=
-  ("t" <= d //\\ Init) //\\
-     [](((World dvars world \\// Discr cvars Prog d)
-        //\\ "t" >= 0) \\//
-        Unchanged (dvars++cvars++"t"::"pc"::nil)%list).
-
-Lemma nth_suf_Sn : forall A n (s:Stream.stream A),
-  Stream.nth_suf (S n) s =
-  Stream.tl (Stream.nth_suf n s).
-Proof.
-  intros A n; induction n; intro s;
-  firstorder.
-Qed.
-
-Lemma next_inv : forall N I,
-  is_st_formula I ->
-  (|-- [](N //\\ I) -->> [](N //\\ I //\\ next I)).
-Proof.
-  intros. breakAbstraction. intuition.
-  - apply H1.
-  - apply H1.
-  - apply next_formula_tl; auto.
-    rewrite <- nth_suf_Sn.
-    apply H1.
-Qed.
-
-(* This rule should say something about the time bound,
-   since we know that about every system. *)
-Theorem sys_by_induction :
-  forall dvars cvars Init Prog Inv IndInv w (d:R),
-  is_st_formula IndInv ->
-  (|-- Init -->> IndInv) ->
-  (|-- (IndInv //\\ 0 <= "t" <= d) -->> Inv) ->
-  (|-- (IndInv //\\ World dvars w) -->> next IndInv) ->
-  (|-- (IndInv //\\ 0 <= "t" <= d //\\ 0 <= "t"! <= d //\\ "pc" = 1
-       //\\ Discr cvars Prog d) -->> next IndInv) ->
-  (|-- Sys dvars cvars Init Prog w d -->> [] Inv).
-Proof.
-  Opaque Continuous.
-  intros dvars cvars Init Prog Inv IndInv w d
-         Hst Hinit Hinv Hw Hdiscr.
-  apply imp_trans with (F2:=[]IndInv).
-  - apply imp_trans with
-    (F2:=Sys dvars cvars IndInv Prog w d).
-    + unfold Sys. apply and_right.
-      * apply and_right.
-        { apply and_left1. apply and_left1. apply imp_id. }
-        { apply and_left1. apply and_left2. assumption. }
-      * apply and_left2; apply imp_id.
-    + repeat apply and_assoc_left. apply and_left2.
-      apply and_left2. apply inv_discr_ind.
-      * assumption.
-      * breakAbstraction; intros. specialize (Hdiscr tr);
-        specialize (Hw tr); intuition. apply H7; solve_linear.
-  - apply always_imp; assumption.
-Qed.
-
-Definition all_in {T} (l1 l2 : list T) :=
-  forall x, List.In x l1 -> List.In x l2.
-
-Theorem all_in_dec_ok : forall (l1 l2 : list Var),
-  List.forallb
-    (fun x => if List.in_dec String.string_dec x l2
-              then true else false) l1 = true ->
-  all_in l1 l2.
-Proof.
-  red. intros.
-  rewrite List.forallb_forall in H.
-  apply H in H0.
-  destruct (List.in_dec String.string_dec x l2);
-    auto; discriminate.
-Qed.
-
-Theorem weaken_sys : forall dvars dvars' cvars cvars'
-                            I I' P P' w w' d d',
-  all_in dvars dvars' ->
-  all_in cvars cvars' ->
-  (|- I' --> I) ->
-  (|- "pc" = 1 --> P' --> P) ->
-  all_in w w' ->
-  (d >= d')%R ->
-  (|- Sys dvars' cvars' I' P' w' d' -->
-      Sys dvars cvars I P w d).
-Proof.
-  do 12 intro.
-  intros Hdvars Hcvars HI HP Hw Hd.
-Admitted.
 
 Section SenseCtrl.
 
