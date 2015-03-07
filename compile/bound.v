@@ -1249,33 +1249,262 @@ Lemma precThm: (forall k : Z, (custom_emin < k)%Z -> (custom_prec <= k - FLT_exp
   
 Qed.
 
- Lemma floatValid : forall (r:R) (f:Floats.float), Some r = floatToReal f -> is_finite _ _ f = true .
+Lemma floatValid : forall (r:R) (f:Floats.float), Some r = floatToReal f -> is_finite _ _ f = true .
+Proof.
+  intros.
+  unfold floatToReal in *.
+  destruct f. 
+  {
+    simpl in *.
+    reflexivity.
+  }
+  {
+    inversion H.
+  }
+  {
+    inversion H.
+  }
+  {
+    simpl in *.
+    reflexivity.
+  }
+Qed.  
+
+
+
+
+
+
+
+
+
+
+Lemma posZ: forall p, (P2R p > 0)%R.
+  intros.
+  unfold P2R.
+  induction p.
+  destruct p.
+  remember ( match p with
+             | (_~1)%positive =>
+               1 +
+               2 *
+               (fix P2R (p1 : positive) : R :=
+                  match p1 with
+                  | ((_~1 as t)~1)%positive => 1 + 2 * P2R t
+                  | ((_~0 as t)~1)%positive => 1 + 2 * P2R t
+                  | 3%positive => 3
+                  | ((_~1 as t)~0)%positive => 2 * P2R t
+                  | ((_~0 as t)~0)%positive => 2 * P2R t
+                  | 2%positive => 2
+                  | 1%positive => 1
+                  end) p
+             | (_~0)%positive =>
+               1 +
+               2 *
+               (fix P2R (p1 : positive) : R :=
+                  match p1 with
+                  | ((_~1 as t)~1)%positive => 1 + 2 * P2R t
+                  | ((_~0 as t)~1)%positive => 1 + 2 * P2R t
+                  | 3%positive => 3
+                  | ((_~1 as t)~0)%positive => 2 * P2R t
+                  | ((_~0 as t)~0)%positive => 2 * P2R t
+                  | 2%positive => 2
+                  | 1%positive => 1
+                  end) p
+             | 1%positive => 3
+             end)%R as des.
+  clear Heqdes.
+  psatz R.
+  remember (match p with
+            | (_~1)%positive =>
+              2 *
+              (fix P2R (p1 : positive) : R :=
+                 match p1 with
+                 | ((_~1 as t)~1)%positive => 1 + 2 * P2R t
+                 | ((_~0 as t)~1)%positive => 1 + 2 * P2R t
+                 | 3%positive => 3
+                 | ((_~1 as t)~0)%positive => 2 * P2R t
+                 | ((_~0 as t)~0)%positive => 2 * P2R t
+                 | 2%positive => 2
+                 | 1%positive => 1
+                 end) p
+            | (_~0)%positive =>
+              2 *
+              (fix P2R (p1 : positive) : R :=
+                 match p1 with
+                 | ((_~1 as t)~1)%positive => 1 + 2 * P2R t
+                 | ((_~0 as t)~1)%positive => 1 + 2 * P2R t
+                 | 3%positive => 3
+                 | ((_~1 as t)~0)%positive => 2 * P2R t
+                 | ((_~0 as t)~0)%positive => 2 * P2R t
+                 | 2%positive => 2
+                 | 1%positive => 1
+                 end) p
+            | 1%positive => 2
+            end )%R as des.
+  psatz R.
+  psatz R.
+
+  destruct p.
+  remember (match p with
+            | (_~1)%positive =>
+              1 +
+              2 *
+              (fix P2R (p1 : positive) : R :=
+                 match p1 with
+                 | ((_~1 as t)~1)%positive => 1 + 2 * P2R t
+                 | ((_~0 as t)~1)%positive => 1 + 2 * P2R t
+                 | 3%positive => 3
+                 | ((_~1 as t)~0)%positive => 2 * P2R t
+                 | ((_~0 as t)~0)%positive => 2 * P2R t
+                 | 2%positive => 2
+                 | 1%positive => 1
+                 end) p
+            | (_~0)%positive =>
+              1 +
+              2 *
+              (fix P2R (p1 : positive) : R :=
+                 match p1 with
+                 | ((_~1 as t)~1)%positive => 1 + 2 * P2R t
+                 | ((_~0 as t)~1)%positive => 1 + 2 * P2R t
+                 | 3%positive => 3
+                 | ((_~1 as t)~0)%positive => 2 * P2R t
+                 | ((_~0 as t)~0)%positive => 2 * P2R t
+                 | 2%positive => 2
+                 | 1%positive => 1
+                 end) p
+            | 1%positive => 3
+            end)%R as des.
+  psatz R.
+  remember (match p with
+            | (_~1)%positive =>
+              2 *
+              (fix P2R (p1 : positive) : R :=
+                 match p1 with
+                 | ((_~1 as t)~1)%positive => 1 + 2 * P2R t
+                 | ((_~0 as t)~1)%positive => 1 + 2 * P2R t
+                 | 3%positive => 3
+                 | ((_~1 as t)~0)%positive => 2 * P2R t
+                 | ((_~0 as t)~0)%positive => 2 * P2R t
+                 | 2%positive => 2
+                 | 1%positive => 1
+                 end) p
+            | (_~0)%positive =>
+              2 *
+              (fix P2R (p1 : positive) : R :=
+                 match p1 with
+                 | ((_~1 as t)~1)%positive => 1 + 2 * P2R t
+                 | ((_~0 as t)~1)%positive => 1 + 2 * P2R t
+                 | 3%positive => 3
+                 | ((_~1 as t)~0)%positive => 2 * P2R t
+                 | ((_~0 as t)~0)%positive => 2 * P2R t
+                 | 2%positive => 2
+                 | 1%positive => 1
+                 end) p
+            | 1%positive => 2
+            end)%R as des.
+  psatz R.
+  psatz R.
+  intuition.
+Qed.
+
+
+
+
+Lemma RtoZ: forall z, (Z2R z > 0)%R <-> (z > 0)%Z. 
+  split.
+  intros.
+  compute in *.
+  induction z.
+  psatz R.
+  reflexivity.
+  pose proof posZ.
+  specialize (H0 p).
+  unfold P2R in *.
+  psatz R.
+
+  intros.
+  induction z.
+  intuition.
+  unfold Z2R.
+  apply posZ.
+  unfold Z2R.
+  specialize (posZ p).
+  intros.
+  lia.
+Qed.
+
+
+SearchAbout Pos.iter.
+Lemma powGt0 : forall pow,   (bpow radix2 pow > 0)%R.
+Proof.
+  intros.
+  destruct (pow)%Z eqn:pow_des.
+  {
+    intuition.
+  }
+  {
+    Lemma proveZPos : forall p, (Z2R (Z.pow_pos radix2 p) > 0)%R.
       Proof.
         intros.
-        unfold floatToReal in *.
-        destruct f. 
-        {
+        unfold Z.pow_pos.
+        apply RtoZ.
+        simpl.
+        SearchAbout Pos.iter.
+        pose proof Pos.iter_invariant.
+        specialize (H p Z).
+        specialize (H (Z.mul 2)).
+        specialize (H (fun x => (x > 0)%Z)).
+        Lemma multiplyBy2 : (forall x : Z, (fun x0 : Z => (x0 > 0)%Z) x -> (fun x0 : Z => (x0 > 0)%Z) (2 * x)%Z).
+        Proof.
+          intros.
           simpl in *.
-          reflexivity.
-        }
-        {
-          inversion H.
-        }
-        {
-          inversion H.
-        }
-        {
-          simpl in *.
-          reflexivity.
-        }
-      Qed.  
+          destruct x.
+          apply H.
+          lia.
+          lia.
+        Qed.
+
+        specialize (H multiplyBy2).
+        specialize (H 1%Z).  
+        simpl in *.
+        Lemma OneGt0 : (1 > 0)%Z.
+        Proof.
+          lia.
+        Qed.
+        specialize (H OneGt0).
+        apply H.
+      Qed.
+      intros.
+
+      apply proveZPos.
+  }
+  {
+    apply Rinv_0_lt_compat.
+    apply proveZPos.
+  }
+Qed.
+
+Lemma errorGt0 : (error > 0)%R.
+Proof.  
+  unfold error. 
+  apply powGt0.
+Qed.
 
 
+Lemma floatMinGt0 : (floatMin > 0)%R.
+Proof.
+  unfold floatMin.
+  apply powGt0.
+Qed.
+
+Lemma floatMaxGt0 : (floatMax > 0)%R.
+Proof.
+  unfold floatMin.
+  apply powGt0.
+Qed.
 
 
-
-
-Axiom errorGt0 : (error > 0)%R.
 Lemma absoluteValGe : forall (r1 r2:R) , 
                 (Rabs r1 >= r2 -> r1 >= r2 \/ -r1 >= r2)%R. 
             Proof.
@@ -1293,8 +1522,6 @@ Qed.
 
 
 
-Axiom floatMinGt0 : (floatMin > 0)%R.
-Axiom floatMaxGt0 : (floatMax > 0)%R.
 
 
 Declare ML Module "z3Tactic".
@@ -1491,8 +1718,6 @@ Proof.
       clear H7 H8.
       clear H H0.
       pose proof floatMaxGt0.
-      Axiom floatMaxGtError : (floatMax > error)%R.
-      pose proof floatMaxGtError.
       pose proof floatMinGt0.
       clear H1.
 
@@ -1529,10 +1754,8 @@ Proof.
     clear H8.
     clear H H0.
     pose proof floatMaxGt0.
-    pose proof floatMaxGtError.
     pose proof floatMinGt0.
-    Axiom errorLessThan1 : (error < 1)%R.
-    pose proof errorLessThan1.
+
     clear H7.
 
     destruct Rcase_abs. 
@@ -1561,8 +1784,7 @@ Proof.
           }
           {
             decompose [and] H7.
-            clear H7 H12.
-            clear H8.
+            clear H7.
             repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -1580,7 +1802,6 @@ Proof.
           destruct H1'.
           {
             clear H7.
-            clear H8.
             repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -1646,7 +1867,7 @@ Proof.
           destruct H1'.
           {
             decompose [and] H7.
-            clear H8 H1 H7 H12 .
+            clear H1 H7 .
             repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -1715,21 +1936,41 @@ Proof.
           }
         }
         {
-          
-          repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 end;
-          unfold error.
-          unfold floatMax.
-          psatz R.
+          destruct H1'.
+          {
+            decompose [and] H7.
+            clear H0 H1 H7 H11.
+            repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   end;
+              unfold error.
+            unfold floatMax.
+            psatz R.
+          }
+          {
+            decompose [and] H7.
+            clear H0 H11 H7 H11.
+            repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   end;
+              unfold error.
+            unfold floatMax.
+            psatz R.
+          }
         }
       }
       {
+        
         destruct Rcase_abs.
         {
           repeat match goal with
@@ -1750,7 +1991,7 @@ Proof.
             destruct H1.
             {
               decompose [and] H7.
-              clear H1 H8.
+              clear H11 H0 H7.
               repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -1765,7 +2006,7 @@ Proof.
             }
             {
               decompose [and] H7.
-              clear H1 H8.
+              clear H11 H0 H7.
               repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -1781,7 +2022,7 @@ Proof.
           }
           {
             decompose [and] H7.
-            clear H1 H8.
+            clear H11 H0 H7.
             repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -1828,10 +2069,8 @@ Proof.
     clear HeqroundedValue.
     
     pose proof floatMaxGt0.
-    pose proof floatMaxGtError.
     pose proof floatMinGt0.
-    pose proof errorLessThan1.
-    clear H Heqarg2 H0 H8 H7 H11.
+    clear H Heqarg2 H0 H8 H7.
     unfold error in *.
     unfold custom_prec,custom_emax in *.
     destruct Rcase_abs. 
@@ -1845,7 +2084,7 @@ Proof.
       {
         decompose [and] H.
         clear H H11.
-        clear H6 H9 errorGt0 H9 H10 H12 r3 H7 r.
+        clear H6 H9 errorGt0 H9 H10  r3 H7 r.
         clear H1.
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
@@ -1866,7 +2105,7 @@ Proof.
          decompose [and] H.
          clear H.
          clear H1 H11.
-         clear r0 r errorGt0 H9 H10 H12.
+         clear r0 r errorGt0 H9 H10.
          clear -H6 r3 H7 H2 H3 H4 H5 H8. 
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
@@ -1923,6 +2162,8 @@ Proof.
     {
       destruct H1'.
       {
+        decompose [and] H.
+        clear H10 H11 H .
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
                  | H : @Rle _ _ |- _ => revert H
@@ -2071,7 +2312,7 @@ Proof.
       destruct H1'.
       {
         decompose [and] H1.
-        clear H12 H10.
+        clear  H10.
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
                  | H : @Rle _ _ |- _ => revert H
@@ -2087,7 +2328,7 @@ Proof.
       }
       {
         decompose [and] H1.
-        clear H12 H10.
+        clear  H10.
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
                  | H : @Rle _ _ |- _ => revert H
@@ -2164,12 +2405,10 @@ Proof.
   clear HeqroundedValue.
   clear H H0.
   pose proof floatMaxGt0.
-  pose proof floatMaxGtError.
   pose proof floatMinGt0.
-  pose proof errorLessThan1.
-  clear H7.
   clear r1Value.
   clear r2Value.
+ 
   destruct Rcase_abs.
   {
     destruct Rcase_abs.
@@ -2179,8 +2418,7 @@ Proof.
         destruct H1'.
         {
           decompose [and] H7.
-          clear H12 H0 H8 H12 H7 H6 r3 r.
-          clear H H10 errorGt0.
+          clear H0 H11.
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2195,8 +2433,7 @@ Proof.
         }
         {
           decompose [and] H7.
-          clear H0 H8 H12 r0.
-          clear -errorGt0 H r H6 H10 H2 H5. 
+          clear H11 H0. 
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2214,7 +2451,7 @@ Proof.
         destruct H1'.
         {
           decompose [and] H7.
-          clear -r0 H2 H3 H4 H5 H11.
+          clear H0 H1 H11.
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2229,8 +2466,7 @@ Proof.
         }
         {
           decompose [and] H7.
-           clear H0 H8 H12 r0.
-          clear -errorGt0 H r H6 H10 H2 H5. 
+          clear H11 H0.
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2251,8 +2487,7 @@ Proof.
         destruct H1'.
         {
           decompose [and] H7.
-           clear H0 H8 H12 r0.
-         clear -errorGt0 H r H6 H10 H3 H4. 
+          clear H0 H11.
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2267,8 +2502,7 @@ Proof.
         }
         {
           decompose [and] H7.
-           clear H0 H8 H12.
-           clear -errorGt0 r H6 H3 H4 H11. 
+          clear H11 H0.
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2286,8 +2520,7 @@ Proof.
         destruct H1'.
         {
           decompose [and] H7.
-          clear H8 H1 H7 H12 .
-          clear -errorGt0 H r H10 H3 H4. 
+          clear H11 H0.
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2302,9 +2535,7 @@ Proof.
         }
         {
           decompose [and] H7.
-           clear H8 H1 H7 H12 .
-           
-           clear -r r3 H3 H4 H11. 
+          clear H11 H0.
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2328,8 +2559,7 @@ Proof.
         destruct H1'.
         {
           decompose [and] H7.
-          clear H8 H0 H1 H7 H12.
-          clear -r0 H11 H2 H5. 
+          clear H11 H0.
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2344,8 +2574,7 @@ Proof.
         }
         {
           decompose [and] H7.
-          clear H8 H0 H1 H7 H12.
-          clear -errorGt0 H r0 H6 H10 r H2 H5.
+          clear H11 H0.
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2363,7 +2592,7 @@ Proof.
         destruct H1'.
         {
           decompose [and] H7.
-          clear H8 H0 H1 H7 H12.
+          clear H11 H0.
           repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
                  | H : @Rle _ _ |- _ => revert H
@@ -2378,7 +2607,7 @@ Proof.
       }
       {
         decompose [and] H7.
-          clear H8 H0 H1 H7 H12.
+          clear H11 H0.
           repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
                  | H : @Rle _ _ |- _ => revert H
@@ -2414,7 +2643,7 @@ Proof.
           destruct H1.
           {
             decompose [and] H7.
-            clear H1 H8.
+            clear H0 H11.
             repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -2429,7 +2658,7 @@ Proof.
           }
           {
             decompose [and] H7.
-            clear H1 H8.
+            clear H0 H11.
             repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -2445,7 +2674,7 @@ Proof.
         }
         {
           decompose [and] H7.
-          clear H1 H8.
+          clear H11 H0.
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2502,7 +2731,6 @@ destruct f1.
   clear H9 H10.
   clear H H0.
 pose proof floatMaxGt0.
-pose proof floatMaxGtError.
 pose proof floatMinGt0.
 clear H1.
 
@@ -2539,7 +2767,6 @@ psatz R.
   clear H10.
   clear H H0.
 pose proof floatMaxGt0.
-pose proof floatMaxGtError.
 pose proof floatMinGt0.
 clear H1.
 clear H9.
@@ -2590,7 +2817,6 @@ inversion H.
   clear H9 H10.
   clear H H0.
 pose proof floatMaxGt0.
-pose proof floatMaxGtError.
 pose proof floatMinGt0.
 clear H1.
 destruct Rcase_abs; destruct Rcase_abs; destruct Rcase_abs;
@@ -2627,7 +2853,6 @@ inversion H0.
   clear H9 H10.
   clear H H0.
 pose proof floatMaxGt0.
-pose proof floatMaxGtError.
 pose proof floatMinGt0.
 clear H1.
 destruct Rcase_abs; destruct Rcase_abs; destruct Rcase_abs;
@@ -2709,7 +2934,6 @@ Proof.
       clear H7 H8.
       clear H H0.
       pose proof floatMaxGt0.
-      pose proof floatMaxGtError.
       pose proof floatMinGt0.
       clear H1.
       destruct Rcase_abs;destruct Rcase_abs;destruct Rcase_abs;
@@ -2744,10 +2968,8 @@ Proof.
     clear H8.
     clear H H0.
     pose proof floatMaxGt0.
-    pose proof floatMaxGtError.
     pose proof floatMinGt0.
-    pose proof errorLessThan1.
-    clear H7. clear H1.
+    clear H1.
     destruct Rcase_abs.
     {
       destruct Rcase_abs.
@@ -2774,9 +2996,7 @@ Proof.
             destruct H1.
             {
               decompose [and] H1.
-              clear H1.
-              clear H8 H0 H9 H11.
-              clear -r r0 H7 H13 H4 H5. 
+              clear H10 H0.
               repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -2794,7 +3014,7 @@ Proof.
               destruct H1. 
               {
                 decompose [and] H1.
-                clear H11 H0 H1 H9 H8. 
+                clear H10 H0 H1. 
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -2809,7 +3029,7 @@ Proof.
               }
               {
                 decompose [and] H1.
-                clear H1 H11 H9 H0 H8.
+                clear H10 H0 H1.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -2829,7 +3049,7 @@ Proof.
           destruct H1'.
           {
             decompose [and] H1.
-            clear H1 H11 H9 H8 H0.
+            clear H10 H0.
             repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2846,7 +3066,7 @@ Proof.
             destruct H1.
             {
               decompose [and] H1.
-              clear H11 H9 H8 H0 H1.
+              clear H10 H0.
               repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -2863,7 +3083,7 @@ Proof.
               destruct H1.
               {
                 decompose [and] H1.
-                clear H11 H9 H8 H0 H1.
+                clear H10 H0.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -2878,7 +3098,7 @@ Proof.
               }
               {
                 decompose [and] H1.
-                clear H11 H9 H8 H0 H1.
+                clear H10 H0.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -2901,7 +3121,7 @@ Proof.
           destruct H1'.
           {
             decompose [and] H1.
-            clear H1 H0 H8 H9 H11.
+            clear H10 H0.
             repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -2918,7 +3138,7 @@ Proof.
             destruct H1.
             {
               decompose [and] H1.
-              clear H11 H8 H0 H1 H9.
+              clear H10 H0.
               repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -2935,7 +3155,7 @@ Proof.
               destruct H1.
               {
                 decompose [and] H1.
-                clear H11 H9 H0 H8 H1.
+                clear H10 H10.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -2951,7 +3171,7 @@ Proof.
               {
                
                 decompose [and] H1.
-                clear H1 H8 H9 H0 H11.
+                clear H10 H10.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -2971,7 +3191,7 @@ Proof.
           destruct H1'.
           {
             decompose [and] H1.
-            clear H0 H11 H9 H8 H1.
+            clear H10 H0.
             repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -2988,7 +3208,7 @@ Proof.
             destruct H1.
             {
               decompose [and] H1.
-              clear H0 H11 H9 H8 H1.
+              clear H10 H0 r0 H1.
               repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -3060,7 +3280,7 @@ Proof.
               destruct H1.
               {
                 decompose [and] H1.
-                clear H11 H9 H8 H0 H1.
+                clear H10 H9 H8 H0 H1.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -3077,7 +3297,7 @@ Proof.
                 destruct H1. 
                 {
                   decompose [and] H1.
-                  clear H11 H0 H1 H8 H9.
+                  clear H10 H0 H1 H8.
                   repeat match goal with
                          | H : @eq R _ _ |- _ => revert H
                          | H : @Rle _ _ |- _ => revert H
@@ -3092,7 +3312,7 @@ Proof.
                 }
                 {
                   decompose [and] H1.
-                  clear H11 H0 H1 H8 H9.
+                  clear H10 H0 H1 H8.
                   repeat match goal with
                          | H : @eq R _ _ |- _ => revert H
                          | H : @Rle _ _ |- _ => revert H
@@ -3112,7 +3332,7 @@ Proof.
             destruct H1'.
             {
               decompose [and] H1.
-              clear H11 H0 H1 H8 H9.
+              clear H10 H0 H1 H8.
               repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -3129,7 +3349,7 @@ Proof.
             destruct H1.
             {
               decompose [and] H1.
-              clear H11 H0 H1 H8 H9.
+              clear H10 H0 H1 H8.
               repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -3146,7 +3366,7 @@ Proof.
               destruct H1.
               {
                 decompose [and] H1.
-                clear H11 H0 H1 H8 H9.
+                clear H10 H0 H1 H8.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -3161,7 +3381,7 @@ Proof.
               }
               {
                 decompose [and] H1.
-                clear H11 H0 H1 H8 H9.
+                clear H10 H0 H1 H8.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -3200,7 +3420,7 @@ Proof.
               destruct H1.
               {
                 decompose [and] H1.
-                clear H11 H9 H8 H0 H1.
+                clear H10 H8 H0 H1.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -3217,7 +3437,7 @@ Proof.
                 destruct H1. 
                 {
                   decompose [and] H1.
-                  clear H11 H0 H1 H8 H9.
+                   clear H10 H8 H0 H1.
                   repeat match goal with
                          | H : @eq R _ _ |- _ => revert H
                          | H : @Rle _ _ |- _ => revert H
@@ -3232,7 +3452,7 @@ Proof.
                 }
                 {
                   decompose [and] H1.
-                  clear H11 H0 H1 H8 H9.
+                   clear H10 H8 H0 H1.
                   repeat match goal with
                          | H : @eq R _ _ |- _ => revert H
                          | H : @Rle _ _ |- _ => revert H
@@ -3252,7 +3472,7 @@ Proof.
             destruct H1'.
             {
               decompose [and] H1.
-              clear H11 H0 H1 H8 H9.
+              clear H10 H8 H0 H1.
               repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -3269,7 +3489,7 @@ Proof.
               destruct H1.
               {
                 decompose [and] H1.
-                clear H11 H0 H1 H8 H9.
+                 clear H10 H8 H0 H1.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -3286,7 +3506,7 @@ Proof.
                 destruct H1.
                 {
                   decompose [and] H1.
-                  clear H11 H0 H1 H8 H9.
+                   clear H10 H8 H0 H1.
                   repeat match goal with
                          | H : @eq R _ _ |- _ => revert H
                          | H : @Rle _ _ |- _ => revert H
@@ -3301,7 +3521,7 @@ Proof.
                 }
                 {
                   decompose [and] H1.
-                  clear H11 H0 H1 H8 H9.
+                   clear H10 H8 H0 H1.
                   repeat match goal with
                          | H : @eq R _ _ |- _ => revert H
                          | H : @Rle _ _ |- _ => revert H
@@ -3349,7 +3569,6 @@ Proof.
       clear H7 H8.
       clear H H0.
       pose proof floatMaxGt0.
-      pose proof floatMaxGtError.
       pose proof floatMinGt0.
       clear H1.
       destruct Rcase_abs;destruct Rcase_abs;destruct Rcase_abs;
@@ -3384,10 +3603,8 @@ Proof.
     clear H8.
     clear H H0.
     pose proof floatMaxGt0.
-    pose proof floatMaxGtError.
     pose proof floatMinGt0.
-    pose proof errorLessThan1.
-    clear H7. clear H1.
+    clear H1.
     destruct Rcase_abs.
     {
       destruct Rcase_abs.
@@ -3414,8 +3631,7 @@ Proof.
             destruct H1.
             {
               decompose [and] H1.
-              clear H1.
-              clear H11 H8 H9 H0 .
+              clear H10 H0 H1.
               repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -3432,7 +3648,7 @@ Proof.
               destruct H1. 
               {
                 decompose [and] H1.
-                clear H9 H0 H1 H11 H8.
+                clear H10 H0 H1 H7.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -3447,7 +3663,7 @@ Proof.
               }
               {
                 decompose [and] H1.
-                clear H9 H0 H1 H11 H8. 
+                clear H10 H0 H7 H1. 
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -3467,7 +3683,7 @@ Proof.
           destruct H1'.
           {
             decompose [and] H1.
-            clear H1.
+            clear H0 H1 H10 H7.
             repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -3481,6 +3697,36 @@ Proof.
             psatz R.
           }
           {
+            destruct H1.
+            decompose [and] H1.
+            clear H1 H10 H0 H7.
+            repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   end.
+            unfold error.
+            unfold floatMax.
+            psatz R.
+            destruct H1.
+            decompose [and] H1.
+            clear H1 H10 H0 H7.
+            repeat match goal with
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   end.
+            unfold error.
+            unfold floatMax.
+            psatz R.
+            decompose [and] H1.
+            clear H1 H10 H0 H7.
             repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -3501,7 +3747,7 @@ Proof.
           destruct H1'.
           {
             decompose [and] H1.
-            clear H11 H9 H8 H0 H1.
+            clear H10 H0 H1 H7.
             repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -3518,7 +3764,7 @@ Proof.
             destruct H1.
             {
               decompose [and] H1.
-              clear H11 H9 H8 H0 H1.
+              clear H10 H0 H1 H7.
               repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -3535,7 +3781,7 @@ Proof.
               destruct H1.
               {
                 decompose [and] H1.
-                clear H11 H9 H8 H0 H1.
+                clear H10 H0 H1 H7.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -3552,7 +3798,7 @@ Proof.
                 destruct H1.
                 {
                   decompose [and] H1.
-                  clear H10 H9 H8 H0 H1.
+                  clear H9 H0 H1 H7.
                    repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -3573,7 +3819,7 @@ Proof.
           destruct H1'.
           {
             decompose [and] H1.
-            clear H11 H9 H8 H0 H1.
+            clear H10 H0 H1 H7.
             repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -3590,7 +3836,7 @@ Proof.
             destruct H1.
             {
               decompose [and] H1.
-              clear H11 H9 H8 H0 H1.
+              clear H10 H0 H1 H7.
               repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -3607,7 +3853,7 @@ Proof.
               destruct H1.
               {
                 decompose [and] H1.
-                clear H11 H9 H8 H0 H1.
+                clear H10 H0 H1 H7.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -3622,7 +3868,7 @@ Proof.
               }
               {
                 decompose [and] H1.
-                clear H11 H9 H8 H0 H1.
+                clear H10 H0 H1 H7.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -3648,7 +3894,7 @@ Proof.
            destruct H1'.
            {
              decompose [and] H1.
-             clear H11 H9 H8 H0 H1.
+             clear H10 H0 H1 H7.
              repeat match goal with
                     | H : @eq R _ _ |- _ => revert H
                     | H : @Rle _ _ |- _ => revert H
@@ -3665,7 +3911,7 @@ Proof.
              destruct H1.
              {
                decompose [and] H1.
-               clear H11 H9 H8 H0 H1.
+               clear H10 H0 H1 H7.
                repeat match goal with
                       | H : @eq R _ _ |- _ => revert H
                       | H : @Rle _ _ |- _ => revert H
@@ -3682,7 +3928,7 @@ Proof.
                destruct H1. 
                {
                  decompose [and] H1.
-                 clear H11 H9 H8 H0 H1.
+                 clear  H10 H0 H1 H7.
                  repeat match goal with
                         | H : @eq R _ _ |- _ => revert H
                         | H : @Rle _ _ |- _ => revert H
@@ -3697,7 +3943,7 @@ Proof.
                }
                {
                  decompose [and] H1.
-                 clear H11 H9 H8 H0 H1.
+                 clear  H10 H0 H1 H7.
                  repeat match goal with
                         | H : @eq R _ _ |- _ => revert H
                         | H : @Rle _ _ |- _ => revert H
@@ -3717,7 +3963,7 @@ Proof.
           destruct H1'.
           {
             decompose [and] H1.
-            clear H11 H9 H8 H0 H1.
+            clear  H10 H0 H1 H7.
             repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
                    | H : @Rle _ _ |- _ => revert H
@@ -3734,7 +3980,7 @@ Proof.
             destruct H1.
             {
               decompose [and] H1.
-              clear H11 H9 H8 H0 H1.
+              clear  H10 H0 H1 H7.
               repeat match goal with
                      | H : @eq R _ _ |- _ => revert H
                      | H : @Rle _ _ |- _ => revert H
@@ -3751,7 +3997,7 @@ Proof.
               destruct H1.
               {
                 decompose [and] H1.
-                clear H11 H9 H8 H0 H1.
+                clear  H10 H0 H1 H7.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -3766,7 +4012,7 @@ Proof.
               }
               {
                 decompose [and] H1.
-                clear H11 H9 H8 H0 H1.
+                clear  H10 H0 H1 H7.
                 repeat match goal with
                        | H : @eq R _ _ |- _ => revert H
                        | H : @Rle _ _ |- _ => revert H
@@ -3789,7 +4035,7 @@ Proof.
            destruct H1'.
            {
              decompose [and] H1.
-             clear H11 H9 H8 H0 H1.
+             clear  H10 H0 H1 H7.
              repeat match goal with
                     | H : @eq R _ _ |- _ => revert H
                     | H : @Rle _ _ |- _ => revert H
@@ -3806,7 +4052,7 @@ Proof.
              destruct H1.
              {
                decompose [and] H1.
-               clear H11 H9 H8 H0 H1.
+               clear  H10 H0 H1 H7.
                repeat match goal with
                       | H : @eq R _ _ |- _ => revert H
                       | H : @Rle _ _ |- _ => revert H
@@ -3823,7 +4069,7 @@ Proof.
                destruct H1. 
                {
                  decompose [and] H1.
-                 clear H11 H9 H8 H0 H1.
+                 clear  H10 H0 H1 H7.
                  repeat match goal with
                         | H : @eq R _ _ |- _ => revert H
                         | H : @Rle _ _ |- _ => revert H
@@ -3838,7 +4084,7 @@ Proof.
                }
                {
                  decompose [and] H1.
-                 clear H11 H9 H8 H0 H1.
+                 clear  H10 H0 H1 H7.
                  repeat match goal with
                         | H : @eq R _ _ |- _ => revert H
                         | H : @Rle _ _ |- _ => revert H
@@ -3858,7 +4104,7 @@ Proof.
            destruct H1'.
            {
              decompose [and] H1.
-             clear H11 H9 H8 H0 H1.
+             clear H10 H0 H7 H1.
              repeat match goal with
                     | H : @eq R _ _ |- _ => revert H
                     | H : @Rle _ _ |- _ => revert H
@@ -3875,7 +4121,7 @@ Proof.
              destruct H1.
              {
                decompose [and] H1.
-               clear H11 H9 H8 H0 H1.
+               clear H10 H0 H7 H1.
                repeat match goal with
                       | H : @eq R _ _ |- _ => revert H
                       | H : @Rle _ _ |- _ => revert H
@@ -3892,7 +4138,7 @@ Proof.
                destruct H1.
                {
                  decompose [and] H1.
-                 clear H11 H9 H8 H0 H1.
+                 clear H10 H0 H7 H1.
                  repeat match goal with
                         | H : @eq R _ _ |- _ => revert H
                         | H : @Rle _ _ |- _ => revert H
@@ -3907,7 +4153,7 @@ Proof.
                }
                {
                  decompose [and] H1.
-                 clear H11 H9 H8 H0 H1.
+                 clear H10 H0 H7 H1.
                  repeat match goal with
                         | H : @eq R _ _ |- _ => revert H
                         | H : @Rle _ _ |- _ => revert H
@@ -4039,6 +4285,16 @@ Proof.
     red. simpl. intros XXX; clear XXX.
     simpl in Heqo. inversion Heqo. subst.
     clear Heqo.
+    unfold floatToReal in *.
+    unfold nat_to_float in *.
+    Transparent Floats.Float.of_int.
+    unfold Floats.Float.of_int in *.
+    unfold Fappli_IEEE_extra.b64_of_Z in *.
+    unfold Fappli_IEEE_extra.BofZ in *.
+    
+    Print binary_normalize.
+    Print Int.signed.
+    Print Coqlib.zlt.
     admit. (** interesting lemma **) }
   { simpl. constructor; [ | constructor ].
     red. simpl. intro XXX; clear XXX.
@@ -4163,9 +4419,11 @@ Proof.
         pose proof errorGt0.
         clear floatMinCase floatMaxBound1 floatMaxBound2 HeqroundedValue 
               plusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
-        pose proof errorLessThan1.
         unfold error in *.
         unfold Rabs in *.
+        Axiom errorLessThan1 : (error < 1)%R.
+        pose proof errorLessThan1 as errorLessThan1.
+        unfold error in *.
         destruct Rcase_abs; destruct Rcase_abs;
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
@@ -4252,9 +4510,10 @@ Proof.
           pose proof errorGt0.
           clear floatMinCase floatMaxBound1 floatMaxBound2 HeqroundedValue 
                 plusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 x3 x4 x4 x5 x x0 expr1 expr2 tr fState r.
-          pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
+          pose proof errorLessThan1 as errorLessThan1.
+          unfold error in *.
           destruct Rcase_abs; destruct Rcase_abs;
           repeat match goal with
                    | H : @eq R _ _ |- _ => revert H
