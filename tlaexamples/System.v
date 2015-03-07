@@ -45,14 +45,6 @@ Lemma land_lor_distr : forall P Q R,
     P //\\ (Q \\// R) -|- (P //\\ Q) \\// (P //\\ R).
 Proof. intros. red; breakAbstraction. intuition. Qed.
 
-Lemma nth_suf_Sn : forall A n (s:Stream.stream A),
-  Stream.nth_suf (S n) s =
-  Stream.tl (Stream.nth_suf n s).
-Proof.
-  intros A n; induction n; intro s;
-  firstorder.
-Qed.
-
 Lemma next_inv : forall N I,
   is_st_formula I ->
   (|-- [](N //\\ I) -->> [](N //\\ I //\\ next I)).
@@ -78,14 +70,7 @@ Proof.
     rewrite <- nth_suf_Sn. auto.
 Qed.
 
-Lemma uncurry : forall P Q R,
-    (P //\\ Q -->> R) -|- (P -->> Q -->> R).
-Proof.
-Admitted.
 
-Lemma forget_prem : forall P Q,
-    |-- P -> Q |-- P.
-Proof. tlaIntuition. Qed.
 
 Lemma Always_and : forall P Q,
     []P //\\ []Q -|- [](P //\\ Q).
@@ -103,10 +88,6 @@ Lemma Sys_bound_t : forall P dvars cvars Init Prog w d,
     P |-- Sys dvars cvars Init Prog w d -->> []0 <= "t" <= d.
 Admitted.
 
-Lemma lrevert : forall P Q,
-    |-- P -->> Q ->
-    P |-- Q.
-Proof. tlaIntuition. Qed.
 
 Lemma Sys_BoundSys : forall P dvars cvars Init Prog w d,
     P |-- Sys dvars cvars Init Prog w d -->>

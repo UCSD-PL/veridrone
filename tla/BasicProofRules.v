@@ -181,7 +181,7 @@ Lemma imp_trans : forall F1 F2 F3,
   (C |-- F1 -->> F2) ->
   (C |-- F2 -->> F3) ->
   (C |-- F1 -->> F3).
-Proof. tlaIntuition. Qed.
+Proof. intros; charge_tauto. Qed.
 
 Lemma always_imp : forall F1 F2,
   (|-- F1 -->> F2) ->
@@ -197,21 +197,21 @@ Lemma and_right : forall F1 F2 F3,
   (C |-- F1 -->> F2) ->
   (C |-- F1 -->> F3) ->
   (C |-- F1 -->> (F2 //\\ F3)).
-Proof. tlaIntuition. Qed.
+Proof. intros; charge_tauto. Qed.
 
 Lemma and_left1 : forall F1 F2 F3,
   (C |-- F1 -->> F3) ->
   (C |-- (F1 //\\ F2) -->> F3).
-Proof. tlaIntuition. Qed.
+Proof. intros; charge_tauto. Qed.
 
 Lemma and_left2 : forall F1 F2 F3,
   (C |-- F2 -->> F3) ->
   (C |-- (F1 //\\ F2) -->> F3).
-Proof. tlaIntuition. Qed.
+Proof. intros; charge_tauto. Qed.
 
 Lemma imp_id : forall F,
   |-- F -->> F.
-Proof. tlaIntuition. Qed.
+Proof. intros; charge_tauto. Qed.
 
 Lemma or_next : forall F1 F2 N1 N2,
   (C |-- (F1 //\\ N1) -->> F2) ->
@@ -238,23 +238,23 @@ Proof. tlaIntuition. Qed.
 Lemma imp_right : forall F1 F2 F3,
   (C |-- (F1 //\\ F2) -->> F3) ->
   (C |-- F1 -->> (F2 -->> F3)).
-Proof. tlaIntuition. Qed.
+Proof. intros; charge_tauto. Qed.
 
 Lemma imp_strengthen : forall F1 F2 F3,
   (C |-- F1 -->> F2) ->
   (C |-- (F1 //\\ F2) -->> F3) ->
   (C |-- F1 -->> F3).
-Proof. tlaIntuition. Qed.
+Proof. intros; charge_tauto. Qed.
 
 Lemma and_assoc_left : forall F1 F2 F3 F4,
   (C |-- (F1 //\\ (F2 //\\ F3)) -->> F4) ->
   (C |-- ((F1 //\\ F2) //\\ F3) -->> F4).
-Proof. tlaIntuition. Qed.
+Proof. intros; charge_tauto. Qed.
 
 Lemma and_comm_left : forall F1 F2 F3,
   (C |-- (F2 //\\ F1) -->> F3) ->
   (C |-- (F1 //\\ F2) -->> F3).
-Proof. tlaIntuition. Qed.
+Proof. intros; charge_tauto. Qed.
 
 Lemma forall_right : forall T F G,
   (forall x, |-- F -->> G x) ->

@@ -29,3 +29,11 @@ Proof.
   intros A n; induction n; intro s;
   firstorder.
 Qed.
+
+Lemma nth_suf_Sn : forall A n (s:Stream.stream A),
+  Stream.nth_suf (S n) s =
+  Stream.tl (Stream.nth_suf n s).
+Proof.
+  intros A n; induction n; intro s;
+  firstorder.
+Qed.

@@ -2,6 +2,7 @@ Require Import RelationClasses.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.LogicLemmas.
+Export TLA.LogicLemmas.
 
 (** NOTE: Avoid using this **)
 Ltac breakAbstraction :=
@@ -146,8 +147,44 @@ Section RW_Impl.
 
 End RW_Impl.
 
+Class SimpleEntail (A B : Formula) : Prop :=
+  slentails : lentails A B.
+
+
+Hint Extern 1 (SimpleEntail _ _) => match goal with
+                                    | |- ?X => idtac X; red; charge_tauto
+                                    end : typeclass_instances.
+
+Global Instance subrelation_RW_Impl P Q (H : SimpleEntail Q P)
+: subrelation (RW_Impl P) (RW_Impl Q).
+Proof. do 4 red. unfold RW_Impl; intros.
+       red in H. rewrite H. assumption.
+Qed.
+
+Global Add Parametric Morphism P Q (H : SimpleEntail P Q)
+: (@lentails Formula _ P) with
+  signature (RW_Impl Q --> Basics.flip Basics.impl)
+  as RW_Impl_weaken_flip_entails_mor.
+Proof.
+  unfold RW_Impl, Basics.impl. intros.
+  red in H. charge_tauto.
+Qed.
+
+Global Add Parametric Morphism P Q (H : SimpleEntail P Q)
+: (@lentails Formula _ P) with
+  signature (RW_Impl Q ==> Basics.impl)
+  as RW_Impl_weaken_entails_mor.
+Proof.
+  unfold RW_Impl, Basics.impl. intros.
+  red in H. charge_tauto.
+Qed.
+
 Arguments rw_impl {P A B} _ _ _ _.
 
+(** Simplification doesn't really work because the lower-level pieces do not
+ ** have decidable equality
+ **)
+(*
 Fixpoint conj (ls : list Formula) : Formula :=
   match ls with
   | nil => ltrue
@@ -243,3 +280,4 @@ Theorem tlaSimplify_sound : forall G H,
 Proof.
   intros. eapply (tlaSimplify_sound' G (H :: nil) H0).
 Qed.
+*)
