@@ -97,6 +97,7 @@ Lemma fstate_lookup_In :
   forall (flst : fstate) (x : Var) (y : Floats.float),
     fstate_lookup flst x = Some y -> In (x, y) flst.
 Proof.
+  
   induction flst.
   intros. simpl. inversion H.
   {
@@ -381,20 +382,94 @@ Qed.
    or even use Formula instead of prop. Maybe (var -> expr) -> formula *)
 
 (* strongest postcondition calculations *)
-
 Print progr_assn.
 
 (* x gets xold; otherwise apply subs *)
 (* need to do rewriting in nowterms *)
 
-Definition sp_progr_assn (assn : progr_assn) (P : (Var -> expr) -> Formula) : (Var -> expr) -> Formula :=
-  fun (subs : Var -> expr) =>
-    let '(mk_progr_assn lhs rhs) := assn in
-    let newsubs := (fun v => if  v ?[ eq ] lhs then)
-      And (P subs)
-          ().
-  (* exists xold, p[lhs -> xold] /\ lhs = rhs[lhs -> xold] *)
+(* strongest precondition calculation for a single program assignment *)
+Require Import ExtLib.Core.RelDec.
+Print mk_progr_assn.
 
+(* better to think of this type as assn -> ((Var -> NowTerm) -> Formula) : (Var -> NowTerm) -> Formula *)
+
+(* build a C-style language - assignment, sequencing, ITE *)
+
+
+
+Print Formula.
+Check Term_ind.
+Print progr_assn.
+Print NowTerm.
+
+(* Substitute variable v for v' in term *)
+Fixpoint subst_NowTerm (nt : NowTerm) (v v' : Var) : NowTerm :=
+  match nt with
+    | NatN n         => NatN n
+    | FloatN f       => FloatN f
+    | VarNowN x =>
+      VarNowN (if x ?[ eq ] v then v' else x)
+    | PlusN nt1 nt2  =>
+      PlusN (subst_NowTerm nt1 v v') (subst_NowTerm nt2 v v')
+    | MinusN nt1 nt2 =>
+      MinusN (subst_NowTerm nt1 v v') (subst_NowTerm nt2 v v')
+    | MultN nt1 nt2  =>
+      MultN (subst_NowTerm nt1 v v') (subst_NowTerm nt2 v v')
+  end.
+                                             
+(* Perform substitution for a single program assignment *)
+Print Syntax.Exists.
+Definition subst_progr_assn (assn : progr_assn) (P : (Var -> NowTerm) -> Formula) (subs : Var -> NowTerm) : Formula :=
+  let '(mk_progr_assn x e) := assn in
+  let newsubs :=
+      (fun (v : Var) => if  v ?[ eq ] x then e else subs v)
+  in
+  Syntax.Exists Var
+    (fun x_old =>
+       And
+         (P newsubs)
+         (Comp (VarNowT x)
+               (denowify (subst_NowTerm e x x_old)) Eq)).
+
+Fixpoint subst_progr_assn_seq (assns : list progr_assn) (P : (Var -> NowTerm) -> Formula) (subs : Var -> NowTerm) : Formula :=
+  match assns with
+    | nil       => P subs
+    | a :: rest =>
+      subst_progr_assn_seq
+        rest (subst_progr_assn a P) subs
+  end.
+
+Print progr_stmt.
+Print Formula.
+
+Definition subst_progr_assn_if (ps : progr_stmt) (P : (Var -> NowTerm) -> Formula) (subs : Var -> NowTerm) : Formula :=
+  let '(mk_progr_stmt conds assns) := ps in
+  Or
+    (subst_progr_assn_seq
+       assns (fun subs' => And (P subs')
+                               (deflatten_formula conds)) subs)
+    (Imp (deflatten_formula conds) FALSE).
+
+And (fun subs' => P subs') ())
+
+(* insert x into bounds for e. but i need to do substitution first *)
+(* function to do substitution in NowTerms needed *)
+
+Fixpoint subst_progr_assns (assns : list progr_assn) (P : (Var -> NowTerm) -> Formula) (subs : Var -> NowTerm) : Formula :=
+  match assns with
+    | nil          => P subs
+    | assn :: rest => 
+      subst_progr_assns rest (subst_progr_assn assn P) subs
+  end.
+
+(* exists xold, p[lhs -> xold] /\ lhs = rhs[lhs -> xold] *)
+
+Definition compile_assns'
+
+Print compile_assns.
+Print compile_assn.
+Print bounds_to_formula.
+Print assns_update_state.
 Definition strongest_postcondition_assn (progr_assn -> 
 
 
