@@ -19,6 +19,11 @@ Local Close Scope HP_scope.
 Delimit Scope SrcLang_scope with SL.
 Local Open Scope SrcLang_scope.
 
+Definition custom_prec := 53%Z.
+Definition custom_emax:= 1024%Z.
+Definition custom_float_zero := B754_zero custom_prec custom_emax true.
+
+
 (* Term, sans the next operator *)
 Inductive NowTerm : Type :=
 | VarNowN : Var -> NowTerm
@@ -52,7 +57,7 @@ Coercion VarC : String.string >-> NowTerm.
 Definition nat_to_int (n : nat) : int :=
 Int.repr $ Z.of_nat n.
 Definition nat_to_float (n : nat) : Floats.float :=
-Floats.Float.of_int $ nat_to_int n.
+Fappli_IEEE_extra.BofZ custom_prec custom_emax eq_refl eq_refl (Z.of_nat n).
 Definition FloatToR : Floats.float -> R := B2R 53 1024.
 Coercion nat_to_int : nat >-> int.
 Coercion nat_to_float : nat >-> Floats.float.
@@ -190,9 +195,6 @@ Definition lift2 {T U V : Type} (f : T -> U -> V) (a : option T) (b : option U) 
   | _ , _ => None
   end.
 
-Definition custom_prec := 53%Z.
-Definition custom_emax:= 1024%Z.
-Definition custom_float_zero := B754_zero custom_prec custom_emax true.
 
 Section eval_expr.
   Variable st : fstate.
