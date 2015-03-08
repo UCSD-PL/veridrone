@@ -24,7 +24,6 @@ Require Import compcert.flocq.Core.Fcore_FLT.
 Require Import compcert.flocq.Core.Fcore_generic_fmt.                       
 
 
-
 Require Import compcert.flocq.Core.Fcore_Raux.
 
 
@@ -399,10 +398,15 @@ Definition getBound (t1 t2:NowTerm)
                                         list singleBoundTerm) :=  
   boundFunc (bound_term_func t1) (bound_term_func t2).
 
+
+Definition natBound (n:nat): list singleBoundTerm :=
+
+   [ (mkSBT (RealT R0) (RealT ((INR n) * (1+error))) ((floatMin <= RealT (INR n)) /\ (INR n >= 0) /\  ((INR n)* (1+error) <  (floatMax)))) ;  (mkSBT (RealT ((INR n) * (1+error))) (RealT R0) ((floatMin <= (0 - INR n)) /\ (INR n < 0) /\  ((0 - INR n)* (1+error) <  (floatMax))))]. 
+
 Fixpoint bound_term (x:NowTerm)  : (list singleBoundTerm):= 
   match x with
     | VarNowN var =>  [mkSBT (VarNowT var) (VarNowT var) TRUE]
-    | NatN n =>  [mkSBT (RealT (INR n)) (RealT (INR n)) TRUE]
+    | NatN n =>  natBound n
     | FloatN f => [mkSBT (RealT (B2R _ _ f)) (RealT (B2R _ _ f)) TRUE]
     | PlusN t1 t2 => cross combineTriplePlus (bound_term t1) (bound_term t2) 
     | MinusN t1 t2 => cross combineTripleMinus (bound_term t1) (bound_term t2)
@@ -1655,10 +1659,25 @@ intros.
 Qed.
 
 
-
-
 Lemma relErrorBasedOnFloatMinTruthPlus : forall (x1 x2 lb1 lb2 ub1 ub2:R), 
-((floatMin <= lb1 + lb2) \/ (floatMin <= 0 - ub1 + (0 - ub2)) -> lb1 <= x1 -> lb2 <= x2 -> x1 <= ub1 -> x2 <= ub2 ->  (Rabs (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (x1 + x2) - (x1 + x2)) < bpow radix2 (- custom_prec + 1) * Rabs (x1 + x2)))%R.
+    (
+      (floatMin <= lb1 + lb2)  
+      \/ (floatMin <= 0 - ub1 + (0 - ub2)) -> 
+      lb1 <= x1 -> 
+      lb2 <= x2 -> 
+      x1 <= ub1 -> 
+      x2 <= ub2 ->  
+      (Rabs 
+         (round 
+            radix2 (FLT_exp 
+                      (3 - custom_emax - custom_prec) 
+                      custom_prec
+                   ) 
+            (round_mode mode_NE) 
+            (x1 + x2) - (x1 + x2)
+         )
+       < bpow radix2 (- custom_prec + 1) * Rabs (x1 + x2))
+    )%R.
 Proof.
   intros.
   pose proof relative_error as Rel_Err.
@@ -2696,21 +2715,78 @@ Qed.
 
 
 Lemma plusRoundingTruth : forall (f1 f2: Floats.float)  (lb1 lb2 ub1 ub2 r1 r2:R), 
-   
-   (Some r1 = (floatToReal f1) -> 
-    Some r2 = (floatToReal f2) ->
-    (floatMin <= lb1 + lb2) \/ (floatMin <= 0 - ub1 + (0 - ub2)) ->
-    (lb1 <= r1) ->
-    (lb2 <= r2) ->
-    ((ub1 + ub2)*(1+error ) < floatMax) 
-    -> ((0 - lb1 + (0 - lb2))* (1+error)) < floatMax ->
-     (r1 <= ub1) ->
-     (r2 <= ub2) ->    
-((Rabs (round radix2 (FLT_exp (3-custom_emax- custom_prec) custom_prec ) (round_mode mode_NE) (B2R custom_prec custom_emax f1 + B2R custom_prec custom_emax f2))) 
- <  (bpow radix2 custom_emax)))%R.
-intros.
-unfold floatToReal in *.
-destruct f1.
+    
+    (
+      Some r1 = (floatToReal f1) -> 
+      Some r2 = (floatToReal f2) ->
+      (
+        (floatMin <= lb1 + lb2) \/ 
+        (floatMin <= 0 - ub1 + (0 - ub2))
+      ) ->
+      lb1 <= r1 ->
+      lb2 <= r2 ->
+      (ub1 + ub2)*(1+error ) < floatMax -> 
+      (0 - lb1 + (0 - lb2))* (1+error) < floatMax ->
+      r1 <= ub1 ->
+      r2 <= ub2 ->
+      (
+        (
+          Rabs 
+            (round 
+               radix2 
+               (FLT_exp 
+                  (3-custom_emax- custom_prec) 
+                  custom_prec) 
+               (round_mode mode_NE) 
+               (B2R custom_prec custom_emax f1 
+                + B2R custom_prec custom_emax f2))
+        ) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <  (bpow radix2 custom_emax)
+      )
+    )%R.
+  intros.
+  unfold floatToReal in *.
+  destruct f1.
 {
   destruct f2. 
   {
@@ -4262,6 +4338,145 @@ Proof.
   apply H5.
 Qed.
 
+
+Check relative_error.
+
+Lemma natFloatMinBoundProof : 
+  forall n,
+    ((floatMin <= INR n /\ INR n >= 0) \/ (floatMin <= 0 -(INR n) /\ INR n < 0) -> floatMin <= Rabs (INR n))%R.
+  Proof.
+    intros.
+    unfold Rabs.
+    destruct Rcase_abs.
+    destruct H.
+    decompose [and] H.
+    psatz R.
+    decompose [and] H.
+    simpl in H0.
+    psatz R.
+    destruct H.
+    decompose [and] H.
+    apply H0.
+    decompose [and] H.
+    psatz R.
+Qed.
+
+Lemma relErrorTruthNat : 
+  forall n, 
+    (
+      (floatMin <= INR n)%R /\ (INR n >= 0)%R \/
+       (floatMin <= 0 - INR n)%R /\ (INR n < 0)%R
+      -> 
+      (Rabs 
+         (round 
+            radix2 
+            (FLT_exp (3 - custom_emax - custom_prec) custom_prec) 
+            (round_mode mode_NE) 
+            (INR n) - 
+          (INR n)
+         ) < 
+       bpow radix2 (- custom_prec + 1) * Rabs (INR n))
+    )%R.
+  Proof.
+    intros.
+    pose proof relative_error as Rel_Err.
+remember (FLT_exp (3 - custom_emax - custom_prec) custom_prec) as round_fexp.
+specialize (Rel_Err radix2 round_fexp).
+  subst.
+  specialize (Rel_Err validFexpProof (custom_emin)%Z custom_prec  precThm (round_mode mode_NE)). 
+  specialize (Rel_Err (valid_rnd_N choiceDef)).
+  specialize (Rel_Err (INR n)).
+  pose proof natFloatMinBoundProof.
+  specialize (H0 n H).
+  unfold floatMin in H0.
+  unfold custom_emin in Rel_Err.
+  specialize (Rel_Err H0).
+  apply Rel_Err.
+Qed.
+
+
+  Lemma natRoundingTruth : 
+    forall n, 
+      (((floatMin <= INR n)%R /\ (INR n >= 0)%R /\  ((INR n)* (1+error) <  (floatMax))%R) \/
+       ((floatMin <= 0 - INR n)%R /\ (INR n < 0)%R /\  ((0 -(INR n))* (1+error) <  (floatMax))) 
+
+       ->
+       
+       (Rabs 
+          (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (Z2R (Z.of_nat n))) 
+   < (bpow radix2 custom_emax)))%R.
+                               
+Proof.
+  intros.
+  pose proof relErrorTruthNat as relErrorTruthNat.
+  Lemma orProof: forall p1 p2 p3 p4 p5 p6, (p1 /\ p2 /\ p3) \/ (p4 /\ p5 /\ p6) -> (p1 /\ p2) \/ (p4 /\ p5).
+  Proof.
+    intros.
+    intuition.
+    Qed.
+  intros.
+  assert (H1 := H). 
+  apply orProof in H.
+  
+  specialize (relErrorTruthNat n H).
+ Lemma natToReal : forall n,  Z2R (Z.of_nat n) = INR n.
+   intros.
+   rewrite  INR_IZR_INZ.
+   rewrite Z2R_IZR.
+   reflexivity.
+Qed.
+ intros.
+ rewrite natToReal. 
+ remember    (round radix2
+                    (FLT_exp (3 - custom_emax - custom_prec)
+                             custom_prec) (round_mode mode_NE) 
+                    (INR n)) as roundedValue.
+ clear HeqroundedValue.
+ unfold floatMax in *.
+ unfold floatMin in *.
+ unfold custom_emax in *.
+ unfold error in *.
+ destruct H1;
+   decompose [and] H0;
+   clear H0;
+   clear H;
+   unfold Rabs in *;
+   destruct Rcase_abs in *;
+   destruct Rcase_abs in *;
+   destruct Rcase_abs in *; 
+   repeat match goal with
+          | H : @eq R _ _ |- _ => revert H
+          | H : @Rle _ _ |- _ => revert H
+          | H : @Rge _ _ |- _ => revert H
+          | H : @Rlt _ _ |- _ => revert H
+          | H :@ Rgt _ _ |- _ => revert H
+          | H : @Rge _ _ |- _ => revert H
+          end;
+   psatz R.
+Qed.
+
+SearchAbout Fappli_IEEE_extra.BofZ.
+
+Lemma natRoundingTruth2 : forall (f:Floats.float) (r:R) (n:nat),
+    Some r = floatToReal f ->
+    Some f = Some (nat_to_float n)->
+    (Rabs 
+       (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (Z2R (Z.of_nat n))) 
+     < (bpow radix2 custom_emax))%R ->
+    B2R custom_prec custom_emax (Fappli_IEEE_extra.BofZ custom_prec custom_emax eq_refl eq_refl (Z.of_nat n)) =
+    round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (Z2R (Z.of_nat n)).                         
+
+Proof.       
+  intros.
+  pose proof Fappli_IEEE_extra.BofZ_correct as Z2Rcorrect.
+  specialize (Z2Rcorrect custom_prec custom_emax eq_refl eq_refl (Z.of_nat n)).
+  apply rltProof2 in H1.
+  rewrite H1 in Z2Rcorrect.
+  decompose [and] Z2Rcorrect.
+  apply H2.
+Qed.
+
+
 Lemma bound_proof' : 
   forall (tr:Semantics.trace) (expr:NowTerm) (fState:fstate),
     related fState (Semantics.hd tr) -> 
@@ -4282,20 +4497,285 @@ Proof.
     inversion Heqo0.
     subst. constructor; psatz R. }
   { simpl. constructor; [ | constructor ].
-    red. simpl. intros XXX; clear XXX.
-    simpl in Heqo. inversion Heqo. subst.
-    clear Heqo.
-    unfold floatToReal in *.
-    unfold nat_to_float in *.
-    Transparent Floats.Float.of_int.
-    unfold Floats.Float.of_int in *.
-    unfold Fappli_IEEE_extra.b64_of_Z in *.
-    unfold Fappli_IEEE_extra.BofZ in *.
-    
-    Print binary_normalize.
-    Print Int.signed.
-    Print Coqlib.zlt.
-    admit. (** interesting lemma **) }
+    {
+      red. simpl. intros.
+      unfold Semantics.eval_comp in H0.
+      simpl in H0.
+      decompose [and] H0.
+      clear H0.
+      
+      Lemma conjoin2 : forall (p1 p2 p3:Prop), p1 -> p2 -> p3 -> p1 /\ p2 /\ p3.
+        intros.
+        intuition.
+      Qed.
+      intros. 
+      pose proof conjoin2 as premise.
+      
+      specialize (premise (floatMin <= INR n)%R (INR n >= 0)%R (INR n * (1 + error) < floatMax)%R H1 H3 H4).
+      Lemma orExtra : forall (p1 p2:Prop), p1 -> p1 \/ p2.
+        intros.
+        intuition.
+      Qed.
+      intros.
+      pose proof orExtra as orExtra1.
+      specialize (orExtra1 ((floatMin <= INR n)%R /\
+                            (INR n >= 0)%R /\ (INR n * (1 + error) < floatMax)%R) 
+                           ((floatMin <=0 - INR n)%R /\
+                            (INR n < 0)%R /\ ((0 - INR n) * (1 + error) < floatMax)%R) premise).
+      pose proof natRoundingTruth as natRoundingTruth.
+      specialize (natRoundingTruth n orExtra1).
+      pose proof natRoundingTruth2 as natRoundingTruth2.
+      specialize (natRoundingTruth2 f r n Heqo0 Heqo natRoundingTruth).
+      Lemma conjoin : forall (p1 p2:Prop), p1 -> p2 -> p1 /\ p2.
+        intros.
+        intuition.
+      Qed.
+      pose proof conjoin as premise2.
+      specialize (premise2 (floatMin <= INR n)%R (INR n >= 0)%R H1 H3).
+      pose proof orExtra as orExtra2.
+      specialize (orExtra2 ((floatMin <= INR n)%R /\ (INR n >= 0)%R) 
+                           ((floatMin <= 0 - INR n)%R /\ (INR n < 0)%R) premise2).
+      
+      unfold floatToReal in *.
+      unfold nat_to_float in *.
+      destruct f eqn:f_des.
+      {
+        inversion Heqo0.
+        inversion Heqo.
+        Print nat_to_float.
+        unfold Fappli_IEEE_extra.b64_of_Z in H5.    
+        rewrite <- H5 in natRoundingTruth2 at 1.
+        
+        
+        simpl in natRoundingTruth2.
+        rewrite natRoundingTruth2.
+        clear natRoundingTruth2.
+        clear natRoundingTruth.
+        
+        clear H2.
+        pose proof relErrorTruthNat as relErrorTruthNat.
+        Lemma simplify: (3 - custom_emax - custom_prec = -1074)%Z.
+          unfold custom_emax, custom_prec.
+          simpl. reflexivity. Qed.
+        specialize (relErrorTruthNat n orExtra2).
+        rewrite <- simplify.
+        Lemma simplify2 : (round_mode mode_NE)  =  (Znearest (fun x : Z => negb (Zeven x))).
+          simpl.
+          reflexivity.
+        Qed.
+        rewrite <- simplify2.
+        rewrite natToReal.
+        remember (round radix2
+                        (FLT_exp (3 - custom_emax  - custom_prec)
+                                 custom_prec) (round_mode mode_NE) 
+                        (INR n)) as roundedValue.
+        clear HeqroundedValue.
+        clear H5.
+        clear premise premise2 orExtra2.
+        clear Heqo0 Heqo f_des orExtra1 H1 H4.
+        unfold Rabs in *.
+        
+        pose proof errorGt0 as errorGt0.
+        Axiom errorLessThan1 : (error < 1)%R.
+        pose proof errorLessThan1 as errorLessThan1.
+        unfold error in *.
+        destruct Rcase_abs;
+          destruct Rcase_abs;
+          repeat match goal with
+                 | H : @eq R _ _ |- _ => revert H
+                 | H : @Rle _ _ |- _ => revert H
+                 | H : @Rge _ _ |- _ => revert H
+                 | H : @Rlt _ _ |- _ => revert H
+                 | H :@ Rgt _ _ |- _ => revert H
+                 | H : @Rge _ _ |- _ => revert H
+                 end;
+          psatz R.
+      }
+      {
+        inversion Heqo0.
+      }
+      {
+        inversion Heqo0.
+      }
+      {
+        inversion Heqo0.
+        inversion Heqo.
+        Print nat_to_float.
+        unfold Fappli_IEEE_extra.b64_of_Z in H5.    
+        rewrite <- H5 in natRoundingTruth2 at 1.
+        
+        
+        simpl in natRoundingTruth2.
+        rewrite natRoundingTruth2.
+        clear natRoundingTruth2.
+        clear natRoundingTruth.
+        
+        clear H2.
+        pose proof relErrorTruthNat as relErrorTruthNat.
+        specialize (relErrorTruthNat n orExtra2).
+        rewrite <- simplify.
+        rewrite <- simplify2.
+        rewrite natToReal.
+        remember (round radix2
+                        (FLT_exp (3 - custom_emax  - custom_prec)
+                                 custom_prec) (round_mode mode_NE) 
+                        (INR n)) as roundedValue.
+        clear HeqroundedValue.
+        clear H5.
+        clear premise premise2 orExtra2.
+        clear Heqo0 Heqo f_des e0 orExtra1 H1 H4.
+        unfold Rabs in *.
+        
+        pose proof errorGt0 as errorGt0.
+        pose proof errorLessThan1 as errorLessThan1.
+        unfold error in *.
+        destruct Rcase_abs;
+          destruct Rcase_abs;
+          repeat match goal with
+                 | H : @eq R _ _ |- _ => revert H
+                 | H : @Rle _ _ |- _ => revert H
+                 | H : @Rge _ _ |- _ => revert H
+                 | H : @Rlt _ _ |- _ => revert H
+                 | H :@ Rgt _ _ |- _ => revert H
+                 | H : @Rge _ _ |- _ => revert H
+                 end;
+          psatz R.
+      }
+    } 
+    {
+      red. simpl. intros.
+      unfold Semantics.eval_comp in H0.
+      simpl in H0.
+      decompose [and] H0.
+      clear H0.
+      intros. 
+      pose proof conjoin2 as premise.
+      
+      specialize (premise (floatMin <= 0 - INR n)%R  (INR n < 0)%R ((0 - INR n) * (1 + error) < floatMax)%R H1 H3 H4).
+      intros.
+        Lemma orExtra2 : forall p1 p2 : Prop, p2 -> p1 \/ p2.
+          intros; intuition. Qed.
+      
+      pose proof orExtra2 as orExtra1.
+      specialize (orExtra1 ((floatMin <= INR n)%R /\
+                            (INR n >= 0)%R /\ (INR n * (1 + error) < floatMax)%R) 
+                           ((floatMin <= 0 - INR n)%R /\
+                            (INR n < 0)%R /\ ((0 - INR n) * (1 + error) < floatMax)%R) premise).
+      pose proof natRoundingTruth as natRoundingTruth.
+      specialize (natRoundingTruth n orExtra1).
+      pose proof natRoundingTruth2 as natRoundingTruth2.
+      specialize (natRoundingTruth2 f r n Heqo0 Heqo natRoundingTruth).
+      pose proof conjoin as premise2.
+      specialize (premise2 (floatMin <= 0 - INR n)%R (INR n < 0)%R H1 H3).
+      pose proof orExtra2 as orExtra2.
+      specialize (orExtra2 ((floatMin <= INR n)%R /\ (INR n >= 0)%R) 
+                           ((floatMin <=0 - INR n)%R /\ (INR n < 0)%R) premise2).
+      
+      unfold floatToReal in *.
+      unfold nat_to_float in *.
+      destruct f eqn:f_des.
+      {
+        inversion Heqo0.
+        inversion Heqo.
+        Print nat_to_float.
+        unfold Fappli_IEEE_extra.b64_of_Z in H5.    
+        rewrite <- H5 in natRoundingTruth2 at 1.
+        
+        
+        simpl in natRoundingTruth2.
+        rewrite natRoundingTruth2.
+        clear natRoundingTruth2.
+        clear natRoundingTruth.
+        
+        clear H2.
+        pose proof relErrorTruthNat as relErrorTruthNat.
+       
+        specialize (relErrorTruthNat n orExtra2).
+        rewrite <- simplify.
+       
+        rewrite <- simplify2.
+        rewrite natToReal.
+        remember (round radix2
+                        (FLT_exp (3 - custom_emax  - custom_prec)
+                                 custom_prec) (round_mode mode_NE) 
+                        (INR n)) as roundedValue.
+        clear HeqroundedValue.
+        clear H5.
+        clear premise premise2 orExtra2.
+        clear Heqo0 Heqo f_des orExtra1 H1 H4.
+        unfold Rabs in *.
+        
+        pose proof errorGt0 as errorGt0.
+        pose proof errorLessThan1 as errorLessThan1.
+        unfold error in *.
+        destruct Rcase_abs;
+          destruct Rcase_abs;
+          repeat match goal with
+                 | H : @eq R _ _ |- _ => revert H
+                 | H : @Rle _ _ |- _ => revert H
+                 | H : @Rge _ _ |- _ => revert H
+                 | H : @Rlt _ _ |- _ => revert H
+                 | H :@ Rgt _ _ |- _ => revert H
+                 | H : @Rge _ _ |- _ => revert H
+                 end;
+          psatz R.
+      }
+      {
+        inversion Heqo0.
+      }
+      {
+        inversion Heqo0.
+      }
+      {
+        inversion Heqo0.
+        inversion Heqo.
+        Print nat_to_float.
+        unfold Fappli_IEEE_extra.b64_of_Z in H5.    
+        rewrite <- H5 in natRoundingTruth2 at 1.
+        
+        
+        simpl in natRoundingTruth2.
+        rewrite natRoundingTruth2.
+        clear natRoundingTruth2.
+        clear natRoundingTruth.
+        
+        clear H2.
+        pose proof relErrorTruthNat as relErrorTruthNat.
+        specialize (relErrorTruthNat n orExtra2).
+        rewrite <- simplify.
+        rewrite <- simplify2.
+        rewrite natToReal.
+        remember (round radix2
+                        (FLT_exp (3 - custom_emax  - custom_prec)
+                                 custom_prec) (round_mode mode_NE) 
+                        (INR n)) as roundedValue.
+        clear HeqroundedValue.
+        clear H5.
+        clear premise premise2 orExtra2.
+        clear Heqo0 Heqo f_des e0 orExtra1 H1 H4.
+        unfold Rabs in *.
+        
+        pose proof errorGt0 as errorGt0.
+        pose proof errorLessThan1 as errorLessThan1.
+        unfold error in *.
+        destruct Rcase_abs;
+          destruct Rcase_abs;
+          repeat match goal with
+                 | H : @eq R _ _ |- _ => revert H
+                 | H : @Rle _ _ |- _ => revert H
+                 | H : @Rge _ _ |- _ => revert H
+                 | H : @Rlt _ _ |- _ => revert H
+                 | H :@ Rgt _ _ |- _ => revert H
+                 | H : @Rge _ _ |- _ => revert H
+                 end;
+          psatz R.
+      }
+    } 
+    {
+      constructor.
+    }
+  }
+ 
   { simpl. constructor; [ | constructor ].
     red. simpl. intro XXX; clear XXX.
     simpl in Heqo.
@@ -4421,7 +4901,7 @@ Proof.
               plusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
         unfold error in *.
         unfold Rabs in *.
-        Axiom errorLessThan1 : (error < 1)%R.
+       
         pose proof errorLessThan1 as errorLessThan1.
         unfold error in *.
         destruct Rcase_abs; destruct Rcase_abs;
@@ -4821,10 +5301,7 @@ Proof.
         pose proof or_introl.
         intros.
         
-        Lemma conjoin : forall (p1 p2:Prop), p1 -> p2 -> p1 /\ p2.
-          intros.
-          intuition.
-        Qed.
+       
         intros.
         pose proof conjoin as conjoin.
         specialize (conjoin (lb1 >= ub2)%R (floatMin <= lb1 - ub2)%R%R).
@@ -4832,10 +5309,7 @@ Proof.
         clear floatMinCase.
         assert (floatMinCase:=conjoin).
         clear conjoin.
-        Lemma orExtra : forall (p1 p2:Prop), p1 -> p1 \/ p2.
-          intros.
-          intuition.
-        Qed.
+        
         intros.
         pose proof orExtra as extraFloatMinCase.
         specialize (extraFloatMinCase ((lb1 >= ub2)%R /\ (floatMin <= lb1 - ub2))%R ((ub1 <= lb2)%R /\ (floatMin <= lb2 - ub1))%R ).
@@ -5037,8 +5511,6 @@ Proof.
         assert (floatMinCase:=conjoin).
         clear conjoin.
         intros.
-         Lemma orExtra2 : forall p1 p2 : Prop, p2 -> p1 \/ p2.
-          intros; intuition. Qed.
         pose proof orExtra2 as extraFloatMinCase.
         specialize (extraFloatMinCase ((lb1 >= ub2)%R /\ (floatMin <= lb1 - ub2)%R) ((ub1 <= lb2)%R /\ (floatMin <= lb2 - ub1))%R ).
         specialize (extraFloatMinCase floatMinCase).
@@ -5735,10 +6207,6 @@ Proof.
         pose proof or_introl.
         intros.
         intros.
-        Lemma conjoin2 : forall (p1 p2 p3:Prop), p1 -> p2 -> p3 -> p1 /\ p2 /\ p3.
-          intros.
-          intuition.
-        Qed.
         pose proof conjoin2 as conjoin2.
         specialize (conjoin2 (floatMin <= lb1 * lb2)%R (lb1 >= 0)%R (lb2 >= 0)%R).
         
@@ -7462,4 +7930,3 @@ Proof.
     }
   }
 Qed.
-
