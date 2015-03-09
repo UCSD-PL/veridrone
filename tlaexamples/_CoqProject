@@ -2,7 +2,7 @@
 -R ../tla TLA
 -R ../coq-ext-lib/theories ExtLib
 -I ../compile
--I ../../Charge/Charge!/bin
+-I ../Charge/Charge!/bin
 -R . Examples
 System.v
 OneDimVelShim.v

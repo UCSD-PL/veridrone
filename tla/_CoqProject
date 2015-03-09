@@ -1,6 +1,6 @@
 -R ../Z3-plugin/src Z3
 -R . TLA
--I ../../Charge/Charge!/bin
+-I ../Charge/Charge!/bin
 Stream.v
 Syntax.v
 Semantics.v
