@@ -259,9 +259,9 @@ Proof.
         repeat tlaSplit; try tlaAssume.
       * tlaAssume.
       * repeat rewrite (landC (_ \\// _) _).
-        repeat rewrite land_lor_distr.
+        repeat rewrite land_lor_distr_L.
         repeat rewrite (landC (_ \\// _) _).
-        repeat rewrite land_lor_distr. tlaRevert.
+        repeat rewrite land_lor_distr_L. tlaRevert.
         apply or_left; [ apply or_left | ].
         { tlaIntro. rewrite Hw. tlaIntuition. }
         { rewrite Hdiscr. tlaIntuition. }

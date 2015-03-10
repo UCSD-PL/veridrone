@@ -37,11 +37,24 @@ Section logic.
       P |-- R.
   Proof. intros; eapply lcut; eauto. Qed.
 
-  Lemma land_lor_distr : forall P Q R,
+  Lemma land_lor_distr_L : forall P Q R,
       P //\\ (Q \\// R) -|- (P //\\ Q) \\// (P //\\ R).
   Proof.
     intros. split.
     { rewrite landC. apply landAdj.
+      apply lorL; apply limplAdj.
+      { apply lorR1. rewrite landC. reflexivity. }
+      { apply lorR2. rewrite landC. reflexivity. } }
+    { apply lorL; apply landR; try solve [ apply landL1 ; reflexivity ].
+      { apply lorR1. apply landL2. reflexivity. }
+      { apply lorR2. apply landL2. reflexivity. } }
+  Qed.
+
+  Lemma land_lor_distr_R : forall P Q R,
+      (Q \\// R) //\\ P -|- (P //\\ Q) \\// (P //\\ R).
+  Proof.
+    intros. split.
+    { apply landAdj.
       apply lorL; apply limplAdj.
       { apply lorR1. rewrite landC. reflexivity. }
       { apply lorR2. rewrite landC. reflexivity. } }

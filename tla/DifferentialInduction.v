@@ -119,8 +119,8 @@ Fixpoint deriv_formula (F:Formula) (eqs:list DiffEq) :=
           Comp t1 t2 (deriv_comp_op op)
         | _, _ => FALSE
       end
-    | And F1 F2 => And (deriv_formula F1 eqs)
-                       (deriv_formula F2 eqs)
+    | And F1 F2 =>
+      (deriv_formula F1 eqs) //\\ (deriv_formula F2 eqs)
     | Imp F1 F2 =>
       (Continuous eqs -->> ((F1 -->> next F1) //\\ (next F1 -->> F1)))
       //\\ (F1 -->> (deriv_formula F2 eqs))
@@ -643,12 +643,12 @@ Qed.
 Lemma diff_ind : forall Hyps G cp F,
   is_st_formula G ->
   is_st_formula Hyps ->
-  (|-- F -->> Continuous cp) ->
-  (|-- (Hyps //\\ Continuous cp) -->> next Hyps) ->
-  (|-- F -->> G) ->
-  (|-- F -->> Hyps) ->
-  (|-- Hyps -->> deriv_formula G cp) ->
-  (|-- F -->> next G).
+  (F |-- Continuous cp) ->
+  ((Hyps //\\ Continuous cp) |-- next Hyps) ->
+  (F |-- G) ->
+  (F |-- Hyps) ->
+  (Hyps |-- deriv_formula G cp) ->
+  (F |-- next G).
 Proof.
 (*
   Opaque Continuous.

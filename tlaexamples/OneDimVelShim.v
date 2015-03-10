@@ -2,6 +2,9 @@ Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
 Import LibNotations.
 Require Import TLA.ArithFacts.
+Require Import TLA.DifferentialInduction.
+Require Import TLA.ContinuousProofRules.
+Require Import TLA.BasicProofRules.
 Require Import Examples.System.
 (*Require Import TLA.Substitution. *)
 
@@ -22,10 +25,10 @@ Section SenseCtrl.
   Variable E : Formula.
 
   Theorem sense_ctrl :
-    (|- Sys dvars cvars Is S w d --> []E) ->
-    (|- Sys dvars cvars Ic (C //\\ E) w d --> []P) ->
-    (|- Sys dvars cvars (Is //\\ Ic) (S //\\ C) w d --> [](P //\\ E)).
-  Proof.
+    (|-- Sys dvars cvars Is S w d -->> []E) ->
+    (|-- Sys dvars cvars Ic (C //\\ E) w d -->> []P) ->
+    (|-- Sys dvars cvars (Is //\\ Ic) (S //\\ C) w d -->> [](P //\\ E)).
+(*  Proof.
     Opaque World Discr.
     simpl. intros Hs Hc tr [ [HIs HIc] HN] n.
     split.
@@ -43,12 +46,82 @@ Section SenseCtrl.
         right. simpl in *. intuition.
       + apply HN.
   Qed.
-*)
+*)*)
 Admitted.
 
 End SenseCtrl.
 
-Section SensorWithError.
+  Ltac decompose_hyps :=
+    repeat rewrite land_lor_distr_R;
+    repeat rewrite land_lor_distr_L;
+    repeat apply lorL.
+
+Module SensorWithDelay.
+
+  Variable x : Var.
+  Variable Xmax : Var.
+  Variable Xmin : Var.
+  Variable xderiv : Var.
+  Variable d : R.
+  Hypothesis get_deriv_Xmax :
+    get_deriv Xmax
+              (["t" '  ::= -- (1), x '  ::= xderiv, Xmax '  ::= 0, 
+                Xmin '  ::= 0, xderiv '  ::= 0]) = Some (NatT 0).
+  Hypothesis get_deriv_Xmin :
+    get_deriv Xmin
+              (["t" '  ::= -- (1), x '  ::= xderiv, Xmax '  ::= 0, 
+                Xmin '  ::= 0, xderiv '  ::= 0]) = Some (NatT 0).
+  Hypothesis get_deriv_xderiv :
+    get_deriv xderiv
+              (["t" '  ::= -- (1), x '  ::= xderiv, Xmax '  ::= 0, 
+                Xmin '  ::= 0, xderiv '  ::= 0]) = Some (NatT 0).
+  Hypothesis get_deriv_x :
+    get_deriv x
+              (["t" '  ::= -- (1), x '  ::= xderiv, Xmax '  ::= 0, 
+                Xmin '  ::= 0, xderiv '  ::= 0]) =
+    Some (VarNowT xderiv).
+
+  Ltac rewrite_deriv_hyps :=
+    breakAbstraction;
+    repeat first [ rewrite get_deriv_Xmax |
+                   rewrite get_deriv_Xmin |
+                   rewrite get_deriv_xderiv |
+                   rewrite get_deriv_x ].
+
+  Definition Sense : Formula :=
+    xderiv! = xderiv //\\
+    (     (xderiv >= 0 //\\ Xmax! = x + xderiv*d //\\ Xmin! = x)
+     \\// (xderiv < 0 //\\ Xmax! = x //\\ Xmin! = x + xderiv*d)).
+
+  Definition SenseSafeInd : Formula :=
+         (xderiv >= 0 -->> (Xmax >= x + xderiv*"t" //\\ Xmin <= x))
+    //\\ (xderiv < 0 -->> (Xmax >= x //\\ Xmin <= x + xderiv*"t")).
+
+  Theorem sense_safe :
+    |-- Sys (Xmax::Xmin::xderiv::nil)%list (x::nil)%list
+            SenseSafeInd Sense (DiffEqC x xderiv::nil)%list d -->>
+            []SenseSafeInd.
+  Proof.
+    tlaIntro.
+    eapply discr_indX.
+    - tlaIntuition.
+    - tlaAssume.
+    - tlaAssume.
+    - decompose_hyps.
+      + eapply diff_ind with (Hyps:=TRUE);
+        try solve [tlaIntuition | tlaAssume ];
+        repeat tlaSplit;
+        try solve [ rewrite_deriv_hyps; solve_linear |
+                    eapply unchanged_continuous;
+                      [ tlaIntro; tlaAssume |
+                        solve_linear ] ].
+      + solve_linear; solve_nonlinear.
+      + solve_linear; solve_nonlinear.
+  Qed.
+
+End SensorWithDelay.
+
+Module SensorWithError.
 
   Variable x : Var.
   Variable Xmax : Var.
@@ -58,18 +131,46 @@ Section SensorWithError.
   Definition Sense : Formula :=
     Xmax = Xmin + err //\\ Xmin <= x <= Xmax.
 
-  Definition SenseWithDelay : Formula :=
-    Xmax = Xmin + err //\\ Xmin <= x <= Xmax.
-
   Definition SenseSafe : Formula :=
-    "pc" = 1 --> Xmin <= x <= Xmax.
+    "pc" = 1 -->> Xmin <= x <= Xmax.
 
   Theorem sense_safe : forall w d,
-    |- Sys (Xmax::Xmin::nil)%list (x::nil)%list
-           SenseSafe Sense w d --> []SenseSafe.
+    |-- Sys (Xmax::Xmin::nil)%list (x::nil)%list
+           SenseSafe Sense w d -->> []SenseSafe.
   Proof.
-    intros w d. apply and_left2.
-    apply always_imp. solve_linear.
+    intros w d. tlaIntro.
+    apply landL2. tlaRevert.
+    rewrite Always_or.
+    apply always_imp. tlaIntro.
+    decompose_hyps.
+    - solve_linear.
+    - solve_linear.
+    -
+
+
+    intros w d.
+    tlaIntro.
+    eapply discr_indX.
+    - tlaIntuition.
+    - tlaAssume.
+    - tlaAssume.
+    - decompose_hyps.
+      + eapply diff_ind with (Hyps:=TRUE);
+        try solve [tlaIntuition | tlaAssume ];
+        repeat tlaSplit.
+        * admit.
+        * solve_linear.
+        * eapply unchanged_continuous.
+          { tlaIntro; tlaAssume. }
+          { solve_linear. rewrite_next_st. 
+        try solve [ eapply unchanged_continuous;
+                    [ tlaIntro; tlaAssume |
+                      solve_linear ] ].
+      + solve_linear; solve_nonlinear.
+      + solve_linear; solve_nonlinear.
+  Qed.
+ tlaIntro. apply landL2.
+    tlaRevert. apply always_imp. solve_linear.
   Qed.
 
 End SensorWithError.
