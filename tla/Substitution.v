@@ -46,6 +46,8 @@ Fixpoint subst_term_term (t1 t2 : Term) (x : Var)
     | RealT _ => t1
   end.
 
+Print Formula.
+
 (* If next is true, substitutes t for x! in F.
    If next is false, substitutes t for x in F. *)
 Fixpoint subst_term_formula (F:Formula) (t : Term) (x : Var)
@@ -63,6 +65,8 @@ Fixpoint subst_term_formula (F:Formula) (t : Term) (x : Var)
     | Imp F1 F2 =>
       Imp (subst_term_formula F1 t x next)
           (subst_term_formula F2 t x next)
+    | Exists T F =>
+      Exists T (fun (i : T) => subst_term_formula (F i) t x next)
     | _ => F
   end.
 
@@ -113,6 +117,15 @@ Proof.
   - rewrite IHt1; intuition.
 Qed.
 
+Require Import Coq.Logic.FunctionalExtensionality.
+
+Ltac formula_exists_extensionality :=
+  match goal with
+    | [|- @eq Formula (Exists _ ?f) (Exists _ ?g)] =>
+      cut (f = g);
+      [let H := fresh "H" in intro H; rewrite H; auto | apply functional_extensionality]
+  end.
+
 Lemma next_subst_formula : forall F t x,
   is_st_formula F ->
   next (subst_term_formula F t x false) =
@@ -122,6 +135,8 @@ Proof.
   try solve [ rewrite IHF1; intuition;
               rewrite IHF2; intuition ].
   - repeat rewrite next_subst_term; intuition.
+  - formula_exists_extensionality.
+    intro. apply H. apply H0.
 Qed.
 
 Lemma subst_term_term_eq_varnext : forall t1 t2 x,
@@ -213,6 +228,13 @@ Proof.
       eapply IHF1;
       eauto; simpl;
       unfold eval_comp; simpl; intuition.
+  - intuition;
+    inversion H1; clear H1;
+    exists x0; 
+    specialize (H x0 t1 t2 x b tr);
+    simpl in H; unfold eval_comp in H;
+    apply H in H0;
+    intuition.
 Qed.
 
 Lemma subst_term_formula_sub : forall F t1 t2 x y b,
@@ -265,6 +287,7 @@ Proof.
   - rewrite IHt1; auto.
 Qed.
 
+
 Lemma subst_term_formula_comm : forall F t1 t2 x y b1 b2,
   x <> y ->
   subst_term_term t1 t2 y b2 = t1 ->
@@ -281,6 +304,8 @@ Proof.
        rewrite IHF2; auto).
   - rewrite subst_term_term_comm with (t1:=t); auto.
     rewrite subst_term_term_comm with (t1:=t0); auto.
+  - formula_exists_extensionality.
+    intros. apply H; assumption.
 Qed.
 
 Lemma subst_formula_eq : forall F t (x:Var),
@@ -307,6 +332,11 @@ Proof.
   - intuition;
     eapply IHF2; eauto;
     apply H0; eapply IHF1; eauto.
+  - split;
+    intro H1; inversion H1; clear H1;
+    specialize (H x0 t x tr); simpl in H;
+    apply H in H0; inversion H0;
+    eexists; eauto.
 Qed.
 
 Lemma subst_term_eq_next : forall t1 x t2,
@@ -345,6 +375,10 @@ Proof.
   - split; intros;
     eapply IHF2; eauto;
     apply H0; eapply IHF1; eauto.
+  - split; intro H1; inversion H1; clear H1;
+    specialize (H x0 x t tr); simpl in H;
+    apply H in H0; inversion H0;
+    eexists; eauto.
 Qed.
 
 Close Scope HP_scope.
