@@ -1,4 +1,5 @@
 Require Import compcert.cfrontend.Clight.
+Require Import Coq.micromega.Psatz.
 Require Import compcert.cfrontend.Cop.
 Require Import compcert.cfrontend.Ctypes.
 Require Import compcert.lib.Integers.
@@ -19,17 +20,37 @@ Local Close Scope HP_scope.
 Delimit Scope SrcLang_scope with SL.
 Local Open Scope SrcLang_scope.
 
-Definition custom_prec := 53%Z.
-Definition custom_emax:= 1024%Z.
-Definition custom_float_zero := B754_zero custom_prec custom_emax true.
 
+Variable prec:Z.
+Variable emax:Z.
+Variable emin:Z.
+Hypothesis precGe1: (prec >= 1)%Z.
+Hypothesis precLtEmax : (prec < emax)%Z.
+Hypothesis nan : binary_float prec emax -> binary_float prec emax -> bool * nan_pl prec.
+Locate FLT_exp.
+Hypothesis precThm : forall k : Z,
+    (emin < k)%Z ->
+    (prec <=
+     k - Fcore_FLT.FLT_exp (3 - emax - prec) prec k)%Z.
+Definition custom_prec := prec.
+Definition custom_emax:= emax.
+Definition custom_float_zero := B754_zero custom_prec custom_emax false.
+Definition custom_emin := emin.
+Definition float := binary_float custom_prec custom_emax.
+Lemma custom_precGe1: (custom_prec >= 1)%Z.
+unfold custom_prec.
+apply precGe1.
+Qed.
+Print Floats.float.
+Print binary64.
+Print binary_float.
 
 (* Term, sans the next operator *)
 Inductive NowTerm : Type :=
 | VarNowN : Var -> NowTerm
 | NatN : nat -> NowTerm
 (*| RealN : Rdefinitions.R -> NowTerm*)
-| FloatN : Floats.float -> NowTerm
+| FloatN : float -> NowTerm
 | PlusN : NowTerm -> NowTerm -> NowTerm
 | MinusN : NowTerm -> NowTerm -> NowTerm
 | MultN : NowTerm -> NowTerm -> NowTerm.
@@ -47,29 +68,41 @@ Infix "*" := (MultN) : SrcLang_scope.
 (*Definition NatC (n:nat) : NowTerm :=
 NatN n.
 Coercion NatC : nat >-> NowTerm.*)
-Definition FloatC (f:Floats.float) : NowTerm :=
+Definition FloatC (f:float) : NowTerm :=
 FloatN f.
-Coercion FloatC : Floats.float >-> NowTerm.
 Definition VarC (x:String.string) : NowTerm :=
 VarNowN x.
 Coercion VarC : String.string >-> NowTerm.
 (* convenient coercions between number formats *)
 Definition nat_to_int (n : nat) : int :=
 Int.repr $ Z.of_nat n.
-Definition nat_to_float (n : nat) : Floats.float :=
-Fappli_IEEE_extra.BofZ custom_prec custom_emax eq_refl eq_refl (Z.of_nat n).
-Definition FloatToR : Floats.float -> R := B2R 53 1024.
+
+Lemma custom_precGt0 : Fcore_FLX.Prec_gt_0 custom_prec.
+unfold Fcore_FLX.Prec_gt_0.
+unfold custom_prec.
+pose proof precGe1. 
+lia.
+Qed.
+
+Lemma custom_precLtEmax : (custom_prec < custom_emax)%Z.
+unfold custom_emax, custom_prec.
+apply precLtEmax.
+Qed.
+
+Print nan.
+
+Definition custom_nan:float -> float -> bool * nan_pl custom_prec := nan.
+ 
+Definition nat_to_float (n : nat) : float :=
+Fappli_IEEE_extra.BofZ custom_prec custom_emax custom_precGt0 custom_precLtEmax (Z.of_nat n).
+
+Definition FloatToR : (float) -> R := B2R custom_prec custom_emax.
 Coercion nat_to_int : nat >-> int.
-Coercion nat_to_float : nat >-> Floats.float.
+
 Coercion Pos.of_nat : nat >-> positive.
 (*Coercion FloatToR : Floats.float >-> R.*)
 
-Fixpoint pow (t : NowTerm) (n : nat) :=
-  match n with
-    | O => FloatN 1
-    | S n => MultN t (pow t n)
-  end.
-Notation "t ^^ n" := (pow t n) (at level 10) : SrcLang_scope.
+Print binary_float.
 
 (* inject  *)
 Fixpoint denowify (nt : NowTerm) : Term :=
@@ -157,7 +190,7 @@ Definition progr : Set := list progr_stmt.
 Takes function and list, as well as default element to return if list is nil *)
 Definition self_foldr {A : Type} (f : A -> A -> A) (l : list A) (dflt : A) : A :=
   match l with
-    | nil => dflt
+    | List.nil => dflt
     | h :: t =>
       List.fold_right f h t
   end.
@@ -168,20 +201,20 @@ Require Import ExtLib.Data.Option.
 
 
 (* Semantics *)
-Definition fstate := list (Var * Floats.float).
+Definition fstate := list (Var * (float)).
 
-Fixpoint fstate_lookup (f : fstate) (v : Var) : option Floats.float :=
+Fixpoint fstate_lookup (f : fstate) (v : Var) : option (float) :=
   match f with
-  | nil          => None
+  | List.nil          => None
   | (v',b) :: fs =>
     if v ?[ eq ] v' then
       Some b
     else fstate_lookup fs v
   end.
 
-Fixpoint fstate_set (f : fstate) (v : Var) (val : Floats.float) : fstate :=
+Fixpoint fstate_set (f : fstate) (v : Var) (val : float) : fstate :=
   match f with
-    | nil           => (v, val) :: nil
+    | List.nil           => (v, val) :: List.nil
     | (v', b) :: fs =>
       if v ?[ eq ] v' then
         (v, val) :: fs
@@ -200,23 +233,42 @@ Section eval_expr.
   Variable st : fstate.
 
   (* denotation of NowTerm *)
-  Fixpoint eval_NowTerm (t:NowTerm) :=
-    match t with
-    | VarNowN var => fstate_lookup st var
-    | NatN n => Some (nat_to_float n)
-    | FloatN f => Some f
-    | PlusN t1 t2 =>
-      lift2 (Bplus custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl mode_NE)
-            (eval_NowTerm t1) (eval_NowTerm t2)
-    | MinusN t1 t2 =>
-      lift2 (Bminus custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl mode_NE)
-            (eval_NowTerm t1) (eval_NowTerm t2)
-    | MultN t1 t2 =>
-      lift2 (Bmult custom_prec custom_emax eq_refl eq_refl Floats.Float.binop_pl mode_NE)
-            (eval_NowTerm t1) (eval_NowTerm t2)
-    end.
+  Print Floats.Float.binop_pl.
+  
+  Print Floats.Float.transform_quiet_pl.
+
+  Print Archi.default_pl_64.
+
+Definition try := (fun pl : positive =>
+   ((PreOmega.Z_of_nat' (S (Fcore_digits.digits2_Pnat pl)) <? 53)%Z = true)%type).
+
+Print Bplus.
+
+Fixpoint eval_NowTerm (t:NowTerm) :=
+  match t with
+  | VarNowN var => fstate_lookup st var
+  | NatN n => Some (nat_to_float n)
+  | FloatN f => Some f
+  | PlusN t1 t2 =>
+    lift2 (Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE)
+          (eval_NowTerm t1) (eval_NowTerm t2)
+  | MinusN t1 t2 =>
+    lift2 (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE)
+          (eval_NowTerm t1) (eval_NowTerm t2)
+  | MultN t1 t2 =>
+    lift2 (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE)
+          (eval_NowTerm t1) (eval_NowTerm t2)
+  end.
 
   (* denotation of comparison functions *)
+
+
+
+Definition custom_cmp (c : comparison) (f1 : float) (f2 : float) := Floats.cmp_of_comparison c (Fappli_IEEE_extra.Bcompare custom_prec custom_emax f1 f2).
+
+
+
+
   Definition eval_comp (op : CompOp) (lhs rhs : NowTerm) : option bool :=
     let elhs := eval_NowTerm lhs in
     let erhs := eval_NowTerm rhs in
@@ -227,7 +279,7 @@ Section eval_expr.
                | Le => Cle
                | Eq => Ceq
                end in
-    lift2 (Floats.Float.cmp cmp) elhs erhs.
+    lift2 (custom_cmp cmp) elhs erhs.
 
   (* denotation of conditionals *)
   Fixpoint progr_cond_holds (conds : FlatFormula) : option bool :=
@@ -253,7 +305,7 @@ Definition assn_update_state (assn : progr_assn) (st : fstate) : option fstate :
 
 Fixpoint assns_update_state (assns: list progr_assn) (acc : fstate) : option fstate :=
   match assns with
-  | nil => Some acc
+  | List.nil => Some acc
   | h :: t =>
     match assn_update_state h acc with
     | Some news => assns_update_state t news
@@ -275,7 +327,7 @@ Fixpoint eval_progr_stmt (ps : progr_stmt) (init : fstate) : option fstate :=
 (* denotation of a source language program *)
 Fixpoint eval_progr (p : progr) (init : fstate) : option fstate :=
   match p with
-  | nil => Some init
+  | List.nil => Some init
   | h :: t =>
     match eval_progr_stmt h init with
     | Some news => eval_progr t news
