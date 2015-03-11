@@ -23,7 +23,6 @@ Require Import compcert.flocq.Core.Fcore_Raux.
 Require Import compcert.flocq.Core.Fcore_FLT.
 Require Import compcert.flocq.Core.Fcore_generic_fmt.                       
 
-
 Require Import compcert.flocq.Core.Fcore_Raux.
 
 
@@ -114,7 +113,7 @@ Definition simpleBound7
 
 
 Definition floatMax:= bpow radix2 custom_emax.
-Definition floatMin := bpow radix2 (-1021)%Z.
+Definition floatMin := bpow radix2 custom_emin%Z.
 
 Print Bplus_correct.
 Check Bplus_correct.
@@ -415,7 +414,7 @@ Fixpoint bound_term (x:NowTerm)  : (list singleBoundTerm):=
 
 
 
-Definition floatToReal (f:Floats.float) : option R :=
+Definition floatToReal (f:binary_float custom_prec custom_emax) : option R :=
   match f with 
     | B754_zero _ =>  Some (B2R _ _ f)
     | B754_infinity _ => None
@@ -424,7 +423,7 @@ Definition floatToReal (f:Floats.float) : option R :=
     end.
 
 Local Close Scope HP_scope.
-Definition foldBoundProp (evalExpr:option Floats.float) (tr:trace) :=
+Definition foldBoundProp (evalExpr:option (binary_float custom_prec custom_emax)) (tr:trace) :=
   let s1 := Semantics.hd tr in
   let s2 := Semantics.hd (Semantics.tl tr) in
   match evalExpr with 
@@ -451,8 +450,6 @@ induction lst.
   apply IHlst.
 Qed.
 
-Definition boundDef (expr:NowTerm) (tr:trace) (fState: fstate):Prop:=
-  fold_right (foldBoundProp (eval_NowTerm fState expr) tr) True (bound_term expr).
 
 Definition denote_singleBoundTerm (f : R) (tr : trace) (s : singleBoundTerm) : Prop :=
   let s1 := Semantics.hd tr in
@@ -771,18 +768,19 @@ Definition related (f : fstate) (s : state) : Prop :=
               Some (s x) = floatToReal y.
 
 
-Definition validFloat (f : Floats.float) : Prop :=
+Definition validFloat (f : binary_float custom_prec custom_emax) : Prop :=
   exists r, Some r = floatToReal f.
 
 
+Print Floats.float.
 Lemma resultImplicationsPlus : 
-        forall (f : Floats.float) (expr1 expr2 : NowTerm) (fState : fstate),  
+        forall (f : float) (expr1 expr2 : NowTerm) (fState : fstate),  
          (Some f =  lift2 (Bplus custom_prec custom_emax 
-                                 eq_refl eq_refl Floats.Float.binop_pl mode_NE) 
+                                 custom_precGt0 custom_precLtEmax custom_nan mode_NE) 
                           (eval_NowTerm fState expr1)
                           (eval_NowTerm fState expr2)) ->
          validFloat f ->
-         exists (f1 f2:Floats.float),
+         exists (f1 f2:float),
            Some f1 = eval_NowTerm fState expr1
            /\ Some f2 = eval_NowTerm fState expr2
            /\ validFloat f1 /\ validFloat f2.
@@ -907,13 +905,13 @@ Lemma resultImplicationsPlus :
 Qed.
 
 Lemma resultImplicationsMult : 
-        forall (f : Floats.float) (expr1 expr2 : NowTerm) (fState : fstate),  
+        forall (f : float) (expr1 expr2 : NowTerm) (fState : fstate),  
          (Some f =  lift2 (Bmult custom_prec custom_emax 
-                                 eq_refl eq_refl Floats.Float.binop_pl mode_NE) 
+                                 custom_precGt0 custom_precLtEmax custom_nan mode_NE) 
                           (eval_NowTerm fState expr1)
                           (eval_NowTerm fState expr2)) ->
          validFloat f ->
-         exists (f1 f2:Floats.float),
+         exists (f1 f2:float),
            Some f1 = eval_NowTerm fState expr1
            /\ Some f2 = eval_NowTerm fState expr2
            /\ validFloat f1 /\ validFloat f2.
@@ -1064,13 +1062,13 @@ Qed.
 
 
 Lemma resultImplicationsMinus : 
-        forall (f : Floats.float) (expr1 expr2 : NowTerm) (fState : fstate),  
+        forall (f : float) (expr1 expr2 : NowTerm) (fState : fstate),  
          (Some f =  lift2 (Bminus custom_prec custom_emax 
-                                 eq_refl eq_refl Floats.Float.binop_pl mode_NE) 
+                                 custom_precGt0 custom_precLtEmax custom_nan mode_NE) 
                           (eval_NowTerm fState expr1)
                           (eval_NowTerm fState expr2)) ->
          validFloat f ->
-         exists (f1 f2:Floats.float),
+         exists (f1 f2:float),
            Some f1 = eval_NowTerm fState expr1
            /\ Some f2 = eval_NowTerm fState expr2
            /\ validFloat f1 /\ validFloat f2.
@@ -1197,21 +1195,27 @@ Qed.
 
 
 Lemma validFexpProof : Valid_exp (FLT_exp (3 - custom_emax - custom_prec) custom_prec).
-                           unfold Valid_exp,custom_prec,custom_emax;
-                           intros.
-                           split.
-                           intros.
-                           unfold FLT_exp in *.
-                           Search (Z-> Z ->{_}+{_}).
-                           lia.
-                           intros. split. unfold FLT_exp in *.
-                           unfold FLT_exp in *.
-                           lia.
-                           intros. unfold FLT_exp in *.
-                           lia.
-                         Qed.
+  pose proof custom_precGt0.
+  pose proof custom_precLtEmax.
+  unfold Fcore_FLX.Prec_gt_0 in *.
+  unfold custom_prec, custom_emax in *.
+  unfold Valid_exp,custom_prec,custom_emax.
+  intros.
+  split.
+  intros.
+  unfold FLT_exp in *.
+  Search (Z-> Z ->{_}+{_}).
+  lia.
+  intros. split. unfold FLT_exp in *.
+  unfold FLT_exp in *.
+  
+  lia.
+  intros. unfold FLT_exp in *.
+  
+  lia.
+Qed.
 
-Lemma validFloat2 : forall (f1:Floats.float) (r:R), Some r = floatToReal f1 -> r = B2R custom_prec custom_emax f1.   
+Lemma validFloat2 : forall (f1:float) (r:R), Some r = floatToReal f1 -> r = B2R custom_prec custom_emax f1.   
 intros.
 unfold floatToReal in *.
 destruct f1.
@@ -1224,11 +1228,11 @@ inversion H.
 simpl in *.
 reflexivity.
 Qed.
-Definition custom_emin := (-1021)%Z.
 
 
 Definition choiceDef := (fun x => negb (Zeven x)).
 
+(* commenting this for now - since we are abstracting the float type
 Lemma precThm: (forall k : Z, (custom_emin < k)%Z -> (custom_prec <= k - FLT_exp (3-custom_emax - custom_prec) custom_prec k)%Z).
   intros.
   unfold custom_emax in *. unfold custom_prec in *. unfold FLT_exp. unfold custom_emin in *. 
@@ -1252,8 +1256,8 @@ Lemma precThm: (forall k : Z, (custom_emin < k)%Z -> (custom_prec <= k - FLT_exp
   lia.
   
 Qed.
-
-Lemma floatValid : forall (r:R) (f:Floats.float), Some r = floatToReal f -> is_finite _ _ f = true .
+*)
+Lemma floatValid : forall (r:R) (f:float), Some r = floatToReal f -> is_finite _ _ f = true .
 Proof.
   intros.
   unfold floatToReal in *.
@@ -1439,7 +1443,241 @@ Lemma RtoZ: forall z, (Z2R z > 0)%R <-> (z > 0)%Z.
 Qed.
 
 
-SearchAbout Pos.iter.
+Lemma RtoZgt1: forall z, (Z2R z >= 1)%R <-> (z >= 1)%Z. 
+  split.
+  {
+    intros.
+    compute.
+    induction z.
+    {
+      compute in H.
+      psatz R.
+    }
+    {
+      destruct p.
+      {
+        intros.
+        inversion H0.
+      }
+      {
+        intros.
+        inversion H0.
+      }
+      {
+        intros.
+        inversion H0.
+      }
+    }
+    {
+      
+      unfold Z2R in *.
+      pose proof posZ as posZ.
+      specialize (posZ p).
+      psatz R.
+    }
+  }    
+  
+{
+  intros.
+  induction z.
+    { lia. }
+    { unfold Z2R.
+      unfold P2R.
+      destruct p eqn:des.
+      {
+        remember ((fix P2R (p2 : positive) : R :=
+                     match p2 with
+                     | ((_~1 as t)~1)%positive => 1 + 2 * P2R t
+                     | ((_~0 as t)~1)%positive => 1 + 2 * P2R t
+                     | 3%positive => 3
+                     | ((_~1 as t)~0)%positive => 2 * P2R t
+                     | ((_~0 as t)~0)%positive => 2 * P2R t
+                     | 2%positive => 2
+                     | 1%positive => 1
+                     end) p0)%R as pr.
+        Lemma P2Rgt0: forall p0, (((fix P2R (p2 : positive) : R :=
+                                      match p2 with
+                                      | ((_~1 as t)~1)%positive => 1 + 2 * P2R t
+                                      | ((_~0 as t)~1)%positive => 1 + 2 * P2R t
+                                      | 3%positive => 3
+                                      | ((_~1 as t)~0)%positive => 2 * P2R t
+                                      | ((_~0 as t)~0)%positive => 2 * P2R t
+                                      | 2%positive => 2
+                                      | 1%positive => 1
+                                      end) p0) >= 1)%R.
+          intros.
+          induction p0.
+          {
+            remember  ((fix P2R (p2 : positive) : R :=
+                          match p2 with
+                          | ((_~1 as t)~1)%positive => 1 + 2 * P2R t
+                          | ((_~0 as t)~1)%positive => 1 + 2 * P2R t
+                          | 3%positive => 3
+                          | ((_~1 as t)~0)%positive => 2 * P2R t
+                          | ((_~0 as t)~0)%positive => 2 * P2R t
+                          | 2%positive => 2
+                          | 1%positive => 1
+                          end) p0)%R as pr. 
+            destruct p0.
+            psatz R.
+            psatz R.
+            psatzl R.
+          }
+          {
+            remember  ((fix P2R (p2 : positive) : R :=
+                          match p2 with
+                          | ((_~1 as t)~1)%positive => 1 + 2 * P2R t
+                          | ((_~0 as t)~1)%positive => 1 + 2 * P2R t
+                          | 3%positive => 3
+                          | ((_~1 as t)~0)%positive => 2 * P2R t
+                          | ((_~0 as t)~0)%positive => 2 * P2R t
+                          | 2%positive => 2
+                          | 1%positive => 1
+                          end) p0)%R as pr.
+            destruct p0.
+            psatz R.
+            psatz R.
+            psatz R.
+          }
+          psatz R.
+        Qed.
+        intros.
+        pose proof P2Rgt0 as P2Rgt0.
+        specialize (P2Rgt0 p0).
+        rewrite <- Heqpr in P2Rgt0.
+        destruct p0 eqn:p0_des. 
+        {
+          psatz R.
+        }
+        {
+          psatz R.
+        }
+        {
+          clear H des pr Heqpr P2Rgt0.
+          psatzl R.
+        }
+      }
+      {
+        remember ((fix P2R (p2 : positive) : R :=
+                     match p2 with
+                     | ((_~1 as t)~1)%positive => 1 + 2 * P2R t
+                     | ((_~0 as t)~1)%positive => 1 + 2 * P2R t
+                     | 3%positive => 3
+                     | ((_~1 as t)~0)%positive => 2 * P2R t
+                     | ((_~0 as t)~0)%positive => 2 * P2R t
+                     | 2%positive => 2
+                     | 1%positive => 1
+                     end) p0)%R as pr.
+        pose proof P2Rgt0 as P2Rgt0.
+        specialize (P2Rgt0 p0).
+        rewrite <- Heqpr in P2Rgt0.
+        destruct p0 eqn:p0_des. 
+        {
+          psatz R.
+        }
+        {
+          psatz R.
+        }
+        {
+          clear H des pr Heqpr P2Rgt0.
+          psatzl R.
+        }
+        
+      }
+      intuition.
+    }
+    lia.
+  }
+Qed.
+
+
+Lemma powLe1 : forall (pow:Z), (pow <= 0)%Z -> (bpow radix2 pow <=1)%R.
+intros.
+unfold bpow.
+destruct pow eqn:pow_des.
+psatzl R.
+lia.
+pose proof RtoZgt1.
+Lemma inverse: forall p:positive, (Z.neg p <= 0)%Z -> (Z2R (Z.pow_pos radix2 p) >= 1)%R.
+intros. apply RtoZgt1.
+unfold Z.pow_pos.
+pose proof Pos.iter_invariant.
+specialize (H0 p Z).
+simpl.
+specialize (H0 (Z.mul 2)).
+specialize (H0 (fun z => z>=1 )%Z).
+Lemma negToPos : forall p:positive, (Zneg p <= -1)%Z <-> (p >= 1)%positive.
+split;lia. Qed.
+pose proof negToPos as negToPos.
+
+Lemma inverseTemp: (forall x : Z, (fun z:Z => (z >= 1)%Z) x -> 
+(fun z:Z => (z>=1)%Z) (2*x) %Z).
+intros.
+simpl in *.
+destruct x.
+lia.
+lia. 
+lia.
+Qed.
+
+intros.
+specialize (H0 inverseTemp).
+specialize (H0 1%Z).
+Lemma inverseTemp2: ((fun z : Z => (z >= 1)%Z) 1%Z). 
+simpl.
+intuition.
+Qed.
+intros.
+specialize (H0 inverseTemp2).
+simpl in H0.
+lia.
+Qed.
+intros.
+pose proof inverse.
+specialize (H1 p H).
+clear  pow_des H H0.
+ repeat match goal with
+          | H : @eq R _ _ |- _ => revert H
+          | H : @Rle _ _ |- _ => revert H
+          | H : @Rge _ _ |- _ => revert H
+          | H : @Rlt _ _ |- _ => revert H
+          | H :@ Rgt _ _ |- _ => revert H
+          | H : @Rge _ _ |- _ => revert H
+        end.
+
+generalize (Z2R (Z.pow_pos radix2 p)).
+Require Import ArithFacts.
+pose proof Rmult_le_algebra.
+intros.
+specialize (Rmult_le_algebra 1 r 1).
+rewrite Rmult_1_l.
+intros.
+psatzl R.
+Qed.
+
+
+Lemma errorLessThan1: (error <= 1)%R.
+  unfold error.
+  pose proof custom_precGe1.
+  Lemma OneMinus : forall x:Z, (x >= 1 -> 1-x <= 0)%Z. 
+    intros.
+    lia.
+  Qed.
+  intros.
+  pose proof OneMinus.
+  apply H0 in H.
+Lemma minus: forall x, (1- x = -x +1 ) %Z. 
+intros.
+lia.
+Qed.
+intros.
+specialize (minus custom_prec).
+intros.
+rewrite <- H1.
+remember (1 - custom_prec)%Z as x.
+specialize (powLe1 x H).
+intuition.
+Qed.
 Lemma powGt0 : forall pow,   (bpow radix2 pow > 0)%R.
 Proof.
   intros.
@@ -1488,6 +1726,8 @@ Proof.
     apply proveZPos.
   }
 Qed.
+
+
 
 Lemma errorGt0 : (error > 0)%R.
 Proof.  
@@ -1623,7 +1863,7 @@ Proof.
   remember (FLT_exp (3 - custom_emax - custom_prec) custom_prec) as round_fexp.
   specialize (Rel_Err radix2 round_fexp).
   subst.
-  specialize (Rel_Err validFexpProof (custom_emin)%Z custom_prec  precThm (round_mode mode_NE)). 
+  specialize (Rel_Err validFexpProof (custom_emin)%Z custom_prec precThm (round_mode mode_NE)). 
   specialize (Rel_Err (valid_rnd_N choiceDef)).
   pose proof multfloatMinBoundProof as multfloatMinBoundProof.
   specialize (multfloatMinBoundProof x1 x2 lb1 lb2 ub1 ub2).
@@ -1697,16 +1937,16 @@ Proof.
 Qed.
 
 
-Lemma minusRoundingTruth : forall (f1 f2: Floats.float)  (lb1 lb2 ub1 ub2 r1 r2:R),  (Some r1 = (floatToReal f1) -> 
-                                                                                      Some r2 = (floatToReal f2) ->
-                                                                                      ( (((lb1 >= ub2)  /\  (floatMin <= lb1 - ub2)) /\  ((ub1 - lb2)*(1+error) < floatMax)) \/ 
-                                                                                        (((ub1 <= lb2)  /\  (floatMin <= lb2 - ub1)) /\  ((ub2 - lb1)*(1+error) < floatMax))) ->
-                                                                                      (lb1 <= r1) ->
-                                                                                      (lb2 <= r2) ->
-                                                                                      (r1 <= ub1) ->
-                                                                                      (r2 <= ub2) ->    
-                                                                                      ((Rabs (round radix2 (FLT_exp (3-custom_emax- custom_prec) custom_prec ) (round_mode mode_NE) (B2R custom_prec custom_emax f1 - B2R custom_prec custom_emax f2))) 
-                                                                                       <  (bpow radix2 custom_emax)))%R. 
+Lemma minusRoundingTruth : forall (f1 f2:float)  (lb1 lb2 ub1 ub2 r1 r2:R),  (Some r1 = (floatToReal f1) -> 
+                                                                              Some r2 = (floatToReal f2) ->
+                                                                              ( (((lb1 >= ub2)  /\  (floatMin <= lb1 - ub2)) /\  ((ub1 - lb2)*(1+error) < floatMax)) \/ 
+                                                                                (((ub1 <= lb2)  /\  (floatMin <= lb2 - ub1)) /\  ((ub2 - lb1)*(1+error) < floatMax))) ->
+                                                                              (lb1 <= r1) ->
+                                                                              (lb2 <= r2) ->
+                                                                              (r1 <= ub1) ->
+                                                                              (r2 <= ub2) ->    
+                                                                              ((Rabs (round radix2 (FLT_exp (3-custom_emax- custom_prec) custom_prec ) (round_mode mode_NE) (B2R custom_prec custom_emax f1 - B2R custom_prec custom_emax f2))) 
+                                                                               <  (bpow radix2 custom_emax)))%R. 
 Proof.   
   intros.
   unfold floatToReal in *.
@@ -2070,8 +2310,7 @@ Proof.
     
 
     inversion H.
-    unfold custom_emax,custom_prec  in *.
-    remember ((B2R 53 1024 (B754_zero 53 1024 b0))) as arg2.
+    remember ((B2R custom_prec custom_emax (B754_zero custom_prec custom_emax b0))) as arg2.
     inversion H0.
     rewrite H8 in *.
     pose proof relErrorBasedOnFloatMinTruthMinus.
@@ -2714,7 +2953,7 @@ Proof.
 Qed.  
 
 
-Lemma plusRoundingTruth : forall (f1 f2: Floats.float)  (lb1 lb2 ub1 ub2 r1 r2:R), 
+Lemma plusRoundingTruth : forall (f1 f2: float)  (lb1 lb2 ub1 ub2 r1 r2:R), 
     
     (
       Some r1 = (floatToReal f1) -> 
@@ -2741,46 +2980,6 @@ Lemma plusRoundingTruth : forall (f1 f2: Floats.float)  (lb1 lb2 ub1 ub2 r1 r2:R
                (B2R custom_prec custom_emax f1 
                 + B2R custom_prec custom_emax f2))
         ) 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         <  (bpow radix2 custom_emax)
       )
     )%R.
@@ -2947,7 +3146,7 @@ Qed.
     
 
 
-Lemma multRoundingTruth : forall (f1 f2: Floats.float)  (lb1 lb2 ub1 ub2 r1 r2:R),  (Some r1 = (floatToReal f1) -> 
+Lemma multRoundingTruth : forall (f1 f2: float)  (lb1 lb2 ub1 ub2 r1 r2:R),  (Some r1 = (floatToReal f1) -> 
     Some r2 = (floatToReal f2) ->
     
     (((floatMin <= lb1 * lb2) /\  (lb1 >= R0) /\ (lb2 >= R0)) /\ ((ub1 * ub2)*(1+error) < floatMax)) 
@@ -4252,19 +4451,19 @@ Qed.
 
 
 
-Lemma plusRoundingTruth2 : forall (f1 f2: Floats.float)  (r1 r2:R) , 
+Lemma plusRoundingTruth2 : forall (f1 f2: float)  (r1 r2:R) , 
     Some r1 = floatToReal f1 -> 
 
     Some r2 = floatToReal f2 ->
 
     ((Rabs (round radix2 (FLT_exp (3-custom_emax- custom_prec) custom_prec ) (round_mode mode_NE) (B2R custom_prec custom_emax f1 + B2R custom_prec custom_emax f2))) <  (bpow radix2 custom_emax))%R  ->
     
-    (B2R custom_prec custom_emax (Bplus custom_prec custom_emax  eq_refl eq_refl Floats.Float.binop_pl mode_NE f1 f2) =round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (B2R custom_prec custom_emax f1 + B2R custom_prec custom_emax f2)  /\   is_finite custom_prec custom_emax (Bplus custom_prec custom_emax eq_refl eq_refl  Floats.Float.binop_pl mode_NE f1 f2) = true)%R. 
+    (B2R custom_prec custom_emax (Bplus custom_prec custom_emax  custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) =round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (B2R custom_prec custom_emax f1 + B2R custom_prec custom_emax f2)  /\   is_finite custom_prec custom_emax (Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) = true)%R. 
 Proof.
   intros.
   pose proof Bplus_correct.
   specialize (H2 custom_prec custom_emax).
-  specialize (H2 eq_refl eq_refl Floats.Float.binop_pl ).
+  specialize (H2 custom_precGt0 custom_precLtEmax custom_nan ).
   specialize (H2  mode_NE).
   specialize (H2 f1 f2).
   Print floatValid.
@@ -4280,18 +4479,18 @@ Proof.
 
 Qed.
 Print Bminus_correct.
-Lemma minusRoundingTruth2 : forall (f1 f2: Floats.float)  (r1 r2:R) ,  Some r1 = (floatToReal f1) -> 
+Lemma minusRoundingTruth2 : forall (f1 f2: float)  (r1 r2:R) ,  Some r1 = (floatToReal f1) -> 
                                                                        Some r2 = (floatToReal f2) ->   
                                                                        
                                                                        ((Rabs (round radix2 (FLT_exp (3-custom_emax- custom_prec) custom_prec ) (round_mode mode_NE) (B2R custom_prec custom_emax f1 - B2R custom_prec custom_emax f2))) 
                                                                         <  (bpow radix2 custom_emax))%R -> 
-                                                                       (B2R custom_prec custom_emax (Bminus custom_prec custom_emax  eq_refl eq_refl Floats.Float.binop_pl mode_NE f1 f2) =round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (B2R custom_prec custom_emax f1 - B2R custom_prec custom_emax f2)  /\   is_finite custom_prec custom_emax (Bminus custom_prec custom_emax eq_refl eq_refl  Floats.Float.binop_pl mode_NE f1 f2) = true)%R.
+                                                                       (B2R custom_prec custom_emax (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) =round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (B2R custom_prec custom_emax f1 - B2R custom_prec custom_emax f2)  /\   is_finite custom_prec custom_emax (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) = true)%R.
 
 Proof.
   intros.
   pose proof Bminus_correct.
   specialize (H2 custom_prec custom_emax).
-  specialize (H2 eq_refl eq_refl Floats.Float.binop_pl ).
+  specialize (H2 custom_precGt0 custom_precLtEmax custom_nan ).
   specialize (H2  mode_NE).
   specialize (H2 f1 f2).
   Print floatValid.
@@ -4307,18 +4506,18 @@ Proof.
 Qed.
 
 
-Lemma multRoundingTruth2 : forall (f1 f2: Floats.float)  (r1 r2:R) ,  Some r1 = (floatToReal f1) -> 
+Lemma multRoundingTruth2 : forall (f1 f2: float)  (r1 r2:R) ,  Some r1 = (floatToReal f1) -> 
                                                                       Some r2 = (floatToReal f2) ->   
                                                                       
                                                                       ((Rabs (round radix2 (FLT_exp (3-custom_emax- custom_prec) custom_prec ) (round_mode mode_NE) (B2R custom_prec custom_emax f1 * B2R custom_prec custom_emax f2))) 
                                                                        <  (bpow radix2 custom_emax))%R -> 
-                                                                      (B2R custom_prec custom_emax (Bmult custom_prec custom_emax  eq_refl eq_refl Floats.Float.binop_pl mode_NE f1 f2) =round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (B2R custom_prec custom_emax f1 * B2R custom_prec custom_emax f2)  /\   is_finite custom_prec custom_emax (Bmult custom_prec custom_emax eq_refl eq_refl  Floats.Float.binop_pl mode_NE f1 f2) = true)%R.
+                                                                      (B2R custom_prec custom_emax (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) =round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (B2R custom_prec custom_emax f1 * B2R custom_prec custom_emax f2)  /\   is_finite custom_prec custom_emax (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) = true)%R.
 
 Proof.
   intros.
   pose proof Bmult_correct.
   specialize (H2 custom_prec custom_emax).
-  specialize (H2 eq_refl eq_refl Floats.Float.binop_pl ).
+  specialize (H2 custom_precGt0 custom_precLtEmax custom_nan ).
   specialize (H2  mode_NE).
   specialize (H2 f1 f2).
   Print floatValid.
@@ -4339,7 +4538,6 @@ Proof.
 Qed.
 
 
-Check relative_error.
 
 Lemma natFloatMinBoundProof : 
   forall n,
@@ -4457,19 +4655,19 @@ Qed.
 
 SearchAbout Fappli_IEEE_extra.BofZ.
 
-Lemma natRoundingTruth2 : forall (f:Floats.float) (r:R) (n:nat),
+Lemma natRoundingTruth2 : forall (f:float) (r:R) (n:nat),
     Some r = floatToReal f ->
     Some f = Some (nat_to_float n)->
     (Rabs 
        (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (Z2R (Z.of_nat n))) 
      < (bpow radix2 custom_emax))%R ->
-    B2R custom_prec custom_emax (Fappli_IEEE_extra.BofZ custom_prec custom_emax eq_refl eq_refl (Z.of_nat n)) =
+    B2R custom_prec custom_emax (Fappli_IEEE_extra.BofZ custom_prec custom_emax custom_precGt0 custom_precLtEmax (Z.of_nat n)) =
     round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (Z2R (Z.of_nat n)).                         
 
 Proof.       
   intros.
   pose proof Fappli_IEEE_extra.BofZ_correct as Z2Rcorrect.
-  specialize (Z2Rcorrect custom_prec custom_emax eq_refl eq_refl (Z.of_nat n)).
+  specialize (Z2Rcorrect custom_prec custom_emax custom_precGt0 custom_precLtEmax (Z.of_nat n)).
   apply rltProof2 in H1.
   rewrite H1 in Z2Rcorrect.
   decompose [and] Z2Rcorrect.
@@ -4546,24 +4744,22 @@ Proof.
         unfold Fappli_IEEE_extra.b64_of_Z in H5.    
         rewrite <- H5 in natRoundingTruth2 at 1.
         
+        unfold B2R in natRoundingTruth2.
+
         
-        simpl in natRoundingTruth2.
         rewrite natRoundingTruth2.
         clear natRoundingTruth2.
         clear natRoundingTruth.
         
         clear H2.
         pose proof relErrorTruthNat as relErrorTruthNat.
-        Lemma simplify: (3 - custom_emax - custom_prec = -1074)%Z.
-          unfold custom_emax, custom_prec.
-          simpl. reflexivity. Qed.
+      
         specialize (relErrorTruthNat n orExtra2).
-        rewrite <- simplify.
         Lemma simplify2 : (round_mode mode_NE)  =  (Znearest (fun x : Z => negb (Zeven x))).
           simpl.
           reflexivity.
         Qed.
-        rewrite <- simplify2.
+        intros.
         rewrite natToReal.
         remember (round radix2
                         (FLT_exp (3 - custom_emax  - custom_prec)
@@ -4576,7 +4772,6 @@ Proof.
         unfold Rabs in *.
         
         pose proof errorGt0 as errorGt0.
-        Axiom errorLessThan1 : (error < 1)%R.
         pose proof errorLessThan1 as errorLessThan1.
         unfold error in *.
         destruct Rcase_abs;
@@ -4603,9 +4798,8 @@ Proof.
         Print nat_to_float.
         unfold Fappli_IEEE_extra.b64_of_Z in H5.    
         rewrite <- H5 in natRoundingTruth2 at 1.
+        unfold B2R in natRoundingTruth2.
         
-        
-        simpl in natRoundingTruth2.
         rewrite natRoundingTruth2.
         clear natRoundingTruth2.
         clear natRoundingTruth.
@@ -4613,8 +4807,7 @@ Proof.
         clear H2.
         pose proof relErrorTruthNat as relErrorTruthNat.
         specialize (relErrorTruthNat n orExtra2).
-        rewrite <- simplify.
-        rewrite <- simplify2.
+  
         rewrite natToReal.
         remember (round radix2
                         (FLT_exp (3 - custom_emax  - custom_prec)
@@ -4680,9 +4873,8 @@ Proof.
         Print nat_to_float.
         unfold Fappli_IEEE_extra.b64_of_Z in H5.    
         rewrite <- H5 in natRoundingTruth2 at 1.
+        unfold B2R in natRoundingTruth2.
         
-        
-        simpl in natRoundingTruth2.
         rewrite natRoundingTruth2.
         clear natRoundingTruth2.
         clear natRoundingTruth.
@@ -4691,9 +4883,7 @@ Proof.
         pose proof relErrorTruthNat as relErrorTruthNat.
        
         specialize (relErrorTruthNat n orExtra2).
-        rewrite <- simplify.
-       
-        rewrite <- simplify2.
+        
         rewrite natToReal.
         remember (round radix2
                         (FLT_exp (3 - custom_emax  - custom_prec)
@@ -4733,8 +4923,8 @@ Proof.
         unfold Fappli_IEEE_extra.b64_of_Z in H5.    
         rewrite <- H5 in natRoundingTruth2 at 1.
         
+        unfold B2R in natRoundingTruth2.
         
-        simpl in natRoundingTruth2.
         rewrite natRoundingTruth2.
         clear natRoundingTruth2.
         clear natRoundingTruth.
@@ -4742,8 +4932,7 @@ Proof.
         clear H2.
         pose proof relErrorTruthNat as relErrorTruthNat.
         specialize (relErrorTruthNat n orExtra2).
-        rewrite <- simplify.
-        rewrite <- simplify2.
+
         rewrite natToReal.
         remember (round radix2
                         (FLT_exp (3 - custom_emax  - custom_prec)
