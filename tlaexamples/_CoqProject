@@ -5,7 +5,10 @@
 -I ../Charge/Charge!/bin
 -R . Examples
 System.v
-OneDimVelShim.v
+FirstDerivShimCtrl.v
+SensorWithError.v
+SensorWithDelay.v
+FirstDerivShim.v
 
 # AbstractIndAccCtrl.v
 # OneDimAccShimUtil.v

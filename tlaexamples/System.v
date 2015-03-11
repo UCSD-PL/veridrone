@@ -12,30 +12,24 @@ Definition World (dvars : list Var)
            (world : list DiffEq) : Formula :=
   Continuous (("t"'::=--1)::world ++
                           (List.map
-                             (fun x => x ' ::= 0) dvars))%list //\\
-  "pc" = 0.
+                             (fun x => x ' ::= 0) dvars))%list.
 
 Definition Discr (cvars : list Var)
            (Prog : Formula) (d : R) : Formula :=
-  Prog //\\ "t"! <= d //\\ "pc" = 1 //\\ Unchanged cvars.
+  Prog //\\ "t"! <= d //\\ Unchanged cvars.
+
+Definition Next (dvars cvars : list Var)
+           (Prog: Formula) (world : list DiffEq)
+           (WConstraint : Formula) (d : R) :=
+       ((World dvars world //\\ WConstraint) \\//
+         Discr cvars Prog d)
+  \\// Unchanged ("t"::dvars++cvars)%list.
 
 Definition Sys (dvars cvars : list Var)
            (Init Prog: Formula) (world : list DiffEq)
-           (d : R) : Formula :=
+           (WConstraint : Formula) (d : R) : Formula :=
   ("t" <= d //\\ Init) //\\
-     [](((     World dvars world
-          \\// Discr cvars Prog d)
-          \\// Unchanged (dvars++cvars++"t"::"pc"::nil)%list)
-          //\\ "t" >= 0).
-
-Definition BoundSys (dvars cvars : list Var)
-           (Init Prog: Formula) (world : list DiffEq)
-           (d : R) : Formula :=
-  ("t" <= d //\\ Init) //\\
-     [](((     World dvars world
-          \\// Discr cvars Prog d)
-          \\// Unchanged (dvars++cvars++"t"::"pc"::nil)%list)
-          //\\ 0 <= "t" <= d).
+     [](Next dvars cvars Prog world WConstraint d //\\ 0 <= "t").
 
 Ltac tlaRevert := first [ apply landAdj | apply lrevert ].
 
@@ -57,74 +51,44 @@ Proof.
     split; auto. }
 Qed.
 
-(*
-Lemma discr_ind' : forall P A IndInv N,
-    is_st_formula IndInv ->
-    P |-- [] A ->
-    P |-- IndInv ->
-    P |-- [] N ->
-    A //\\ IndInv //\\ N |-- next IndInv ->
-    P |-- []IndInv.
+Lemma Always_now : forall P I,
+  P |-- []I ->
+  P |-- I.
 Proof.
-(*
-  intros. rewrite H0; clear H0.
-  intro. simpl; intros.
-  induction n.
-  { simpl. tauto. }
-  { simpl. rewrite Stream.nth_suf_tl.
-    apply next_formula_tl; auto.
-    apply H1; auto.
-    split; auto. destruct H2. apply H3. }
+  breakAbstraction.
+  intros P I H tr HP.
+  apply (H tr HP 0).
 Qed.
-*)
-Admitted.
-*)
 
+Ltac decompose_hyps :=
+  repeat rewrite land_lor_distr_R;
+  repeat rewrite land_lor_distr_L;
+  repeat apply lorL.
 
-Lemma Sys_bound_t : forall P dvars cvars Init Prog w d,
-    P |-- Sys dvars cvars Init Prog w d -->> []0 <= "t" <= d.
+Definition TimeBound d : Formula := 0 <= "t" <= d.
+
+Lemma Sys_bound_t : forall P dvars cvars Init Prog w WC d,
+    P |-- Sys dvars cvars Init Prog w WC d ->
+    P |-- []TimeBound d.
 Proof.
-  intros.
-
-Admitted.
-
-Lemma Sys_BoundSys : forall P dvars cvars Init Prog w d,
-    P |-- Sys dvars cvars Init Prog w d -->>
-          BoundSys dvars cvars Init Prog w d.
-Proof.
-  unfold Sys, BoundSys; intros.
-  apply limplAdj. tlaSplit; try tlaAssume.
-  repeat apply landAdj.
-  apply imp_strengthen with (F2:=[]"t"<=d).
-  { eapply imp_trans. eapply Sys_bound_t.
-    apply always_imp. tlaIntuition. }
-  { repeat rewrite curry.
-    tlaIntro. tlaIntro. apply forget_prem.
-    repeat tlaIntro.
-    rewrite Always_and.
-    apply lrevert. apply always_imp.
-    tlaIntro. solve_linear. }
+  intros. unfold Sys.
+  rewrite <- Always_and with (P:=0 <= "t") (Q:="t" <= d). tlaSplit.
+  - rewrite H. unfold Sys. rewrite <- Always_and. tlaAssume.
+  - apply discr_indX with (A:=Next dvars cvars Prog w WC d).
+    + tlaIntuition.
+    + rewrite H. unfold Sys. rewrite <- Always_and. tlaAssume.
+    + rewrite H. unfold Sys. tlaAssume.
+    + unfold Next. decompose_hyps.
+      * eapply diff_ind with (Hyps:=TRUE);
+        try solve [tlaIntuition].
+        { unfold World. tlaAssume. }
+        { solve_linear. }
+      * solve_linear.
+      * solve_linear.
 Qed.
 
 Definition InvariantUnder (vars : list Var) (F : Formula) : Prop :=
-  |-- F //\\ Unchanged vars -->> next F.
-
-Lemma BoundSys_def : forall dvars cvars Init Prog w d,
-    BoundSys dvars cvars Init Prog w d -|-
-    [](0 <= "t" <= d) //\\ Sys dvars cvars Init Prog w d.
-Proof.
-  intros. unfold BoundSys, Sys.
-  symmetry.
-  rewrite landC.
-  rewrite landA. rewrite Always_and.
-  apply land_cancel.
-  apply forget_prem.
-  apply ltrue_liff.
-  repeat rewrite <- Always_and.
-  unfold lequiv. split; try charge_tauto.
-  repeat tlaSplit; try charge_tauto.
-  solve_linear.
-Qed.
+  F //\\ Unchanged vars |-- next F.
 
 Definition all_in {T} (l1 l2 : list T) :=
   forall x, List.In x l1 -> List.In x l2.
@@ -181,7 +145,7 @@ Qed.
 
 Lemma Discr_weaken : forall cvars cvars' P P' d d',
     all_in cvars cvars' ->
-    |-- "pc" = 1 -->> P' -->> P ->
+    P' |-- P ->
     (d >= d')%R ->
     Discr cvars' P' d' |-- Discr cvars P d.
 Proof.
@@ -190,20 +154,21 @@ Proof.
 Qed.
 
 Theorem Sys_weaken : forall dvars dvars' cvars cvars'
-                            I I' P P' w w' d d',
+                            I I' P P' w w' WC WC' d d',
   all_in dvars dvars' ->
   all_in cvars cvars' ->
-  (|-- I' -->> I) ->
-  (|-- "pc" = 1 -->> P' -->> P) ->
+  I' |-- I ->
+  P' |-- P ->
   all_in w w' ->
+  WC' |-- WC ->
   (d >= d')%R ->
-  (Sys dvars' cvars' I' P' w' d' |-- Sys dvars cvars I P w d).
+  (Sys dvars' cvars' I' P' w' WC' d' |-- Sys dvars cvars I P w WC d).
 Proof.
-  do 12 intro.
-  intros Hdvars Hcvars HI HP Hw Hd.
+  do 14 intro.
+  intros Hdvars Hcvars HI HP Hw HWC Hd.
   unfold Sys.
   apply lrevert.
-  rewrite (rw_impl HI); clear HI.
+  rewrite HI; clear HI.
   tlaIntro.
   repeat tlaSplit; try tlaAssume.
   { do 2 apply landL1. clear - Hd. solve_linear. }
@@ -211,61 +176,127 @@ Proof.
     apply always_imp. tlaIntro.
     repeat tlaSplit; try tlaAssume.
     rewrite landC. tlaRevert. apply forget_prem.
-    tlaIntro.
+    tlaIntro. unfold Next.
     erewrite World_weaken by eauto.
+    rewrite HWC.
     erewrite Discr_weaken by eauto.
-    erewrite Unchanged_weaken. reflexivity.
+    erewrite Unchanged_weaken. tlaAssume.
     revert Hdvars Hcvars.
     clear.
     unfold all_in. intros. specialize (Hdvars x).
     specialize (Hcvars x).
-    revert H. repeat rewrite List.in_app_iff. intuition. }
+    revert H. simpl. repeat rewrite List.in_app_iff. intuition. }
 Qed.
 
+Ltac sys_apply_with_weaken H :=
+  eapply imp_trans; [ | apply H ];
+  eapply Sys_weaken;
+  try solve [ apply all_in_dec_ok ; reflexivity
+            | apply imp_id
+            | reflexivity ].
+
 Theorem sys_by_induction :
-  forall P A dvars cvars Init Prog Inv IndInv w (d:R),
+  forall P A dvars cvars Init Prog Inv IndInv w WC (d:R),
   is_st_formula IndInv ->
-  (P |-- Init -->> IndInv) ->
-  (P |-- [] A) ->
-  (A |-- (IndInv //\\ 0 <= "t" <= d) -->> Inv) ->
-  InvariantUnder (dvars ++ cvars ++ "t" :: "pc" :: nil)%list IndInv ->
-  (A |-- (IndInv //\\ World dvars w) -->> next IndInv) ->
-  (A |-- (IndInv //\\ 0 <= "t" <= d //\\ 0 <= "t"! <= d //\\ "pc" = 1
-          //\\ Discr cvars Prog d) -->> next IndInv) ->
-  (P |-- Sys dvars cvars Init Prog w d -->> [] Inv).
+  P |-- Sys dvars cvars Init Prog w WC d ->
+  P //\\ Init |-- IndInv ->
+  P |-- [] A ->
+  A //\\ IndInv //\\ TimeBound d |-- Inv ->
+  InvariantUnder ("t"::dvars ++ cvars)%list IndInv ->
+  A //\\ IndInv //\\ World dvars w //\\ WC |-- next IndInv ->
+  A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
+          //\\ Discr cvars Prog d |-- next IndInv ->
+  P |-- [] Inv.
 Proof.
-  Opaque Continuous.
-  intros P A dvars cvars Init Prog Inv IndInv w d
-         Hst Hinit Ha Hinv InvUnder Hw Hdiscr.
-  rewrite (rw_impl (Sys_BoundSys P _ _ _ _ _ _)).
-  rewrite BoundSys_def. rewrite uncurry.
-  tlaIntro.
-  apply imp_trans with (F2:=[]IndInv).
-  - apply imp_trans with (F2:=Sys dvars cvars IndInv Prog w d).
-    + unfold Sys. tlaRevert.
-      rewrite (rw_impl Hinit); clear Hinit.
-      do 2 tlaIntro; tlaAssume.
-    + unfold Sys. tlaIntro.
-      eapply discr_indX
-        with (A:= A//\\0<= "t" <= d //\\ 0 <= "t" ! <= d //\\
-                 (((World dvars w \\// Discr cvars Prog d) \\//
-                  Unchanged (dvars ++ cvars ++ ["t", "pc"])) //\\ "t" >= 0)).
-      * assumption.
-      * rewrite Ha. rewrite Always_and.
-        rewrite <- Always_and.
-        rewrite (always_st (0 <= _ <= _)) by (compute; tauto).
-        simpl next.
-        repeat rewrite <- Always_and.
-        repeat tlaSplit; try tlaAssume.
-      * tlaAssume.
-      * repeat rewrite (landC (_ \\// _) _).
-        repeat rewrite land_lor_distr_L.
-        repeat rewrite (landC (_ \\// _) _).
-        repeat rewrite land_lor_distr_L. tlaRevert.
-        apply or_left; [ apply or_left | ].
-        { tlaIntro. rewrite Hw. tlaIntuition. }
-        { rewrite Hdiscr. tlaIntuition. }
-        { apply forget_prem. red in InvUnder. rewrite InvUnder.
-          tlaIntuition. }
-  - tlaIntuition.
+  intros P A dvars cvars Init Prog Inv IndInv w WC d
+         Hst Hsys Hinit Ha Hinv InvUnder Hw Hdiscr.
+  tlaAssert ([]TimeBound d).
+  - eapply Sys_bound_t. rewrite Hsys. tlaAssume.
+  - tlaIntro. tlaAssert ([]IndInv).
+    + tlaAssert ([]A); [rewrite Ha; tlaAssume | tlaIntro ].
+      tlaAssert (Sys dvars cvars Init Prog w WC d);
+        [ rewrite Hsys; tlaAssume | tlaIntro ].
+      apply discr_indX with
+      (A:=Next dvars cvars Prog w WC d //\\
+               TimeBound d //\\ next (TimeBound d) //\\ A).
+        { assumption. }
+        { unfold Sys. repeat rewrite <- Always_and. repeat tlaSplit.
+          - tlaAssume.
+          - tlaAssume.
+          - rewrite always_st with (Q:=TimeBound d);
+            (rewrite <- Always_and; tlaAssume) || tlaIntuition.
+          - tlaAssume. }
+        { rewrite <- Hinit. unfold Sys. charge_tauto. }
+        { unfold Next. decompose_hyps.
+          - rewrite <- Hw. charge_tauto.
+          - rewrite <- Hdiscr. charge_tauto.
+          - unfold InvariantUnder in *. rewrite <- InvUnder.
+            charge_tauto. }
+    + rewrite Ha. tlaRevert. tlaRevert.
+      repeat rewrite <- uncurry. repeat rewrite Always_and.
+      apply always_imp. charge_intros. rewrite <- Hinv.
+      charge_tauto.
 Qed.
+
+Section ComposeDiscrete.
+
+  Variable Is : Formula.
+  Variable Ic : Formula.
+  Variable dvars : list Var.
+  Variable cvars : list Var.
+  Variable w : list DiffEq.
+  Variable WC : Formula.
+  Variable d : R.
+  Variable S : Formula.
+  Variable C : Formula.
+  Variable P : Formula.
+  Variable E : Formula.
+
+  Theorem compose_discrete :
+    |-- Sys dvars cvars Is S w WC d -->> []E ->
+    |-- Sys dvars cvars Ic (C //\\ E) w WC d -->> []P ->
+    |-- Sys dvars cvars (Is //\\ Ic) (S //\\ C) w WC d -->> [](P //\\ E).
+(*  Proof.
+    Opaque World Discr.
+    simpl. intros Hs Hc tr [ [HIs HIc] HN] n.
+    split.
+    - apply Hc. intuition.
+      + pose proof (HN n0). intuition.
+        right. Transparent Discr. revert H.
+        unfold Discr. simpl. intuition.
+(*        apply Hs. intuition.
+        * specialize (HN n1). intuition.
+          right. simpl in *. intuition.
+        * apply HN.
+      + apply HN.
+    - apply Hs. intuition.
+      + specialize (HN n0). intuition.
+        right. simpl in *. intuition.
+      + apply HN.
+  Qed.
+*)*)
+Admitted.
+
+End ComposeDiscrete.
+
+Section ComposeWorld.
+
+  Variable Iw : Formula.
+  Variable Id : Formula.
+  Variable dvars : list Var.
+  Variable cvars : list Var.
+  Variable w : list DiffEq.
+  Variable WC : Formula.
+  Variable d : R.
+  Variable D : Formula.
+  Variable P : Formula.
+  Variable E : Formula.
+
+  Theorem compose_world :
+    |-- (Iw //\\ [](World dvars w //\\ WC)) -->> []E ->
+    InvariantUnder cvars E ->
+    |-- Sys dvars cvars Id (D //\\ E) w WC d -->> []P ->
+    |-- Sys dvars cvars (Iw //\\ Id) D w WC d -->> [](P //\\ E).
+  Admitted.
+
+End ComposeWorld.

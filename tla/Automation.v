@@ -54,6 +54,9 @@ Ltac tlaIntro :=
 Ltac tlaIntuition :=
   breakAbstraction ; intuition ; restoreAbstraction.
 
+Ltac tlaAssert H :=
+  apply lcut with (R:=H).
+
 (** Rewriting **)
 Section RW_Impl.
   Variable P : Formula.
