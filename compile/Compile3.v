@@ -81,7 +81,7 @@ Definition real_st_subsumes_float_st (tla_st : Syntax.state) (fst : fstate) : Pr
 
 Definition real_st_subsumes_float_st
            (tla_st : Syntax.state) (fst : fstate) : Prop :=
-  forall (v : Var) (f : Floats.float),
+  forall (v : Var) (f : source.float),
   In (v, f) fst -> Some (tla_st v) = floatToReal f.
 
 Notation "a ~=~ b" := (real_st_subsumes_float_st a b) (at level 80).
@@ -94,7 +94,7 @@ Notation "a ~=~ b" := (real_st_subsumes_float_st a b) (at level 80).
 Notation "a ::: b" := (Cons _ a b) (at level 79, right associativity).
 
 Lemma fstate_lookup_In :
-  forall (flst : fstate) (x : Var) (y : Floats.float),
+  forall (flst : fstate) (x : Var) (y : source.float),
     fstate_lookup flst x = Some y -> In (x, y) flst.
 Proof.
   
@@ -176,18 +176,18 @@ Fixpoint bounds_to_formula (bounds : list singleBoundTerm) (center : Term) : For
       
 
 (* TODO strict or non-strict inequalities? *)
-Definition compile_assn (assn : progr_assn) : Formula :=
+Definition abstr_assn (assn : progr_assn) : Formula :=
   match assn with
     | mk_progr_assn var term => bounds_to_formula (bound_term term)
                                                   (VarNextT var)
   end.
 
-Fixpoint compile_assns (assns : list progr_assn) : Formula :=
+Fixpoint abstr_assns (assns : list progr_assn) : Formula :=
   match assns with
     | nil         => TRUE
     | a :: assns' =>
-      And (compile_assn a)
-          (compile_assns assns')
+      And (abstr_assn a)
+          (abstr_assns assns')
   end.
 
 Print Formula.
@@ -228,30 +228,31 @@ Definition bound_comp (op : CompOp) (t1 t2 : NowTerm) : Formula :=
 (* TODO we can probably do a smarter job with these bounds
    for AND and OR (we aren't using all the information we
    potentially have, thought we may not need to)*)
-Fixpoint compile_if (conds : FlatFormula) (body : Formula) : Formula :=
+Fixpoint abstr_if (conds : FlatFormula) (body : Formula) : Formula :=
   match conds with
     | FTRUE          => body
     | FFALSE         => TRUE
     | FComp t1 t2 op => And (bound_comp op t1 t2) body 
-    | FAnd  f1 f2    => And (compile_if f1 body)
-                            (compile_if f2 body)
-    | FOr   f1 f2    => Or  (compile_if f1 body)
-                            (compile_if f2 body)
+    | FAnd  f1 f2    => And (abstr_if f1 body)
+                            (abstr_if f2 body)
+    | FOr   f1 f2    => Or  (abstr_if f1 body)
+                            (abstr_if f2 body)
   end.
 
-Definition compile_progr_stmt (stmt : progr_stmt) : Formula :=
+Definition abstr_progr_stmt (stmt : progr_stmt) : Formula :=
   match stmt with
     | mk_progr_stmt conds assns =>
-      compile_if conds (compile_assns assns)
+      abstr_if conds (abstr_assns assns)
   end.
 
-Fixpoint compile_progr_stmts (stmts : list progr_stmt) : Formula :=
+Fixpoint abstr_progr_stmts (stmts : list progr_stmt) : Formula :=
   match stmts with
     | nil => TRUE
     | st :: rest =>
-      Or (compile_progr_stmt st)
-         (compile_progr_stmts rest)
+      Or (abstr_progr_stmt st)
+         (abstr_progr_stmts rest)
   end.
+
 
 (* Lemma relating behavior of boundDef to bounds_to_formula *)
 Lemma forall_cons_iff : 
@@ -296,7 +297,7 @@ destruct (RelDec.rel_dec v a0); simpl; tauto.
 Qed.
 
 Lemma fstate_set_subsumed :
-  forall (sr' : Syntax.state) (sf : fstate) (v : Var) (f : Floats.float) (r : R),
+  forall (sr' : Syntax.state) (sf : fstate) (v : Var) (f : source.float) (r : R),
     sr' ~=~ fstate_set sf v f ->
     Some r = floatToReal f ->
     sr' v = r.
@@ -319,14 +320,14 @@ Lemma compile_assn_correct :
            (sr sr' : Syntax.state),
       sr  ~=~ sf  ->
       sr' ~=~ sf' ->
-      eval_formula (compile_assn assn) (sr ::: sr' ::: tr).
+      eval_formula (abstr_assn assn) (sr ::: sr' ::: tr).
 Proof.
 intros.
 destruct assn eqn:Hassn; simpl.
 Check getBound_correct.
 specialize (fun (bound : singleBoundTerm)
                 (Hin : In bound (bound_term pa_source))
-                (fl_res : Floats.float) (r_res : R)  =>
+                (fl_res : source.float) (r_res : R)  =>
               getBound_correct pa_source (bound_term pa_source)
                                bound eq_refl
                                Hin sf sr sr' tr fl_res r_res H0).
@@ -369,6 +370,11 @@ destruct (floatToReal f) eqn:F2Rf.
 }
 Qed.
 
+
+
+Check c_mod
+
+
 (* Strongest postcondition calculation, starting from TRUE.
    We need a language of assertions that supports rewriting *)
 
@@ -395,27 +401,9 @@ Print mk_progr_assn.
 
 (* build a C-style language - assignment, sequencing, ITE *)
 
+Require Import Substitution.
 
-
-Print Formula.
-Check Term_ind.
-Print progr_assn.
-Print NowTerm.
-
-(* Substitute variable v for v' in term *)
-Fixpoint subst_NowTerm (nt : NowTerm) (v v' : Var) : NowTerm :=
-  match nt with
-    | NatN n         => NatN n
-    | FloatN f       => FloatN f
-    | VarNowN x =>
-      VarNowN (if x ?[ eq ] v then v' else x)
-    | PlusN nt1 nt2  =>
-      PlusN (subst_NowTerm nt1 v v') (subst_NowTerm nt2 v v')
-    | MinusN nt1 nt2 =>
-      MinusN (subst_NowTerm nt1 v v') (subst_NowTerm nt2 v v')
-    | MultN nt1 nt2  =>
-      MultN (subst_NowTerm nt1 v v') (subst_NowTerm nt2 v v')
-  end.
+Print Substitution.
                                              
 (* Perform substitution for a single program assignment *)
 Print Syntax.Exists.
