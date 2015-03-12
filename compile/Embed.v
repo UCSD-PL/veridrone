@@ -56,13 +56,14 @@ Section embedding.
    ** the same expressivity as TLA because it is required to have a
    ** safe step in all instances where it can be run.
    **)
-  Definition embedStep (vars : list (Syntax.Var * var)) (prg : ast)
+  Definition embedStep (pre_vars post_vars : list (Syntax.Var * var))
+             (prg : ast)
   : Syntax.Formula :=
     Syntax.Embed (fun pre post =>
                     forall init_state : state,
-                      models vars pre init_state ->
+                      models pre_vars pre init_state ->
                       exists post_state : state,
                         eval init_state prg post_state /\
-                        models vars post post_state).
+                        models post_vars post post_state).
 
 End embedding.
