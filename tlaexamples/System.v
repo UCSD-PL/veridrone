@@ -238,6 +238,16 @@ Proof.
       charge_tauto.
 Qed.
 
+
+(** TODO: move this **)
+Lemma charge_and_use : forall P Q C,
+    C |-- P ->
+    C //\\ P |-- Q ->
+    C |-- P //\\ Q.
+Proof.
+  intros. charge_tauto.
+Qed.
+
 Section ComposeDiscrete.
 
   Variable Is : Formula.
@@ -253,29 +263,19 @@ Section ComposeDiscrete.
   Variable E : Formula.
 
   Theorem compose_discrete :
-    |-- Sys dvars cvars Is S w WC d -->> []E ->
-    |-- Sys dvars cvars Ic (C //\\ E) w WC d -->> []P ->
+        |-- Sys dvars cvars Is S w WC d -->> []E ->
+    []E |-- Sys dvars cvars Ic C w WC d -->> []P ->
     |-- Sys dvars cvars (Is //\\ Ic) (S //\\ C) w WC d -->> [](P //\\ E).
-(*  Proof.
-    Opaque World Discr.
-    simpl. intros Hs Hc tr [ [HIs HIc] HN] n.
-    split.
-    - apply Hc. intuition.
-      + pose proof (HN n0). intuition.
-        right. Transparent Discr. revert H.
-        unfold Discr. simpl. intuition.
-(*        apply Hs. intuition.
-        * specialize (HN n1). intuition.
-          right. simpl in *. intuition.
-        * apply HN.
-      + apply HN.
-    - apply Hs. intuition.
-      + specialize (HN n0). intuition.
-        right. simpl in *. intuition.
-      + apply HN.
+  Proof.
+    intros.
+    rewrite <- Always_and.
+    tlaIntro. rewrite (landC ([]P) ([]E)). apply charge_and_use.
+    { charge_apply H.
+      eapply Sys_weaken; try reflexivity.
+      charge_tauto. charge_tauto. }
+    { charge_apply H0. charge_split; try charge_tauto.
+      erewrite Sys_weaken; try first [ charge_assumption | reflexivity | charge_tauto ]. }
   Qed.
-*)*)
-Admitted.
 
 End ComposeDiscrete.
 
@@ -292,11 +292,20 @@ Section ComposeWorld.
   Variable P : Formula.
   Variable E : Formula.
 
+
   Theorem compose_world :
-    |-- (Iw //\\ [](World dvars w //\\ WC)) -->> []E ->
-    InvariantUnder cvars E ->
-    |-- Sys dvars cvars Id (D //\\ E) w WC d -->> []P ->
+        |-- Sys dvars cvars Iw ltrue w WC d -->> []E ->
+    []E |-- Sys dvars cvars Id D w ltrue d -->> []P ->
     |-- Sys dvars cvars (Iw //\\ Id) D w WC d -->> [](P //\\ E).
-  Admitted.
+  Proof.
+    intros.
+    rewrite <- Always_and.
+    tlaIntro. rewrite (landC ([]P) ([]E)). apply charge_and_use.
+    { charge_apply H.
+      eapply Sys_weaken; try reflexivity.
+      charge_tauto. charge_tauto. }
+    { charge_apply H0. charge_split; try charge_tauto.
+      erewrite Sys_weaken; try first [ charge_assumption | reflexivity | charge_tauto ]. }
+  Qed.
 
 End ComposeWorld.

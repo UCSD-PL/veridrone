@@ -115,3 +115,15 @@ Proof.
   apply Rminus_le_algebra in H0.
   apply Rmult_le_algebra in H0; auto.
 Qed.
+
+Require Import Coq.Classes.RelationClasses.
+Require Import RIneq.
+Instance Reflexive_Rge : Reflexive Rge.
+Proof.
+  red. intro. apply Req_ge. reflexivity.
+Qed.
+
+Instance Reflexive_Rle : Reflexive Rle.
+Proof.
+  red. intro. apply Req_ge. reflexivity.
+Qed.

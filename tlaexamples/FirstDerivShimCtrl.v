@@ -17,7 +17,7 @@ Section VelCtrl.
   Variable d : R.
   Hypothesis d_gt_0 : (d > 0)%R.
   Variable err : R.
-  
+
   (* The continuous dynamics of the system *)
   Definition world : list DiffEq :=
     ["v"' ::= "a"].
@@ -38,11 +38,12 @@ Section VelCtrl.
     //\\ ("a" >= 0 -->> "a"*"t" + "v" <= ub).
 
   Theorem ctrl_safe : forall WC,
+    []"Vmax" >= "v"
     |-- Sys ("a"::nil) ("v"::nil)
-           Init (Ctrl //\\ "Vmax" >= "v") world WC d -->> []"v" <= ub.
+            Init Ctrl world WC d -->> []"v" <= ub.
   Proof.
     intro. tlaIntro.
-    eapply sys_by_induction with (IndInv:=IndInv) (A:=TRUE).
+    eapply sys_by_induction with (IndInv:=IndInv) (A:="Vmax" >= "v").
     - tlaIntuition.
     - tlaAssume.
     - solve_nonlinear.

@@ -42,14 +42,13 @@ Section SensorWithDelay.
                    rewrite get_deriv_x ].
 
   Definition Sense : Formula :=
-    xderiv! = xderiv //\\
-    (     (xderiv >= 0 //\\ Xmax! = x + xderiv*d //\\ Xmin! = x)
-     \\// (xderiv < 0 //\\ Xmax! = x //\\ Xmin! = x + xderiv*d)).
+         (xderiv! >= 0 //\\ Xmax! = x + xderiv!*d //\\ Xmin! = x)
+    \\// (xderiv! < 0 //\\ Xmax! = x //\\ Xmin! = x + xderiv!*d).
 
   Definition SenseSafeInd : Formula :=
          (xderiv >= 0 -->> (Xmax >= x + xderiv*"t" //\\ Xmin <= x))
     //\\ (xderiv < 0 -->> (Xmax >= x //\\ Xmin <= x + xderiv*"t")).
-  
+
   Definition Init := SenseSafeInd.
 
   Definition SenseSafe : Formula :=

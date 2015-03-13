@@ -19,15 +19,21 @@ Section SensorWithError.
 
   Definition Init : Formula := SenseSafe.
 
-  Theorem sense_safe : forall w,
-    |-- (Init //\\ [](World nil w //\\ Sense)) -->> []SenseSafe.
+  Variable w : list DiffEq.
+  Variable d : R.
+
+  Theorem sense_safe :
+    Sys nil (x::Xmax::Xmin::nil)%list Init ltrue w Sense d |-- []SenseSafe.
   Proof.
-    intro. tlaIntro.
-    eapply discr_indX.
-    - tlaIntuition.
-    - tlaAssume.
-    - tlaAssume.
-    - solve_linear.
+    eapply sys_by_induction with (IndInv := SenseSafe) (A := ltrue).
+    + tlaIntuition.
+    + tlaAssume.
+    + tlaAssume.
+    + eapply BasicProofRules.always_tauto. charge_tauto.
+    + tlaAssume.
+    + red. solve_linear.
+    + solve_linear.
+    + solve_linear.
   Qed.
 
 End SensorWithError.
