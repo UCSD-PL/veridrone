@@ -405,16 +405,15 @@ Check Comp.
 Print CompOp.
 Check Syntax.Exists.
 Print fstate_set.
+Print Syntax.state.
 
-Definition sp_assn (assn : progr_assn) (P : fstate -> Formula) : fstate -> Formula :=
+Definition sp_assn (assn : progr_assn) (P : Syntax.state -> Formula) : Syntax.state -> Formula :=
   let '(mk_progr_assn x e) := assn in
-  (fun fs =>
-     Syntax.Exists source.float (fun (v : source.float) =>
-                                   match (floatToReal v) with
-                                     | None => FALSE
-                                     | Some vr => And (Comp (denowify e) (RealT vr) Eq)
-                                                      (P (fstate_set fs x v))
-                                   end)).
+  (fun s =>
+     Syntax.Exists R (fun (v : R) =>
+                        And (Comp (denowify e) (RealT v) Eq)
+                            (P (fun x' => if x ?[ eq ] x' then v else s x')))).
+                                       
 
 (* original proposal, with fstate as a function *)
 (* (P (fun x' => if x ?[ eq ] x' then v else fs x')))).*)
