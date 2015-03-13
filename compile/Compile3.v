@@ -371,10 +371,6 @@ destruct (floatToReal f) eqn:F2Rf.
 Qed.
 
 
-
-Check c_mod
-
-
 (* Strongest postcondition calculation, starting from TRUE.
    We need a language of assertions that supports rewriting *)
 
@@ -400,13 +396,34 @@ Print mk_progr_assn.
 (* better to think of this type as assn -> ((Var -> NowTerm) -> Formula) : (Var -> NowTerm) -> Formula *)
 
 (* build a C-style language - assignment, sequencing, ITE *)
-
-Require Import Substitution.
-
-Print Substitution.
                                              
 (* Perform substitution for a single program assignment *)
-Print Syntax.Exists.
+
+Print Formula.
+Print Syntax.Term.
+Check Comp.
+Print CompOp.
+Check Syntax.Exists.
+Print fstate_set.
+
+Definition sp_assn (assn : progr_assn) (P : fstate -> Formula) : fstate -> Formula :=
+  let '(mk_progr_assn x e) := assn in
+  (fun fs =>
+     Syntax.Exists source.float (fun (v : source.float) =>
+                                   match (floatToReal v) with
+                                     | None => FALSE
+                                     | Some vr => And (Comp (denowify e) (RealT vr) Eq)
+                                                      (P (fstate_set fs x v))
+                                   end)).
+
+(* original proposal, with fstate as a function *)
+(* (P (fun x' => if x ?[ eq ] x' then v else fs x')))).*)
+
+(**************************************************************
+Beyond this is mostly dead code...
+***************************************************************)
+                        
+
 Definition subst_progr_assn (assn : progr_assn) (P : (Var -> NowTerm) -> Formula) (subs : Var -> NowTerm) : Formula :=
   let '(mk_progr_assn x e) := assn in
   let newsubs :=
