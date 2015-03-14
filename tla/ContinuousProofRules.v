@@ -61,10 +61,8 @@ induction cp.  intros F x Hin Hcont Hsuf.
     rewrite H1. rewrite H2.
     clear H3 H4 H1 H2.
     unfold derive in H0.
-    
+
 Check null_derivative_loc.    eapply null_derivative_loc in H0.
-    
-    
 
     simpl in H0.
     red in H1; simpl in H1. rewrite H1; clear H1.

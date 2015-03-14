@@ -43,7 +43,7 @@ Section VelCtrl.
             Init Ctrl world WC d -->> []"v" <= ub.
   Proof.
     intro. tlaIntro.
-    eapply sys_by_induction with (IndInv:=IndInv) (A:="Vmax" >= "v").
+    eapply Sys_by_induction with (IndInv:=IndInv) (A:="Vmax" >= "v").
     - tlaIntuition.
     - tlaAssume.
     - solve_nonlinear.

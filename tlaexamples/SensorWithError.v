@@ -25,7 +25,7 @@ Section SensorWithError.
   Theorem sense_safe :
     Sys nil (x::Xmax::Xmin::nil)%list Init ltrue w Sense d |-- []SenseSafe.
   Proof.
-    eapply sys_by_induction with (IndInv := SenseSafe) (A := ltrue).
+    eapply Sys_by_induction with (IndInv := SenseSafe) (A := ltrue).
     + tlaIntuition.
     + tlaAssume.
     + tlaAssume.

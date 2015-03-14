@@ -195,7 +195,7 @@ Ltac sys_apply_with_weaken H :=
             | apply imp_id
             | reflexivity ].
 
-Theorem sys_by_induction :
+Theorem Sys_by_induction :
   forall P A dvars cvars Init Prog Inv IndInv w WC (d:R),
   is_st_formula IndInv ->
   P |-- Sys dvars cvars Init Prog w WC d ->
