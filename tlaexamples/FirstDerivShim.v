@@ -4,6 +4,7 @@ Require Import TLA.BasicProofRules.
 Require Import Examples.System.
 Require Import Examples.SensorWithError.
 Require Import Examples.SensorWithDelay.
+Require Import Examples.SensorWithDelayRange.
 Require Import Examples.FirstDerivShimCtrl.
 
 Open Scope HP_scope.
@@ -94,3 +95,27 @@ Proof.
         try solve [ charge_assumption | apply all_in_dec_ok; reflexivity | reflexivity ]. }
   - apply always_imp. charge_tauto.
 Qed.
+
+(*
+Definition CtrlDelay ub d err :=
+  [](Vmin <= v <= Vmax) |-- SysCompose (SensorWithDelayRange.system ub d)
+    (FirstDerivShimCtrl.system ..) -->> [](SAFE).
+
+  SysCompose (SysCompose (SensorWithDelayRange.system ub d)
+                         (SensorWithError.system ub d err))
+             (FirstDerivShimCtrl.system ..).
+
+*)
+
+Definition CtrlSenseErrorDelaySys ub d err :=
+  Sys ("Vmax_post"::"Vmin_post"::"a"::nil)%list
+      ("Vmax"::"Vmin"::"v"::nil)%list
+      (SensorWithDelayRange.Init "v" "Vmax" "Vmin" "a" //\\
+       SensorWithError.Init "v" "Vmax" "Vmin" //\\
+       FirstDerivShimCtrl.Init ub d)
+      (SensorWithDelayRange.Sense "Vmax" "Vmin" "Vmax_post" "Vmin_post" "a" d //\\
+       FirstDerivShimCtrl.Ctrl ub d)
+      FirstDerivShimCtrl.world
+      (SensorWithError.Sense "v" "Vmax" "Vmin" err)
+      d.
+

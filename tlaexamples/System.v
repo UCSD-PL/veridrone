@@ -25,11 +25,45 @@ Definition Next (dvars cvars : list Var)
          Discr cvars Prog d)
   \\// Unchanged ("t"::dvars++cvars)%list.
 
-Definition Sys (dvars cvars : list Var)
+Definition sysD (dvars cvars : list Var)
            (Init Prog: Formula) (world : list DiffEq)
            (WConstraint : Formula) (d : R) : Formula :=
   ("t" <= d //\\ Init) //\\
      [](Next dvars cvars Prog world WConstraint d //\\ 0 <= "t").
+
+Record SysRec (cvars : list Var) (world : list DiffEq) (maxTime : R)
+: Type := Sys
+{ dvars : list Var
+; Init : Formula
+; Prog: Formula
+; WConstraint : Formula }.
+
+Arguments dvars {_ _ _} _.
+Arguments Init {_ _ _} _.
+Arguments Prog {_ _ _} _.
+Arguments WConstraint {_ _ _} _.
+
+Definition SysD {cvars world maxTime} (s : SysRec cvars world maxTime)
+: Formula :=
+  sysD s.(dvars) cvars s.(Init) s.(Prog) world s.(WConstraint)
+                                                   maxTime.
+
+Fixpoint list_union (a b : list Var) : list Var.
+Admitted.
+
+Definition SysCompose {c w m} (a b : SysRec c w m) : SysRec c w m :=
+{| dvars := list_union a.(dvars) b.(dvars)
+ ; Init  := a.(Init) //\\ b.(Init)
+ ; Prog  := a.(Prog) //\\ b.(Prog)
+ ; WConstraint := a.(WConstraint) //\\ b.(WConstraint)
+ |}.
+
+Theorem Compose c w m (a b : SysRec c w m) P Q :
+  |-- SysD a -->> [] P ->
+  [] P |-- SysD b -->> [] Q ->
+  |-- SysD (SysCompose a b) -->> [](P //\\ Q).
+Proof.
+Admitted.
 
 Ltac tlaRevert := first [ apply landAdj | apply lrevert ].
 
@@ -67,17 +101,17 @@ Ltac decompose_hyps :=
 
 Definition TimeBound d : Formula := 0 <= "t" <= d.
 
-Lemma Sys_bound_t : forall P dvars cvars Init Prog w WC d,
-    P |-- Sys dvars cvars Init Prog w WC d ->
+Lemma Sys_bound_t : forall P cvars w d (a : SysRec cvars w d),
+    P |-- SysD a ->
     P |-- []TimeBound d.
 Proof.
-  intros. unfold Sys.
+  intros. unfold SysD in *.
   rewrite <- Always_and with (P:=0 <= "t") (Q:="t" <= d). tlaSplit.
-  - rewrite H. unfold Sys. rewrite <- Always_and. tlaAssume.
-  - apply discr_indX with (A:=Next dvars cvars Prog w WC d).
+  - rewrite H. unfold sysD. rewrite <- Always_and. tlaAssume.
+  - apply discr_indX with (A:=Next a.(dvars) cvars a.(Prog) w a.(WConstraint) d).
     + tlaIntuition.
-    + rewrite H. unfold Sys. rewrite <- Always_and. tlaAssume.
-    + rewrite H. unfold Sys. tlaAssume.
+    + rewrite H. unfold sysD. rewrite <- Always_and. tlaAssume.
+    + rewrite H. unfold sysD. tlaAssume.
     + unfold Next. decompose_hyps.
       * eapply diff_ind with (Hyps:=TRUE);
         try solve [tlaIntuition].
