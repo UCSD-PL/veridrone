@@ -146,12 +146,160 @@ Proof. red; red; tauto. Qed.
 Instance Transitive_all_in {T} : Transitive (@all_in T).
 Proof. unfold all_in; red; intros. eauto. Qed.
 
+Lemma VarsAgree_val : forall x xs s,
+  List.In x xs ->
+  VarsAgree xs s |-- x = (s x).
+Proof.
+  induction xs.
+  - tlaIntuition.
+  - intros. simpl in H. destruct H.
+    + subst a. charge_assumption.
+    + rewrite <- IHxs.
+      * charge_assumption.
+      * auto.
+Qed.
+
+Lemma VarsAgree_weaken : forall xs xs' s,
+  all_in xs xs' ->
+  VarsAgree xs' s |-- VarsAgree xs s.
+Proof.
+  induction xs.
+  - tlaIntuition.
+  - intros. simpl VarsAgree. restoreAbstraction.
+    rewrite <- VarsAgree_val with (x:=a) (xs:=xs').
+    + charge_split.
+      * charge_tauto.
+      * rewrite IHxs; try charge_tauto.
+        unfold all_in in *. intuition.
+    + intuition.
+Qed.
+
+Lemma VarsAgree_app : forall xs1 xs2 s,
+  VarsAgree (xs1 ++ xs2) s -|- VarsAgree xs1 s //\\ VarsAgree xs2 s.
+Proof.
+  induction xs1; intros.
+  - tlaIntuition. split; charge_tauto.
+  - simpl VarsAgree. restoreAbstraction.
+    rewrite IHxs1. split; charge_tauto.
+Qed.
+
+Lemma AVarsAgree_val : forall x xs s,
+  List.In x xs ->
+  AVarsAgree xs s |-- x! = (s x).
+Proof.
+  induction xs.
+  - tlaIntuition.
+  - intros. simpl in H. destruct H.
+    + subst a. charge_assumption.
+    + rewrite <- IHxs.
+      * charge_assumption.
+      * auto.
+Qed.
+
+Lemma AVarsAgree_weaken : forall xs xs' s,
+  all_in xs xs' ->
+  AVarsAgree xs' s |-- AVarsAgree xs s.
+Proof.
+  induction xs.
+  - tlaIntuition.
+  - intros. simpl AVarsAgree. restoreAbstraction.
+    rewrite <- AVarsAgree_val with (x:=a) (xs:=xs').
+    + charge_split.
+      * charge_tauto.
+      * rewrite IHxs; try charge_tauto.
+        unfold all_in in *. intuition.
+    + intuition.
+Qed.
+
+Lemma AVarsAgree_app : forall xs1 xs2 s,
+  AVarsAgree (xs1 ++ xs2) s -|- AVarsAgree xs1 s //\\ AVarsAgree xs2 s.
+Proof.
+  induction xs1; intros.
+  - tlaIntuition. split; charge_tauto.
+  - simpl AVarsAgree. restoreAbstraction.
+    rewrite IHxs1. split; charge_tauto.
+Qed.
+
+Lemma exists_entails : forall T F1 F2,
+  (forall x, F1 x |-- F2 x) ->
+  Exists x : T, F1 x |-- Exists x : T, F2 x.
+Proof.
+  tlaIntuition.  destruct H0.
+  exists x. intuition.
+Qed.
+
+Lemma all_in_map : forall A B (l l':list A) (f:A->B),
+  all_in l l' ->
+  all_in (List.map f l) (List.map f l').
+Proof.
+  unfold all_in; simpl; intros.
+  apply List.in_map_iff.
+  apply List.in_map_iff in H0. destruct H0.
+  exists x0. intuition.
+Qed.
+
 Lemma World_weaken : forall dvars dvars' w w',
     all_in dvars dvars' ->
     all_in w w' ->
     World dvars' w' |-- World dvars w.
 Proof.
-Admitted.
+  intros. unfold World, Continuous.
+  repeat (apply exists_entails; intros).
+  repeat charge_split; try solve [tlaAssume].
+  - breakAbstraction; unfold is_solution; intros;
+    intuition.
+    match goal with
+    | [ H : context[solves_diffeqs] |- _ ]
+        => let pf := fresh "pf" in
+           let Hcont := fresh "Hcont" in
+           destruct H as [pf Hcont]; exists pf
+    end.
+    unfold solves_diffeqs in *; intros.
+    erewrite Hcont; eauto.
+    simpl in *; intuition. right.
+    apply List.in_or_app.
+    match goal with
+    | [ H : _ |- _ ]
+      => apply List.in_app_or in H
+    end; intuition. right.
+    apply List.in_map_iff.
+    match goal with
+    | [ H : _ |- _ ]
+      => let x := fresh "x" in
+         apply List.in_map_iff in H;
+           destruct H as [x ?]; exists x
+    end; intuition.
+  - fold VarsAgree. simpl VarsAgree.
+    repeat rewrite List.map_app with (f:=get_var).
+    repeat rewrite VarsAgree_app. charge_split.
+    + erewrite VarsAgree_weaken with (xs:=List.map get_var w).
+      * tlaIntuition.
+      * apply all_in_map; auto.
+    + erewrite VarsAgree_weaken with
+      (xs:=List.map get_var
+                    (List.map (fun x1 : Var => x1 '  ::= 0)
+                              dvars0))
+        (xs':=List.map get_var
+                       (List.map (fun x1 : Var => x1 '  ::= 0)
+                                 dvars')).
+      * tlaIntuition.
+      * repeat apply all_in_map; auto.
+  - fold AVarsAgree. simpl AVarsAgree.
+    repeat rewrite List.map_app with (f:=get_var).
+    repeat rewrite AVarsAgree_app. charge_split.
+    + erewrite AVarsAgree_weaken with (xs:=List.map get_var w).
+      * tlaIntuition.
+      * apply all_in_map; auto.
+    + erewrite AVarsAgree_weaken with
+      (xs:=List.map get_var
+                    (List.map (fun x1 : Var => x1 '  ::= 0)
+                              dvars0))
+        (xs':=List.map get_var
+                       (List.map (fun x1 : Var => x1 '  ::= 0)
+                                 dvars')).
+      * tlaIntuition.
+      * repeat apply all_in_map; auto.
+Qed.
 
 Lemma Unchanged_In : forall ls l,
     List.In l ls ->
