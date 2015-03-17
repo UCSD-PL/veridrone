@@ -54,8 +54,8 @@ Definition c_asReal (s : fstate) (v : Var) : option R :=
     | None   => None
   end.
 
-Definition c_eval (si : fstate) (pr : progr) (sf : fstate) : Prop :=
-  (eval_progr pr si = Some sf)%type.
+Definition c_eval (si : fstate) (pr : SrcProg) (sf : fstate) : Prop :=
+  (eval_SrcProg pr si = Some sf)%type.
 
 Require Import Embed.
 
@@ -175,28 +175,6 @@ Fixpoint bounds_to_formula (bounds : list singleBoundTerm) (center : Term) : For
   end.
       
 
-(* TODO strict or non-strict inequalities? *)
-Definition abstr_assn (assn : progr_assn) : Formula :=
-  match assn with
-    | mk_progr_assn var term => bounds_to_formula (bound_term term)
-                                                  (VarNextT var)
-  end.
-
-Fixpoint abstr_assns (assns : list progr_assn) : Formula :=
-  match assns with
-    | nil         => TRUE
-    | a :: assns' =>
-      And (abstr_assn a)
-          (abstr_assns assns')
-  end.
-
-Print Formula.
-Print singleBoundTerm.
-Check bound_term.
-
-Check cross.
-
-Check fold_right.
 
 (* Fold a list with its first element as starting accumulator
 Takes function and list, as well as default element to return if list is nil *)
@@ -239,6 +217,23 @@ Fixpoint abstr_if (conds : FlatFormula) (body : Formula) : Formula :=
                             (abstr_if f2 body)
   end.
 
+(* previous attempts at abstraction function for old source language *)
+(*
+Definition abstr_assn (assn : progr_assn) : Formula :=
+  match assn with
+    | mk_progr_assn var term => bounds_to_formula (bound_term term)
+                                                  (VarNextT var)
+  end.
+
+Fixpoint abstr_assns (assns : list progr_assn) : Formula :=
+  match assns with
+    | nil         => TRUE
+    | a :: assns' =>
+      And (abstr_assn a)
+          (abstr_assns assns')
+  end.
+
+
 Definition abstr_progr_stmt (stmt : progr_stmt) : Formula :=
   match stmt with
     | mk_progr_stmt conds assns =>
@@ -252,7 +247,7 @@ Fixpoint abstr_progr_stmts (stmts : list progr_stmt) : Formula :=
       Or (abstr_progr_stmt st)
          (abstr_progr_stmts rest)
   end.
-
+*)
 
 (* Lemma relating behavior of boundDef to bounds_to_formula *)
 Lemma forall_cons_iff : 
@@ -313,6 +308,100 @@ Proof.
   apply in_fstate_set.
 Qed.
 
+Require Import RelDec.
+
+(* compute "not" of a Flat Formula *)
+Fixpoint FlatFormula_not (ff : FlatFormula) : FlatFormula :=
+  match ff with
+    | FTRUE            => FFALSE
+    | FFALSE           => FTRUE
+    | FAnd f1 f2       => FOr  (FlatFormula_not f1) (FlatFormula_not f2)
+    | FOr  f1 f2       => FAnd (FlatFormula_not f1) (FlatFormula_not f2)
+    | FComp lhs rhs op =>
+      match op with
+        | Gt => FComp lhs rhs Le
+        | Ge => FComp lhs rhs Lt
+        | Lt => FComp lhs rhs Ge
+        | Le => FComp lhs rhs Gt
+        | Eq => FOr (FComp lhs rhs Gt)
+                    (FComp lhs rhs Lt)
+      end
+  end.
+
+(* TODO make sure this actually works well *)
+Definition sp_ITE_comp (op : CompOp) (lhsb rhsb : singleBoundTerm) : list Formula :=
+  let '(mkSBT llo lup lprem) := lhsb in
+  let '(mkSBT rlo rup rprem) := rhsb in
+  Imp (And lprem rprem)
+      (match op with
+        | Gt => Comp rlo lup Lt
+        | Ge => Comp rlo lup Le
+        | Lt => Comp llo rup Lt
+        | Le => Comp llo rup Le
+        | Eq => And (Comp lup rlo Ge)
+                    (Comp rup llo Ge)
+      end) :: nil.
+
+(* Helper function for computing strongest postcondition for conditionals *)
+Fixpoint sp_ITE (cond : FlatFormula) (P : Syntax.state -> Formula) : Syntax.state -> Formula :=
+  match cond with
+    | FTRUE            => P
+    | FFALSE           => fun s => FALSE
+    | FAnd f1 f2       => fun s => And (sp_ITE f1 P s) (sp_ITE f2 P s)
+    | FOr  f1 f2       => fun s => Or  (sp_ITE f2 P s) (sp_ITE f2 P s)
+    | FComp lhs rhs op =>
+      fun s =>
+        And
+          (P s)
+          (fold_right And TRUE
+                      (cross (sp_ITE_comp op) (bound_term lhs) (bound_term rhs)))
+  end.
+
+(* Strongest-postcondition calculation for source-language programs *)
+Fixpoint sp_SrcProg (sp : SrcProg) (P : Syntax.state -> Formula) : Syntax.state -> Formula :=
+  match sp with
+    | SAssn lhs rhs  =>
+      (fun s =>
+         Syntax.Exists R (fun (v : R) =>
+                            And (bounds_to_formula (bound_term rhs) (s lhs))
+                                (P (fun x' => if lhs ?[ eq ] x' then v else s x'))))
+
+    | SSkip          => P
+    | SSeq sp1 sp2   => sp_SrcProg sp2 (sp_SrcProg sp1 P)
+    | SITE c sp1 sp2 => (* TODO - can we do better on these bounds for conditional? *)
+      (fun s =>
+         Syntax.Or
+           (sp_SrcProg sp1 (sp_ITE c                   P) s)
+           (sp_SrcProg sp2 (sp_ITE (FlatFormula_not c) P) s))
+  end.
+
+(* old SP implementations; deprecated *)
+(*
+Definition sp_assn (assn : progr_assn) (P : Syntax.state -> Formula) : Syntax.state -> Formula :=
+  let '(mk_progr_assn x e) := assn in
+  (fun s =>
+     Syntax.Exists R (fun (v : R) =>
+                        And (Comp (denowify e) (RealT v) Eq)
+                            (P (fun x' => if x ?[ eq ] x' then v else s x')))).
+
+Fixpoint sp_assns (assns : list progr_assn) (P : Syntax.state -> Formula) : Syntax.state -> Formula :=
+  match assns with
+    | nil => fun _ => TRUE
+    | assn :: rest => sp_assns rest (sp_assn assn P)
+  end.
+
+Print progr_stmt.
+
+Definition sp_if (ps : progr_stmt) (P : Syntax.state -> Formula) : Syntax.state -> Formula :=
+  let '(mk_progr_stmt cond assns) := ps in
+  (fun s =>
+     Syntax.Or
+       (subst_progr_assn_seq)
+       (Imp (deflatten_formula conds) FALSE)).
+*)
+(* I'm still working on getting this lemma to the point where
+   it is provable --Mario *)
+(*
 Lemma compile_assn_correct :
   forall (assn : progr_assn) (sf sf' : fstate),
     assn_update_state assn sf = Some sf' ->
@@ -369,60 +458,13 @@ destruct (floatToReal f) eqn:F2Rf.
   apply in_fstate_set.
 }
 Qed.
-
-
-(* Strongest postcondition calculation, starting from TRUE.
-   We need a language of assertions that supports rewriting *)
-
-(* alternate idea: have abstractor produce not a formula, but
-   a (String -> Expr) -> Formula. Parameterized over substitution. *)
-
-(* do this weird language thing and then yeah soundness *)
-
-(* or, dont do the language thing. Need sp function for strongest
-   postcondition calculation (src -> (tlastate -> prop) -> (tlastate -> prop)).
-   or even use Formula instead of prop. Maybe (var -> expr) -> formula *)
-
-(* strongest postcondition calculations *)
-Print progr_assn.
-
-(* x gets xold; otherwise apply subs *)
-(* need to do rewriting in nowterms *)
-
-(* strongest precondition calculation for a single program assignment *)
-Require Import ExtLib.Core.RelDec.
-Print mk_progr_assn.
-
-(* better to think of this type as assn -> ((Var -> NowTerm) -> Formula) : (Var -> NowTerm) -> Formula *)
-
-(* build a C-style language - assignment, sequencing, ITE *)
-                                             
-(* Perform substitution for a single program assignment *)
-
-Print Formula.
-Print Syntax.Term.
-Check Comp.
-Print CompOp.
-Check Syntax.Exists.
-Print fstate_set.
-Print Syntax.state.
-
-Definition sp_assn (assn : progr_assn) (P : Syntax.state -> Formula) : Syntax.state -> Formula :=
-  let '(mk_progr_assn x e) := assn in
-  (fun s =>
-     Syntax.Exists R (fun (v : R) =>
-                        And (Comp (denowify e) (RealT v) Eq)
-                            (P (fun x' => if x ?[ eq ] x' then v else s x')))).
-                                       
-
-(* original proposal, with fstate as a function *)
-(* (P (fun x' => if x ?[ eq ] x' then v else fs x')))).*)
+*)  
 
 (**************************************************************
 Beyond this is mostly dead code...
 ***************************************************************)
                         
-
+(*
 Definition subst_progr_assn (assn : progr_assn) (P : (Var -> NowTerm) -> Formula) (subs : Var -> NowTerm) : Formula :=
   let '(mk_progr_assn x e) := assn in
   let newsubs :=
@@ -519,66 +561,4 @@ eassumption.
   
   
 }
-intros.
-        
-
-Lemma compile_progr_stmt_correct :
-  forall (sf sf' : fstate) (stmt : progr_stmt),
-    eval_progr_stmt stmt sf = Some sf' ->
-    forall (tr : Semantics.trace)
-           (sr sr' : Syntax.state),
-      sr  ~=~ sf  ->
-      sr' ~=~ sf' ->
-      eval_formula (compile_progr_stmt stmt) (sr ::: sr' ::: tr).
-Proof.
-intros.
-destruct stmt eqn:Hstmt; simpl.
-specialize (
-
-(* have program compile trivially (FALSE or TRUE) if you fail a check
-   that is, if you try to look up undefined variables in the float state
-   or you try to assign two values into the same variable at once *)
-
-
-(*
-(* updates all the states in the given real state with values drawn from
-   finite map new_sf *)
-
-Definition update_floats (sr : Syntax.state) (new_sf : fstmap) : Syntax.state :=
-  match new_sf with
-    | nil => sr
-    | (name, val) :: rest =>
-      (fun v =>
-         if String.string_dec v name
-         then FloatToR val
-         else sr v)
-  end.
 *)
-
-Require Import ExtLib.Core.RelDec.
-
-(* compilation to TLA *)
-(* TODO need to be able to handle conditionals to do this *)
-(*
-Fixpoint progr_stmts_to_tla (stmts : list progr_stmt) (st : rbstate) : Formula :=
-  match pss with
-    | mk_progr_stmt conds assns =>
-      let conjuncts :=
-          List.app (List.map convert_assn assns)
-                   [(deflatten_formula conds)] in
-      self_foldr And conjuncts FALSE
-  end.
-
-Definition progr_to_tla (pr : progr) : Formula :=
-  let disjuncts :=
-      List.map progr_stmt_to_tla pr in
-  self_foldr Or disjuncts FALSE.
-*)
-
-(*
-Definition derp : progr :=
-  ([PIF (FTRUE  /\
-        (FloatN 1 = FloatN 1))
-   PTHEN ["ab" !!= FloatN 1]])%SL.
-*)
-
