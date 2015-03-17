@@ -375,6 +375,14 @@ Fixpoint sp_SrcProg (sp : SrcProg) (P : Syntax.state -> Formula) : Syntax.state 
            (sp_SrcProg sp2 (sp_ITE (FlatFormula_not c) P) s))
   end.
 
+Local Open Scope string_scope.
+
+Definition testProg :=
+   (SIF ("a" < "c") STHEN "a" !!= "b" SELSE SSkip)%SL.
+
+Eval simpl in
+    (sp_SrcProg testProg (fun _ => TRUE)).
+
 (* old SP implementations; deprecated *)
 (*
 Definition sp_assn (assn : progr_assn) (P : Syntax.state -> Formula) : Syntax.state -> Formula :=

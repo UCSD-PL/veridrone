@@ -188,23 +188,29 @@ Record progr_stmt : Set :=
 }.
 *)
 
-Notation "a !!= b" := (SAssn a b) (at level 40) : SrcLang_scope.
+Notation "a !!= b" := (SAssn a b) (at level 59) : SrcLang_scope.
 Notation "'SIF' c 'STHEN' s1 'SELSE' s2" :=
-(SITE c s1 s2) (at level 61) : SrcLang_scope.
+(SITE c s1 s2) (at level 60) : SrcLang_scope.
 Notation "'SIF' c 'STHEN' s" :=
-(SITE c s SSkip) (at level 60) : SrcLang_scope.
+(SITE c s SSkip) (at level 61) : SrcLang_scope.
 
-Notation "s1 ; s2" :=
+Notation "s1 ;; s2" :=
 (SSeq s1 s2) (at level 58) : SrcLang_scope.
 
 (*
-Check (SIF FTRUE STHEN SSkip SELSE SSkip; SSkip).
+Check (SIF FTRUE STHEN SSkip SELSE SSkip ;; SSkip).
 *)
 
 (*
 Notation "'PIF' cs 'PTHEN' yas 'PUNKNOWN' unas" :=
 (mk_progr_stmt cs yas unas) (at level 59).
 *)
+Local Open Scope string_scope.
+Definition testProg :=
+  ("a" !!= "b" + (NatN 3))%SL.
+
+Definition testProg2 :=
+  (SIF FTRUE STHEN "a" !!= "b").
 
 (* Fold a list with its first element as starting accumulator
 Takes function and list, as well as default element to return if list is nil *)
@@ -333,14 +339,24 @@ Fixpoint assns_update_state (assns: list progr_assn) (acc : fstate) : option fst
 *)
 
 Print SrcProg.
-(*
-(* not sure if we want this function or just SP for this instead *)
+SearchAbout FlatFormula.
+
 Fixpoint eval_SrcProg (sp : SrcProg) (init : fstate) : option fstate :=
   match sp with
-    | SAssn v nt => assn_update_state v nt init
-    | SSkip      => Some init
-    | SSeq p1 p2 => 
-*)
+    | SAssn v nt   => assn_update_state v nt init
+    | SSkip        => Some init
+    | SSeq p1 p2   => 
+      match eval_SrcProg p1 init with
+        | Some nxt => eval_SrcProg p2 nxt
+        | None     => None
+      end
+    | SITE c p1 p2 => 
+      match progr_cond_holds init c with
+        | Some true  => eval_SrcProg p1 init
+        | Some false => eval_SrcProg p2 init
+        | None       => None
+      end
+  end.
 
 (* Previous denotation functions for source language *)
 
