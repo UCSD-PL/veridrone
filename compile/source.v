@@ -164,6 +164,16 @@ Basically, a list of simultaneous assignments, and a
 list of conditions guarding (all of) those assigments.
 Our program will be a list of these statements. *)
 
+Inductive SrcProg : Set :=
+| SAssn : Var -> NowTerm -> SrcProg
+| SSkip : SrcProg
+| SSeq  : SrcProg -> SrcProg -> SrcProg
+| SITE  : FlatFormula -> SrcProg -> SrcProg -> SrcProg
+.
+
+(* These are the old implementation of the source language.
+   They have since been replaced *)
+(*
 Record progr_assn : Set :=
   mk_progr_assn {
       pa_dest : Var;
@@ -176,15 +186,25 @@ Record progr_stmt : Set :=
       ps_conds : FlatFormula;
       ps_assns : list progr_assn
 }.
+*)
 
-Notation "a !!= b" := (mk_progr_assn a b) (at level 40) : SrcLang_scope.
-Notation "'PIF' cs 'PTHEN' yas" :=
-(mk_progr_stmt cs yas) (at level 60) : SrcLang_scope.
+Notation "a !!= b" := (SAssn a b) (at level 40) : SrcLang_scope.
+Notation "'SIF' c 'STHEN' s1 'SELSE' s2" :=
+(SITE c s1 s2) (at level 61) : SrcLang_scope.
+Notation "'SIF' c 'STHEN' s" :=
+(SITE c s SSkip) (at level 60) : SrcLang_scope.
+
+Notation "s1 ; s2" :=
+(SSeq s1 s2) (at level 58) : SrcLang_scope.
+
+(*
+Check (SIF FTRUE STHEN SSkip SELSE SSkip; SSkip).
+*)
+
 (*
 Notation "'PIF' cs 'PTHEN' yas 'PUNKNOWN' unas" :=
 (mk_progr_stmt cs yas unas) (at level 59).
 *)
-Definition progr : Set := list progr_stmt.
 
 (* Fold a list with its first element as starting accumulator
 Takes function and list, as well as default element to return if list is nil *)
@@ -266,9 +286,6 @@ Fixpoint eval_NowTerm (t:NowTerm) :=
 
 Definition custom_cmp (c : comparison) (f1 : float) (f2 : float) := Floats.cmp_of_comparison c (Fappli_IEEE_extra.Bcompare custom_prec custom_emax f1 f2).
 
-
-
-
   Definition eval_comp (op : CompOp) (lhs rhs : NowTerm) : option bool :=
     let elhs := eval_NowTerm lhs in
     let erhs := eval_NowTerm rhs in
@@ -297,12 +314,13 @@ End eval_expr.
 (* String.string_dec *)
 (* update state as per an assignment *)
 (* TODO rename these to eval_something *)
-Definition assn_update_state (assn : progr_assn) (st : fstate) : option fstate :=
-  match eval_NowTerm st assn.(pa_source) with
-  | Some val => Some (fstate_set st assn.(pa_dest) val)
+Definition assn_update_state (v : Var) (nt : NowTerm) (st : fstate) : option fstate :=
+  match eval_NowTerm st nt with
+  | Some val => Some (fstate_set st v val)
   | None => None
   end.
 
+(*
 Fixpoint assns_update_state (assns: list progr_assn) (acc : fstate) : option fstate :=
   match assns with
   | List.nil => Some acc
@@ -312,7 +330,21 @@ Fixpoint assns_update_state (assns: list progr_assn) (acc : fstate) : option fst
     | _ => None
     end
   end.
+*)
 
+Print SrcProg.
+(*
+(* not sure if we want this function or just SP for this instead *)
+Fixpoint eval_SrcProg (sp : SrcProg) (init : fstate) : option fstate :=
+  match sp with
+    | SAssn v nt => assn_update_state v nt init
+    | SSkip      => Some init
+    | SSeq p1 p2 => 
+*)
+
+(* Previous denotation functions for source language *)
+
+(*
 (* denotation of a single program statement *)
 Fixpoint eval_progr_stmt (ps : progr_stmt) (init : fstate) : option fstate :=
   match ps with
@@ -334,3 +366,4 @@ Fixpoint eval_progr (p : progr) (init : fstate) : option fstate :=
     | None => None
     end
   end.
+*)
