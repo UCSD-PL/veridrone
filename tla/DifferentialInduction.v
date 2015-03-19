@@ -614,16 +614,16 @@ Proof.
   unfold derive in Hterm1. unfold derive in Hterm2.
   destruct Hterm1 as [pf1 Hterm1].
   destruct Hterm2 as [pf2 Hterm2].
-  destruct op; simpl in *; try (apply RIneq.Rle_le_eq; split).
+  destruct op; simpl in *; try (apply RIneq.Rle_le_eq; split);
   normalize_ineq_goal; normalize_ineq_hyp Hbase;
   ineq_trans; auto;
   deriv_ineq; intros; try solve_ineq;
   (instantiate (1:=pf1) || instantiate (1:=pf2));
   (rewrite Hterm1 || rewrite Hterm2); try solve_ineq;
   try specialize (Hhyps (Stream.Cons _ (Stream.hd tr)
-                              (Stream.Cons _ (f t) (Stream.tl tr))));
+                              (Stream.Cons _ (f t) (Stream.tl tr))) I);
   simpl in *; try apply next_formula_tl in Hhyps; auto;
-  try specialize (Hind (Stream.Cons _ (f t) (Stream.tl tr))); simpl in *;
+  try specialize (Hind (Stream.Cons _ (f t) (Stream.tl tr)) I); simpl in *;
   try specialize (Hind Hhyps); try solve_ineq;
   try (split;
         [ eapply st_formula_hd; eauto |
@@ -634,8 +634,6 @@ Proof.
                  apply st_formula_varsagree |
                  apply avarsagree_next]
       ]).
-  admit. admit. admit.
-  admit. admit. admit.
 Qed.
 
 (* Differential induction proof rule plus soundness
@@ -650,26 +648,25 @@ Lemma diff_ind : forall Hyps G cp F,
   (Hyps |-- deriv_formula G cp) ->
   (F |-- next G).
 Proof.
-(*
   Opaque Continuous.
   intros Hyps G; generalize dependent Hyps;
   induction G;
     intros Hyps cp F HstG HstH Hcont Hhyps Hbase HhypsF Hind;
-  simpl in *; intros; eauto;
+  simpl in *; unfold tlaEntails in *; simpl in *; intros; eauto;
   try discriminate; try solve [exfalso; eapply Hind; eauto].
-  destruct HstG as [HstG1 HstG2].
-  destruct (deriv_term t cp) eqn:?;
-           destruct (deriv_term t0 cp) eqn:?;
-  try solve [simpl in *; exfalso; eapply Hind; eauto].
-  simpl in *. pose proof (Hcont tr H).
-  destruct H0 as [r [f Hf] ].
-  decompose [and] Hf.
-  pose proof (eval_comp_ind Hyps cp t t0
-                            t1 t2 c Heqo Heqo0 HstH) as Hcomp.
-  apply Hcomp; auto.
-  repeat split; intuition.
-  - apply HhypsF; auto.
-  - apply Hcont; auto.
+  - destruct HstG as [HstG1 HstG2].
+    destruct (deriv_term t cp) eqn:?;
+             destruct (deriv_term t0 cp) eqn:?;
+    try solve [simpl in *; exfalso; eapply Hind; eauto].
+    simpl in *. pose proof (Hcont tr H).
+    destruct H0 as [r [f Hf] ]. simpl in *.
+    decompose [and] Hf.
+    pose proof (eval_comp_ind Hyps cp t t0
+                              t1 t2 c Heqo Heqo0 HstH) as Hcomp.
+    apply Hcomp; simpl in *; unfold tlaEntails; simpl in *; auto.
+    repeat split; intuition.
+    + apply HhypsF; auto.
+    + apply Hcont; auto.
   - split.
     + eapply IHG1; eauto.
       * intuition.
@@ -679,13 +676,11 @@ Proof.
       * intuition.
       * apply Hbase; auto.
       * apply Hind; auto.
-  - eapply IHG2 with (Hyps:=Hyps /\ G1) (F:=F /\ G1); eauto;
+  - eapply IHG2 with (Hyps:=Hyps //\\ G1) (F:=F //\\ G1); eauto;
     simpl; intuition.
     + apply Hind; auto.
     + apply Hind; auto.
     + apply Hind; auto.
 Qed.
-*)
-Admitted.
 
 Close Scope HP_scope.
