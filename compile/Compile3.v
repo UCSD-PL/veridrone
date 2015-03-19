@@ -203,9 +203,7 @@ Definition bound_comp (op : CompOp) (t1 t2 : NowTerm) : Formula :=
       cross (singleBound_comp op) (bound_term t1) (bound_term t2)
   in self_foldr And forms FALSE.
 
-(* TODO we can probably do a smarter job with these bounds
-   for AND and OR (we aren't using all the information we
-   potentially have, thought we may not need to)*)
+(*
 Fixpoint abstr_if (conds : FlatFormula) (body : Formula) : Formula :=
   match conds with
     | FTRUE          => body
@@ -216,6 +214,7 @@ Fixpoint abstr_if (conds : FlatFormula) (body : Formula) : Formula :=
     | FOr   f1 f2    => Or  (abstr_if f1 body)
                             (abstr_if f2 body)
   end.
+*)
 
 (* previous attempts at abstraction function for old source language *)
 (*
@@ -250,7 +249,7 @@ Fixpoint abstr_progr_stmts (stmts : list progr_stmt) : Formula :=
 *)
 
 (* Lemma relating behavior of boundDef to bounds_to_formula *)
-Lemma forall_cons_iff : 
+Lemma Forall_cons_iff : 
   forall T P l ls,
     @Forall T P (l :: ls) <->
     P l /\ @Forall T P ls.
@@ -273,7 +272,7 @@ induction bounds.
   split; constructor.
 }
 {
-  rewrite forall_cons_iff.
+  rewrite Forall_cons_iff.
   rewrite IHbounds.
   destruct a.
   simpl.
@@ -307,6 +306,12 @@ Proof.
   apply H.
   apply in_fstate_set.
 Qed.
+
+Print singleBoundTerm.
+(*
+Definition subst_singleBoundTerm (sbt : SBT) (v : Var) (f : source.float) :=
+*)
+
 
 Require Import RelDec.
 
@@ -358,6 +363,7 @@ Fixpoint sp_ITE (cond : FlatFormula) (P : Syntax.state -> Formula) : Syntax.stat
   end.
 
 (* Strongest-postcondition calculation for source-language programs *)
+
 Fixpoint sp_SrcProg (sp : SrcProg) (P : Syntax.state -> Formula) : Syntax.state -> Formula :=
   match sp with
     | SAssn lhs rhs  =>
@@ -377,11 +383,214 @@ Fixpoint sp_SrcProg (sp : SrcProg) (P : Syntax.state -> Formula) : Syntax.state 
 
 Local Open Scope string_scope.
 
+Definition blankSPState : Syntax.state -> Formula := fun (_ : Syntax.state) => TRUE.
+
 Definition testProg :=
    (SIF ("a" < "c") STHEN "a" !!= "b" SELSE SSkip)%SL.
 
 Eval simpl in
     (sp_SrcProg testProg (fun _ => TRUE)).
+
+Print fstate.
+
+(* Prop capturing whether all floats in a state are valid
+   (in the sense of being convertible to real numbers rather than
+   special values) *)
+Definition fst_valid (sf : fstate) : Prop :=
+  Forall (fun vf => let '(_,f) := vf in exists (r : R), eq (floatToReal f) (Some r)) sf.
+
+Lemma fst_valid_cons1 :
+  forall (sf : fstate) (v : Var) (f : source.float),
+    fst_valid ((v,f) :: sf) ->
+    fst_valid sf.
+Proof.
+intros.
+apply Forall_forall.
+intros. destruct x.
+unfold fst_valid in H.
+Check Forall_forall.
+eapply Forall_forall in H.
+Focus 2. simpl. right. eassumption.
+simpl in H. eassumption.
+Qed.
+
+Lemma fst_set_valid :
+  forall (sf : fstate) (v : Var) (f : source.float),
+    fst_valid sf -> 
+    forall (r : R),
+      floatToReal f = Some r ->
+      fst_valid (fstate_set sf v f).
+Proof.
+induction sf.
+{
+  intros.
+  simpl. apply Forall_forall.
+  intros. destruct x. 
+  inversion H1; inversion H2.
+  subst.
+  eexists; eassumption.
+}
+{
+  intros.
+  simpl. destruct a.
+  destruct (RelDec.rel_dec v v0).
+  {
+    apply Forall_forall.
+    intros.
+    destruct x.
+    inversion H1. 
+    {
+      inversion H2. subst. eexists. eassumption.
+    }
+    {
+      apply fst_valid_cons1 in H.
+      {
+        eapply Forall_forall in H. Focus 2. apply H2.
+        simpl in H. assumption.
+      }
+    }
+  }
+  {
+    apply Forall_forall.
+    intros.
+    inversion H1.
+    {
+      subst. apply Forall_cons_iff in H. inversion H. assumption.
+    }
+    {
+      destruct x. 
+      apply fst_valid_cons1 in H.      
+      {
+        apply IHsf with (v := v) (f := f) (r := r) in H. 
+        {
+          eapply Forall_forall in H. Focus 2. eassumption.
+          simpl in H. assumption.
+        }
+        assumption.
+      }
+    }
+  }
+}
+Qed.
+
+Lemma stream_eta :
+  forall (A : Type) (tr : stream A),
+    (tr = (Semantics.hd tr ::: Semantics.tl tr))%type.
+  destruct tr. reflexivity.
+Qed.
+
+(* The new abstractor correctness statement! *)
+(* Change this theorem to put P under quantifier
+   Add to Vignesh's proof that if precondition holds there must
+   be an appropriate pre-state (?) *)
+Lemma sp_SrcProg_correct :
+  forall (sp : SrcProg) (sf sf' : fstate)
+         (P : Syntax.state -> Formula),
+    eval_SrcProg sp sf = Some sf' ->
+    (forall tr' sr, sr ~=~ sf -> eval_formula (P sr) tr') ->
+    (forall tr' sr', sr' ~=~ sf' -> eval_formula (sp_SrcProg sp P sr') tr').
+Proof.
+induction sp.
+{ (* Assign *)
+  simpl; intros.
+  unfold assn_update_state in H.
+  destruct (eval_NowTerm sf n) eqn:Heval; try congruence.
+  inversion H; clear H; subst.
+  exists (match fstate_lookup sf v with
+            | None => 0
+            | Some f =>
+              match floatToReal f with
+                | None => 0
+                | Some r => r
+              end
+         end)%R.
+  split.
+  { admit. (*
+    apply boundDef_bounds_to_formula.
+    apply Forall_forall. simpl.
+    intros. unfold eval_comp.
+    Check getBound_correct.
+    eapply getBound_correct.
+    5: eassumption.
+    reflexivity.
+    eassumption. 
+    eassumption.
+    rewrite <- stream_eta. assumption.
+    Focus 2. Check eval_term.
+    simpl. instantiate (1:=f).
+    admit. *) }
+  { eapply H0.
+    clear - Heval H1.
+    admit.
+  }
+}
+{ (* Skip *)
+  intros. simpl in *.
+  inversion H. subst. auto.
+}
+{ (* Seq *)
+  intros.
+  simpl in *.
+  destruct (eval_SrcProg sp1 sf) eqn:Hsp1; try congruence.
+  eapply IHsp2; try eassumption.
+  intros.
+  eapply IHsp1; try eassumption.
+}
+{ (* If-Then-Else *)
+  intros.
+  simpl.
+  simpl in H.
+  destruct (eval_SrcProg sp1 sf) eqn:ESP1.
+  {
+    eapply IHsp2; eauto.
+    intro.
+    eapply IHsp1; eauto.
+    eassumption.
+    eassumption.
+
+intros.
+
+
+{ (* goal 1 *)
+  intros.
+  simpl.
+  simpl in H.
+  exists 0%R.
+  split; try constructor.
+  unfold assn_update_state in H.
+  destruct (eval_NowTerm sf n) eqn:ENTsfn; inversion H.
+  apply boundDef_bounds_to_formula. apply Forall_forall.
+  simpl. intros.
+  generalize (fun (r : R) =>
+                getBound_correct n (bound_term n) x eq_refl
+                                 H2 sf sr sr' tr f r H0 H4 ENTsfn).
+  intro GBC.
+  destruct x eqn:Hx; simpl in *.
+  apply getBound_correct.
+  split.
+  {
+    unfold eval_comp.
+    generalize (getBound_correct n).
+    intro GBC.
+
+  generalize (fstate_set_subsumed sr' sf v f).
+  intro fsss.
+  eapply fsss in H1.
+  Focus 3.
+  apply fstate_set_subsumed with () in H1.
+  
+ _ apply fstate_
+  unfold bounds_to_formula.
+}
+{
+}
+{
+}
+{
+}
+intros.
+
+
 
 (* old SP implementations; deprecated *)
 (*
@@ -407,8 +616,6 @@ Definition sp_if (ps : progr_stmt) (P : Syntax.state -> Formula) : Syntax.state 
        (subst_progr_assn_seq)
        (Imp (deflatten_formula conds) FALSE)).
 *)
-(* I'm still working on getting this lemma to the point where
-   it is provable --Mario *)
 (*
 Lemma compile_assn_correct :
   forall (assn : progr_assn) (sf sf' : fstate),
