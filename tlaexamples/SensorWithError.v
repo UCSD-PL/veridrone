@@ -12,7 +12,7 @@ Section SensorWithError.
   Variable err : R.
 
   Definition Sense : Formula :=
-    Xmax! = Xmin! + err //\\ Xmin! <= x! <= Xmax!.
+    Xmax! <= Xmin! + err //\\ Xmin! <= x! <= Xmax!.
 
   Definition SenseSafe : Formula :=
     Xmin <= x <= Xmax.
