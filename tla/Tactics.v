@@ -28,9 +28,17 @@ Ltac solve_nonlinear :=
    It sometimes is useful to run this before
    sending things to solve_nonlinear. *)
 Ltac R_simplify :=
-  field_simplify;
+  unfold state, Value; field_simplify;
   unfold Rdiv;
-  repeat rewrite RMicromega.Rinv_1.
+  repeat rewrite RMicromega.Rinv_1;
+  repeat
+    match goal with
+    | H:_ |- _ =>
+      unfold state, Value in H; field_simplify in H;
+      unfold Rdiv in H;
+      repeat rewrite RMicromega.Rinv_1 in H;
+      revert H
+    end; intros.
 
 (* Doesn't change the goal but runs
    z3 on real arithmetic goals. At the

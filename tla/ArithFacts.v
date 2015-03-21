@@ -37,6 +37,10 @@ Lemma Rmult_le_compat_neg_r : forall r r1 r2 : R,
  (r <= 0)%R -> (r1 <= r2)%R -> (r2*r <= r1*r)%R.
 Proof. solve_nonlinear. Qed.
 
+Lemma Rmult_le_compat_pos_r : forall r r1 r2 : R,
+ (r >= 0)%R -> (r1 <= r2)%R -> (r1*r <= r2*r)%R.
+Proof. solve_nonlinear. Qed.
+
 Lemma inv_le_0 : forall r,
   (r < 0 -> /r <= 0)%R.
 Proof. solve_nonlinear. Qed.
