@@ -38,69 +38,42 @@ Lemma zero_deriv : forall G cp F x,
   (F //\\ x! = x |-- G) ->
   (F |-- G).
 Proof.
-(*
 induction cp.  intros F x Hin Hcont Hsuf.
 - simpl in *. contradiction.
 - intros F x Hin Hcont Hsuf. simpl in Hin. destruct Hin.
-  + etransitivity; [ | eapply Hsuf ].
-    apply landR; try reflexivity.
-    etransitivity. eapply Hcont.
-    subst. clear.
-    breakAbstraction.
-    intros. unfold is_solution in *.
-    repeat match goal with
-           | H : exists x , _ |- _ => destruct H
-           | H : _ /\ _ |- _ => destruct H
-           end.
-    red in H0. simpl in H0.
-    specialize (H0 _ _ (Stream.hd tr) (or_introl eq_refl)).
-    red in H2. simpl in H2.
-    red. simpl.
-    red in H1; simpl in H1.
-    simpl in H0.
-    rewrite H1. rewrite H2.
-    clear H3 H4 H1 H2.
-    unfold derive in H0.
-
-Check null_derivative_loc.    eapply null_derivative_loc in H0.
-
-    simpl in H0.
-    red in H1; simpl in H1. rewrite H1; clear H1.
-    red in H. simpl in H.
-    unfold eval_comp. simpl. simpl in H0.
-
-simpl in *. intros. apply Hsuf.
-     split. auto. specialize (Hcont tr H0).
-     destruct Hcont as [r [f Hf] ].
-     decompose [and] Hf.
-     unfold eval_comp in *. simpl in *.
-     destruct a. simpl in *. inversion H.
-     subst x. subst t. unfold is_solution in *.
-     unfold solves_diffeqs in *.
-     destruct H3 as [H10]. specialize (H3 v 0).
-     simpl in *. rewrite H2. rewrite H4.
-     rewrite (null_derivative_loc (fun t => f t v) R0 r).
-     auto.
-     * intros. unfold derivable in H10.
-       apply derivable_continuous_pt.
-       apply H10.
-     * unfold derive in H2. firstorder.
-       apply H3. auto. left; auto. psatzl R.
-     * intuition. 
-   + apply IHcp with (x:=x).
-     apply H.
-     simpl in *. intros. specialize (Hcont tr H0).
-     destruct Hcont as [r [f Hf]]. decompose [and] Hf.
-     exists r. exists f. intuition.
-     unfold is_solution in *.
-     destruct H9.
-     unfold solves_diffeqs in *.
-     simpl in *.
-     exists x0. intros. apply H9; auto.
-     apply Hsuf.
+  + simpl in *. intros.
+    unfold tlaEntails in *. intros. apply Hsuf.
+    split. auto. specialize (Hcont tr H0).
+    destruct Hcont as [r [f Hf] ]. simpl in Hf.
+    decompose [and] Hf.
+    unfold eval_comp in *. simpl in *.
+    destruct a. simpl in *. inversion H.
+    subst x. subst t. unfold is_solution in *.
+    unfold solves_diffeqs in *.
+    destruct H3 as [H10]. specialize (H3 v 0).
+    simpl in *. unfold eval_comp; simpl.
+    rewrite H2. rewrite H4.
+    rewrite (null_derivative_loc (fun t => f t v) R0 r).
+    auto.
+    * intros. unfold derivable in H10.
+      apply derivable_continuous_pt.
+      apply H10.
+    * unfold derive in H2. firstorder.
+      apply H3. auto. left; auto. psatzl R.
+    * intuition. 
+  + apply IHcp with (x:=x).
+    apply H.
+    simpl in *. unfold tlaEntails in *. simpl in *.
+    intros. specialize (Hcont tr H0).
+    destruct Hcont as [r [f Hf]]. decompose [and] Hf.
+    exists r. exists f. intuition.
+    unfold is_solution in *.
+    destruct H9.
+    unfold solves_diffeqs in *.
+    simpl in *.
+    exists x0. intros. apply H9; auto.
+    apply Hsuf.
 Qed.
-*)
-Admitted.
 
 Definition var_eqb (s1 s2:Var) : bool :=
   proj1_sig (Sumbool.bool_of_sumbool
@@ -210,8 +183,8 @@ Lemma extract_vars_0 : forall F H eqs,
   (F |-- Continuous eqs) ->
   (|-- (F //\\ next H) -->> H) //\\ (|-- (F //\\ H) -->> next H).
 Proof.
-  (*
   induction H; intros eqs Hunch Hcont;
+   simpl in *; unfold tlaEntails in *;
   simpl in *; intros; intuition; try discriminate;
   try apply andb_prop in Hunch;
   try destruct Hunch as [Hunch1 Hunch2];
@@ -219,25 +192,24 @@ Proof.
               eapply IHFormula2; eauto |
               left; eapply IHFormula1; eauto |
               right; eapply IHFormula2; eauto ].
-  - unfold eval_comp in *; simpl.
+  - unfold tlaEntails in *; simpl in *;
+    unfold eval_comp in *; simpl in *; intros.
     rewrite <- extract_vars_term_0 with (eqs:=eqs) (t:=t);
       auto;
     try rewrite <- extract_vars_term_0
-    with (eqs:=eqs) (t:=t0); auto;
-    apply Hcont; auto.
-  - unfold eval_comp in *; simpl.
+    with (eqs:=eqs) (t:=t0); auto; try tauto;
+    apply Hcont; auto; tauto.
+  - simpl in *; unfold eval_comp in *; simpl; intros.
     rewrite extract_vars_term_0
     with (eqs:=eqs) (t:=t); auto;
     try rewrite extract_vars_term_0
-    with (eqs:=eqs) (t:=t0); auto;
-    apply Hcont; auto.
+    with (eqs:=eqs) (t:=t0); auto; try tauto;
+    apply Hcont; auto; tauto.
   - eapply IHFormula2; eauto; intuition.
-    apply H4. eapply IHFormula1; eauto.
+    apply H5. eapply IHFormula1; eauto.
   - eapply IHFormula2; eauto; intuition.
-    apply H4. eapply IHFormula1; eauto.
+    apply H5. eapply IHFormula1; eauto.
 Qed.
-*)
-Admitted.
 
 Lemma diff_ind_imp : forall F H G eqs,
   is_st_formula G ->
@@ -248,21 +220,16 @@ Lemma diff_ind_imp : forall F H G eqs,
   (H |-- deriv_formula G eqs) ->
   (F |-- (next H -->> next G)).
 Proof.
-(*
   intros F H G eqs HstG HstH Hin Hinit Hcont Hind.
-  apply imp_right.
-  assert (|- (F /\ next H) --> H) by
-      (eapply extract_vars_0; eauto).
-  apply diff_ind with (Hyps:=H) (cp:=eqs); auto.
-  - apply and_left1; auto.
-  - apply and_comm_left. eapply extract_vars_0; eauto.
-    apply imp_id.
-  - apply imp_trans with (F2:=F/\H); auto.
-    apply and_right; auto. apply and_left1.
-    apply imp_id.
+  apply lrevert. apply imp_right.
+  assert (|-- (Continuous eqs //\\ next H) -->> H) by
+    (eapply extract_vars_0; eauto; charge_assumption).
+  assert (|-- (Continuous eqs //\\ H) -->> next H) by
+      (eapply extract_vars_0; eauto; charge_assumption).
+  charge_intros.
+  apply diff_ind with (Hyps:=H) (cp:=eqs); auto;
+  charge_tauto.
 Qed.
-*)
-Admitted.
 
 Fixpoint zero_deriv_term (t:Term) (eqs:list DiffEq) :=
   match t with
@@ -385,19 +352,13 @@ Proof.
 Qed.
 
 Lemma unchanged_continuous : forall eqs F G,
-  (|-- F -->> Continuous eqs) ->
-  (|-- (F //\\ Unchanged (get_unchanged eqs)) -->> G) ->
-  (|-- F -->> G).
+  (F |-- Continuous eqs) ->
+  (F //\\ Unchanged (get_unchanged eqs) |-- G) ->
+  (F |-- G).
 Proof.
   intros eqs F G Hcont Hunch.
-  apply limplAdj.
-(*
-  simpl; intros; apply Hunch.
-  split; auto.
-  apply unchanged_continuous_aux.
-  apply Hcont; auto.
+  pose proof (unchanged_continuous_aux eqs).
+  charge_tauto.
 Qed.
-*)
-Admitted.
 
 Close Scope HP_scope.

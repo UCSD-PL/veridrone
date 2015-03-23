@@ -127,10 +127,8 @@ Qed.
 Lemma subst_term_term_eq_varnext : forall t1 t2 x,
   x! = t2 |-- subst_term_term t1 t2 x true = t1.
 Proof.
-  Opaque lentails.
-  induction t1; intros; simpl; try tlaRefl.
-(*
-simpl; unfold eval_comp;
+  induction t1; intros; breakAbstraction; try tlaRefl;
+  simpl; unfold eval_comp;
   simpl; auto; intros;
   try (rewrite IHt1_1; auto;
        rewrite IHt1_2; auto).
@@ -140,46 +138,39 @@ simpl; unfold eval_comp;
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
 Qed.
-*)
-Admitted.
 
 Lemma subst_term_term_eq_varnow : forall t1 t2 (x:Var),
   |-- x = t2 -->>
      subst_term_term t1 t2 x false = t1.
 Proof.
-  induction t1; simpl; unfold eval_comp;
-  simpl; auto; intros;
+  induction t1; simpl; unfold tlaEntails; simpl;
+  unfold eval_comp; simpl; auto; intros;
   try (rewrite IHt1_1; auto;
        rewrite IHt1_2; auto).
   - destruct (String.string_dec x v); auto.
     subst x; auto.
-(*
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
 Qed.
-*)
-Admitted.
 
 Lemma subst_term_term_eq_term : forall t1 t2 t3 x b,
   |-- t2 = t3 -->>
      subst_term_term t1 t2 x b =
      subst_term_term t1 t3 x b.
 Proof.
-(*
-  induction t1; simpl; unfold eval_comp;
-  simpl; auto; intros;
-  try (rewrite IHt1_1; eauto;
-       rewrite IHt1_2; eauto).
+  induction t1; simpl; unfold tlaEntails;
+  simpl; unfold eval_comp; simpl; auto; intros;
+  try (erewrite IHt1_1; eauto;
+       erewrite IHt1_2; eauto).
   - destruct b; auto.
     destruct (String.string_dec x v); auto.
   - destruct b; auto.
     destruct (String.string_dec x v); auto.
-  - rewrite IHt1; auto.
-  - rewrite IHt1; auto.
-  - rewrite IHt1; auto.
-*)
-Admitted.
+  - erewrite IHt1; auto.
+  - erewrite IHt1; auto.
+  - erewrite IHt1; auto.
+Qed.
 
 Lemma subst_term_formula_eval : forall F t1 t2 x b,
   |-- t1 = t2 -->>
@@ -188,10 +179,10 @@ Lemma subst_term_formula_eval : forall F t1 t2 x b,
       (subst_term_formula F t2 x b -->>
        subst_term_formula F t1 x b)).
 Proof.
-(*
   induction F; simpl; auto;
-  unfold eval_comp; simpl; intros.
-  - symmetry in H.
+  unfold tlaEntails; simpl;
+  unfold eval_comp; simpl; intros; try tauto.
+  - symmetry in H0.
     rewrite subst_term_term_eq_term  with (t2:=t2) (t3:=t1);
       auto.
     rewrite subst_term_term_eq_term with (t2:=t2) (t3:=t1);
@@ -208,24 +199,22 @@ Proof.
       right; eapply IHF2 ];
     eauto; simpl;
     unfold eval_comp; simpl; intuition.
-  - symmetry in H. intuition.
+  - symmetry in H0. intuition.
     + eapply IHF2;
       eauto; simpl;
       unfold eval_comp; simpl; intuition;
-      apply H0;
+      apply H1;
       eapply IHF1;
       eauto; simpl;
       unfold eval_comp; simpl; intuition.
-    + symmetry in H. eapply IHF2;
+    + symmetry in H0. eapply IHF2;
       eauto; simpl;
       unfold eval_comp; simpl; intuition;
-      apply H0;
+      apply H1;
       eapply IHF1;
       eauto; simpl;
       unfold eval_comp; simpl; intuition.
 Qed.
-*)
-Admitted.
 
 Lemma subst_term_formula_sub : forall F t1 t2 x y b,
   |-- x! = t1 -->>
@@ -233,15 +222,12 @@ Lemma subst_term_formula_sub : forall F t1 t2 x y b,
         (subst_term_term t2 t1 x true) y b -->>
       subst_term_formula F t2 y b).
 Proof.
-(*
-  simpl; intros.
+  simpl; unfold tlaEntails; simpl; intros.
   eapply subst_term_formula_eval
   with (t2:=t2) (t1:=subst_term_term t2 t1 x true);
     auto.
   apply subst_term_term_eq_varnext; auto.
 Qed.
-*)
-Admitted.
 
 Lemma subst_term_term_comm : forall t1 t2 t3 x y b1 b2,
   x <> y ->
@@ -303,12 +289,11 @@ Lemma subst_formula_eq : forall F t (x:Var),
      ((subst_term_formula F t x false -->> F) //\\
       (F -->> subst_term_formula F t x false)).
 Proof.
-(*
-  induction F; simpl; auto; intros.
+  induction F; simpl; unfold tlaEntails; simpl; auto; intros.
   - unfold eval_comp; simpl.
-    rewrite <- subst_term_term_eq_varnow with (t1:=t);
+    erewrite <- subst_term_term_eq_varnow with (t1:=t);
       eauto.
-    rewrite <- subst_term_term_eq_varnow with (t1:=t0);
+    erewrite <- subst_term_term_eq_varnow with (t1:=t0);
       eauto.
   - intuition;
     try eapply IHF1;
@@ -322,19 +307,16 @@ Proof.
     eauto; intuition.
   - intuition;
     eapply IHF2; eauto;
-    apply H0; eapply IHF1; eauto.
+    apply H1; eapply IHF1; eauto.
 Qed.
-*)
-Admitted.
 
 Lemma subst_term_eq_next : forall t1 x t2,
   |-- x! = t2
      -->> subst_term_term t1 t2 x true =
          t1.
 Proof.
-(*
-  induction t1; simpl; unfold eval_comp;
-  simpl; auto; intros;
+  induction t1; simpl; unfold tlaEntails;
+  simpl; unfold eval_comp; simpl; auto; intros;
   try (rewrite IHt1_1; auto;
        rewrite IHt1_2; auto).
   - destruct (String.string_dec x v);
@@ -343,16 +325,14 @@ Proof.
   - rewrite IHt1; auto.
   - rewrite IHt1; auto.
 Qed.
-*)
-Admitted.
 
 Lemma subst_eq_next : forall F x t,
   |-- x! = t
     -->> ((F[t/!x] -->> F) //\\
          (F -->> F[t/!x])).
 Proof.
-(*
-  induction F; simpl; try solve [intuition]; intros.
+  induction F; simpl; unfold tlaEntails; simpl;
+  try solve [intuition]; intros.
   - unfold eval_comp in *; simpl in *.
     repeat rewrite subst_term_eq_next;
       simpl; auto.
@@ -366,9 +346,7 @@ Proof.
     + right; eapply IHF2; eauto; intuition.
   - split; intros;
     eapply IHF2; eauto;
-    apply H0; eapply IHF1; eauto.
+    apply H1; eapply IHF1; eauto.
 Qed.
-*)
-Admitted.
 
 Close Scope HP_scope.
