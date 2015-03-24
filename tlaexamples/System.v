@@ -19,15 +19,12 @@ Definition Discr (cvars : list Var)
            (Prog : Formula) (d : R) : Formula :=
   Prog //\\ "t"! <= d //\\ Unchanged cvars.
 
-Definition list_union (a b : list Var) : list Var :=
-  set_union String.string_dec a b.
-
 Definition Next (dvars cvars : list Var)
            (Prog: Formula) (world : list DiffEq)
            (WConstraint : Formula) (d : R) :=
        ((World dvars world //\\ WConstraint) \\//
          Discr cvars Prog d)
-  \\// Unchanged ("t"::list_union dvars cvars)%list.
+  \\// Unchanged ("t"::dvars ++ cvars)%list.
 
 Definition sysD (dvars cvars : list Var)
            (Init Prog: Formula) (world : list DiffEq)
@@ -56,7 +53,7 @@ Definition SysD {cvars world maxTime}
 
 Definition SysCompose {c w m} (a b : SysRec c w m) :
   SysRec c w m :=
-{| dvars := list_union a.(dvars) b.(dvars)
+{| dvars := a.(dvars) ++ b.(dvars)
  ; Init  := a.(Init) //\\ b.(Init)
  ; Prog  := a.(Prog) //\\ b.(Prog)
  ; WConstraint := a.(WConstraint) //\\ b.(WConstraint)
@@ -367,11 +364,7 @@ Proof.
     clear.
     unfold all_in. intros. specialize (Hdvars x).
     specialize (Hcvars x).
-    revert H. simpl. intro Hin.
-    unfold list_union in *. apply set_union_elim in Hin.
-    destruct Hin.
-    - apply set_union_intro1. intuition.
-    - apply set_union_intro2. intuition. }
+    revert H. simpl. repeat rewrite List.in_app_iff. intuition. }
 Qed.
 
 Ltac sys_apply_with_weaken H :=
@@ -388,7 +381,7 @@ Theorem Sys_by_induction :
   P //\\ Init |-- IndInv ->
   P |-- [] A ->
   A //\\ IndInv //\\ TimeBound d |-- Inv ->
-  InvariantUnder ("t"::list_union dvars cvars)%list IndInv ->
+  InvariantUnder ("t"::dvars ++ cvars)%list IndInv ->
   A //\\ IndInv //\\ World dvars w //\\ WC |-- next IndInv ->
   A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
           //\\ Discr cvars Prog d |-- next IndInv ->
@@ -528,17 +521,16 @@ Proof.
     charge_split; try charge_tauto.
     rewrite (World_weaken (dvars a)).
     + charge_tauto.
-    + unfold all_in. intros. apply set_union_intro1. auto.
+    + unfold all_in. intros.
+      apply List.in_or_app. intuition.
     + reflexivity.
   - apply lorR1. apply lorR2.
     charge_tauto.
   - apply lorR2. charge_split; try charge_tauto.
-    rewrite (Unchanged_weaken (list_union (dvars a) c)).
+    rewrite (Unchanged_weaken ((dvars a) ++ c)).
     + charge_tauto.
-    + unfold all_in. intros. unfold list_union in *.
-      apply set_union_elim in H. destruct H.
-      * apply set_union_intro1. apply set_union_intro1. auto.
-      * apply set_union_intro2. auto.
+    + unfold all_in. intros. apply List.in_or_app.
+      apply List.in_app_or in H. intuition.
 Qed.
 
 Theorem ComposeComm c w m (a b : SysRec c w m) :
@@ -555,24 +547,20 @@ Proof.
   charge_intros. decompose_hyps.
   - apply lorR1. apply lorR1.
     charge_split; try charge_tauto.
-    rewrite (World_weaken (list_union (dvars b) (dvars a))).
+    rewrite (World_weaken ((dvars b) ++ (dvars a))).
     + charge_tauto.
-    + unfold all_in, list_union. intros.
-      apply set_union_elim in H. apply set_union_intro.
-      intuition.
+    + unfold all_in. intros. apply List.in_or_app.
+      apply List.in_app_or in H. intuition.
     + reflexivity.
   - apply lorR1. apply lorR2.
     charge_tauto.
   - apply lorR2. charge_split; try charge_tauto.
-    rewrite (Unchanged_weaken
-               (list_union (list_union (dvars b) (dvars a)) c)).
+    rewrite (Unchanged_weaken ((dvars b ++ dvars a) ++ c)).
     + charge_tauto.
-    + unfold all_in, list_union. intros.
-      apply set_union_intro.
-      apply set_union_elim in H. destruct H.
-      * left. apply set_union_elim in H.
-        apply set_union_intro. intuition.
-      * right. auto.
+    + unfold all_in. intros. apply List.in_or_app.
+      apply List.in_app_or in H. intuition.
+      left. apply List.in_or_app.
+      apply List.in_app_or in H0. intuition.
 Qed.
 
 Theorem Compose c w m (a b : SysRec c w m) P Q :

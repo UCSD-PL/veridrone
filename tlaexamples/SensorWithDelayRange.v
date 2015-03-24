@@ -29,35 +29,48 @@ Section SensorWithDelay.
     get_deriv x w = Some (VarNowT xderiv).
 
   Ltac rewrite_deriv_hyps :=
-    breakAbstraction; unfold w in * ;
+    breakAbstraction; unfold w in *;
     repeat first [ rewrite get_deriv_Xmax_post |
                    rewrite get_deriv_Xmin_post |
                    rewrite get_deriv_xderiv |
                    rewrite get_deriv_x ].
 
   Definition Sense : Formula :=
-         (xderiv! >= 0 //\\ Xmax_post! = Xmax + xderiv!*d //\\ Xmin_post! = Xmin)
-    \\// (xderiv! < 0 //\\ Xmax_post! = Xmax //\\ Xmin_post! = Xmin + xderiv!*d).
+         (xderiv! >= 0 //\\ Xmax_post! = Xmax + xderiv!*d
+          //\\ Xmin_post! = Xmin)
+    \\// (xderiv! < 0 //\\ Xmax_post! = Xmax
+         //\\ Xmin_post! = Xmin + xderiv!*d).
 
   Definition SenseSafeInd : Formula :=
-         (xderiv >= 0 -->> (Xmax_post >= x + xderiv*"t" //\\ Xmin_post <= x))
-    //\\ (xderiv < 0 -->> (Xmax_post >= x //\\ Xmin_post <= x + xderiv*"t")).
+         (xderiv >= 0 -->> (Xmax_post >= x + xderiv*"t"
+                            //\\ Xmin_post <= x))
+    //\\ (xderiv < 0 -->> (Xmax_post >= x
+                           //\\ Xmin_post <= x + xderiv*"t")).
 
-  Definition Init := SenseSafeInd.
+  Definition I := SenseSafeInd.
 
   Definition SenseSafe : Formula :=
     Xmin_post <= x <= Xmax_post.
 
-  Theorem sense_safe : forall WC,
-    [](Xmin <= x <= Xmax) //\\
-    Sys (Xmax_post::Xmin_post::xderiv::nil)%list (x::nil)%list
-        Init Sense (DiffEqC x xderiv::nil)%list WC d
-        |-- []SenseSafe.
+  Variable WC : Formula.
+
+  Definition world := (DiffEqC x xderiv::nil)%list.
+
+  Definition SpecR : SysRec (x::nil)%list world d :=
+    {| dvars := (Xmax_post::Xmin_post::xderiv::nil)%list;
+       Init := I;
+       Prog := Sense;
+       WConstraint := WC |}.
+
+  Definition Spec := SysD SpecR.
+
+  Theorem sense_safe :
+    [](Xmin <= x <= Xmax) //\\ Spec |-- []SenseSafe.
   Proof.
     intro.
     eapply Sys_by_induction with (IndInv := SenseSafeInd).
     - tlaIntuition.
-    - tlaAssume.
+    - unfold Spec, SpecR. tlaAssume.
     - tlaAssume.
     - charge_assumption.
     - solve_nonlinear.
@@ -66,9 +79,8 @@ Section SensorWithDelay.
         try solve [tlaIntuition | tlaAssume ];
         repeat tlaSplit;
         try solve [ rewrite_deriv_hyps; solve_linear |
-                    eapply unchanged_continuous;
-                      [ tlaIntro; tlaAssume |
-                        solve_linear ] ].
+                    tlaIntro; eapply unchanged_continuous;
+                      [ tlaAssume | solve_linear ] ].
     - solve_linear; solve_nonlinear.
   Qed.
 

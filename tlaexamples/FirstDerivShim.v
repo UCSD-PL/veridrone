@@ -9,14 +9,16 @@ Require Import Examples.FirstDerivShimCtrl.
 
 Open Scope HP_scope.
 Open Scope string_scope.
+Print SensorWithDelay.SpecR.
+Print FirstDerivShimCtrl.SpecR.
+
+Definition CtrlSenseDelaySysR ub d :=
+  SysCompose
+    (SensorWithDelay.SpecR "v" "Vmax" "Vmin" "a" d ltrue)
+    (FirstDerivShimCtrl.SpecR ub d ltrue).
 
 Definition CtrlSenseDelaySys ub d :=
-  Sys ("Vmax"::"Vmin"::"a"::nil)%list ("v"::nil)%list
-      (SensorWithDelay.Init "v" "Vmax" "Vmin" "a" //\\
-                            FirstDerivShimCtrl.Init ub d)
-      (SensorWithDelay.Sense "v" "Vmax" "Vmin" "a" d //\\
-                             FirstDerivShimCtrl.Ctrl ub d)
-      FirstDerivShimCtrl.world TRUE d.
+  SysD (CtrlSenseDelaySysR ub d).
 
 Ltac sys_apply_with_weaken H :=
   eapply imp_trans; [ | apply H ];
@@ -31,20 +33,17 @@ Theorem ctrl_sense_delay_safe : forall ub d,
 Proof.
   intros ub d.
   apply imp_trans with
-  (F2:=[]("v" <= ub //\\ SensorWithDelay.SenseSafe "v" "Vmax" "Vmin")).
-  - apply compose_discrete.
-    + sys_apply_with_weaken SensorWithDelay.sense_safe;
-      reflexivity.
+  (F2:=[]((SensorWithDelay.SenseSafe "v" "Vmax" "Vmin") //\\
+          "v" <= ub)).
+  - apply Compose.
+    + apply SensorWithDelay.sense_safe; reflexivity.
     + tlaIntro.
-      generalize (FirstDerivShimCtrl.ctrl_safe ub d TRUE); intro H.
-      charge_apply H; clear H.
-      charge_split.
-      { unfold SenseSafe.
-        rewrite landC. tlaRevert. apply always_imp.
-        solve_linear. }
-      { erewrite Sys_weaken; try solve [ charge_assumption
-                                       | apply all_in_dec_ok ; reflexivity
-                                       | reflexivity ]. }
+      pose proof (FirstDerivShimCtrl.ctrl_safe ub d ltrue).
+      charge_apply H.
+      unfold Spec. unfold SensorWithDelay.SenseSafe.
+      charge_split; try charge_assumption.
+      rewrite landC. tlaRevert. apply always_imp.
+      solve_linear.
   - apply always_imp. charge_tauto.
 Qed.
 

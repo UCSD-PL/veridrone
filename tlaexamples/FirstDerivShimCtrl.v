@@ -26,7 +26,7 @@ Section VelCtrl.
        ("A"*d + "Vmax" <= ub //\\ "a"! = "A")
     \\// ("a"! <= 0).
 
-  Definition Init : Formula :=
+  Definition I : Formula :=
     "v" <= ub //\\ "v" + "a"*d <= ub //\\
     0 <= "t" <= d //\\ "Vmax" >= "v".
 
@@ -37,15 +37,24 @@ Section VelCtrl.
        ("a" <  0 -->> Safe)
     //\\ ("a" >= 0 -->> "a"*"t" + "v" <= ub).
 
-  Theorem ctrl_safe : forall WC,
-    []"Vmax" >= "v"
-    |-- Sys ("a"::nil) ("v"::nil)
-            Init Ctrl world WC d -->> []"v" <= ub.
+  Variable WC : Formula.
+
+  Definition SpecR : SysRec ("v"::nil) world d :=
+    {| dvars := ("a"::nil);
+       Init := I;
+       Prog := Ctrl;
+       WConstraint := WC |}.
+
+  Definition Spec := SysD SpecR.
+
+  Theorem ctrl_safe :
+    []"Vmax" >= "v" |-- Spec -->> []"v" <= ub.
   Proof.
-    intro. tlaIntro.
-    eapply Sys_by_induction with (IndInv:=IndInv) (A:="Vmax" >= "v").
+    tlaIntro.
+    eapply Sys_by_induction
+    with (IndInv:=IndInv) (A:="Vmax" >= "v").
     - tlaIntuition.
-    - tlaAssume.
+    - unfold Spec, SpecR. tlaAssume.
     - solve_nonlinear.
     - tlaIntuition.
     - solve_nonlinear.
@@ -60,8 +69,8 @@ Section VelCtrl.
       + tlaIntuition.
       + repeat tlaSplit;
         try solve [solve_linear |
-                   eapply unchanged_continuous;
-                     [ tlaIntro; tlaAssume | solve_linear ] ].
+                   tlaIntro; eapply unchanged_continuous;
+                     [ tlaAssume | solve_linear ] ].
     - solve_nonlinear.
   Qed.
 

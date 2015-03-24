@@ -17,17 +17,26 @@ Section SensorWithError.
   Definition SenseSafe : Formula :=
     Xmin <= x <= Xmax.
 
-  Definition Init : Formula := SenseSafe.
+  Definition I : Formula := SenseSafe.
 
   Variable w : list DiffEq.
   Variable d : R.
 
+  Definition SpecR : SysRec (x::Xmax::Xmin::nil)%list w d :=
+    {| dvars := nil;
+       Init := I;
+       Prog := ltrue;
+       WConstraint := Sense |}.
+
+  Definition Spec := SysD SpecR.
+
   Theorem sense_safe :
-    Sys nil (x::Xmax::Xmin::nil)%list Init ltrue w Sense d |-- []SenseSafe.
+    Spec |-- []SenseSafe.
   Proof.
-    eapply Sys_by_induction with (IndInv := SenseSafe) (A := ltrue).
+    eapply Sys_by_induction
+    with (IndInv := SenseSafe) (A := ltrue).
     + tlaIntuition.
-    + tlaAssume.
+    + unfold Spec, SpecR. tlaAssume.
     + tlaAssume.
     + eapply BasicProofRules.always_tauto. charge_tauto.
     + tlaAssume.
