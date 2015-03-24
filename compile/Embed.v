@@ -82,6 +82,7 @@ Section embedding.
                           eval init_state prg post_state ->
                           models post_vars post post_state)).
 
+(*
   Definition embedStep (pre_vars post_vars : list (Syntax.Var * var))
              (prg : ast)
   : Syntax.Formula :=
@@ -91,6 +92,6 @@ Section embedding.
                       forall post_state : state,
                         eval init_state prg post_state ->
                         models post_vars post post_state).
-
+*)
 
 End embedding.
