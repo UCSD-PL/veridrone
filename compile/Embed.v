@@ -82,8 +82,11 @@ Section embedding.
                           eval init_state prg post_state ->
                           models post_vars post post_state)).
 
-(*
-  Definition embedStep (pre_vars post_vars : list (Syntax.Var * var))
+  (** This is a version of embedStep that does not make use of existential quantifiers.
+   ** This gives some advantages in terms of being able to embed programs that may
+   ** "go wrong", but it still cannot handle nondeterminism appropriately, as we will see.
+   **)
+  Definition embedStep_noex (pre_vars post_vars : list (Syntax.Var * var))
              (prg : ast)
   : Syntax.Formula :=
     Syntax.Embed (fun pre post =>
@@ -92,6 +95,6 @@ Section embedding.
                       forall post_state : state,
                         eval init_state prg post_state ->
                         models post_vars post post_state).
-*)
+
 
 End embedding.
