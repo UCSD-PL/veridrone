@@ -332,7 +332,7 @@ Proof.
   unfold Discr. intros.
   rewrite Unchanged_weaken; eauto. solve_linear.
 Qed.
-Print Sys.
+
 Theorem Sys_weaken : forall dvars dvars' cvars cvars'
                             I I' P P' w w' WC WC' d d',
   all_in dvars dvars' ->
