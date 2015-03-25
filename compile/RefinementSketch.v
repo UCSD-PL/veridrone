@@ -121,6 +121,48 @@ Section embedding.
                       forall post_state : state,
                         eval init_state prg post_state ->
                         models post_vars post post_state).
+
+
+  (** This is an improvement over previous versions, as it is able to handle
+      both nondeterministic programs and programs that fail. However, it is
+      not able to handle programs that fail nondeterministically (i.e.,
+      take many paths nondeterministically, at least one of which Fails)
+   **)
+  Definition embedStep_maybenot (pre_vars post_vars : list (Syntax.Var * var))
+             (prg : ast) : Syntax.Formula :=
+    Syntax.Embed (fun pre post =>
+                    exists init_state : state,
+                      models pre_vars pre init_state /\
+                      (~(exists post_state : state, eval init_state prg post_state) \/
+                        (exists post_state : state, eval init_state prg post_state /\
+                                                    models post_vars post post_state)))%type.
+
+
+  (** Inspired by embedStep_maybenot, I was trying to build one that would work on
+      nondeterministically failing programs. However, this version is clearly wrong
+      (as it is equivalent to False when trying to embed nondeterministic or failing programs
+   **)
+  Definition embedStep_allpost (pre_vars post_vars : list (Syntax.Var * var)) (prg : ast) : Syntax.Formula :=
+    Syntax.Embed (fun pre post =>
+                    exists init_state : state,
+                      models pre_vars pre init_state /\
+                      forall (post_state : state),
+                        eval init_state prg post_state ->
+                        models post_vars post post_state)%type.
+
+  (** An attempt to rewrite embedStep_maybenot to add a case for "there exists an invalid post state"
+   **)
+  Definition embedStep_allpost_maybenot (pre_vars post_vars : list (Syntax.Var * var)) (prg : ast) : Syntax.Formula :=
+    Syntax.Embed (fun pre post =>
+                    exists init_state : state,
+                      models pre_vars pre init_state /\
+                      (~(exists post_state : state, eval init_state prg post_state) \/
+                        (exists post_state : state, eval init_state prg post_state /\
+                                                    ~(models post_vars post post_state)) \/
+                        (exists post_state : state, eval init_state prg post_state /\
+                                                    forall post_state : state, eval init_state prg post_state ->
+                                                                               models post_vars post post_state)))%type.                      
+
 End embedding.
 
 (* First, we consider embedStep, embedding programs represented as state-transformers
@@ -576,3 +618,204 @@ Definition embed_cmd2 : cmd -> Syntax.Formula :=
             (fun st v => st v)
             [("x",0); ("y",1)] [("x",0)].
 
+(* Using embedStep_maybenot *)
+Definition embed_cmd''' : cmd -> Syntax.Formula :=
+  embedStep_maybenot nat cmd state
+            eval
+            (fun st v => st v)
+            [("x",0)] [("x",0)].
+
+(* Under embedStep_maybenot we cannot prove embedded Fail refines valid programs,
+   as desired *)
+Lemma fail_refines_prog2''' :
+  |- embed_cmd''' Fail -->
+                ("x"! = "x").
+Proof.
+  intros.
+  simpl. intros.
+  unfold eval_comp. simpl.
+  destruct H. destruct H. destruct H.
+Abort.
+
+(* We can also prove valid refinements *)
+Lemma cmd1_refines_prog''' : 
+  |- embed_cmd''' cmd1 --> ("x"! = "x").
+Proof.
+  unfold embed_cmd''', embedStep_maybenot.
+  simpl; intros.
+  unfold eval_comp; simpl.
+  forward_reason.
+  destruct H0.
+  - exfalso. apply H0. eexists. constructor. simpl. eauto.
+  - forward_reason. inversion H0. subst. clear H0.
+    simpl in H8. unfold update in H2. simpl in H2.
+    congruence.
+Qed.
+
+(* And, we cannot prove that nondeterministic programs
+   refine deterministic ones *)
+Lemma havoc_refines_prog''' : 
+  |- embed_cmd''' (Havoc 0) --> ("x"! = "x").
+Proof.
+  unfold embed_cmd''', embedStep_maybenot.
+  simpl; intros.
+  red; simpl.
+  forward_reason.
+  destruct H0.
+  - exfalso. apply H0. eexists. econstructor.
+  - forward_reason. inversion H0. subst. clear H0.
+    unfold update in H2. simpl in H2.
+Abort.    
+
+Print cmd.
+Print cexpr.
+
+Definition prog_havoc_crash : cmd :=
+  Seq (Havoc 1) (Ite (CVar 1) (Fail) (Skip)).
+
+(* However, we can prove that a program that nondeterministically crashes
+   (prog_havoc_crash) is a refinement of a program that is fully deterministic.
+   We want this not to be provable. *)
+Lemma havoc_crash_refines_prog''' :
+  |- embed_cmd''' prog_havoc_crash --> ("x"! = "x").
+Proof.
+  unfold embed_cmd''', embedStep_maybenot.
+  simpl; intros.
+  red; simpl.
+  forward_reason.
+  destruct H0.
+  - exfalso. apply H0. eexists. econstructor.
+    constructor. eapply EIteFalse.
+    simpl. unfold update. simpl. reflexivity.
+    instantiate (1:=1%R). clear. intro. psatz R.
+    constructor.
+  - forward_reason.
+    inversion H0; subst; simpl; clear H0.
+    inversion H9; subst; simpl; clear H9.
+    + inversion H11.
+    + inversion H7; subst; simpl; clear H7.
+      inversion H12; subst; simpl; clear H12.
+      simpl in H8. unfold update in H8. simpl in H8.
+      inversion H8; subst; simpl; clear H8.
+      unfold update in H2; simpl in H2.
+      rewrite <- H in H2. inversion H2. 
+      reflexivity.
+Qed. 
+
+(* Using embedStep_allpost *)
+Definition embed_cmd_4 : cmd -> Syntax.Formula :=
+  embedStep_allpost nat cmd state
+            eval
+            (fun st v => st v)
+            [("x",0)] [("x",0)].
+
+(* Under embedStep_allpost we cannot prove embedded Fail refines valid programs,
+   as desired *)
+Lemma fail_refines_prog2_4 :
+  |- embed_cmd_4 Fail -->
+                ("x"! = "x").
+Proof.
+  intros.
+  simpl. intros.
+  unfold eval_comp. simpl.
+  destruct H. destruct H. destruct H.
+Abort.
+
+(* We can also prove valid refinements *)
+Lemma cmd1_refines_prog2_4 : 
+  |- embed_cmd_4 cmd1 --> ("x"! = "x").
+Proof.
+  unfold embed_cmd_4, embedStep_allpost.
+  simpl; intros.
+  unfold eval_comp; simpl.
+  forward_reason.
+  Print EAsn.
+  specialize (H0 (update x 0 (Some (Semantics.hd tr "x")))).
+  unfold cmd1 in H0.
+  assert (eval x (Asn 0 (CVar 0)) (update x 0 (Some (Semantics.hd tr "x")))).
+  - apply EAsn. simpl. symmetry. assumption.
+  - apply H0 in H2.
+    forward_reason. unfold update in H2. simpl in H2.
+    congruence.
+Qed.
+
+
+(* However, we _can_ prove that nondeterministic programs refine deterministic ones
+   So that rules out this definition *)
+Lemma havoc_refines_prog2_4 : 
+  |- embed_cmd_4 (Havoc 0) --> ("x"! = "x").
+Proof.
+  unfold embed_cmd_4, embedStep_allpost.
+  simpl; intros.
+  red; simpl.
+  forward_reason.
+  edestruct H0.
+  econstructor.
+  unfold update in H2. simpl in H2. inversion H2.
+  rewrite H5. reflexivity.
+Qed.
+
+Lemma havoc_crash_refines_prog2_4 :
+  |- embed_cmd_4 prog_havoc_crash --> ("x"! = "x").
+Proof.
+  unfold embed_cmd_4, embedStep_allpost.
+  simpl; intros.
+  red; simpl.
+  forward_reason.
+  unfold prog_havoc_crash in H0.
+  edestruct H0.
+Abort.
+
+(* Using embedStep_allpost_maybenot *)
+Definition embed_cmd_5 : cmd -> Syntax.Formula :=
+  embedStep_allpost_maybenot nat cmd state
+            eval
+            (fun st v => st v)
+            [("x",0)] [("x",0)].
+
+(* Under embedStep_allpost_maybenot we cannot prove embedded Fail refines valid programs,
+   as desired *)
+Lemma fail_refines_prog2_5 :
+  |- embed_cmd_5 Fail -->
+                ("x"! = "x").
+Proof.
+  intros.
+  simpl. intros.
+  unfold eval_comp. simpl.
+  forward_reason.
+  destruct H0.
+Abort.
+
+(* We can also prove valid refinements *)
+Lemma cmd1_refines_prog2_5 : 
+  |- embed_cmd_5 cmd1 --> ("x"! = "x").
+Proof.
+  unfold embed_cmd_5, embedStep_allpost_maybenot.
+  simpl; intros.
+  unfold eval_comp; simpl.
+  forward_reason.
+  destruct H0.
+  - unfold cmd1 in H0. exfalso. apply H0.
+    eexists. econstructor. simpl. rewrite <- H. reflexivity.
+  - destruct H0. Print embedStep_allpost_maybenot.
+    + forward_reason. unfold cmd1 in H0.
+      inversion H0; subst; simpl.
+      simpl in H7. unfold update in H2. simpl in H2.
+      inversion H0; subst; simpl; clear H0.
+      simpl in H5. 
+      exfalso. apply H2. split; try (apply I).
+      rewrite <- H7. rewrite <- H.
+      simpl.
+      unfold update. simpl.
+      simpl in H7. rewrite <- H7. 
+    
+(* New idea: have eval return an option
+   Failing and looping are distinct (plus also nondeterminism)
+   We believe that these capture all the pathological behaviors
+   that we need to deal with *)
+
+(* Now we will change the definition of our embedding functions so that
+   we distinguish between nontermination and failure. *)
+Section embedding2.
+
+End embedding2.
