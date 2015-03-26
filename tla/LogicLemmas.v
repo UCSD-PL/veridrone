@@ -180,6 +180,15 @@ Section logic2.
       P |-- Q.
   Proof. intros; charge_tauto. Qed.
 
+  Lemma charge_and_use : forall P Q C,
+      C |-- P ->
+      C //\\ P |-- Q ->
+      C |-- P //\\ Q.
+  Proof.
+    intros. charge_tauto.
+  Qed.
+
+
 End logic2.
 
 Notation "x <<-->> y" := (liff x y) (at level 78).

@@ -172,6 +172,25 @@ Proof.
     split; auto. destruct H2. apply H3. }
 Qed.
 
+Lemma discr_indX : forall P A IndInv,
+    is_st_formula IndInv ->
+    P |-- [] A ->
+    P |-- IndInv ->
+    A //\\ IndInv |-- next IndInv ->
+    P |-- []IndInv.
+Proof.
+  intros.
+  intro. simpl; intros.
+  specialize (H0 _ H3).
+  induction n.
+  { simpl. intros; eapply H1. auto. }
+  { simpl. rewrite Stream.nth_suf_tl.
+    apply next_formula_tl; auto.
+    apply H2; auto.
+    split; auto. }
+Qed.
+
+
 Section in_context.
   Variable C : Formula.
 
@@ -293,6 +312,7 @@ Proof.
     rewrite <- Stream.nth_suf_Sn. auto.
 Qed.
 
+(** Always **)
 Lemma Always_and : forall P Q,
     []P //\\ []Q -|- [](P //\\ Q).
 Proof.
@@ -315,4 +335,23 @@ Proof.
     rewrite next_formula_tl; auto.
     rewrite <- Stream.nth_suf_Sn. eauto. }
   { rewrite <- Always_and. charge_tauto. }
+Qed.
+
+Lemma Always_now : forall P I,
+  P |-- []I ->
+  P |-- I.
+Proof.
+  breakAbstraction.
+  intros P I H tr HP.
+  apply (H tr HP 0).
+Qed.
+
+
+(** Existential quantification **)
+Lemma exists_entails : forall T F1 F2,
+  (forall x, F1 x |-- F2 x) ->
+  Exists x : T, F1 x |-- Exists x : T, F2 x.
+Proof.
+  tlaIntuition.  destruct H0.
+  exists x. intuition.
 Qed.

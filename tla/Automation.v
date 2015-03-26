@@ -57,6 +57,8 @@ Ltac tlaIntuition :=
 Ltac tlaAssert H :=
   apply lcut with (R:=H).
 
+Ltac tlaRevert := first [ apply landAdj | apply lrevert ].
+
 (** Rewriting **)
 Section RW_Impl.
   Variable P : Formula.
