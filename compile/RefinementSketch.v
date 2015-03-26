@@ -869,6 +869,53 @@ Section embedding2.
                       ((eval init_state prg None) \/
                        (exists post_state : state, eval init_state prg (Some post_state) /\
                                                    omodels post_vars post post_state)))%type.
+
+
+  (** Next, some definitions for Hoare-style reasoning about programs.
+      We use this to implement weakest-precondition.
+   **)
+  Section Hoare.
+    Variables (P : state -> Prop) (c : ast) (Q : state -> Prop).
+
+    Definition HoareProgress : Prop :=
+      forall s, P s -> exists s', eval s c (Some s').
+
+    Definition HoareSafety : Prop :=
+      forall s, P s -> ~ eval s c None.
+
+    Definition HoarePreservation : Prop :=
+      forall s, P s ->
+                forall s', eval s c (Some s') ->
+                           Q s'.
+
+    Definition Hoare' : Prop :=
+      (HoareProgress /\ HoareSafety /\ HoarePreservation)%type.
+
+    Definition Hoare : Prop :=
+      (forall s, P s ->
+                (exists s', eval s c s') /\
+                (~ eval s c None) /\
+                forall s', eval s c (Some s') ->
+                           Q s')%type.
+
+    Theorem Hoare_Hoare' : Hoare <-> Hoare'.
+    Proof.
+      unfold Hoare, Hoare', HoareProgress, HoareSafety, HoarePreservation.
+      intuition; forward_reason; specialize (H s); try (apply H in H0); forward_reason; auto.
+      {
+        destruct x.
+        - eexists. eapply H0.
+        - exfalso; auto.
+      }
+      {
+        specialize (H0 s H1). forward_reason.
+        eexists. eassumption.
+      }
+      {
+        eapply H2; eassumption.
+      }
+    Qed.
+  End Hoare.
 End embedding2.
 
 (* Language syntax (for new language with eval "stepping" to option state) *)
@@ -1104,3 +1151,13 @@ Proof.
     clear. red.
     psatzl R.
 Qed.
+
+(* Next: we want to do a WP calculation so that we can build an abstracted
+   formula without using embed. Show that "embed version" --> "wp-version" *)
+
+(* We make use of the primitives defined in the Hoare section (within embedding2) above *)
+(*Check Hoare.
+
+Lemma embed_hoare :
+  forall (P : 
+*)
