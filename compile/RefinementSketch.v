@@ -151,6 +151,7 @@ Section embedding.
                         models post_vars post post_state)%type.
 
   (** An attempt to rewrite embedStep_maybenot to add a case for "there exists an invalid post state"
+      Does not work because the second OR'd clause doesn't provide enough information
    **)
   Definition embedStep_allpost_maybenot (pre_vars post_vars : list (Syntax.Var * var)) (prg : ast) : Syntax.Formula :=
     Syntax.Embed (fun pre post =>
@@ -163,7 +164,7 @@ Section embedding.
                                                     forall post_state : state, eval init_state prg post_state ->
                                                                                models post_vars post post_state)))%type.                      
 
-End embedding.
+End embedding. 
 
 (* First, we consider embedStep, embedding programs represented as state-transformers
    (written in Gallina) *)
@@ -786,7 +787,7 @@ Proof.
   destruct H0.
 Abort.
 
-(* We can also prove valid refinements *)
+(* However, we are unable to prove valid refinements *)
 Lemma cmd1_refines_prog2_5 : 
   |- embed_cmd_5 cmd1 --> ("x"! = "x").
 Proof.
@@ -797,17 +798,15 @@ Proof.
   destruct H0.
   - unfold cmd1 in H0. exfalso. apply H0.
     eexists. econstructor. simpl. rewrite <- H. reflexivity.
-  - destruct H0. Print embedStep_allpost_maybenot.
+  - destruct H0.
     + forward_reason. unfold cmd1 in H0.
-      inversion H0; subst; simpl.
+      inversion H0; subst; simpl. clear H0.
       simpl in H7. unfold update in H2. simpl in H2.
-      inversion H0; subst; simpl; clear H0.
-      simpl in H5. 
-      exfalso. apply H2. split; try (apply I).
-      rewrite <- H7. rewrite <- H.
-      simpl.
-      unfold update. simpl.
-      simpl in H7. rewrite <- H7. 
+      rewrite H7 in H.
+ inversion H; subst; clear H.
+      exfalso. apply H2.
+      subst.
+Abort.
     
 (* New idea: have eval return an option
    Failing and looping are distinct (plus also nondeterminism)
@@ -817,5 +816,168 @@ Proof.
 (* Now we will change the definition of our embedding functions so that
    we distinguish between nontermination and failure. *)
 Section embedding2.
+  Variable var : Type.   (** Programming language variables **)
+  Variable ast : Type.   (** Programs **)
+  Variable state : Type. (** Programming language states **)
 
+  (** The standard evaluation relation for the language **)
+  Variable eval : state -> ast -> option state -> Prop.
+
+  (** In the TLA state, the variable is represented as the returned real **)
+  Variable asReal : state -> var -> option R.
+
+  (** This states that the value in the TLA state is exactly
+   ** equal to the value in the program state.
+   **) 
+  Fixpoint omodels (vars : list (Syntax.Var * var))
+           (tla_st : Syntax.state) (st : state) : Prop :=
+    match vars with
+      | nil => True
+      | (v,v') :: vars =>
+        (Some (tla_st v) = asReal st v' /\ omodels vars tla_st st)%type
+    end.
+
+  (** This is an improvement over previous versions, as it is able to handle
+      both nondeterministic programs and programs that fail. However, it is
+      not able to handle programs that fail nondeterministically (i.e.,
+      take many paths nondeterministically, at least one of which Fails)
+   **)
+  Definition oembedStep_maybenot (pre_vars post_vars : list (Syntax.Var * var))
+             (prg : ast) : Syntax.Formula :=
+    Syntax.Embed (fun pre post =>
+                    exists init_state : state,
+                      omodels pre_vars pre init_state /\
+                      (~(exists post_state : state, eval init_state prg (Some post_state)) \/
+                       (exists post_state : state, eval init_state prg (Some post_state) /\
+                                                   omodels post_vars post post_state)))%type.
 End embedding2.
+
+
+(* Language syntax (for new language with eval "stepping" to option state) *)
+(*
+Inductive ocmd :=
+| OSeq (_ _ : cmd)
+| OSkip
+| OAsn (_ : nat) (_ : cexpr)
+| OIte (_ : cexpr) (_ _ : cmd)
+| OHavoc (_ : nat)
+| OFail.
+*)
+
+(* Language (operational) semantics (for new language) - no loops still *)
+Inductive oeval : state -> cmd -> option state -> Prop :=
+| OESkip : forall s, oeval s Skip (Some s)
+| OESeqS : forall s s' os'' a b,
+    oeval s a (Some s') ->
+    oeval s' b os'' ->
+    oeval s (Seq a b) os''
+| OESeqN : forall s a b,
+    oeval s a None ->
+    oeval s (Seq a b) None
+| OEAsnS : forall s v e val,
+    cexprD e s = Some val ->
+    oeval s (Asn v e) (Some (update s v (Some val)))
+| OEAsnN : forall s v e,
+    cexprD e s = None ->
+    oeval s (Asn v e) None
+| OEIteTrue :
+    forall s os' ex c1 c2,
+      cexprD ex s = Some 0%R ->
+      oeval s c1 os' ->
+      oeval s (Ite ex c1 c2) os'
+| OEIteFalse:
+    forall s os' ex c1 c2 r,
+      cexprD ex s = Some r ->
+      r <> 0%R ->
+      oeval s c2 os' ->
+      oeval s (Ite ex c1 c2) os'
+| OEHavoc : forall s v val,
+      oeval s (Havoc v) (Some (update s v (Some val)))
+| OEFail : forall s, oeval s Fail None
+.
+
+(* First notion of embedding for our imperative language.
+   Uses embedStep *)
+Definition oembed_cmd : cmd -> Syntax.Formula :=
+  oembedStep_maybenot nat cmd state
+                      oeval
+                      (fun st v => st v)
+                      [("x",0)] [("x",0)].
+
+(* Making sure we can still handle deterministic, failing,
+   and nondeterministic programs *)
+
+(* We cannot prove Fail is a refinement of a deterministic,
+   nonfailing program. Good. *)
+Lemma fail_refines_prog2_6 :
+  |- oembed_cmd Fail -->
+                ("x"! = "x").
+Proof.
+  unfold oembed_cmd, oembedStep_maybenot.
+  simpl; intros.
+  unfold eval_comp; simpl.
+  forward_reason.
+  destruct H0.
+Abort.
+
+(* A valid refinement, which is ineed provable. Good. *)
+Lemma cmd1_refines_prog2_6 : 
+  |- oembed_cmd cmd1 --> ("x"! = "x").
+Proof.
+  unfold oembed_cmd, oembedStep_maybenot.
+  simpl; intros.
+  unfold eval_comp; simpl.
+  forward_reason.
+  destruct H0.
+  - exfalso. apply H0. eexists. constructor.
+    simpl. rewrite <- H. reflexivity.
+  - forward_reason. inversion H0; subst; simpl; clear H0.
+    simpl in H6. unfold update in H2. simpl in H2. inversion H2; clear H2.
+    subst. rewrite H6 in H. inversion H. reflexivity.
+Qed.
+
+(* Nondeterministic refinements should not be provable.
+   They are not. Good. *)
+Lemma havoc_refines_prog2_6 : 
+  |- oembed_cmd (Havoc 0) --> ("x"! = "x").
+Proof.
+  unfold oembed_cmd, oembedStep_maybenot.
+  simpl; intros.
+  unfold eval_comp; simpl.
+  forward_reason.
+  destruct H0.
+  - exfalso. apply H0. eexists. constructor.
+  - forward_reason.
+    inversion H0; subst; simpl; clear H0.
+    unfold update in H2; simpl in H2.
+    inversion H2; subst; simpl.
+Abort.
+  
+(* Finally, programs that nondeterministically crash.
+   Unfortunately, we are still able to prove refinements with
+   these that we should not be able to ... *)
+Lemma havoc_crash_refines_prog2_6 :
+  |- oembed_cmd prog_havoc_crash --> ("x"! = "x").
+Proof.
+  unfold oembed_cmd, oembedStep_maybenot.
+  simpl; intros.
+  unfold eval_comp; simpl.
+  forward_reason.
+  destruct H0.
+  - exfalso. apply H0. eexists. unfold prog_havoc_crash.
+    econstructor.
+    + constructor.
+    + eapply OEIteFalse.
+      * simpl. unfold update. simpl. reflexivity.
+      * instantiate (1:=1%R). intro. psatz R.
+      * constructor.
+  - forward_reason.
+    inversion H0; subst; simpl; clear H0.
+    inversion H7; subst; simpl; clear H7.
+    inversion H9; subst; simpl; clear H9.
+    + inversion H10.
+    + inversion H11; subst; simpl; clear H11.
+      unfold update in H2. simpl in H2.
+      rewrite <- H2 in H. symmetry in H.
+      inversion H. reflexivity.
+Qed.
