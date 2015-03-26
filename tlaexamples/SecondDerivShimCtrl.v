@@ -48,14 +48,41 @@ Section SecondDerivCtrl.
           <= ub) //\\ "a"! = "A")
     \\// ("a"! = amin).
 
+
+  Definition History : Formula :=
+    "Y"! = "Ymax" //\\ "V"! = "Vmax" //\\ "T"! = "t"!.
+
   Definition Safe : Formula :=
     "y" <= ub.
 
+  Definition tdiff : Term :=
+    "T" - "t".
+
   Definition IndInv : Formula :=
+    "y" - "Y" <= tdist "V" "a" tdiff //\\
+    "v" - "V" <= "a"*tdiff //\\
+    Syntax.Forall R
+           (fun t =>
+              ((0 <= t <= d //\\ 0 <= "V" + "a"*t) -->>
+                    "Y" + (tdist "V" "a" t) +
+                    (sdist "V" + "a"*t) <= ub) //\\
+              ((0 <= t <= d //\\ "V" + "a"*t < 0) -->>
+                     "Y" + (tdist "V" "a" t) <= ub)).
+
+(*
+        ("a" >= 0 -->> "y" + tdist "v" "a" d +
+              sdist ("v" + "a"*d) <= ub)
+    //\\ ("a" <  0 -->> "y" + sdist ("v") <= ub).
+*)
+
+(*
+Definition IndInv : Formula :=
     Syntax.Forall R (fun t =>
-                0 <= t <= d -->>
-                "y" + tdist "v" "a" t +
-                          sdist ("v" + "a"*t) <= ub).
+                       0 <= t <= d - "t" -->>
+                       "y" + tdist "v" "a" t +
+                       sdist ("v" + "a"*t) <= ub).
+*)
+
 (*    Syntax.Forall R (fun t =>
                 0 <= t <= d -->>
                 "Ymax" + tdist "Vmax" "a" t +
@@ -74,10 +101,10 @@ Section SecondDerivCtrl.
   Variable WC : Formula.
 
   Definition SpecR : SysRec :=
-    {| dvars := ("a"::"Vmax"::"Ymax"::nil)%list;
+    {| dvars := ("a"::"Y"::"V"::"T"::nil)%list;
        cvars := ("v"::"y"::nil)%list;
        Init := I;
-       Prog := Ctrl;
+       Prog := Ctrl //\\ History;
        world := w;
        WConstraint := WC;
        maxTime := d |}.
@@ -126,31 +153,57 @@ Section SecondDerivCtrl.
 *)
     - unfold InvariantUnder, IndInv, Max. simpl.
       restoreAbstraction. unfold tdist, sdist.
-      solve_linear; rewrite_next_st; intuition.
+      solve_linear; rewrite_next_st; solve_linear;
+      specialize (H4 x); solve_linear.
     - simpl BasicProofRules.next. restoreAbstraction.
-      apply lforallR. intro.
-      match goal with
-      |- _ |-- ?GG => eapply diff_ind with (Hyps:=TRUE) (G:=unnext GG)
-      end.
-      + tlaIntuition.
-      + tlaIntuition.
-      + unfold World. tlaAssume.
-      + tlaIntuition.
-      + unfold IndInv. simpl unnext. restoreAbstraction.
-        solve_linear.
-      + tlaIntuition.
-      + repeat tlaSplit;
-        try solve [solve_linear |
-                   tlaIntro; eapply unchanged_continuous;
-                     [ tlaAssume | solve_linear ] ].
-        simpl unnext_term. simpl deriv_term.
-        fold unnext. simpl. restoreAbstraction.
-        breakAbstraction; unfold eval_comp; simpl.
-        intros. rewrite_real_zeros. rewrite Rminus_0_r.
-        rewrite_real_zeros. rewrite Rminus_0_l. repeat  rewrite Rmult_1_r.
-        simpl unnext.
-        simpl unnext.
-    - tlaAssert ("A" <= 0 \\// "A" >= 0); [ solve_linear | ].
+      repeat charge_split;
+      try (apply lforallR; intro).
+      { match goal with
+          |- _ |-- ?GG => eapply diff_ind
+                          with (Hyps:="v" - "V" <= "a"*tdiff)
+                                 (G:=unnext GG)
+        end; try solve [ tlaIntuition |
+                         unfold World; tlaAssume |
+                         solve_linear ].
+        eapply diff_ind with (Hyps:=TRUE);
+          try solve [ tlaIntuition |
+                         unfold World; tlaAssume |
+                         solve_linear ]. }
+      { match goal with
+          |- _ |-- ?GG => eapply diff_ind
+                          with (Hyps:=TRUE)
+                                 (G:=unnext GG)
+        end; try solve [ tlaIntuition |
+                         unfold World; tlaAssume |
+                         solve_linear ]. }
+      { match goal with
+          |- _ |-- ?GG => eapply diff_ind
+                          with (Hyps:=TRUE)
+                                 (G:=unnext GG)
+        end; try solve [ tlaIntuition |
+                         unfold World; tlaAssume |
+                         solve_linear ].
+        - unfold IndInv;
+          simpl; restoreAbstraction; unfold tdist, sdist;
+          solve_linear; rewrite_next_st; solve_linear;
+          specialize (H6 x); solve_linear.
+        - simpl deriv_formula. restoreAbstraction.
+          repeat charge_split.
+          + tlaIntro; eapply unchanged_continuous;
+            [ tlaAssume | 
+            solve_linear; rewrite_next_st; solve_linear ].
+          + charge_intros. solve_linear.
+          + tlaIntro; eapply unchanged_continuous;
+            [ tlaAssume | 
+            solve_linear; rewrite_next_st; solve_linear ].
+          + charge_intros. solve_linear. }
+    - solve_linear.
+      + rewrite_next_st. R_simplify. solve_linear.
+      + rewrite_next_st. R_simplify. solve_linear.
+      + rewrite_next_st. R_simplify; [ | solve_linear].
+(* STOPPED HERE *)
+
+tlaAssert ("A" <= 0 \\// "A" >= 0); [ solve_linear | ].
       simpl BasicProofRules.next. restoreAbstraction.
       unfold Discr, IndInv, Ctrl.
       
@@ -159,6 +212,71 @@ Section SecondDerivCtrl.
 
       R_simplify. simpl in *.
   Qed.
+
+(*
+  Definition IndInv : Formula :=
+         "y" = "Y" + tdist "V" "a" ("T" - "t") 
+    //\\ "v" = "V" + "a"*("T" - "t").
+*)
+
+  Theorem world_solution :
+    |-- Spec -->> []IndInv.
+  Proof.
+    tlaIntro.
+    eapply Sys_by_induction
+    with (IndInv:=IndInv) (A:=TRUE).
+    - tlaIntuition.
+    - unfold Spec, SpecR. tlaAssume.
+    - charge_assumption.
+    - tlaIntuition.
+    - charge_tauto.
+    - unfold InvariantUnder, IndInv, Max. simpl.
+      restoreAbstraction. solve_linear;
+      solve_linear; rewrite_next_st; intuition.
+    - eapply diff_ind with (Hyps:="v" = "V" + "a"*("T"-"t")).
+      + tlaIntuition.
+      + tlaIntuition.
+      + unfold World. tlaAssume.
+      + eapply diff_ind with (Hyps:=TRUE).
+        * tlaIntuition.
+        * tlaIntuition.
+        * tlaAssume.
+        * charge_tauto.
+        * charge_tauto.
+        * tlaIntuition.
+        * solve_linear.
+      + charge_tauto.
+      + charge_tauto.
+      + repeat tlaSplit;
+        try solve [solve_linear |
+                   tlaIntro; eapply unchanged_continuous;
+                     [ tlaAssume | solve_linear ] ].
+    - solve_linear; rewrite_next_st; solve_linear.
+  Qed.
+
+  Definition Evolve : Formula :=
+         "y"! = "y" + tdist "v" "a" ("t" - "t"!)
+    //\\ "v"! = "v" + "a"*("t" - "t"!).
+
+  Definition AbstractNext :=
+         Evolve
+    \\// (Ctrl //\\ History).
+
+  Definition AbstractSys : Formula :=
+    I //\\ []AbstractNext.
+
+  Theorem refinement :
+    |-- Spec -->> AbstractSys.
+  Proof.
+    unfold Spec, SpecR, AbstractSys. charge_intros.
+    charge_split.
+    - charge_assumption.
+    - unfold SysD. simpl. restoreAbstraction.
+      unfold sysD. tlaRevert. apply BasicProofRules.always_imp.
+      unfold Next, AbstractNext. charge_intros.
+      decompose_hyps.
+      + apply lorR1. unfold Evolve.
+        
 
 End VelCtrl.
 
