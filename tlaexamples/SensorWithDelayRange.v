@@ -17,19 +17,20 @@ Section SensorWithDelay.
   Variable xderiv : Var.
   Variable d : R.
   (** Clean this up? Maybe **)
-  Let w := ["t" '  ::= -- (1), x '  ::= xderiv, Xmax_post '  ::= 0,
-            Xmin_post '  ::= 0, xderiv '  ::= 0].
+  Let w_all := ["t" '  ::= -- (1), x '  ::= xderiv,
+                Xmax_post '  ::= 0, Xmin_post '  ::= 0,
+                xderiv '  ::= 0].
   Hypothesis get_deriv_Xmax_post :
-    get_deriv Xmax_post w = Some (NatT 0).
+    get_deriv Xmax_post w_all = Some (NatT 0).
   Hypothesis get_deriv_Xmin_post :
-    get_deriv Xmin_post w = Some (NatT 0).
+    get_deriv Xmin_post w_all = Some (NatT 0).
   Hypothesis get_deriv_xderiv :
-    get_deriv xderiv w = Some (NatT 0).
+    get_deriv xderiv w_all = Some (NatT 0).
   Hypothesis get_deriv_x :
-    get_deriv x w = Some (VarNowT xderiv).
+    get_deriv x w_all = Some (VarNowT xderiv).
 
   Ltac rewrite_deriv_hyps :=
-    breakAbstraction; unfold w in *;
+    breakAbstraction; unfold w_all in *;
     repeat first [ rewrite get_deriv_Xmax_post |
                    rewrite get_deriv_Xmin_post |
                    rewrite get_deriv_xderiv |
@@ -54,13 +55,16 @@ Section SensorWithDelay.
 
   Variable WC : Formula.
 
-  Definition world := (DiffEqC x xderiv::nil)%list.
+  Definition w := (DiffEqC x xderiv::nil)%list.
 
-  Definition SpecR : SysRec (x::nil)%list world d :=
+  Definition SpecR : SysRec :=
     {| dvars := (Xmax_post::Xmin_post::xderiv::nil)%list;
+       cvars := (x::nil)%list;
        Init := I;
        Prog := Sense;
-       WConstraint := WC |}.
+       world := w;
+       WConstraint := WC;
+       maxTime := d |}.
 
   Definition Spec := SysD SpecR.
 

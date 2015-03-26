@@ -1,4 +1,5 @@
 Require Import Coq.Reals.Rdefinitions.
+Require Import Coq.Reals.Rbasic_fun.
 Require Import Coq.Classes.RelationClasses.
 Require Import TLA.TLA.
 Require Import TLA.ProofRules.
@@ -32,31 +33,29 @@ Definition sysD (dvars cvars : list Var)
   ("t" <= d //\\ Init) //\\
      [](Next dvars cvars Prog world WConstraint d //\\ 0 <= "t").
 
-Record SysRec (cvars : list Var) (world : list DiffEq)
-       (maxTime : R)
+Record SysRec
 : Type := Sys
 { dvars : list Var
+; cvars : list Var
 ; Init : Formula
-; Prog: Formula
-; WConstraint : Formula }.
+; Prog : Formula
+; world : list DiffEq
+; WConstraint : Formula
+; maxTime : R }.
 
-Arguments dvars {_ _ _} _.
-Arguments Init {_ _ _} _.
-Arguments Prog {_ _ _} _.
-Arguments WConstraint {_ _ _} _.
-
-Definition SysD {cvars world maxTime}
-           (s : SysRec cvars world maxTime)
+Definition SysD (s : SysRec)
 : Formula :=
-  sysD s.(dvars) cvars s.(Init) s.(Prog) world s.(WConstraint)
-                                                   maxTime.
+  sysD s.(dvars) s.(cvars) s.(Init) s.(Prog) s.(world)
+       s.(WConstraint) s.(maxTime).
 
-Definition SysCompose {c w m} (a b : SysRec c w m) :
-  SysRec c w m :=
+Definition SysCompose (a b : SysRec) : SysRec :=
 {| dvars := a.(dvars) ++ b.(dvars)
+ ; cvars := a.(cvars) ++ b.(cvars)
  ; Init  := a.(Init) //\\ b.(Init)
  ; Prog  := a.(Prog) //\\ b.(Prog)
+ ; world := a.(world) ++ b.(world)
  ; WConstraint := a.(WConstraint) //\\ b.(WConstraint)
+ ; maxTime := Rmin a.(maxTime) b.(maxTime)
  |}.
 
 Ltac tlaRevert := first [ apply landAdj | apply lrevert ].
@@ -95,15 +94,17 @@ Ltac decompose_hyps :=
 
 Definition TimeBound d : Formula := 0 <= "t" <= d.
 
-Lemma Sys_bound_t : forall P cvars w d (a : SysRec cvars w d),
+Lemma Sys_bound_t : forall P (a : SysRec),
     P |-- SysD a ->
-    P |-- []TimeBound d.
+    P |-- []TimeBound a.(maxTime).
 Proof.
   intros. unfold SysD in *.
-  rewrite <- Always_and with (P:=0 <= "t") (Q:="t" <= d). tlaSplit.
+  rewrite <- Always_and with (P:=0 <= "t") (Q:="t" <= a.(maxTime)).
+  tlaSplit.
   - rewrite H. unfold sysD. rewrite <- Always_and. tlaAssume.
   - apply discr_indX
-    with (A:=Next a.(dvars) cvars a.(Prog) w a.(WConstraint) d).
+    with (A:=Next a.(dvars) a.(cvars) a.(Prog) a.(world)
+                  a.(WConstraint) a.(maxTime)).
     + tlaIntuition.
     + rewrite H. unfold sysD. rewrite <- Always_and. tlaAssume.
     + rewrite H. unfold sysD. tlaAssume.
@@ -170,7 +171,8 @@ Proof.
 Qed.
 
 Lemma VarsAgree_app : forall xs1 xs2 s,
-  VarsAgree (xs1 ++ xs2) s -|- VarsAgree xs1 s //\\ VarsAgree xs2 s.
+  VarsAgree (xs1 ++ xs2) s -|-
+  VarsAgree xs1 s //\\ VarsAgree xs2 s.
 Proof.
   induction xs1; intros.
   - tlaIntuition. split; charge_tauto.
@@ -207,7 +209,8 @@ Proof.
 Qed.
 
 Lemma AVarsAgree_app : forall xs1 xs2 s,
-  AVarsAgree (xs1 ++ xs2) s -|- AVarsAgree xs1 s //\\ AVarsAgree xs2 s.
+  AVarsAgree (xs1 ++ xs2) s -|-
+  AVarsAgree xs1 s //\\ AVarsAgree xs2 s.
 Proof.
   induction xs1; intros.
   - tlaIntuition. split; charge_tauto.
@@ -339,8 +342,8 @@ Theorem Sys_weaken : forall dvars dvars' cvars cvars'
   all_in w w' ->
   WC' |-- WC ->
   (d >= d')%R ->
-  SysD (Sys cvars' w' d' dvars' I' P' WC') |--
-  SysD (Sys cvars w d dvars I P WC).
+  SysD (Sys dvars' cvars' I' P' w' WC' d') |--
+  SysD (Sys dvars cvars I P w WC d).
 Proof.
   do 14 intro.
   intros Hdvars Hcvars HI HP Hw HWC Hd.
@@ -377,7 +380,7 @@ Ltac sys_apply_with_weaken H :=
 Theorem Sys_by_induction :
   forall P A dvars cvars Init Prog Inv IndInv w WC (d:R),
   is_st_formula IndInv ->
-  P |-- SysD (Sys cvars w d dvars Init Prog WC) ->
+  P |-- SysD (Sys dvars cvars Init Prog w WC d) ->
   P //\\ Init |-- IndInv ->
   P |-- [] A ->
   A //\\ IndInv //\\ TimeBound d |-- Inv ->
@@ -390,10 +393,18 @@ Proof.
   intros P A dvars cvars Init Prog Inv IndInv w WC d
          Hst Hsys Hinit Ha Hinv InvUnder Hw Hdiscr.
   tlaAssert ([]TimeBound d).
-  - eapply Sys_bound_t. rewrite Hsys. tlaAssume.
+  - change d with (maxTime {|
+               dvars := dvars;
+               cvars := cvars;
+               Init := Init;
+               Prog := Prog;
+               world := w;
+               WConstraint := WC;
+               maxTime := d |}).
+    eapply Sys_bound_t. rewrite Hsys. tlaAssume.
   - tlaIntro. tlaAssert ([]IndInv).
     + tlaAssert ([]A); [rewrite Ha; tlaAssume | tlaIntro ].
-      tlaAssert (SysD (Sys cvars w d dvars Init Prog WC));
+      tlaAssert (SysD (Sys dvars cvars Init Prog w WC d));
         [ rewrite Hsys; tlaAssume | tlaIntro ].
       apply discr_indX with
       (A:=Next dvars cvars Prog w WC d //\\
@@ -450,9 +461,9 @@ Section ComposeDiscrete.
   Variable E : Formula.
 
   Theorem compose_discrete :
-        |-- SysD (Sys cvars w d dvars Is S WC) -->> []E ->
-    []E |-- SysD (Sys cvars w d dvars Ic C WC) -->> []P ->
-    |-- SysD (Sys cvars w d dvars (Is //\\ Ic) (S //\\ C) WC) -->>
+        |-- SysD (Sys dvars cvars Is S w WC d) -->> []E ->
+    []E |-- SysD (Sys dvars cvars Ic C w WC d) -->> []P ->
+    |-- SysD (Sys dvars cvars (Is //\\ Ic) (S //\\ C) w WC d) -->>
         [](P //\\ E).
   Proof.
     intros.
@@ -485,9 +496,9 @@ Section ComposeWorld.
 
 
   Theorem compose_world :
-        |-- SysD (Sys cvars w d dvars Iw ltrue WC) -->> []E ->
-    []E |-- SysD (Sys cvars w d dvars Id D ltrue) -->> []P ->
-    |-- SysD (Sys cvars w d dvars (Iw //\\ Id) D WC) -->>
+        |-- SysD (Sys dvars cvars Iw ltrue w WC d) -->> []E ->
+    []E |-- SysD (Sys dvars cvars Id D w ltrue d) -->> []P ->
+    |-- SysD (Sys dvars cvars (Iw //\\ Id) D w WC d) -->>
         [](P //\\ E).
   Proof.
     intros.
@@ -505,74 +516,97 @@ Section ComposeWorld.
 
 End ComposeWorld.
 
-Theorem ComposeRefine c w m (a b : SysRec c w m) :
+Theorem ComposeRefine (a b : SysRec) :
   SysD (SysCompose a b) |-- SysD a.
 Proof.
   unfold SysCompose, SysD, sysD, Next.
   simpl. restoreAbstraction.
   repeat rewrite <- Always_and.
   repeat charge_split; try charge_tauto.
-  tlaRevert. apply forget_prem.
-  charge_intros.
-  rewrite Always_and.
-  tlaRevert. apply always_imp.
-  charge_intros. decompose_hyps.
-  - apply lorR1. apply lorR1.
-    charge_split; try charge_tauto.
-    rewrite (World_weaken (dvars a)).
-    + charge_tauto.
-    + unfold all_in. intros.
-      apply List.in_or_app. intuition.
-    + reflexivity.
-  - apply lorR1. apply lorR2.
-    charge_tauto.
-  - apply lorR2. charge_split; try charge_tauto.
-    rewrite (Unchanged_weaken ((dvars a) ++ c)).
-    + charge_tauto.
-    + unfold all_in. intros. apply List.in_or_app.
-      apply List.in_app_or in H. intuition.
+  { tlaAssert (Rmin (maxTime a) (maxTime b) <= maxTime a);
+    [ solve_linear; apply Rmin_l | tlaIntro ].
+    - solve_linear. }
+  { tlaRevert. apply forget_prem.
+    charge_intros.
+    rewrite Always_and.
+    tlaRevert. apply always_imp.
+    charge_intros. decompose_hyps.
+    - apply lorR1. apply lorR1.
+      charge_split; try charge_tauto.
+      rewrite (World_weaken (dvars a)).
+      + charge_tauto.
+      + unfold all_in. intros.
+        apply List.in_or_app. intuition.
+      + unfold all_in. intros.
+        apply List.in_or_app. intuition.
+    - apply lorR1. apply lorR2.
+      unfold Discr. repeat charge_split; try charge_tauto.
+      + tlaAssert (Rmin (maxTime a) (maxTime b) <= maxTime a);
+        [ solve_linear; apply Rmin_l | tlaIntro ].
+        solve_linear.
+      + rewrite Unchanged_weaken.
+        * charge_tauto.
+        * unfold all_in. intros.
+          apply List.in_or_app. intuition.
+    - apply lorR2. charge_split; try charge_tauto.
+      rewrite (Unchanged_weaken (dvars a ++ cvars a)).
+      + charge_tauto.
+      + unfold all_in. intros. apply List.in_or_app.
+        apply List.in_app_or in H. intuition. }
 Qed.
 
-Theorem ComposeComm c w m (a b : SysRec c w m) :
+Theorem ComposeComm (a b : SysRec) :
   SysD (SysCompose a b) |-- SysD (SysCompose b a).
 Proof.
   intros. unfold SysCompose, SysD, sysD, Next.
   simpl. restoreAbstraction.
   repeat rewrite <- Always_and.
   repeat charge_split; try charge_tauto.
-  tlaRevert. apply forget_prem.
-  charge_intros.
-  rewrite Always_and.
-  tlaRevert. apply always_imp.
-  charge_intros. decompose_hyps.
-  - apply lorR1. apply lorR1.
-    charge_split; try charge_tauto.
-    rewrite (World_weaken ((dvars b) ++ (dvars a))).
-    + charge_tauto.
-    + unfold all_in. intros. apply List.in_or_app.
-      apply List.in_app_or in H. intuition.
-    + reflexivity.
-  - apply lorR1. apply lorR2.
-    charge_tauto.
-  - apply lorR2. charge_split; try charge_tauto.
-    rewrite (Unchanged_weaken ((dvars b ++ dvars a) ++ c)).
-    + charge_tauto.
-    + unfold all_in. intros. apply List.in_or_app.
-      apply List.in_app_or in H. intuition.
-      left. apply List.in_or_app.
-      apply List.in_app_or in H0. intuition.
+  { solve_linear. rewrite Rmin_comm. auto. }
+  { tlaRevert. apply forget_prem.
+    charge_intros.
+    rewrite Always_and.
+    tlaRevert. apply always_imp.
+    charge_intros. decompose_hyps.
+    - apply lorR1. apply lorR1.
+      charge_split; try charge_tauto.
+      rewrite (World_weaken ((dvars b) ++ (dvars a))).
+      + charge_tauto.
+      + unfold all_in. intros. apply List.in_or_app.
+        apply List.in_app_or in H. tauto.
+      + unfold all_in. intros. apply List.in_or_app.
+        apply List.in_app_or in H. tauto.
+    - apply lorR1. apply lorR2.
+      unfold Discr. repeat charge_split; try charge_tauto.
+      + solve_linear. rewrite Rmin_comm. auto.
+      + rewrite Unchanged_weaken.
+        * charge_tauto.
+        * unfold all_in. intros.
+          apply List.in_or_app. apply List.in_app_or in H.
+          tauto.
+    - apply lorR2. charge_split; try charge_tauto.
+      rewrite Unchanged_weaken.
+      + charge_tauto.
+      + unfold all_in. intros. apply List.in_or_app.
+        apply List.in_app_or in H. intuition.
+        * left. apply List.in_or_app.
+          apply List.in_app_or in H0. tauto.
+        * right. apply List.in_or_app.
+          apply List.in_app_or in H0. tauto. }
 Qed.
 
-Theorem Compose c w m (a b : SysRec c w m) P Q :
-  |-- SysD a -->> [] P ->
-  [] P |-- SysD b -->> [] Q ->
-  |-- SysD (SysCompose a b) -->> [](P //\\ Q).
+Theorem Compose (a b : SysRec) P Q G :
+  G |-- SysD a -->> [] P ->
+  G //\\ [] P |-- SysD b -->> [] Q ->
+  G |-- SysD (SysCompose a b) -->> [](P //\\ Q).
 Proof.
   intros Ha Hb.
   rewrite <- Always_and.
   tlaIntro. tlaAssert ([]P).
-  - charge_apply Ha. apply ComposeRefine.
+  - charge_apply Ha. rewrite ComposeRefine.
+    charge_tauto.
   - tlaAssert (SysD b).
-    + rewrite ComposeComm. apply ComposeRefine.
+    + rewrite ComposeComm; rewrite ComposeRefine.
+      charge_tauto.
     + charge_tauto.
-  Qed.
+Qed.

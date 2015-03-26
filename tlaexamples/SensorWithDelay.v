@@ -17,19 +17,19 @@ Section SensorWithDelay.
   Variable xderiv : Var.
   Variable d : R.
   (** Clean this up? Maybe **)
-  Let w := ["t" '  ::= -- (1), x '  ::= xderiv, Xmax '  ::= 0, 
+  Let w_all := ["t" '  ::= -- (1), x '  ::= xderiv, Xmax '  ::= 0, 
                 Xmin '  ::= 0, xderiv '  ::= 0].
   Hypothesis get_deriv_Xmax :
-    get_deriv Xmax w = Some (NatT 0).
+    get_deriv Xmax w_all = Some (NatT 0).
   Hypothesis get_deriv_Xmin :
-    get_deriv Xmin w = Some (NatT 0).
+    get_deriv Xmin w_all = Some (NatT 0).
   Hypothesis get_deriv_xderiv :
-    get_deriv xderiv w = Some (NatT 0).
+    get_deriv xderiv w_all = Some (NatT 0).
   Hypothesis get_deriv_x :
-    get_deriv x w = Some (VarNowT xderiv).
+    get_deriv x w_all = Some (VarNowT xderiv).
 
   Ltac rewrite_deriv_hyps :=
-    breakAbstraction; unfold w in *;
+    breakAbstraction; unfold w_all in *;
     repeat first [ rewrite get_deriv_Xmax |
                    rewrite get_deriv_Xmin |
                    rewrite get_deriv_xderiv |
@@ -50,13 +50,16 @@ Section SensorWithDelay.
 
   Variable WC : Formula.
 
-  Definition world := (DiffEqC x xderiv::nil)%list.
+  Definition w := (DiffEqC x xderiv::nil)%list.
 
-  Definition SpecR : SysRec (x::nil)%list world d :=
+  Definition SpecR : SysRec :=
     {| dvars := (Xmax::Xmin::xderiv::nil)%list;
+       cvars := (x::nil)%list;
        Init := I;
        Prog := Sense;
-       WConstraint := WC |}.
+       world := w;
+       WConstraint := WC;
+       maxTime := d |}.
 
   Definition Spec := SysD SpecR.
 
@@ -84,7 +87,7 @@ Section SensorWithDelay.
     |-- Spec -->> []SenseSafe.
   Proof.
     intros. charge_intros.
-    tlaAssert ([]TimeBound d).
+    tlaAssert ([]TimeBound SpecR.(maxTime)).
     + eapply Sys_bound_t. unfold Spec, SpecR. tlaAssume.
     + charge_intros. tlaAssert ([]SenseSafeInd).
       * rewrite sense_safe_ind. tlaAssume.

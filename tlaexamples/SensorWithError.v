@@ -22,11 +22,14 @@ Section SensorWithError.
   Variable w : list DiffEq.
   Variable d : R.
 
-  Definition SpecR : SysRec (x::Xmax::Xmin::nil)%list w d :=
+  Definition SpecR : SysRec :=
     {| dvars := nil;
+       cvars := (x::Xmax::Xmin::nil)%list;
        Init := I;
        Prog := ltrue;
-       WConstraint := Sense |}.
+       world := w;
+       WConstraint := Sense;
+       maxTime := d |}.
 
   Definition Spec := SysD SpecR.
 

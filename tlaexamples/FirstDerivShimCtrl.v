@@ -19,7 +19,7 @@ Section VelCtrl.
   Variable err : R.
 
   (* The continuous dynamics of the system *)
-  Definition world : list DiffEq :=
+  Definition w : list DiffEq :=
     ["v"' ::= "a"].
 
   Definition Ctrl : Formula :=
@@ -39,11 +39,14 @@ Section VelCtrl.
 
   Variable WC : Formula.
 
-  Definition SpecR : SysRec ("v"::nil) world d :=
+  Definition SpecR : SysRec :=
     {| dvars := ("a"::nil);
+       cvars := ("v"::nil);
        Init := I;
        Prog := Ctrl;
-       WConstraint := WC |}.
+       world := w;
+       WConstraint := WC;
+       maxTime := d |}.
 
   Definition Spec := SysD SpecR.
 
