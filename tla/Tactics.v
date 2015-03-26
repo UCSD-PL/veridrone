@@ -44,7 +44,7 @@ Ltac R_simplify :=
    z3 on real arithmetic goals. At the
    moment, you have to look in the *coq*
    buffer for the output. *)
-Ltac z3_solve :=
+Ltac z3_prepare :=
   intros;
   repeat match goal with
            | H : @eq R _ _ |- _ => revert H
@@ -53,8 +53,13 @@ Ltac z3_solve :=
            | H : @Rlt _ _ |- _ => revert H
            | H :@ Rgt _ _ |- _ => revert H
            | H : @Rge _ _ |- _ => revert H
-         end;
-  z3Tactic.
+         end.
+
+Ltac z3_solve :=
+  z3_prepare; z3Tactic.
+
+Ltac z3_quick :=
+  z3_prepare; z3 quick solve.
 
 (* rewrites the values of variables in the next
    state into hypothesis and goals. *)
@@ -145,6 +150,10 @@ Fixpoint unnext (F:Formula) : Formula :=
     | Comp t1 t2 op =>
       Comp (unnext_term t1) (unnext_term t2) op
     | And F1 F2 => And (unnext F1) (unnext F2)
+    | Or F1 F2 => Or (unnext F1) (unnext F2)
+    | Imp F1 F2 => Imp (unnext F1) (unnext F2)
+    | Syntax.Exists T f => Syntax.Exists T (fun t => unnext (f t))
+    | Syntax.Forall T f => Syntax.Forall T (fun t => unnext (f t))
     | _ => F
   end.
 
