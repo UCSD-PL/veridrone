@@ -837,10 +837,12 @@ Section embedding2.
         (Some (tla_st v) = asReal st v' /\ omodels vars tla_st st)%type
     end.
 
-  (** This is an improvement over previous versions, as it is able to handle
-      both nondeterministic programs and programs that fail. However, it is
-      not able to handle programs that fail nondeterministically (i.e.,
+  (** Based on embedStep_maybenot, this definition succeeds on all cases except
+      (like embedStep_maybenot)
+      for programs that fail nondeterministically (i.e.,
       take many paths nondeterministically, at least one of which Fails)
+      It isn't quite what we need because it's not really adapted to our new
+      semantics. oembedStep_maybenone fixes the problem, it seems.
    **)
   Definition oembedStep_maybenot (pre_vars post_vars : list (Syntax.Var * var))
              (prg : ast) : Syntax.Formula :=
@@ -850,8 +852,24 @@ Section embedding2.
                       (~(exists post_state : state, eval init_state prg (Some post_state)) \/
                        (exists post_state : state, eval init_state prg (Some post_state) /\
                                                    omodels post_vars post post_state)))%type.
+  
+  (** This version of embed appears to work for all the test cases we have come up
+      with so far: it allows valid refinements, but does not permit proving
+      refinements of pathological programs (ones that crash and/or exhibit nondeterminism)
+      from TLA formulas that do not exhibit these.
+      It represents a slight change from oembedStep_maybenot (and, hence, from
+      embedStep_maybenot) by taking advantage of the extra information supplied
+      by the "optional-final-state" semantics.
+   **)
+  Definition oembedStep_maybenone (pre_vars post_vars : list (Syntax.Var * var))
+             (prg : ast) : Syntax.Formula :=
+    Syntax.Embed (fun pre post =>
+                    exists init_state : state,
+                      omodels pre_vars pre init_state /\
+                      ((eval init_state prg None) \/
+                       (exists post_state : state, eval init_state prg (Some post_state) /\
+                                                   omodels post_vars post post_state)))%type.
 End embedding2.
-
 
 (* Language syntax (for new language with eval "stepping" to option state) *)
 (*
@@ -896,8 +914,9 @@ Inductive oeval : state -> cmd -> option state -> Prop :=
 | OEFail : forall s, oeval s Fail None
 .
 
-(* First notion of embedding for our imperative language.
-   Uses embedStep *)
+(* First notion of embedding for our imperative language
+   With new semantics distinguishing failure from looping
+   Uses oembedStep_maybenot *)
 Definition oembed_cmd : cmd -> Syntax.Formula :=
   oembedStep_maybenot nat cmd state
                       oeval
@@ -981,3 +1000,80 @@ Proof.
       rewrite <- H2 in H. symmetry in H.
       inversion H. reflexivity.
 Qed.
+
+(* A second attempt at embedding with our "optional ending-state"
+   semantics that distinguishes crashes from loops.
+   This attempt makes better use of the additional information. *)
+Definition oembed_cmd' : cmd -> Syntax.Formula :=
+  oembedStep_maybenone nat cmd state
+                       oeval
+                       (fun st v => st v)
+                       [("x",0)] [("x",0)].
+
+(* With this formulation we are still able to prove
+   this simple valid refinement *)
+Lemma cmd1_refines_prog2_7 : 
+  |- oembed_cmd' cmd1 --> ("x"! = "x").
+Proof.
+  unfold oembed_cmd', oembedStep_maybenone.
+  simpl; intros.
+  unfold eval_comp; simpl.
+  forward_reason.
+  destruct H0.
+  - inversion H0; subst; clear H0. simpl in H4. congruence.
+  - forward_reason.
+    inversion H0; subst; clear H0.
+    simpl in H6. unfold update in H2; simpl in H2.
+    rewrite <- H6 in H2. rewrite <- H in H2.
+    inversion H2. reflexivity.
+Qed.
+
+(* We are still unable to prove this invalid refinement
+   (a crashing program cannot be shown to refine a non-crashing one) *)
+Lemma fail_refines_prog2_7 :
+  |- oembed_cmd' Fail -->
+                ("x"! = "x").
+Proof.
+  unfold oembed_cmd', oembedStep_maybenone.
+  simpl; intros.
+  unfold eval_comp; simpl.
+  forward_reason.
+  destruct H0.
+  - inversion H0; subst.
+Abort.
+
+(* We also still cannot prove that a nondeterministic program 
+   refines a deterministic one *)
+Lemma havoc_refines_prog2_7 : 
+  |- oembed_cmd' (Havoc 0) --> ("x"! = "x").
+Proof.
+  unfold oembed_cmd', oembedStep_maybenone.
+  simpl; intros.
+  unfold eval_comp; simpl.
+  forward_reason.
+  destruct H0.
+  - inversion H0.
+  - forward_reason.
+    inversion H0; subst; clear H0.
+    unfold update in H2; simpl in H2.
+Abort.
+
+(* Let's see if we can deal with the "havoc-crash" case.
+   Indeed, this appears to be unprovable, as desired. *)
+Lemma havoc_crash_refines_prog2_7 :
+  |- oembed_cmd' prog_havoc_crash --> ("x"! = "x").
+Proof.
+  unfold oembed_cmd', oembedStep_maybenone.
+  simpl; intros.
+  unfold eval_comp; simpl.
+  forward_reason.
+  destruct H0.
+  - inversion H0; subst; clear H0.
+    inversion H5; subst; clear H5.
+    inversion H7; subst; clear H7.
+    + inversion H8; subst; clear H8.
+      simpl in H6. unfold update in H6. simpl in H6.
+      inversion H6.
+Abort.      
+
+(*"x"! > "x"*)
