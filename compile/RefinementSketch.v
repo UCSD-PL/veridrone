@@ -1076,4 +1076,31 @@ Proof.
       inversion H6.
 Abort.      
 
-(*"x"! > "x"*)
+Print oembed_cmd'.
+Print Asn.
+Print cexpr.
+
+Definition prog_inc : cmd :=
+  Asn 0 (CPlus (CConst 1) (CVar 0)).
+
+(* As an additional test, let's see if we can prove a refinement
+   that should be true about a nondeterministic program *)
+Lemma good_nondet_refines_7 :
+  |- oembed_cmd' prog_inc --> ("x"! > "x").
+Proof.
+  unfold oembed_cmd', oembedStep_maybenone.
+  simpl; intros.
+  unfold eval_comp; simpl.
+  forward_reason.
+  destruct H0.
+  - inversion H0; subst; clear H0. simpl in H4.
+    rewrite <- H in H4. congruence.
+  - forward_reason.
+    inversion H0; subst; clear H0.
+    unfold update in H2; simpl in H2.
+    inversion H2; subst; clear H2.
+    simpl in H6. rewrite <- H in H6.
+    inversion H6; subst; clear H6.
+    clear. red.
+    psatzl R.
+Qed.
