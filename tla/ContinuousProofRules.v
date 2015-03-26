@@ -361,29 +361,4 @@ Proof.
   charge_tauto.
 Qed.
 
-Theorem Continuous_Join
-: forall a b,
-    Continuous a //\\ Continuous b -|- Continuous (a ++ b).
-Proof.
-  Transparent land.
-  split.
-  { unfold Continuous.
-    breakAbstraction. unfold eval_comp in *. simpl in *.
-    intros.
-    repeat match goal with
-           | H : exists x , _ |- _ => destruct H
-           | H : _ /\ _ |- _ => destruct H
-           end.
-    admit. }
-  { unfold Continuous.
-    breakAbstraction. unfold eval_comp in *. simpl in *.
-    intros.
-    repeat match goal with
-           | H : exists x , _ |- _ => destruct H
-           | H : _ /\ _ |- _ => destruct H
-           end.
-    split; exists x; exists x0; split; eauto; split; eauto.
-    
-    
-
 Close Scope HP_scope.
