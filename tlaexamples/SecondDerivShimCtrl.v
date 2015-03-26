@@ -65,7 +65,7 @@ Section SecondDerivCtrl.
            (fun t =>
               ((0 <= t <= d //\\ 0 <= "V" + "a"*t) -->>
                     "Y" + (tdist "V" "a" t) +
-                    (sdist "V" + "a"*t) <= ub) //\\
+                    (sdist ("V" + "a"*t)) <= ub) //\\
               ((0 <= t <= d //\\ "V" + "a"*t < 0) -->>
                      "Y" + (tdist "V" "a" t) <= ub)).
 
@@ -110,6 +110,33 @@ Definition IndInv : Formula :=
        maxTime := d |}.
 
   Definition Spec := SysD SpecR.
+
+  Lemma tdist_sdist_incr : forall v1 v2 a1 a2 d1 d2,
+      |-- v1 <= v2 -->> a1 <= a2 -->> d1 <= d2 -->>
+          0 <= a2 -->> 0 <= d1 -->>
+          0 <= v1 + a1*d1 -->>
+          tdist v1 a1 d1 + sdist (v1 + a1*d1) <=
+          tdist v2 a2 d2 + sdist (v2 + a2*d2).
+  Proof.
+    breakAbstraction; unfold eval_comp; simpl; intros.
+    repeat match goal with
+             | [ _ : context [eval_term ?t ?s1 ?s2] |- _ ]
+               => generalize dependent (eval_term t s1 s2)
+           end; intros;
+    repeat match goal with
+             | [ _ : context [eval_term ?t ?s1 ?s2] |- _ ]
+               => generalize dependent (eval_term t s1 s2)
+           end; intros.
+    apply Rplus_le_algebra.
+    apply Rmult_neg_le_algebra with (r2:=amin);
+      auto.
+    rewrite Rminus_0_l.
+    apply Rmult_pos_ge_algebra with (r2:=(2)%R);
+      solve_linear.
+    R_simplify; simpl; solve_linear.
+    clear - amin_lt_0 H3 H4 H2 H0 H1 H5.
+    solve_nonlinear.
+  Qed.
 
   Theorem ctrl_safe :
     []"Vmax" >= "v" //\\ []"Ymax" >= "y" |-- Spec -->> []Safe.
@@ -197,7 +224,38 @@ Definition IndInv : Formula :=
             [ tlaAssume | 
             solve_linear; rewrite_next_st; solve_linear ].
           + charge_intros. solve_linear. }
-    - solve_linear.
+    - repeat charge_split.
+      { solve_linear; rewrite_next_st; R_simplify; solve_linear. }
+      { solve_linear; rewrite_next_st; R_simplify; solve_linear. }
+      { fold BasicProofRules.next. unfold Discr, Ctrl, Max.
+        tlaAssert ("A" <= 0 \\// "A" >= 0);
+          [ solve_linear | tlaIntro ].
+        repeat decompose_hyps.
+        apply lforallR. intro x.
+        charge_split.
+        - simpl. restoreAbstraction. charge_intros.
+          tlaAssert (tdist "V"! "a"! x + (sdist ("V"! + "a"!*x)) <=
+                     tdist "Vmax" 0 d + sdist ("Vmax" + 0 * d)).
+          + pose proof (tdist_sdist_incr "V"! "Vmax" "a"! 0 x d).
+            charge_apply H. solve_linear.
+          + solve_linear.
+        - fold BasicProofRules.next.
+          (* STOPPED HERE *)
+            apply Rplus_le_compat_l. solve_linear. apply H0.
+
+            solve_nonlinear.
+(*            repeat rewrite <- curry in H.
+            apply lrevert in H.*)
+            breakAbstraction; unfold eval_comp; simpl; intros.
+            solve_linear. apply (H tr). specialize (H tr).
+            solve_linear.
+            rewrite <- H.
+            rewrite lrevert in H.
+        apply limplAdj_true in H.
+        | apply limplAdj ].
+            Locate tlaIntros. rewrite curry in H. charge_apply H.
+
+solve_linear.
       + rewrite_next_st. R_simplify. solve_linear.
       + rewrite_next_st. R_simplify. solve_linear.
       + rewrite_next_st. R_simplify; [ | solve_linear].
