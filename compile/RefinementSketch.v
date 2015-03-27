@@ -1156,8 +1156,129 @@ Qed.
    formula without using embed. Show that "embed version" --> "wp-version" *)
 
 (* We make use of the primitives defined in the Hoare section (within embedding2) above *)
-(*Check Hoare.
+Check Hoare.
 
-Lemma embed_hoare :
-  forall (P : 
+(* "concrete Hoare" - instantiated with what we need for cmd language *)
+Definition CHoare := Hoare cmd state oeval.
+
+(* Hoare Sequencing rule *)
+Theorem SeqR : forall a b P Q R,
+    CHoare P a Q ->
+    CHoare Q b R ->
+    CHoare P (Seq a b) R.
+Proof.
+  unfold CHoare, Hoare. intros.
+  split; [| split].
+  { eapply H in H1. forward_reason.
+    destruct x eqn:Hx; try congruence.
+    generalize H1. intro H1'. 
+    apply H3 in H1. apply H0 in H1.
+    forward_reason.
+    eexists. econstructor. apply H1'. apply H1.
+  }
+  { intro. inversion H2; subst; clear H2.
+    - apply H in H1. forward_reason.
+      apply H3 in H6. apply H0 in H6. forward_reason.
+      congruence.
+    - apply H in H1. forward_reason.
+      congruence.
+  }
+  { intros. inversion H2; subst; clear H2.
+    apply H in H1. forward_reason.
+    apply H3 in H6. apply H0 in H6. forward_reason.
+    auto.
+  }
+Qed. 
+
+(* Hoare Skip rule *)
+Theorem SkipR :
+  forall P,
+    CHoare P Skip P.
+Proof.
+  intros; red; red.
+  intros. split; [|split].
+  { eexists. econstructor. }
+  { intro. inversion H0. }
+  { intros. inversion H0; subst. assumption. }
+Qed.
+                                   
+(* Hoare Assignment rule; for use in weakest-precondition calculation *)
+Lemma AssR_pre : forall P n e,
+  CHoare
+     (fun s : state =>
+        exists val : R, cexprD e s = Some val /\ P (update s n (Some val)))%type 
+     (Asn n e) P.
+Proof.
+  red; red; intros.
+  forward_reason.
+  split; [|split].
+  { eexists. econstructor. eauto. }
+  { intro. inversion H1; subst; clear H1. congruence. }
+  { intros. inversion H1; clear H1; subst.
+    rewrite H4 in H. inversion H; subst; clear H. assumption. }
+Qed.
+
+(* Hoare rule for if-then-else - TODO *)
+
+(* Hoare rule for havoc - TODO *)
+
+(* Hoare rule for Fail; for use in weakest-precondition calculation *)
+Lemma FailR_pre : forall P, CHoare (fun _ => False) Fail P.
+Proof.
+  simpl. red. inversion 1.
+Qed.
+
+(* Weakest-precondition calcluation function *)
+Fixpoint wp (c : cmd) (P : state -> Prop) : state -> Prop :=
+  match c with
+  | Skip => P
+  | Seq a b => wp a (wp b P)
+  | Asn v e => (fun s =>
+                 exists val, cexprD e s = Some val /\
+                             let s' := update s v (Some val) in
+                             P s')%type
+  | Fail => fun s => False
+  | _ => fun s => False (* TODO: ITE; Havoc *)
+  end.    
+
+Theorem wp_sound :
+  forall c P,
+    CHoare (wp c P) c P.
+Proof.
+  induction c; intros.
+  - eapply SeqR; eauto.
+  - apply SkipR.
+  - apply AssR_pre.
+  - admit. (* wp function doesn't do Ite *)
+  - admit. (* wp function doesn't do Havoc *)
+  - apply FailR_pre.
+Qed.
+
+SearchAbout Semantics.eval_formula.
+Print oembed_cmd'.
+Print embed_coq.
+Check CHoare.
+Locate state.
+Print state.
+Print Syntax.state.
+Check embed_coq.
+
+(* Function for embedding state transformers expressed in Gallina into TLA
+   Need to deal with the mismatch between state and Syntax.state... *)
+(*
+Definition embed_coq2 : (state -> state) -> Syntax.Formula :=
+  embedStep string (Syntax.state -> Syntax.state) Syntax.state
+            (fun st p st' => st' = p st)%type
+            (fun st v => Some (st v))
+            [("x","x")] [("x","x")].
+*)
+
+(* The correctness lemma that we ultimately want to prove will look
+   something like this *)
+(*
+Lemma hoare_embed :
+  forall P c Q,
+    CHoare P c Q ->
+    (|- oembed_cmd' c) ->
+    (|- embed_coq2 (fun x y => P x -> Q y)).
 *)
