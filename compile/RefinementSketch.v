@@ -945,17 +945,21 @@ Inductive oeval : state -> cmd -> option state -> Prop :=
 | OEAsnN : forall s v e,
     cexprD e s = None ->
     oeval s (Asn v e) None
-| OEIteTrue :
+| OEIteT :
     forall s os' ex c1 c2,
       cexprD ex s = Some 0%R ->
       oeval s c1 os' ->
       oeval s (Ite ex c1 c2) os'
-| OEIteFalse:
+| OEIteF:
     forall s os' ex c1 c2 r,
       cexprD ex s = Some r ->
       r <> 0%R ->
       oeval s c2 os' ->
       oeval s (Ite ex c1 c2) os'
+| OEIteN :
+    forall s ex c1 c2,
+      cexprD ex s = None ->
+      oeval s (Ite ex c1 c2) None
 | OEHavoc : forall s v val,
       oeval s (Havoc v) (Some (update s v (Some val)))
 | OEFail : forall s, oeval s Fail None
@@ -964,11 +968,10 @@ Inductive oeval : state -> cmd -> option state -> Prop :=
 (* First notion of embedding for our imperative language
    With new semantics distinguishing failure from looping
    Uses oembedStep_maybenot *)
-Definition oembed_cmd : cmd -> Syntax.Formula :=
+Definition oembed_cmd : _ -> _ -> cmd -> Syntax.Formula :=
   oembedStep_maybenot nat cmd state
                       oeval
-                      (fun st v => st v)
-                      [("x",0)] [("x",0)].
+                      (fun st v => st v).
 
 (* Making sure we can still handle deterministic, failing,
    and nondeterministic programs *)
@@ -976,7 +979,7 @@ Definition oembed_cmd : cmd -> Syntax.Formula :=
 (* We cannot prove Fail is a refinement of a deterministic,
    nonfailing program. Good. *)
 Lemma fail_refines_prog2_6 :
-  |- oembed_cmd Fail -->
+  |- oembed_cmd [("x",0)] [("x",0)] Fail -->
                 ("x"! = "x").
 Proof.
   unfold oembed_cmd, oembedStep_maybenot.
@@ -988,7 +991,7 @@ Abort.
 
 (* A valid refinement, which is ineed provable. Good. *)
 Lemma cmd1_refines_prog2_6 : 
-  |- oembed_cmd cmd1 --> ("x"! = "x").
+  |- oembed_cmd [("x",0)] [("x",0)] cmd1 --> ("x"! = "x").
 Proof.
   unfold oembed_cmd, oembedStep_maybenot.
   simpl; intros.
@@ -1005,7 +1008,7 @@ Qed.
 (* Nondeterministic refinements should not be provable.
    They are not. Good. *)
 Lemma havoc_refines_prog2_6 : 
-  |- oembed_cmd (Havoc 0) --> ("x"! = "x").
+  |- oembed_cmd [("x",0)] [("x",0)] (Havoc 0) --> ("x"! = "x").
 Proof.
   unfold oembed_cmd, oembedStep_maybenot.
   simpl; intros.
@@ -1023,7 +1026,7 @@ Abort.
    Unfortunately, we are still able to prove refinements with
    these that we should not be able to ... *)
 Lemma havoc_crash_refines_prog2_6 :
-  |- oembed_cmd prog_havoc_crash --> ("x"! = "x").
+  |- oembed_cmd [("x",0)] [("x",0)] prog_havoc_crash --> ("x"! = "x").
 Proof.
   unfold oembed_cmd, oembedStep_maybenot.
   simpl; intros.
@@ -1033,7 +1036,7 @@ Proof.
   - exfalso. apply H0. eexists. unfold prog_havoc_crash.
     econstructor.
     + constructor.
-    + eapply OEIteFalse.
+    + eapply OEIteF.
       * simpl. unfold update. simpl. reflexivity.
       * instantiate (1:=1%R). intro. psatz R.
       * constructor.
@@ -1051,16 +1054,15 @@ Qed.
 (* A second attempt at embedding with our "optional ending-state"
    semantics that distinguishes crashes from loops.
    This attempt makes better use of the additional information. *)
-Definition oembed_cmd' : cmd -> Syntax.Formula :=
+Definition oembed_cmd' : _ -> _ -> cmd -> Syntax.Formula :=
   oembedStep_maybenone nat cmd state
                        oeval
-                       (fun st v => st v)
-                       [("x",0)] [("x",0)].
+                       (fun st v => st v).
 
 (* With this formulation we are still able to prove
    this simple valid refinement *)
 Lemma cmd1_refines_prog2_7 : 
-  |- oembed_cmd' cmd1 --> ("x"! = "x").
+  |- oembed_cmd' [("x",0)] [("x",0)] cmd1 --> ("x"! = "x").
 Proof.
   unfold oembed_cmd', oembedStep_maybenone.
   simpl; intros.
@@ -1078,7 +1080,7 @@ Qed.
 (* We are still unable to prove this invalid refinement
    (a crashing program cannot be shown to refine a non-crashing one) *)
 Lemma fail_refines_prog2_7 :
-  |- oembed_cmd' Fail -->
+  |- oembed_cmd' [("x",0)] [("x",0)] Fail -->
                 ("x"! = "x").
 Proof.
   unfold oembed_cmd', oembedStep_maybenone.
@@ -1092,7 +1094,7 @@ Abort.
 (* We also still cannot prove that a nondeterministic program 
    refines a deterministic one *)
 Lemma havoc_refines_prog2_7 : 
-  |- oembed_cmd' (Havoc 0) --> ("x"! = "x").
+  |- oembed_cmd' [("x",0)] [("x",0)] (Havoc 0) --> ("x"! = "x").
 Proof.
   unfold oembed_cmd', oembedStep_maybenone.
   simpl; intros.
@@ -1108,7 +1110,7 @@ Abort.
 (* Let's see if we can deal with the "havoc-crash" case.
    Indeed, this appears to be unprovable, as desired. *)
 Lemma havoc_crash_refines_prog2_7 :
-  |- oembed_cmd' prog_havoc_crash --> ("x"! = "x").
+  |- oembed_cmd' [("x",0)] [("x",0)] prog_havoc_crash --> ("x"! = "x").
 Proof.
   unfold oembed_cmd', oembedStep_maybenone.
   simpl; intros.
@@ -1123,17 +1125,13 @@ Proof.
       inversion H6.
 Abort.      
 
-Print oembed_cmd'.
-Print Asn.
-Print cexpr.
-
 Definition prog_inc : cmd :=
   Asn 0 (CPlus (CConst 1) (CVar 0)).
 
 (* As an additional test, let's see if we can prove a refinement
    that should be true about a nondeterministic program *)
 Lemma good_nondet_refines_7 :
-  |- oembed_cmd' prog_inc --> ("x"! > "x").
+  |- oembed_cmd' [("x",0)] [("x",0)] prog_inc --> ("x"! > "x").
 Proof.
   unfold oembed_cmd', oembedStep_maybenone.
   simpl; intros.
@@ -1156,7 +1154,6 @@ Qed.
    formula without using embed. Show that "embed version" --> "wp-version" *)
 
 (* We make use of the primitives defined in the Hoare section (within embedding2) above *)
-Check Hoare.
 
 (* "concrete Hoare" - instantiated with what we need for cmd language *)
 Definition CHoare := Hoare cmd state oeval.
@@ -1218,27 +1215,122 @@ Proof.
     rewrite H4 in H. inversion H; subst; clear H. assumption. }
 Qed.
 
+(* Hoare rule for havoc *)
+Lemma HavocR_pre :
+  forall (P : state -> Prop) (n : nat),
+    CHoare
+      (fun s : state =>
+         forall (val : R), P (update s n (Some val)))
+      (Havoc n) P.
+Proof.
+  red; red; intros.
+  split; [|split].
+  { exists (Some (update s n (Some 0%R))). constructor. }
+  { intro. inversion H0. }
+  { intros. inversion H0; subst. apply H. }
+Qed.
+
+Print eval.
+
 (* Hoare rule for if-then-else - TODO *)
-
-(* Hoare rule for havoc - TODO *)
-
+Lemma IteR_pre :
+  forall (P Q : state -> Prop) ex c1 c2,
+    (forall s, P s -> exists (r : R), cexprD ex s = Some r)%type ->
+    CHoare
+      (fun s => cexprD ex s = Some 0%R /\ P s)%type
+      c1 Q ->
+    CHoare
+      (fun s => exists (r : R), r <> 0%R /\ cexprD ex s = Some r /\ P s)%type
+      c2 Q ->
+    CHoare P (Ite ex c1 c2) Q.
+Proof.
+  intros. unfold CHoare, Hoare in *.
+  intros.
+  split; [|split].
+  { destruct (cexprD ex s) eqn:HcexprD.
+    - destruct (my_req_dec r 0).
+      + rewrite e in HcexprD. specialize (H0 s (conj HcexprD H2)).
+        forward_reason. eexists. apply OEIteT; eauto.
+      + specialize (H1 s).
+        forward_reason. eexists. eapply OEIteF; eauto.
+    - eexists. apply OEIteN. assumption. }
+  { intro.
+    inversion H3; subst; clear H3.
+    - specialize (H0 s (conj H9 H2)).
+      forward_reason. auto.
+    - specialize (H1 s).
+      forward_reason. auto.
+    - specialize (H _ H2). inversion H. congruence. }
+  { intros.
+    inversion H3; subst; clear H3.
+    - specialize (H0 s (conj H9 H2)).
+      forward_reason. auto.
+    - specialize (H1 s).
+      forward_reason. auto. }
+Qed.
+    
 (* Hoare rule for Fail; for use in weakest-precondition calculation *)
 Lemma FailR_pre : forall P, CHoare (fun _ => False) Fail P.
 Proof.
   simpl. red. inversion 1.
 Qed.
 
+Lemma conseqR :
+  forall (P P' Q Q' : state -> Prop) c,
+    (forall st, P  st -> P' st) ->
+    (forall st, Q' st -> Q  st) ->
+    CHoare P' c Q' ->
+    CHoare P  c Q.
+Proof.
+  intros.
+  unfold CHoare, Hoare in *.
+  intros.
+  edestruct H1; eauto.
+  forward_reason.
+  split; eauto.
+Qed.
+
+Lemma IteR_pre' :
+  forall P Q Q' ex c1 c2,
+    CHoare Q  c1 P ->
+    CHoare Q' c2 P ->
+    CHoare
+      (fun s =>
+         (cexprD ex s = Some 0%R /\ Q s) \/
+         (exists (r : R), r <> 0%R /\ cexprD ex s = Some r /\ Q' s))%type
+      (Ite ex c1 c2) P.
+Proof.
+  intros.
+  apply IteR_pre.
+  - intros. destruct H1; forward_reason; eexists; eassumption.
+  - eapply conseqR; try eassumption; eauto.
+    intros. forward_reason.
+    destruct H2.
+    + tauto.
+    + forward_reason. congruence.
+  - eapply conseqR; try eassumption; eauto.
+    intros. forward_reason.
+    destruct H3.
+    + forward_reason. congruence.
+    + forward_reason. assumption.
+Qed.
+
 (* Weakest-precondition calcluation function *)
 Fixpoint wp (c : cmd) (P : state -> Prop) : state -> Prop :=
   match c with
   | Skip => P
-  | Seq a b => wp a (wp b P)
+  | Seq c1 c2 => wp c1 (wp c2 P)
   | Asn v e => (fun s =>
                  exists val, cexprD e s = Some val /\
                              let s' := update s v (Some val) in
                              P s')%type
   | Fail => fun s => False
-  | _ => fun s => False (* TODO: ITE; Havoc *)
+  | Havoc v => (fun s =>
+                  forall val, let s' := update s v (Some val) in
+                              P s')%type
+  | Ite ex c1 c2 => (fun s =>
+                       (cexprD ex s = Some 0%R /\ wp c1 P s) \/
+                       (exists (r : R), r <> 0%R /\ cexprD ex s = Some r /\ wp c2 P s))%type
   end.    
 
 Theorem wp_sound :
@@ -1246,39 +1338,51 @@ Theorem wp_sound :
     CHoare (wp c P) c P.
 Proof.
   induction c; intros.
-  - eapply SeqR; eauto.
-  - apply SkipR.
-  - apply AssR_pre.
-  - admit. (* wp function doesn't do Ite *)
-  - admit. (* wp function doesn't do Havoc *)
-  - apply FailR_pre.
+  { eapply SeqR; eauto. }
+  { apply SkipR. }
+  { apply AssR_pre. }
+  { eapply IteR_pre'; eauto. }
+  { eapply HavocR_pre. }
+  { apply FailR_pre. }
 Qed.
-
-SearchAbout Semantics.eval_formula.
-Print oembed_cmd'.
-Print embed_coq.
-Check CHoare.
-Locate state.
-Print state.
-Print Syntax.state.
-Check embed_coq.
 
 (* Function for embedding state transformers expressed in Gallina into TLA
    Need to deal with the mismatch between state and Syntax.state... *)
-(*
-Definition embed_coq2 : (state -> state) -> Syntax.Formula :=
-  embedStep string (Syntax.state -> Syntax.state) Syntax.state
-            (fun st p st' => st' = p st)%type
-            (fun st v => Some (st v))
-            [("x","x")] [("x","x")].
-*)
+
+Print state.
+
+Definition embed_coq_rel : _ -> _ -> (state -> option state -> Prop) -> Syntax.Formula :=
+  oembedStep_maybenone nat (state -> option state -> Prop) state
+                       (fun st p st' => p st st')%type
+                       (fun st v => st v).
+
 
 (* The correctness lemma that we ultimately want to prove will look
    something like this *)
-(*
+
 Lemma hoare_embed :
-  forall P c Q,
+  forall P c Q vs1 vs2,
     CHoare P c Q ->
-    (|- oembed_cmd' c) ->
-    (|- embed_coq2 (fun x y => P x -> Q y)).
-*)
+    (|- oembed_cmd' vs1 vs2 c -->
+                    embed_coq_rel vs1 vs2
+                    (fun x y => P x ->
+                                (exists y', y = Some y' /\ Q y'))%type).
+Proof.
+  intros.
+  red; simpl.
+  intros. forward_reason.
+  exists x.
+  split; auto.
+  destruct H1.
+  - left. intros. 
+    unfold CHoare, Hoare in H.
+    specialize (H _ H2). forward_reason.
+    contradiction.
+  - right. forward_reason.
+    exists x0. unfold CHoare, Hoare in H. split.
+    + intros.
+      specialize (H _ H3). forward_reason.
+      eexists. split; try reflexivity.
+      auto.
+    + assumption.
+Qed.
