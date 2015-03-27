@@ -566,7 +566,7 @@ Qed.
 
 Lemma avarsagree_next : forall xs s1 s2 tr,
   eval_formula (AVarsAgree xs s2)
-               (Stream.Cons _ s1 (Stream.Cons _ s2 tr)).
+               (Stream.Cons s1 (Stream.Cons s2 tr)).
 Proof.
   induction xs; intros; simpl in *; auto;
   unfold eval_comp; auto.
@@ -620,10 +620,10 @@ Proof.
   deriv_ineq; intros; try solve_ineq;
   (instantiate (1:=pf1) || instantiate (1:=pf2));
   (rewrite Hterm1 || rewrite Hterm2); try solve_ineq;
-  try specialize (Hhyps (Stream.Cons _ (Stream.hd tr)
-                              (Stream.Cons _ (f t) (Stream.tl tr))) I);
+  try specialize (Hhyps (Stream.Cons (Stream.hd tr)
+                              (Stream.Cons (f t) (Stream.tl tr))) I);
   simpl in *; try apply next_formula_tl in Hhyps; auto;
-  try specialize (Hind (Stream.Cons _ (f t) (Stream.tl tr)) I); simpl in *;
+  try specialize (Hind (Stream.Cons (f t) (Stream.tl tr)) I); simpl in *;
   try specialize (Hind Hhyps); try solve_ineq;
   try (split;
         [ eapply st_formula_hd; eauto |

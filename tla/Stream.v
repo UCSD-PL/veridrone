@@ -3,6 +3,8 @@
 CoInductive stream (A:Type) :=
 | Cons : A -> stream A -> stream A.
 
+Arguments Stream.Cons {_} _ _.
+
 (* The head of a stream *)
 Definition hd {A} (s:stream A) : A :=
   match s with

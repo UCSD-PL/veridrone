@@ -11,6 +11,29 @@ Require Import TLA.Automation.
 
 (* Some useful tactics for our examples. *)
 
+Lemma reason_action : forall P Q,
+    (forall a b tr,
+        eval_formula
+          P
+          (Stream.Cons a
+                       (Stream.Cons b tr)) ->
+        eval_formula
+          Q (Stream.Cons a (Stream.Cons b tr))) ->
+    (P |-- Q).
+Proof.
+  red. red. red. intros. destruct tr.
+  destruct tr. auto.
+Qed.
+
+Ltac reason_action_tac :=
+  eapply reason_action; simpl;
+  let pre := fresh "pre" in
+  let post := fresh "post" in
+  let tr := fresh "tr" in
+  intros pre post tr;
+    breakAbstraction; simpl; unfold eval_comp;
+    simpl; intros.
+
 (* This solves linear real arithmetic goals.
    It should be complete. *)
 Ltac solve_linear :=

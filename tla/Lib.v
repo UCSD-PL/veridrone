@@ -19,6 +19,11 @@ Fixpoint Unchanged (xs:list Var) : Formula :=
       (x! = x) //\\ (Unchanged xs)
   end.
 
+(* Formula taking the maximum of two terms. *)
+Definition Max (a b : Term)
+           (c : Term -> Formula) : Formula :=
+  (a >= b -->> (c a)) //\\ (a <= b -->> c b).
+
 (* State formula expressing that the values of all
    variables in xs in the current state are equal
    to their value in st. *)
