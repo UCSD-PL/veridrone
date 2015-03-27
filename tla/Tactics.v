@@ -48,10 +48,10 @@ Ltac z3_prepare :=
   intros.
 
 Ltac z3_solve :=
-  z3_prepare; z3Tactic.
+  z3_prepare; z3 solve.
 
 Ltac z3_quick :=
-  z3_prepare; z3 quick solve.
+  z3_prepare; z3 solve.
 
 (* rewrites the values of variables in the next
    state into hypothesis and goals. *)

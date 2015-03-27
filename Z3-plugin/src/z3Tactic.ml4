@@ -200,8 +200,17 @@ struct
     ignore (Unix.close_process_in in_channel);
     Buffer.contents buffer
 
-
   let contrib_name = "z3-check"
+
+  let debug = ref false
+
+  let with_debugging f g =
+    let _ = debug := true in
+    let result = f g in
+    let _ = debug := false in
+    result
+
+  let debug f = if !debug then f () else ()
 
   let resolve_symbol (path : string list) (tm : string) : Term.constr =
     let re = Coqlib.find_reference contrib_name path tm in
@@ -266,66 +275,95 @@ struct
 
   let rec print_r_expr out e =
     match e with
-      RConst f -> Printf.fprintf out "%f" f
-    | Rplus (l,r) -> Printf.fprintf out "(+ %a %a)" print_r_expr l print_r_expr r
-    | Rminus (l,r) -> Printf.fprintf out "(- %a %a)" print_r_expr l print_r_expr r
-    | Rmult (l,r) -> Printf.fprintf out "(* %a %a)" print_r_expr l print_r_expr r
-    | Rdiv (l,r) -> Printf.fprintf out "(/ %a %a)" print_r_expr l print_r_expr r
-    | Ropp l -> Printf.fprintf out "(- 0 %a)" print_r_expr l
-    | Rinv l -> Printf.fprintf out "(/ 1 %a)" print_r_expr l
-    | Ropaque l -> Printf.fprintf out "x%d" l
+      RConst f -> Format.fprintf out "%f" f
+    | Rplus (l,r) -> Format.fprintf out "(+ %a %a)" print_r_expr l print_r_expr r
+    | Rminus (l,r) -> Format.fprintf out "(- %a %a)" print_r_expr l print_r_expr r
+    | Rmult (l,r) -> Format.fprintf out "(* %a %a)" print_r_expr l print_r_expr r
+    | Rdiv (l,r) -> Format.fprintf out "(/ %a %a)" print_r_expr l print_r_expr r
+    | Ropp l -> Format.fprintf out "(- 0 %a)" print_r_expr l
+    | Rinv l -> Format.fprintf out "(/ 1 %a)" print_r_expr l
+    | Ropaque l -> Format.fprintf out "x%d" l
 
   let rec print_r_prop out e =
     match e with
-      Rtrue -> Printf.fprintf out "true"
-    | Rfalse -> Printf.fprintf out "false"
-    | Rnot l -> Printf.fprintf out "(not %a)" print_r_prop l
-    | Popaque x -> Printf.fprintf out "x%d" x
-    | Rand (l,r) -> Printf.fprintf out "(and %a %a)" print_r_prop l print_r_prop r
-    | Ror (l,r) -> Printf.fprintf out "(or %a %a)" print_r_prop l print_r_prop r
-    | Rimpl (l,r) -> Printf.fprintf out "(=> %a %a)" print_r_prop l print_r_prop r
-    | Rle (l,r) -> Printf.fprintf out "(<= %a %a)" print_r_expr l print_r_expr r
-    | Rlt (l,r) -> Printf.fprintf out "(< %a %a)" print_r_expr l print_r_expr r
-    | Rge (l,r) -> Printf.fprintf out "(>= %a %a)" print_r_expr l print_r_expr r
-    | Rgt (l,r) -> Printf.fprintf out "(> %a %a)" print_r_expr l print_r_expr r
-    | Req (l,r) -> Printf.fprintf out "(= %a %a)" print_r_expr l print_r_expr r
+      Rtrue -> Format.fprintf out "true"
+    | Rfalse -> Format.fprintf out "false"
+    | Rnot l -> Format.fprintf out "(not %a)" print_r_prop l
+    | Popaque x -> Format.fprintf out "x%d" x
+    | Rand (l,r) -> Format.fprintf out "(and %a %a)" print_r_prop l print_r_prop r
+    | Ror (l,r) -> Format.fprintf out "(or %a %a)" print_r_prop l print_r_prop r
+    | Rimpl (l,r) -> Format.fprintf out "(=> %a %a)" print_r_prop l print_r_prop r
+    | Rle (l,r) -> Format.fprintf out "(<= %a %a)" print_r_expr l print_r_expr r
+    | Rlt (l,r) -> Format.fprintf out "(< %a %a)" print_r_expr l print_r_expr r
+    | Rge (l,r) -> Format.fprintf out "(>= %a %a)" print_r_expr l print_r_expr r
+    | Rgt (l,r) -> Format.fprintf out "(> %a %a)" print_r_expr l print_r_expr r
+    | Req (l,r) -> Format.fprintf out "(= %a %a)" print_r_expr l print_r_expr r
 
   let conclusion_name = "__CONCLUSION__"
 
   let print_identifier out id =
-    Printf.fprintf out "%s" (Names.string_of_id id)
+    Format.fprintf out "%s" (Names.string_of_id id)
 
   let print_r_assert out (nm,e) =
-    Printf.fprintf out "(assert (! %a :named %a))" print_r_prop e print_identifier nm
+    Format.fprintf out "(assert (! %a :named %a))" print_r_prop e print_identifier nm
 
   let print_type out t =
     match t with
-      Prop -> Printf.fprintf out "Bool"
-    | R -> Printf.fprintf out "Real"
+      Prop -> Format.fprintf out "Bool"
+    | R -> Format.fprintf out "Real"
 
-  let pr_list pr out ls =
-    List.iter (Printf.fprintf out "%a" pr) ls
+  let pr_list sep pr =
+    let rec pr_list out ls =
+      match ls with
+	[] -> ()
+      | [l] -> Format.fprintf out "%a" pr l
+      | l :: ls -> Format.fprintf out "%a%s%a" pr l sep pr_list ls
+    in
+    pr_list
 
-  let pr_decls (out : out_channel) =
-    Cmap.iter (fun _ (k,v) -> Printf.fprintf out "(declare-const x%d %a)" k print_type v)
+  let pr_decls out =
+    Cmap.iter (fun _ (k,v) -> Format.fprintf out "(declare-const x%d %a)" k print_type v)
 
-  let write_problem (out : out_channel) tbl stmts =
-    Printf.fprintf out "%a" pr_decls tbl ;
-    Printf.fprintf out "%a" (pr_list print_r_assert) stmts
+  let pr_smt2 (sep : string) out (tbl, stmts) =
+    Format.fprintf out "%a%a"
+		   pr_decls tbl
+		   (pr_list sep print_r_assert) stmts
 
-  let ptrn_success = Str.regexp "^unsat\n(\([^)]+\))"
-  let ptrn_failure = Str.regexp "^sat"
+  let ptrn_success = Str.regexp "^unsat\n(\([^)]*\))"
+  let ptrn_failure = Str.regexp "^sat\n(\([^)]*\))"
   let ptrn_split = Str.regexp " "
 
+  let ptrn_def = Str.regexp "(define-fun x\([0-9]+\) () Real[ \n\r\t]+\([0-9\.]+\))"
+
+  type z3_result =
+      Sat of (int * float) list
+    | Unsat of Names.identifier list
+
+
+  let rec extract_model start result =
+    debug (fun _ -> Printf.eprintf "extract model: %s\n" (String.sub result start (String.length result - start))) ;
+    try
+      let _ = Str.search_forward ptrn_def result start in
+      let num = int_of_string (Str.matched_group 1 result) in
+      let value = float_of_string (Str.matched_group 2 result) in
+      (num, value) :: extract_model (Str.match_end ()) result
+    with
+      Not_found -> []
+
   let parse_Z3_result result =
+    let _ =
+      debug (fun _ ->
+	     Pp.msg_debug (Pp.str ("Z3 output\n" ^ result)))
+    in
     if Str.string_partial_match ptrn_success result 0 then
       let lst = Str.matched_group 1 result in
-      Some (List.map Names.id_of_string (Str.split ptrn_split lst))
+      Unsat (List.map Names.id_of_string (Str.split ptrn_split lst))
     else
       if Str.string_match ptrn_failure result 0 then
-	None
+	let start = 1 + Str.group_end 1 in
+	Sat (extract_model start result)
       else
-	let _ = Printf.eprintf "Bad Z3 output:\n%s" result in
+	let _ = Format.eprintf "Bad Z3 output:\n%s" result in
 	assert false
 
   let runZ3 tbl stmts =
@@ -333,13 +371,15 @@ struct
     let out = open_out file in
     let _ =
       begin
-	fprintf out "(set-option :produce-unsat-cores true)\n" ;
-	write_problem out tbl stmts ;
-	fprintf out "(check-sat)\n(get-unsat-core)" ;
+	let fmt = Format.formatter_of_out_channel out in
+	Format.fprintf fmt "(set-option :produce-unsat-cores true)\n" ;
+	Format.fprintf fmt "(set-option :produce-models true)\n" ;
+	Format.fprintf fmt "%a" (pr_smt2 "") (tbl, stmts) ;
+	Format.fprintf fmt "(check-sat)\n(get-unsat-core)\n(get-model)" ;
 	close_out out
       end
     in
-    let command = Printf.sprintf "z3 -smt2 -- %s" file  in
+    let command = Format.sprintf "z3 -smt2 -- %s" file  in
     parse_Z3_result (read_process command)
 
   let parse_uop recur constr op =
@@ -409,40 +449,76 @@ struct
 	   end)
       ]
 
-  let maybe_parse tbl (name, decl, trm) =
-    try
-      let (p,tbl) = parse_prop tbl trm in
-      Some (tbl, (name, p))
-    with
-      Term_match.Match_failure -> None
+  let pp_list (pp : 'a -> Pp.std_ppcmds) (pp_sep : unit -> Pp.std_ppcmds) =
+    let rec pp_list (ls : 'a list) : Pp.std_ppcmds =
+      match ls with
+	[] -> Pp.spc ()
+      | [x] -> pp x
+      | x :: xs -> Pp.(++) (pp x)  (Pp.(++) (pp_sep ()) (pp_list xs))
+    in
+    pp_list
 
-  let rec pr_unsat_core ls =
-    match ls with
-      [] -> Pp.spc ()
-    | [x] -> Ppconstr.pr_id x
-    | x :: xs -> Pp.(++) (Ppconstr.pr_id x)
-			 (Pp.(++) (Pp.spc ()) (pr_unsat_core xs))
+  let pr_unsat_core ls =
+    pp_list Ppconstr.pr_id Pp.spc ls
+
+  let pr_model tbl =
+    let rec find x =
+      match Cmap.fold (fun k (v,_) acc -> if v = x then Some k else acc) tbl None with
+	None -> assert false
+      | Some x -> x
+    in
+    let pp_assign (x,v) =
+      Pp.(++) (Printer.pr_constr (find x)) (str (Printf.sprintf " = %f" v))
+    in
+    pp_list pp_assign (fun _ -> Pp.str "\n")
+
+  let maybe_parse check tbl (name, decl, trm) =
+    if check trm then
+      try
+	let (p,tbl) = parse_prop tbl trm in
+	Some (tbl, (name, p))
+      with
+	Term_match.Match_failure -> None
+    else
+      None
 
   let z3Tactic quick gl =
     let goal = Tacmach.pf_concl gl in
     let hyps = Tacmach.pf_hyps gl in
 
+    let is_prop p =
+      Term.eq_constr (Tacmach.pf_type_of gl p) Term.mkProp
+    in
+
     let tbl = Cmap.empty in
-    match maybe_parse tbl (Names.id_of_string conclusion_name, None, goal) with
+    match maybe_parse (fun _ -> true) tbl
+		      (Names.id_of_string conclusion_name, None, goal)
+    with
       None ->
       Tacticals.tclFAIL 0 (Pp.str "z3 plugin failed to parse goal") gl
     | Some (tbl, (name, concl)) ->
        let acc = (tbl, [(name, Rnot concl)]) in
        let (tbl,hyps) =
 	 List.fold_left (fun (tbl,acc) t ->
-			 match maybe_parse tbl t with
+			 match maybe_parse is_prop tbl t with
 			   None -> (tbl, acc)
 			 | Some (tbl, hyp) -> (tbl, hyp::acc)) acc hyps
        in
+       let _ =
+	 debug (fun _ ->
+		let _ = Format.fprintf Format.str_formatter "%a" (pr_smt2 "\n") (tbl,hyps) in
+		let msg = Format.flush_str_formatter () in
+		Pp.msg_debug (Pp.str msg))
+       in
        match runZ3 tbl hyps with
-         None ->
-	 Tacticals.tclFAIL 0 (Pp.str "z3 failed to solve the goal") gl
-       | Some core ->
+         Sat model ->
+	 Printf.eprintf "%d" (List.length model) ;
+	 let msg =
+	   Pp.(++) (Pp.str "z3 failed to solve the goal.\n")
+		   (pr_model tbl model)
+	 in
+	 Tacticals.tclFAIL 0 msg gl
+       | Unsat core ->
 	  let msg =
 	    Pp.(++) (Pp.str "z3 solved the goal using only")
 		    (Pp.(++) (Pp.spc ()) (pr_unsat_core core))
@@ -452,8 +528,13 @@ struct
 end
 
 TACTIC EXTEND z3_tac
-  | ["z3Tactic"] ->     [Z3Tactic.z3Tactic false]
+  | ["z3" "solve"]     ->     [Z3Tactic.z3Tactic false]
 END;;
+
+TACTIC EXTEND z3_tac_dbg
+  | ["z3" "solve_dbg"] ->     [Z3Tactic.with_debugging (Z3Tactic.z3Tactic false)]
+END;;
+
 
 TACTIC EXTEND z3_tac_quick
   | ["z3" "quick" "solve"] -> [Z3Tactic.z3Tactic true]
