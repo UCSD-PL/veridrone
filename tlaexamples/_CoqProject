@@ -13,6 +13,7 @@ FirstDerivShim.v
 SecondDerivShimCtrl.v
 SecondDerivUtil.v
 SensorWithDelayRangeSndOrder.v
+SecondDerivShim.v
 
 # AbstractIndAccCtrl.v
 # OneDimAccShimUtil.v
