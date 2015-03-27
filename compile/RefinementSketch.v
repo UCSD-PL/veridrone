@@ -1346,11 +1346,7 @@ Proof.
   { apply FailR_pre. }
 Qed.
 
-(* Function for embedding state transformers expressed in Gallina into TLA
-   Need to deal with the mismatch between state and Syntax.state... *)
-
-Print state.
-
+(* Function for embedding Coq relations into TLA *)
 Definition embed_coq_rel : _ -> _ -> (state -> option state -> Prop) -> Syntax.Formula :=
   oembedStep_maybenone nat (state -> option state -> Prop) state
                        (fun st p st' => p st st')%type
@@ -1359,7 +1355,6 @@ Definition embed_coq_rel : _ -> _ -> (state -> option state -> Prop) -> Syntax.F
 
 (* The correctness lemma that we ultimately want to prove will look
    something like this *)
-
 Lemma hoare_embed :
   forall P c Q vs1 vs2,
     CHoare P c Q ->
@@ -1386,3 +1381,133 @@ Proof.
       auto.
     + assumption.
 Qed.
+
+(***********************************************************************)
+(* Next, we repeat this process for a language that operates on floats *)
+(***********************************************************************)
+Require Import source.
+
+Definition statef : Type := nat -> option float.
+
+Inductive fexpr :=
+| FVar : nat -> fexpr
+| FConst : source.float -> fexpr
+| FPlus : fexpr -> fexpr -> fexpr
+. (* TODO do we need FNone? *)
+
+Locate Bplus.
+
+Locate mode_NE.
+
+Definition fplus : source.float -> source.float -> source.float :=
+  Fappli_IEEE.Bplus custom_prec custom_emax custom_precGt0
+                    custom_precLtEmax custom_nan Fappli_IEEE.mode_NE.
+
+Fixpoint fexprD (fx : fexpr) (sf : statef) : option source.float :=
+  match fx with
+    | FVar n        => sf n
+    | FConst f      => Some f
+    | FPlus fx1 fx2 =>
+      match fexprD fx1 sf, fexprD fx2 sf with
+        | Some f1, Some f2 => Some (fplus f1 f2)
+        | _, _             => None
+      end
+  end.
+
+Print cmd.
+
+Inductive fcmd : Type :=
+| FSeq   : fcmd -> fcmd -> fcmd
+| FSkip  : fcmd
+| FAsn   : nat -> fexpr -> fcmd
+| FIte   : fexpr -> fcmd -> fcmd -> fcmd
+| FHavoc : nat -> fcmd
+| FFail  : fcmd
+.
+
+Definition fzero := Eval compute in (nat_to_float 0).
+
+Inductive feval : statef -> fcmd -> option statef -> Prop :=
+| FESkip : forall s, feval s FSkip (Some s)
+| FESeqS : forall s s' os'' a b,
+    feval s a (Some s') ->
+    feval s' b os'' ->
+    feval s (FSeq a b) os''
+| FESeqN : forall s a b,
+    feval s a None ->
+    feval s (FSeq a b) None
+| FEAsnS : forall s v e val,
+    fexprD e s = Some val ->
+    feval s (FAsn v e) (Some (update s v (Some val)))
+| FEAsnN : forall s v e,
+    fexprD e s = None ->
+    feval s (FAsn v e) None
+| FEIteT :
+    forall s os' ex c1 c2,
+      fexprD ex s = Some fzero ->
+      feval s c1 os' ->
+      feval s (FIte ex c1 c2) os'
+| FEIteF:
+    forall s os' ex c1 c2 f,
+      fexprD ex s = Some f ->
+      f <> fzero ->
+      feval s c2 os' ->
+      feval s (FIte ex c1 c2) os'
+| FEIteN :
+    forall s ex c1 c2,
+      fexprD ex s = None ->
+      feval s (FIte ex c1 c2) None
+| FEHavoc : forall s v val,
+      feval s (FHavoc v) (Some (update s v (Some val)))
+| FEFail : forall s, feval s FFail None
+.
+
+(* Embedding function for our new language *)
+Definition oembed_fcmd : _ -> _ -> fcmd -> Syntax.Formula :=
+  oembedStep_maybenone nat fcmd statef
+                       feval
+                       (fun st v => 
+                          match st v with
+                            | Some f => Some (FloatToR f)
+                            | None => None
+                          end).
+                                             
+(* Hoare instantiated with what we need for fcmd language *)
+Definition FHoare := Hoare fcmd statef feval.
+
+Require Import bound.
+Check bound_term.
+
+(* Hack to calculate bounds for expressions *)
+Print fexpr.
+Print NowTerm.
+SearchAbout NowTerm.
+Print eval_NowTerm.
+
+Fixpoint fexpr_to_NowTerm (fx : fexpr) (sf : statef) : NowTerm :=
+  match fx with
+    | FVar n   => FloatN (sf n)
+    | FConst f => FloatN f
+    | FPlus fx1 fx2 =>
+      PlusN (fexpr_to_NowTerm fx1 sf) (fexpr_to_NowTerm fx2 sf)
+  end.
+
+(* Weakest-precondition calcluation function for fcmd language *)
+Fixpoint fwp (c : fcmd) (P : statef -> Prop) : statef -> Prop :=
+  match c with
+  | FSkip => P
+  | FSeq c1 c2 => fwp c1 (fwp c2 P)
+  | FAsn v e => (fun s =>
+                 exists val, fexprD e s = Some val /\
+                             let s' := update s v (Some val) in
+                             P s')%type
+  | FFail => fun s => False
+  | FHavoc v => fun s => False
+  | FIte ex c1 c2 => (fun s =>
+                       (fexprD ex s = Some fzero /\ fwp c1 P s) \/
+                       (exists (f : source.float), f <> fzero /\
+                                                   fexprD ex s = Some f /\
+                                                   fwp c2 P s))%type
+  end. 
+
+Print NowTerm.
