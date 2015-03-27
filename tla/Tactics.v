@@ -45,15 +45,7 @@ Ltac R_simplify :=
    moment, you have to look in the *coq*
    buffer for the output. *)
 Ltac z3_prepare :=
-  intros;
-  repeat match goal with
-           | H : @eq R _ _ |- _ => revert H
-           | H : @Rle _ _ |- _ => revert H
-           | H : @Rge _ _ |- _ => revert H
-           | H : @Rlt _ _ |- _ => revert H
-           | H :@ Rgt _ _ |- _ => revert H
-           | H : @Rge _ _ |- _ => revert H
-         end.
+  intros.
 
 Ltac z3_solve :=
   z3_prepare; z3Tactic.

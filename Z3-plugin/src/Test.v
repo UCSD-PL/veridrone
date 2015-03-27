@@ -186,15 +186,6 @@ Definition Ind1:Formula := ("t" <= (8%R)).
 Lemma ind_inv_init : |- Init1 --> Ind1.
 simpl  in *. intros. Check hd. unfold eval_comp in *.
 simpl in *. decompose [and] H.
-repeat match goal with
-            | H : @eq R _ _ |- _ => revert H
-            | H : @Rle _ _ |- _ => revert H
-            | H : @Rge _ _ |- _ => revert H
-            | H : @Rlt _ _ |- _ => revert H
-            | H :@ Rgt _ _ |- _ => revert H
-            | H : @Rge _ _ |- _ => revert H
-           end.
-
 z3Tactic.
 Require Import Coq.micromega.Psatz.
 psatz R.

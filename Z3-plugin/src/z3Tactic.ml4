@@ -8,415 +8,453 @@ open Printf
 open Unix
 open Errors
 
-let debug_flag = ref false
+module type TM =
+sig
+  type ('a,'b,'c) pattern =
+    | Glob of Term.constr Lazy.t
+    | EGlob of Term.constr
+    | App of ('a,'b,'c) pattern * ('a,'b,'c) pattern
+    | Lam of 'b * ('a,'b,'c) pattern * ('a,'b,'c) pattern
+    | As of ('a,'b,'c) pattern * 'a
+    | Ref of 'b
+    | Choice of (('a,'b,'c) pattern) list
+    | Impl of ('a,'b,'c) pattern * ('a,'b,'c) pattern
+    | Pi of ('a,'b,'c) pattern * ('a,'b,'c) pattern
+    | Ignore
+    | Filter of ('c -> Term.constr -> bool) * ('a,'b,'c) pattern
 
-let dbg_print x = if !debug_flag then Printf.printf "%s" (Lazy.force x) else ()
+  exception Match_failure
 
-let read_process command =
-  let buffer_size = 2048 in
-  let buffer = Buffer.create buffer_size in
-  let string = String.create buffer_size in
-  let in_channel = Unix.open_process_in command in
-  let chars_read = ref 1 in
-  while !chars_read <> 0 do
-    chars_read := input in_channel string 0 buffer_size;
-    Buffer.add_substring buffer string 0 !chars_read
-  done;
-  ignore (Unix.close_process_in in_channel);
-  Buffer.contents buffer
+  val apps : ('a,'b,'c) pattern -> ('a,'b,'c) pattern list -> ('a,'b,'c) pattern
 
+  val get : 'a -> ('a,'b,'c) pattern
 
-let pp_constr fmt x = Pp.pp_with fmt (Printer.pr_constr x)
+  val match_pattern : ('a,'b,'c) pattern -> Term.constr -> 'c -> ('a,Term.constr) Hashtbl.t -> ('a,Term.constr) Hashtbl.t
 
+  val matches : 'a -> (('b,'d,'a) pattern * ('a -> ('b, Term.constr) Hashtbl.t -> 'c)) list -> Term.constr -> 'c
 
-type validOperation = ValidOp of string | InvalidOp
-let mapOperator op =
-  match op with
-  | "Rle" -> ValidOp "<="
-  | "Rlt"  -> ValidOp "<"
-  | "Rgt" -> ValidOp ">"
-  | "Rge"  -> ValidOp ">="
-  | "Rmult" -> ValidOp "*"
-  | "Rplus" -> ValidOp "+"
-  | "Rminus" -> ValidOp "-"
-  | "eq" -> ValidOp "="
-  | "Rinv" -> ValidOp "/ 1"
-  | "Ropp" -> ValidOp "- 0"
-  | x -> InvalidOp
-
-type validity = Valid | Invalid | Maybe
-
-let validityCheck op =
-  match op with
-  | "Rle" -> Valid
-  | "Rlt"  -> Valid
-  | "Rgt" -> Valid
-  | "Rge"  -> Valid
-  | "Rmult" -> Valid
-  | "Rplus" -> Valid
-  | "Rminus" -> Valid
-  | "eq"  -> Maybe
-  | "Rinv" -> Valid
-  | "Ropp" -> Valid
-  | _ -> Invalid
-
-class ['a] assertion  (isgoal:bool) (assertionStmt:'a) (assertionName:string) =
-object (self)
-  val mutable isGoal = isgoal
-  val mutable assertion = assertionStmt
-  val mutable translatedAssertion = ""
-  val mutable name = assertionName
-  method getName = name
-  method getStmt = assertion
-  method getisGoal = isGoal
-  method setTranslatedAssertion (translatedStmt:string) = translatedAssertion <- translatedStmt
-  method getTranslatedAssertion = translatedAssertion
+  val matches_app : 'a -> (('b,'d,'a) pattern * ('a -> ('b, Term.constr) Hashtbl.t -> 'c)) list -> Term.constr -> Term.constr array -> int -> 'c
 end
 
-class ['a] hashTable size =
-object (self)
-  val mutable htbl = Hashtbl.create size
-  val mutable revhtbl = Hashtbl.create size
-  val mutable noOfVar = 0
-  method private incrementNoOfVar = noOfVar <- noOfVar + 1
-  method getReverseHashTable = revhtbl
-  method getHashTable = htbl
-  method getMapping (var:'a) =
-    try
-      Hashtbl.find htbl var
-    with Not_found ->
-      self#incrementNoOfVar;
-      let mappedVar = "x" ^ (string_of_int noOfVar) in
-      Hashtbl.add htbl var mappedVar;
-      Hashtbl.add revhtbl mappedVar var;
-      mappedVar
-  method exists (var : 'a) =
-    try
-      let _ = Hashtbl.find htbl var in
-      true
-    with Not_found ->
-      false
-end
+module Term_match : TM =
+struct
+  type ('a,'b,'c) pattern =
+    | Glob of Term.constr Lazy.t
+    | EGlob of Term.constr
+    | App of ('a,'b,'c) pattern * ('a,'b,'c) pattern
+    | Lam of 'b * ('a,'b,'c) pattern * ('a,'b,'c) pattern
+    | As of ('a,'b,'c) pattern * 'a
+    | Ref of 'b
+    | Choice of (('a,'b,'c) pattern) list
+    | Impl of ('a,'b,'c) pattern * ('a,'b,'c) pattern
+    | Pi of ('a,'b,'c) pattern * ('a,'b,'c) pattern
+    | Ignore
+    | Filter of ('c -> Term.constr -> bool) * ('a,'b,'c) pattern
 
-let declStmt var = "(declare-const " :: (var :: ( " Real)"  ::  []) )
+  exception Match_failure
 
+  let rec apps f ls =
+    match ls with
+      [] -> f
+    | l :: ls ->
+       apps (App (f,l)) ls
 
-let getDeclStmtForVariable var varMapping =  declStmt var
-
-let rec getIndividualAssertions goal =
-  match Term.kind_of_term goal with
-  | Term.Prod (n,b,t) -> b :: (getIndividualAssertions t)
-  | _ -> [goal]
-
-let rec getHypothesisAssertions goal =
-  match Term.kind_of_term goal with
-  | Term.Prod (n,b,t) ->
-     begin
-       match n with
-       |Names.Name id ->
-	 let hypName = string_of_id id in
-	 ((new assertion false b hypName) :: getHypothesisAssertions t)
-       | Names.Anonymous ->
-	  (new assertion false b "unknown") :: getHypothesisAssertions t
-     end
-  | _ ->                          []
-
-let rec getGoalAssertion goal =
-  match Term.kind_of_term goal with
-  | Term.Prod (n,b,t) -> getGoalAssertion t
-  | _ -> new assertion true goal "G"
+  let get x =
+    As (Ignore, x)
 
 
-let rec getZ3Statements t varMapping cnt isReal =
-  match Term.kind_of_term t with
-  | Term.Const const ->
-     begin
-       match isReal with
-       | true ->      (*not happy doing this. real hacky. checking if its a real number or an operation or a parameter. would ideally want to break down the ast further. could not do so since the type constructors are not exposed outside*)
-	  let formatStr = Format.asprintf "%a" pp_constr t in
-	  begin
-	    match formatStr with
-	    | "0%R" -> ([],["0"])
-            | "1%R" -> ([],["1"])
-	    |  _ ->
-		begin
-		  match mapOperator formatStr with
-		  | ValidOp op -> (match formatStr with
-				   | _ ->		([],[op])
-				  )
-		  | InvalidOp ->
-		     (
-                       match varMapping#exists formatStr with
-   		       | false  ->  let mappedVar = varMapping#getMapping (formatStr) in
-                           	    ((getDeclStmtForVariable mappedVar varMapping),[mappedVar])
-                       | true ->  let mappedVar = varMapping#getMapping (formatStr) in
-		                  ([],[mappedVar])
-               	     )
-		end
-	  end
-       | false ->
-	  ([],[])
-     end
-  | Term.App (fst,snd) ->
-     let str = Format.asprintf "%a" pp_constr fst in
-     begin
-       match validityCheck str with
-       | Invalid   ->
-	  begin
-	    match isReal with
-	    | true ->
-	       let formatTy = Format.asprintf "%a" pp_constr t in
-	       begin
-	         match varMapping#exists formatTy with
-        	 | false  ->
-		    let mappedVar = varMapping#getMapping formatTy in
-		    let _ = dbg_print (lazy (Format.asprintf "var %s %s " mappedVar formatTy))  in
-                    ((getDeclStmtForVariable mappedVar varMapping),[mappedVar])
-                 | true ->  let mappedVar = varMapping#getMapping formatTy in
-                            ([],[mappedVar])
-               end
-	    (* [formatTy]*)
-	    | false ->
-	       ([],[])
-	  end
-       | Maybe     ->
-	  (match Term.kind_of_term snd.(0) with
-	   | Term.Const const ->
-	      let formatStr = Format.asprintf "%a" pp_constr snd.(0) in
-	      (match formatStr with
-	       | "R" ->
-		  let declList = ref [] in
-		  let listStr = ref ["("] in
-		  let op = mapOperator str in
-		  (match op with
-		   | ValidOp op ->
-
-		      let (declStmt,stmt) = ([],[op]) in
-		      listStr := List.append !listStr stmt;
-		      declList := List.append !declList declStmt;
-		      for i =1 to ((Array.length snd)-1) do
-			let val_i = snd.(i) in
-			let (declStmt, stmt) = (getZ3Statements val_i varMapping (cnt+1) true) in
-			listStr := List.append !listStr stmt;
-			declList := List.append !declList declStmt
-		      done;
-		      listStr := List.append !listStr [")"];
-		      (!declList,!listStr)
-		   | InvalidOp ->  let _ = Format.printf "Something unexpected is happening" in
-				   ([],[])
-		  )
-	       | _  -> ([],[]))
-           | _ -> ([],[]) )
-       | Valid     ->
-	  let listStr = ref ["("] in
-	  let declList = ref [] in
-	  let (declStmt,stmt) =  getZ3Statements fst varMapping (cnt+1) true   in
-	  listStr := List.append !listStr stmt;
-	  declList := List.append !declList declStmt;
-	  for i = 0 to ((Array.length snd)-1) do
-	    let 	val_i = snd.(i) in
-	    let (declStmt,stmt) = (getZ3Statements val_i varMapping (cnt+1) true) in
-	    listStr := List.append !listStr stmt;
-	    declList := List.append !declList declStmt
-	  done;
-	  listStr := List.append !listStr [")"] ;
-	  (!declList,!listStr)
-     end
-  | Term.Var var->
-     begin
-       match isReal with
-       | true ->	let str = Names.string_of_id var in
-			let _ = dbg_print (lazy (Format.asprintf "variable %s" str)) in
-			(
-			  match varMapping#exists (Names.string_of_id var) with
-			  | false  ->  let mappedVar = varMapping#getMapping (Names.string_of_id var) in
-				       ((getDeclStmtForVariable mappedVar varMapping),[mappedVar])
-			  | true ->  let mappedVar = varMapping#getMapping (Names.string_of_id var) in
-				     ([],[mappedVar])
-			)
-       (*	([],[(Names.string_of_id var)]) *)
-       | false ->
-	  ([],[])
-     end
-  | _ ->  let _ = Format.printf "UNKNOWN REPRESENTATION" in ([],[])
-
-
-let getZ3Representation ty varMapping mapOpposite=
-  let z3Stmts = getZ3Statements ty varMapping 0 false in
-  (match z3Stmts with
-   | ([],[]) -> ""
-   | (declStmts,stmts) ->
-      let assertStmt =
-	(match mapOpposite with
-	 | true ->  List.append (List.append ["(assert (not "] stmts) ["))"]
-	 | false -> List.append (List.append ["(assert "] stmts) [")"]
-	) in
-      let allStmts = (List.append declStmts assertStmt) in
-      String.concat " " allStmts)
-
-let addToList a lst = a :: lst
-let rec getAllSubsets lst =
-  match lst with
-  | fst :: snd ->
-     (
-       match snd with
-       | []  -> [[fst]]
-       | _ ->
-	  let subsets =  (getAllSubsets snd) in
-	  let mapList = (List.map (addToList fst) subsets) in
-	  List.append ([fst] :: mapList) subsets
-     )
-  |  []    ->        [[]]
-
-let listCmp lst1 lst2 =
-  if (List.length lst1) < (List.length lst2)
-  then -1
-  else 1
-
-
-let rec translateHypothesisAssertions assertions varMapping =   match assertions with
-								| a :: b ->
-									   let _ = a#setTranslatedAssertion (getZ3Representation a#getStmt varMapping false) in
-							        	   a :: (translateHypothesisAssertions b varMapping)
-							        | _  -> []
-let rec translateGoalAssertion assertion varMapping =  let _ = assertion#setTranslatedAssertion (getZ3Representation assertion#getStmt varMapping true) in
-						 	assertion
-
-
-let getAllSubsetsOfHypothesisAssertions goal =
-								let assertions = getHypothesisAssertions goal in
-								let assertionsSubset = getAllSubsets assertions in
-								assertionsSubset
-
-
-let contains s1 s2 =
-    let re = Str.regexp_string s2
-    in
-        try ignore (Str.search_forward re s1 0); true
-        with Not_found -> false
-
-let runZ3 finalZ3Stmts =
-
-  let file = "/tmp/z3.txt" in
-  let oc = open_out file in
-  let _ = fprintf oc "%s\n" finalZ3Stmts in
-  let _ = close_out oc in
-  let command = String.concat "" ["z3 -smt2 " ; file ]  in
-(*
-  let _ = Format.printf "Z3 Statements : %s\n" finalZ3Stmts in
-  let _ = Format.printf "COMMAND  : %s\n" command  in
-*)
-  let z3Output = read_process command in
-  z3Output
-
-let solveUsingZ3 assertions goal =
-  let z3Stmts =
-    let assertionStmts = List.map (fun stmt -> stmt#getTranslatedAssertion )  assertions in
-    let goalStmt = [goal#getTranslatedAssertion] in
-    String.concat " " (List.append (List.append assertionStmts goalStmt) ["(check-sat) "; "(get-model)"] ) in
-  let z3Output = (runZ3 z3Stmts) in
-  z3Output
-
-
-let findTheSmallestSubsetGoalSolver goal =
-  let hypothesisAssertionSubsets = getAllSubsetsOfHypothesisAssertions goal in
-  let sortedHypothesisAssertionSubsets =  List.sort listCmp hypothesisAssertionSubsets in
-  let translatedSortedHypoAssertionSubsets = List.map (fun hypoAssertions ->
-
-    let ht = new hashTable 100 in
-    let assertions = (translateHypothesisAssertions hypoAssertions ht) in
-    (assertions,ht))
-    sortedHypothesisAssertionSubsets in
-  let goalAssertion = getGoalAssertion goal in
-  let (isSolvable,output,solHt) = List.fold_left (fun b hypoAssertions->
-    (
-      match b with
-      | (false,_,_)->
-	let (assertions,ht) = hypoAssertions in
-	let _ = (translateGoalAssertion goalAssertion ht) in
-	let z3Output = (solveUsingZ3 assertions goalAssertion) in
-	if contains z3Output "unsat" then
-	  let assertionNames =List.map (fun assertion -> assertion#getName) assertions in
-	  (true,String.concat " " assertionNames,ht) else (false,z3Output,ht)
-      | (true,_,_) ->
-	b
-    ) ) (false,"",new hashTable 100) translatedSortedHypoAssertionSubsets in
-
-  let hashMappings = Hashtbl.fold (fun key value str ->
-				   String.concat
-                                     ""
-				     [str;"\n";"key : "; key ; ","
-				    ; "value : "; value ; "\n"]
-				  ) solHt#getReverseHashTable "" in
-  (isSolvable,
-   if isSolvable then
-     String.concat " "  ["Solvable : "; output ; hashMappings]
-   else
-     String.concat " " [output ; hashMappings])
-
-
-let quick_solve goal =
-  let hypothesisAssertionSubsets = [getHypothesisAssertions goal] in
-  let sortedHypothesisAssertionSubsets =  List.sort listCmp hypothesisAssertionSubsets in
-  let translatedSortedHypoAssertionSubsets = List.map (fun hypoAssertions ->
-
-    let ht = new hashTable 100 in
-    let assertions = (translateHypothesisAssertions hypoAssertions ht) in
-    (assertions,ht))
-    sortedHypothesisAssertionSubsets in
-  let goalAssertion = getGoalAssertion goal in
-  let (isSolvable,output,solHt) = List.fold_left (fun b hypoAssertions->
-    (
-      match b with
-      | (false,_,_)->
-	let (assertions,ht) = hypoAssertions in
-	let _ = (translateGoalAssertion goalAssertion ht) in
-	let z3Output = (solveUsingZ3 assertions goalAssertion) in
-	if contains z3Output "unsat" then
-	  let assertionNames =List.map (fun assertion -> assertion#getName) assertions in
-	  (true,String.concat " " assertionNames,ht) else (false,z3Output,ht)
-      | (true,_,_) ->
-	b
-    ) ) (false,"",new hashTable 100) translatedSortedHypoAssertionSubsets in
-
-  let hashMappings = Hashtbl.fold (fun key value str -> (String.concat
-                                                           "" [str;"\n";"key : "; key ; "," ; "value : "; value ; "\n"]) ) solHt#getReverseHashTable "" in
-  (isSolvable
-  , if isSolvable = true then
-      String.concat " "  ["Solvable : "; output ; hashMappings]
+  (** NOTE: This function does not clear writes by failed choices **)
+  let rec match_pattern p e ctx s =
+    match p with
+    | Ignore -> s
+    | Glob name ->
+       begin
+	 if Term.eq_constr (Lazy.force name) e
+	 then
+	   s
+	 else
+	   raise Match_failure
+       end
+    | EGlob name ->
+       begin
+	 if Term.eq_constr name e
+	 then
+	   s
+	 else
+	   raise Match_failure
+       end
+    | Filter (f, p) ->
+       if f ctx e then match_pattern p e ctx s else raise Match_failure
+    | Choice pl ->
+       begin
+	 let rec try_each pl =
+	   match pl with
+	     [] -> raise Match_failure
+	   | p :: pl ->
+	      try
+		match_pattern p e ctx s
+	      with
+		Match_failure -> try_each pl
+	 in try_each pl
+       end
+    | App _ ->
+       begin
+	 match Term.kind_of_term e with
+	 | Term.App (f, args) ->
+	    match_app f args (Array.length args - 1) p ctx s
+	 | _ -> raise Match_failure
+       end
+    | Lam (nm, pty, pbody) ->
+       begin
+	 match Term.kind_of_term e with
+	 | Term.Lambda (n, t, c) ->
+	    let _ = match_pattern pty t ctx s in
+	    match_pattern pbody c ctx s
+	 | _ -> raise Match_failure
+       end
+    | As (ptrn, nm) ->
+       begin
+	 let res = match_pattern ptrn e ctx s in
+	 let _ = Hashtbl.add res nm e in
+	 res
+       end
+    | Impl (l,r) ->
+       begin
+	 match Term.kind_of_term e with
+	   Term.Prod (_, lhs, rhs) ->
+	   if Term.noccurn 1 rhs then
+	     let _ = match_pattern l lhs ctx s in
+	     match_pattern r rhs ctx s
+	   else
+	     raise Match_failure
+	 | _ -> raise Match_failure
+       end
+    | Pi (l,r) ->
+       begin
+	 match Term.kind_of_term e with
+	   Term.Prod (_, lhs, rhs) ->
+	   let _ = match_pattern l lhs ctx s in
+	   match_pattern r rhs ctx s
+	 | _ -> raise Match_failure
+       end
+    | Ref n ->
+       assert false
+  and match_app f args i p ctx s =
+    if i < 0
+    then match_pattern p f ctx s
     else
-      String.concat " " [output ; hashMappings])
+      match p with
+	App (fp , arg_p) ->
+	let s = match_app f args (i - 1) fp ctx s in
+	match_pattern arg_p args.(i) ctx s
+      | _ ->
+	 match_pattern p (Term.mkApp (f, Array.sub args 0 (i + 1))) ctx s
+
+  let matches gl ls e =
+    let x = Hashtbl.create 5 in
+    let rec recur ls =
+      match ls with
+      | [] -> raise Match_failure
+      | (p,f) :: ls ->
+	 try
+	   f gl (match_pattern p e gl x)
+	 with
+	   Match_failure ->
+	   let _ = Hashtbl.clear x in
+	   recur ls
+    in
+    recur ls
+
+  let matches_app gl ls e args from =
+    let x = Hashtbl.create 5 in
+    let rec recur ls =
+      match ls with
+      | [] -> raise Match_failure
+      | (p,f) :: ls ->
+	 try
+	   f gl (match_app e args from p gl x)
+	 with
+	   Match_failure ->
+	   let _ = Hashtbl.clear x in
+	   recur ls
+    in
+    recur ls
+
+  let dbg msg =
+    Format.printf "%s\n" msg
+end
+
+module Z3Tactic =
+struct
+
+  let read_process command =
+    let buffer_size = 2048 in
+    let buffer = Buffer.create buffer_size in
+    let string = String.create buffer_size in
+    let in_channel = Unix.open_process_in command in
+    let chars_read = ref 1 in
+    while !chars_read <> 0 do
+      chars_read := input in_channel string 0 buffer_size;
+      Buffer.add_substring buffer string 0 !chars_read
+    done;
+    ignore (Unix.close_process_in in_channel);
+    Buffer.contents buffer
 
 
+  let contrib_name = "z3-check"
 
-let z3_quick_solve = fun gl ->
-  if fst (quick_solve (Tacmach.pf_concl gl)) then
-    Tacticals.tclIDTAC gl
-  else
-    Tacticals.tclFAIL 1 (Pp.str "z3 failed to solve the goal") gl
+  let resolve_symbol (path : string list) (tm : string) : Term.constr =
+    let re = Coqlib.find_reference contrib_name path tm in
+    Libnames.constr_of_global re
 
-let z3Tactic  = fun gl ->
+  let r_pkg = ["Coq";"Reals";"Rdefinitions"]
+  let logic_pkg = ["Coq";"Init";"Logic"]
 
-  (* the type of [c] is [ty] *)
-  let goal = Tacmach.pf_concl gl in
+  let c_R = resolve_symbol r_pkg "R"
+  let c_0 = resolve_symbol r_pkg "R0"
+  let c_1 = resolve_symbol r_pkg "R1"
+  let c_Rplus = resolve_symbol r_pkg "Rplus"
+  let c_Rminus = resolve_symbol r_pkg "Rminus"
+  let c_Rdiv = resolve_symbol r_pkg "Rdiv"
+  let c_Rmult = resolve_symbol r_pkg "Rmult"
+  let c_Ropp = resolve_symbol r_pkg "Ropp"
+  let c_Rinv = resolve_symbol r_pkg "Rinv"
 
-  let output = ref "" in
-  let store str = output := str in
-  let pp_print () = !output in
+  let c_Rlt = resolve_symbol r_pkg "Rlt"
+  let c_Rle = resolve_symbol r_pkg "Rle"
+  let c_Rgt = resolve_symbol r_pkg "Rgt"
+  let c_Rge = resolve_symbol r_pkg "Rge"
 
-  let (is_solved,resultStr) = findTheSmallestSubsetGoalSolver goal in
-  let _ = store resultStr in
+  let c_and = resolve_symbol logic_pkg "and"
+  let c_or = resolve_symbol logic_pkg "or"
+  let c_True = resolve_symbol logic_pkg "True"
+  let c_False = resolve_symbol logic_pkg "False"
+  let c_eq = resolve_symbol logic_pkg "eq"
+  let c_Prop = Term.mkProp
 
-  let _ = Pp.msgnl (Pp.str (pp_print ())) in
-  if is_solved then
-    Tacticals.tclIDTAC gl
-  else
-    Tacticals.tclFAIL 1 (Pp.str "z3 failed to solve the goal") gl
+  module Cmap = Map.Make
+    (struct
+      type t = Term.constr
+      let compare = Term.constr_ord
+     end)
+
+  type r_type = Prop | R
+
+  type r_expr =
+      RConst of float
+    | Rplus of r_expr * r_expr
+    | Rminus of r_expr * r_expr
+    | Rmult of r_expr * r_expr
+    | Rdiv of r_expr * r_expr
+    | Ropp of r_expr
+    | Rinv of r_expr
+    | Ropaque of int
+
+  type r_prop =
+    | Rtrue
+    | Rfalse
+    | Rlt of r_expr * r_expr
+    | Rle of r_expr * r_expr
+    | Rgt of r_expr * r_expr
+    | Rge of r_expr * r_expr
+    | Req of r_expr * r_expr
+    | Rand of r_prop * r_prop
+    | Ror of r_prop * r_prop
+    | Rimpl of r_prop * r_prop
+    | Rnot of r_prop
+    | Popaque of int
+
+  let rec print_r_expr out e =
+    match e with
+      RConst f -> Printf.fprintf out "%f" f
+    | Rplus (l,r) -> Printf.fprintf out "(+ %a %a)" print_r_expr l print_r_expr r
+    | Rminus (l,r) -> Printf.fprintf out "(- %a %a)" print_r_expr l print_r_expr r
+    | Rmult (l,r) -> Printf.fprintf out "(* %a %a)" print_r_expr l print_r_expr r
+    | Rdiv (l,r) -> Printf.fprintf out "(/ %a %a)" print_r_expr l print_r_expr r
+    | Ropp l -> Printf.fprintf out "(- 0 %a)" print_r_expr l
+    | Rinv l -> Printf.fprintf out "(/ 1 %a)" print_r_expr l
+    | Ropaque l -> Printf.fprintf out "x%d" l
+
+  let rec print_r_prop out e =
+    match e with
+      Rtrue -> Printf.fprintf out "true"
+    | Rfalse -> Printf.fprintf out "false"
+    | Rnot l -> Printf.fprintf out "(not %a)" print_r_prop l
+    | Popaque x -> Printf.fprintf out "x%d" x
+    | Rand (l,r) -> Printf.fprintf out "(and %a %a)" print_r_prop l print_r_prop r
+    | Ror (l,r) -> Printf.fprintf out "(or %a %a)" print_r_prop l print_r_prop r
+    | Rimpl (l,r) -> Printf.fprintf out "(=> %a %a)" print_r_prop l print_r_prop r
+    | Rle (l,r) -> Printf.fprintf out "(<= %a %a)" print_r_expr l print_r_expr r
+    | Rlt (l,r) -> Printf.fprintf out "(< %a %a)" print_r_expr l print_r_expr r
+    | Rge (l,r) -> Printf.fprintf out "(>= %a %a)" print_r_expr l print_r_expr r
+    | Rgt (l,r) -> Printf.fprintf out "(> %a %a)" print_r_expr l print_r_expr r
+    | Req (l,r) -> Printf.fprintf out "(= %a %a)" print_r_expr l print_r_expr r
+
+  let conclusion_name = "__CONCLUSION__"
+
+  let print_identifier out id =
+    Printf.fprintf out "%s" (Names.string_of_id id)
+
+  let print_r_assert out (nm,e) =
+    Printf.fprintf out "(assert (! %a :named %a))" print_r_prop e print_identifier nm
+
+  let print_type out t =
+    match t with
+      Prop -> Printf.fprintf out "Bool"
+    | R -> Printf.fprintf out "Real"
+
+  let pr_list pr out ls =
+    List.iter (Printf.fprintf out "%a" pr) ls
+
+  let pr_decls (out : out_channel) =
+    Cmap.iter (fun _ (k,v) -> Printf.fprintf out "(declare-const x%d %a)" k print_type v)
+
+  let write_problem (out : out_channel) tbl stmts =
+    Printf.fprintf out "%a" pr_decls tbl ;
+    Printf.fprintf out "%a" (pr_list print_r_assert) stmts
+
+  let ptrn_success = Str.regexp "^unsat\n(\([^)]+\))"
+  let ptrn_failure = Str.regexp "^sat"
+  let ptrn_split = Str.regexp " "
+
+  let parse_Z3_result result =
+    if Str.string_partial_match ptrn_success result 0 then
+      let lst = Str.matched_group 1 result in
+      Some (List.map Names.id_of_string (Str.split ptrn_split lst))
+    else
+      if Str.string_match ptrn_failure result 0 then
+	None
+      else
+	let _ = Printf.eprintf "Bad Z3 output:\n%s" result in
+	assert false
+
+  let runZ3 tbl stmts =
+    let file = Filename.temp_file "z3-" ".smt2" in
+    let out = open_out file in
+    let _ =
+      begin
+	fprintf out "(set-option :produce-unsat-cores true)\n" ;
+	write_problem out tbl stmts ;
+	fprintf out "(check-sat)\n(get-unsat-core)" ;
+	close_out out
+      end
+    in
+    let command = Printf.sprintf "z3 -smt2 -- %s" file  in
+    parse_Z3_result (read_process command)
+
+  let parse_uop recur constr op =
+    (Term_match.apps (Term_match.EGlob constr)
+		     [Term_match.get 0],
+     fun tbl bindings ->
+     let (res,tbl) = recur tbl (Hashtbl.find bindings 0) in
+     (op res, tbl))
+
+  let parse_bop recur constr op =
+    (Term_match.apps (Term_match.EGlob constr)
+		     [Term_match.get 0;Term_match.get 1],
+     fun tbl bindings ->
+     let (l,tbl) = recur tbl (Hashtbl.find bindings 0) in
+     let (r,tbl) = recur tbl (Hashtbl.find bindings 1) in
+     (op l r, tbl))
+
+  let rec parse_expr tbl =
+    Term_match.matches tbl
+      [ (Term_match.EGlob c_0, fun tbl _ -> (RConst 0., tbl))
+      ; (Term_match.EGlob c_1, fun tbl _ -> (RConst 1., tbl))
+      ; parse_bop parse_expr c_Rplus (fun a b -> Rplus (a,b))
+      ; parse_bop parse_expr c_Rminus (fun a b -> Rminus (a,b))
+      ; parse_bop parse_expr c_Rmult (fun a b -> Rmult (a,b))
+      ; parse_bop parse_expr c_Rdiv (fun a b -> Rdiv (a,b))
+      ; parse_uop parse_expr c_Ropp (fun a -> Ropp a)
+      ; parse_uop parse_expr c_Rinv (fun a -> Rinv a)
+      ; (Term_match.get 0,
+	 fun tbl binders ->
+	 let trm = Hashtbl.find binders 0 in
+	 try
+	   (Ropaque (fst (Cmap.find trm tbl)), tbl)
+	 with
+	   Not_found ->
+	   let nxt = Cmap.cardinal tbl in
+	   (Ropaque nxt, Cmap.add trm (nxt,R) tbl))
+      ]
+
+  let rec parse_prop tbl =
+    Term_match.matches tbl
+      [ parse_bop parse_expr c_Rlt (fun a b -> Rlt (a,b))
+      ; parse_bop parse_expr c_Rle (fun a b -> Rle (a,b))
+      ; parse_bop parse_expr c_Rgt (fun a b -> Rgt (a,b))
+      ; parse_bop parse_expr c_Rge (fun a b -> Rge (a,b))
+      ; (Term_match.apps (Term_match.EGlob c_eq)
+			 [Term_match.EGlob c_R;
+			  Term_match.get 0;
+			  Term_match.get 1],
+	 fun tbl bindings ->
+	 let (l,tbl) = parse_expr tbl (Hashtbl.find bindings 0) in
+	 let (r,tbl) = parse_expr tbl (Hashtbl.find bindings 1) in
+	 (Req (l, r), tbl))
+      ; parse_bop parse_prop c_and (fun a b -> Rand (a,b))
+      ; parse_bop parse_prop c_or  (fun a b -> Ror (a,b))
+      ; (Term_match.EGlob c_True, fun tbl _ -> (Rtrue, tbl))
+      ; (Term_match.EGlob c_False, fun tbl _ -> (Rfalse, tbl))
+      ; (Term_match.get 0,
+	 fun tbl binders ->
+	 let trm = Hashtbl.find binders 0 in
+	 try
+	   (Popaque (fst (Cmap.find trm tbl)), tbl)
+	 with
+	   Not_found ->
+	   begin
+	     let nxt = Cmap.cardinal tbl in
+	     (Popaque nxt, Cmap.add trm (nxt,Prop) tbl)
+	   end)
+      ]
+
+  let maybe_parse tbl (name, decl, trm) =
+    try
+      let (p,tbl) = parse_prop tbl trm in
+      Some (tbl, (name, p))
+    with
+      Term_match.Match_failure -> None
+
+  let rec pr_unsat_core ls =
+    match ls with
+      [] -> Pp.spc ()
+    | [x] -> Ppconstr.pr_id x
+    | x :: xs -> Pp.(++) (Ppconstr.pr_id x)
+			 (Pp.(++) (Pp.spc ()) (pr_unsat_core xs))
+
+  let z3Tactic quick gl =
+    let goal = Tacmach.pf_concl gl in
+    let hyps = Tacmach.pf_hyps gl in
+
+    let tbl = Cmap.empty in
+    match maybe_parse tbl (Names.id_of_string conclusion_name, None, goal) with
+      None ->
+      Tacticals.tclFAIL 0 (Pp.str "z3 plugin failed to parse goal") gl
+    | Some (tbl, (name, concl)) ->
+       let acc = (tbl, [(name, Rnot concl)]) in
+       let (tbl,hyps) =
+	 List.fold_left (fun (tbl,acc) t ->
+			 match maybe_parse tbl t with
+			   None -> (tbl, acc)
+			 | Some (tbl, hyp) -> (tbl, hyp::acc)) acc hyps
+       in
+       match runZ3 tbl hyps with
+         None ->
+	 Tacticals.tclFAIL 0 (Pp.str "z3 failed to solve the goal") gl
+       | Some core ->
+	  let msg =
+	    Pp.(++) (Pp.str "z3 solved the goal using only")
+		    (Pp.(++) (Pp.spc ()) (pr_unsat_core core))
+	  in
+	  Tacticals.tclIDTAC_MESSAGE msg gl
+
+end
 
 TACTIC EXTEND z3_tac
-  | ["z3Tactic"] ->     [z3Tactic]
+  | ["z3Tactic"] ->     [Z3Tactic.z3Tactic false]
 END;;
 
 TACTIC EXTEND z3_tac_quick
-  | ["z3" "quick" "solve"] ->     [z3Tactic]
+  | ["z3" "quick" "solve"] -> [Z3Tactic.z3Tactic true]
 END;;
