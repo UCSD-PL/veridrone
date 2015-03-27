@@ -385,7 +385,8 @@ Theorem Sys_by_induction :
   P |-- [] A ->
   A //\\ IndInv //\\ TimeBound d |-- Inv ->
   InvariantUnder ("t"::dvars ++ cvars)%list IndInv ->
-  A //\\ IndInv //\\ World dvars w //\\ WC |-- next IndInv ->
+  A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
+    //\\ World dvars w //\\ WC |-- next IndInv ->
   A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
           //\\ Discr cvars Prog d |-- next IndInv ->
   P |-- [] Inv.
