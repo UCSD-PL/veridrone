@@ -51,19 +51,17 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
   Definition tdiff : Term :=
     "T" - "t".
 
-  Definition IndInv : Formula :=
-    "y" - "Y" <= tdist "V" "a" tdiff //\\
-    "v" - "V" <= "a"*tdiff //\\
+  Definition I : Formula :=
     Syntax.Forall R
            (fun t =>
-              ((0 <= t <= d //\\ 0 <= "V" + "a"*t) -->>
-                    "Y" + (tdist "V" "a" t) +
-                    (sdist ("V" + "a"*t)) <= ub) //\\
-              ((0 <= t <= d //\\ "V" + "a"*t < 0) -->>
-                     "Y" + (tdist "V" "a" t) <= ub)) //\\
-   "t" <= "T" <= d.
-
-  Definition I : Formula := IndInv.
+              0 <= t <= d -->>
+              (0 <= "v" + "a"*t  -->>
+               "y" + tdist "v" "a" t +
+               sdist ("v" + "a"*t) <= ub) //\\
+              ("v" + "a"*t < 0 -->>
+               "y" + tdist "v" "a" t <= ub)) //\\
+    "T" = "t" //\\ "Y" = "y" //\\ "V" = "v" //\\
+    0 <= "t" <= d.
 
   Definition SpecR : SysRec :=
     {| dvars := ("a"::"Y"::"V"::"T"::nil)%list;
@@ -76,6 +74,30 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
 
   Definition Spec := SysD SpecR.
 
+  Definition IndInv : Formula :=
+    "y" - "Y" <= tdist "V" "a" tdiff //\\
+    "v" - "V" <= "a"*tdiff //\\
+    Syntax.Forall R
+           (fun t =>
+              ((0 <= t <= d //\\ 0 <= "V" + "a"*t) -->>
+                    "Y" + (tdist "V" "a" t) +
+                    (sdist ("V" + "a"*t)) <= ub) //\\
+              ((0 <= t <= d //\\ "V" + "a"*t < 0) -->>
+                     "Y" + (tdist "V" "a" t) <= ub)) //\\
+   "t" <= "T" <= d.
+
+  Lemma ind_inv_init :
+    I |-- IndInv.
+  Proof.
+    breakAbstraction; simpl; unfold eval_comp;
+    simpl; intros. destruct H.
+    decompose [and] H0. clear H0.
+    rewrite H1 in *; clear H1;
+    rewrite H2 in *; clear H2;
+    rewrite H3 in *; clear H3.
+    solve_linear; specialize (H x);
+    solve_linear.
+  Qed.
   
   (* A proof that the inductive safety condition
      Inv implies the safety contition
@@ -124,7 +146,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     with (IndInv:=IndInv) (A:="Vmax" >= "v" //\\ "Ymax" >= "y").
     - tlaIntuition.
     - unfold Spec, SpecR. tlaAssume.
-    - solve_nonlinear.
+    - charge_apply ind_inv_init. charge_tauto.
     - tlaIntuition.
     - charge_apply inv_safe. charge_tauto.
     - unfold InvariantUnder, IndInv, Max. simpl.
