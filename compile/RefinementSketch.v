@@ -1462,18 +1462,41 @@ Inductive feval : statef -> fcmd -> option statef -> Prop :=
 | FEFail : forall s, feval s FFail None
 .
 
+(* TODO wrap FloatToR *)
+
+Locate FloatToR.
+
+Print float.
+Print Fappli_IEEE.binary_float.
+Check Fappli_IEEE.B754_finite.
+
+Definition F2OR (f : float) : option R :=
+  match f with
+    | Fappli_IEEE.B754_zero   _       => Some 0%R
+    | Fappli_IEEE.B754_finite _ _ _ _ => Some (FloatToR f)
+    | _                               => None
+  end.
+
+(* TODO side condition: output variables should be subset of
+   input variables *)
+
+(* Hoare instantiated with what we need for fcmd language *)
+Definition stater : Type := Var -> option R.
+
+(* Convert a float state to a real state *)
+Definition realify_state (sf : statef) : stater :=
+  (fun (v : Var) =>
+     match (sf v) with
+       | Some f => F2OR f
+       | None   => None
+     end)%type.
+
 (* Embedding function for our new language *)
 Definition oembed_fcmd : _ -> _ -> fcmd -> Syntax.Formula :=
   oembedStep_maybenone Var fcmd statef
                        feval
-                       (fun st v => 
-                          match st v with
-                            | Some f => Some (FloatToR f)
-                            | None => None
-                          end).
-                         
-(* Hoare instantiated with what we need for fcmd language *)
-Definition stater : Type := Var -> option R.
+                       (fun st v => realify_state st v).
+
 
 Definition real_float (r : R) (f : float): Prop :=
   (FloatToR f = r)%type.
@@ -1487,44 +1510,114 @@ Definition stater_statef (s : stater) (a : statef) : Prop :=
 
 (* analogous definition to oembedStep_maybenone *)
 
-Print oembedStep_maybenone.
-
 (* TODO how to deal with this type error with option and stuff *)
 Definition reval (rst : stater) (c : fcmd) (rst' : option stater) : Prop :=
   (exists (fst : statef),
     stater_statef rst fst /\
-    (feval fst c None \/
-     (exists (fst' : statef),
-        stater_statef rst' fst' /\
-        feval fst c (Some fst'))))%type.
-    stater_statef rst' fst' ->
-    feval fst c (Some fst').
-
-Check Hoare.
-
-Check CHoare.
-Print CHoare.
+    ((feval fst c None /\ rst' = None) \/
+     (exists (rst'' : stater),
+        rst' = Some rst'' /\
+        (exists (fst' : statef),
+           stater_statef rst'' fst' /\
+           feval fst c (Some fst')))))%type.
 
 (* "Concrete Hoare" for floating-point language *)
 Definition FHoare :=
-  Hoare fcmd stater 
+  Hoare fcmd stater reval.
 
-Print cmd.
-Print fcmd.
-Print cexpr.
-Print Hoare.
+(* Embedding *)
+Definition oembed_fcmdr : _ -> _ -> fcmd -> Syntax.Formula :=
+  oembedStep_maybenone Var fcmd stater
+                       reval
+                       (fun st v => st v).
 
-Definition HoareA (P : stater -> Prop) (c : cmd) (Q : stater -> Prop) : Prop :=
-  CHoare 
+(* Check to ensure that output variables are
+   subset of input variables *)
+Definition var_spec_valid (ivs ovs : list (Var * Var)) : Prop :=
+  forall (iv : (Var * Var)),
+    In iv ivs -> In iv ovs.
+
+(* Useful auxiliary lemma for proving correspondences
+   between float and real states when used with models *)
+Check omodels.
+Lemma omodels_real_float :
+      forall (vs : list (Var * Var))
+             (st1 : Syntax.state) (st2 : statef),
+        omodels Var statef
+                (fun (st : statef) (v : Var) =>
+                   realify_state st v) vs st1 st2 ->
+        omodels Var stater
+                (fun (st : stater) (v : Var) => st v)
+                vs st1 (realify_state st2).
+Proof.
+  intros.
+  induction vs.
+  - simpl. trivial.
+  - simpl. destruct a.
+    split.
+    + simpl in H. forward_reason. assumption.
+    + apply IHvs. simpl in H.
+      forward_reason. assumption.
+Qed.
+
+(* Another auxiliary lemma *)
+Lemma realify_eval_None :
+  forall x c,
+    feval x c None -> reval (realify_state x) c None.
+Proof.
+
+  intros.
+  inversion H; subst; simpl; clear H.
+  - econstructor.
+Abort.
+(*  H1 : feval x c None
+  ============================
+   reval (realify_state x) c None*)
+
+(* We must prove that "abstract" evaluation (over reals)
+   refines "concrete" evaluation (over floats) *)
+(* THIS is one of our core correctness proofs
+   (along with correctness of WP) *)
+Check oembed_fcmd.
+Lemma fcmd_rembed_refined_fembed :
+  forall (c : fcmd) (ivs ovs : list (Var * Var)),
+    var_spec_valid ivs ovs ->
+    (|- (oembed_fcmd ivs ovs c) --> (oembed_fcmdr ivs ovs c)).
+Proof.
+  intros. simpl. intros.
+  forward_reason.
+  unfold var_spec_valid in H.
+  apply omodels_real_float in H0.
+  eexists. split.
+  - apply H0. 
+  - destruct H1.
+    + left. inversion H1; subst; clear H1.
+
+apply omodels_real_float.
+    
+        
+        omodels Var statef (fun st : stater) (v :
+  eexists.
+  Print omodels.
+  eexists. split.
+  unfold omodels.
+  - Print omodels.
+
+  destruct H0.
+  eexists.
+
+(* Another way of approaching abstract evaluation *)
+(*
+Definition HoareA (P : stater -> Prop) (c : fcmd) (Q : stater -> Prop) : Prop :=
+  FHoare 
         (fun rst => exists fst : statef, stater_statef rst fst /\ P rst)%type
         c
         (fun st => exists ast : statef, stater_statef st ast /\ Q ast)%type.
-Definition FHoare := Hoare fcmd Syntax.state feval.
+*)
 
 Require Import bound.
-Check bound_term.
 
-(* Hack to calculate bounds for expressions *)
+(* Calculating bounds for expressions *)
 Fixpoint fexpr_to_NowTerm (fx : fexpr) : NowTerm :=
   match fx with
     | FVar v   => VarNowN v
@@ -1533,25 +1626,21 @@ Fixpoint fexpr_to_NowTerm (fx : fexpr) : NowTerm :=
       PlusN (fexpr_to_NowTerm fx1) (fexpr_to_NowTerm fx2)
   end.
 
-Definition bound_fexpr (fx : fexpr) : list singleBoundTerm :=  bound_term (fexpr_to_NowTerm fx).
-
-Print singleBoundTerm.
+Definition bound_fexpr (fx : fexpr) : list singleBoundTerm := 
+  bound_term (fexpr_to_NowTerm fx).
 
 Axiom bounds_to_formula : list singleBoundTerm -> Syntax.state -> R -> Prop.
 
 (*
-Fixpoint bounds_to_formula (bounds : list singleBoundTerm) (center : Term) : Prop :=
+Fixpoint bounds_to_formula' (bounds : list singleBoundTerm) (center : Term) : Prop :=
   match bounds with
     | nil => True
     | (mkSBT lb ub side) :: bounds' =>
-      ((bounds_to_formula bounds' center) /\
+      ((bounds_to_formula' bounds' center) /\
       (side -> ((Comp lb center Le) /\
                 (Comp center ub Le))))%type
   end.
 *)
-
-Print state.
-Print Syntax.state.
 
 (* Weakest-precondition calcluation function for fcmd language *)
 Fixpoint fwp (c : fcmd) (P : Syntax.state -> Prop) : Syntax.state -> Prop :=
@@ -1572,5 +1661,5 @@ Fixpoint fwp (c : fcmd) (P : Syntax.state -> Prop) : Syntax.state -> Prop :=
   | FIte _ _ _ => fun s => False
   end.
 
-
+(* *)
 
