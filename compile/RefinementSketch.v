@@ -1387,17 +1387,13 @@ Qed.
 (***********************************************************************)
 Require Import source.
 
-Definition statef : Type := nat -> option float.
+Definition statef : Type := Var -> option float.
 
 Inductive fexpr :=
-| FVar : nat -> fexpr
+| FVar : Var -> fexpr
 | FConst : source.float -> fexpr
 | FPlus : fexpr -> fexpr -> fexpr
 . (* TODO do we need FNone? *)
-
-Locate Bplus.
-
-Locate mode_NE.
 
 Definition fplus : source.float -> source.float -> source.float :=
   Fappli_IEEE.Bplus custom_prec custom_emax custom_precGt0
@@ -1405,7 +1401,7 @@ Definition fplus : source.float -> source.float -> source.float :=
 
 Fixpoint fexprD (fx : fexpr) (sf : statef) : option source.float :=
   match fx with
-    | FVar n        => sf n
+    | FVar s        => sf s
     | FConst f      => Some f
     | FPlus fx1 fx2 =>
       match fexprD fx1 sf, fexprD fx2 sf with
@@ -1414,16 +1410,20 @@ Fixpoint fexprD (fx : fexpr) (sf : statef) : option source.float :=
       end
   end.
 
-Print cmd.
-
 Inductive fcmd : Type :=
 | FSeq   : fcmd -> fcmd -> fcmd
 | FSkip  : fcmd
-| FAsn   : nat -> fexpr -> fcmd
+| FAsn   : Var -> fexpr -> fcmd
 | FIte   : fexpr -> fcmd -> fcmd -> fcmd
-| FHavoc : nat -> fcmd
+| FHavoc : Var -> fcmd
 | FFail  : fcmd
 .
+
+Print update.
+
+Definition fupdate {T : Type} (s : Var -> T) (v : Var) (val : T) : Var -> T :=
+  fun x =>
+    if v ?[eq] x then val else s x.
 
 Definition fzero := Eval compute in (nat_to_float 0).
 
@@ -1438,7 +1438,7 @@ Inductive feval : statef -> fcmd -> option statef -> Prop :=
     feval s (FSeq a b) None
 | FEAsnS : forall s v e val,
     fexprD e s = Some val ->
-    feval s (FAsn v e) (Some (update s v (Some val)))
+    feval s (FAsn v e) (Some (fupdate s v (Some val)))
 | FEAsnN : forall s v e,
     fexprD e s = None ->
     feval s (FAsn v e) None
@@ -1458,56 +1458,119 @@ Inductive feval : statef -> fcmd -> option statef -> Prop :=
       fexprD ex s = None ->
       feval s (FIte ex c1 c2) None
 | FEHavoc : forall s v val,
-      feval s (FHavoc v) (Some (update s v (Some val)))
+      feval s (FHavoc v) (Some (fupdate s v (Some val)))
 | FEFail : forall s, feval s FFail None
 .
 
 (* Embedding function for our new language *)
 Definition oembed_fcmd : _ -> _ -> fcmd -> Syntax.Formula :=
-  oembedStep_maybenone nat fcmd statef
+  oembedStep_maybenone Var fcmd statef
                        feval
                        (fun st v => 
                           match st v with
                             | Some f => Some (FloatToR f)
                             | None => None
                           end).
-                                             
+                         
 (* Hoare instantiated with what we need for fcmd language *)
-Definition FHoare := Hoare fcmd statef feval.
+Definition stater : Type := Var -> option R.
+
+Definition real_float (r : R) (f : float): Prop :=
+  (FloatToR f = r)%type.
+  
+Definition stater_statef (s : stater) (a : statef) : Prop :=
+  forall x, match s x, a x with
+              | Some sx, Some ax => real_float sx ax
+              | None, None       => True
+              | _, _             => False
+            end.
+
+(* analogous definition to oembedStep_maybenone *)
+
+Print oembedStep_maybenone.
+
+(* TODO how to deal with this type error with option and stuff *)
+Definition reval (rst : stater) (c : fcmd) (rst' : option stater) : Prop :=
+  (exists (fst : statef),
+    stater_statef rst fst /\
+    (feval fst c None \/
+     (exists (fst' : statef),
+        stater_statef rst' fst' /\
+        feval fst c (Some fst'))))%type.
+    stater_statef rst' fst' ->
+    feval fst c (Some fst').
+
+Check Hoare.
+
+Check CHoare.
+Print CHoare.
+
+(* "Concrete Hoare" for floating-point language *)
+Definition FHoare :=
+  Hoare fcmd stater 
+
+Print cmd.
+Print fcmd.
+Print cexpr.
+Print Hoare.
+
+Definition HoareA (P : stater -> Prop) (c : cmd) (Q : stater -> Prop) : Prop :=
+  CHoare 
+        (fun rst => exists fst : statef, stater_statef rst fst /\ P rst)%type
+        c
+        (fun st => exists ast : statef, stater_statef st ast /\ Q ast)%type.
+Definition FHoare := Hoare fcmd Syntax.state feval.
 
 Require Import bound.
 Check bound_term.
 
 (* Hack to calculate bounds for expressions *)
-Print fexpr.
-Print NowTerm.
-SearchAbout NowTerm.
-Print eval_NowTerm.
-
-Fixpoint fexpr_to_NowTerm (fx : fexpr) (sf : statef) : NowTerm :=
+Fixpoint fexpr_to_NowTerm (fx : fexpr) : NowTerm :=
   match fx with
-    | FVar n   => FloatN (sf n)
+    | FVar v   => VarNowN v
     | FConst f => FloatN f
     | FPlus fx1 fx2 =>
-      PlusN (fexpr_to_NowTerm fx1 sf) (fexpr_to_NowTerm fx2 sf)
+      PlusN (fexpr_to_NowTerm fx1) (fexpr_to_NowTerm fx2)
   end.
 
+Definition bound_fexpr (fx : fexpr) : list singleBoundTerm :=  bound_term (fexpr_to_NowTerm fx).
+
+Print singleBoundTerm.
+
+Axiom bounds_to_formula : list singleBoundTerm -> Syntax.state -> R -> Prop.
+
+(*
+Fixpoint bounds_to_formula (bounds : list singleBoundTerm) (center : Term) : Prop :=
+  match bounds with
+    | nil => True
+    | (mkSBT lb ub side) :: bounds' =>
+      ((bounds_to_formula bounds' center) /\
+      (side -> ((Comp lb center Le) /\
+                (Comp center ub Le))))%type
+  end.
+*)
+
+Print state.
+Print Syntax.state.
+
 (* Weakest-precondition calcluation function for fcmd language *)
-Fixpoint fwp (c : fcmd) (P : statef -> Prop) : statef -> Prop :=
+Fixpoint fwp (c : fcmd) (P : Syntax.state -> Prop) : Syntax.state -> Prop :=
   match c with
   | FSkip => P
   | FSeq c1 c2 => fwp c1 (fwp c2 P)
   | FAsn v e => (fun s =>
-                 exists val, fexprD e s = Some val /\
-                             let s' := update s v (Some val) in
-                             P s')%type
+                   exists val, bounds_to_formula (bound_fexpr e) s val /\
+                   let s' := fupdate s v val in
+                   P s')%type
   | FFail => fun s => False
   | FHavoc v => fun s => False
-  | FIte ex c1 c2 => (fun s =>
-                       (fexprD ex s = Some fzero /\ fwp c1 P s) \/
-                       (exists (f : source.float), f <> fzero /\
+  (*| FIte ex c1 c2 => (fun s =>
+                        (fexprD ex s = Some fzero /\ fwp c1 P s) \/
+                        (exists (f : source.float), f <> fzero /\
                                                    fexprD ex s = Some f /\
-                                                   fwp c2 P s))%type
-  end. 
+                                                   fwp c2 P s))%type*)
+  | FIte _ _ _ => fun s => False
+  end.
 
-Print NowTerm.
+
+
