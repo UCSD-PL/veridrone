@@ -1472,7 +1472,7 @@ Check Fappli_IEEE.B754_finite.
 
 Definition F2OR (f : float) : option R :=
   match f with
-    | Fappli_IEEE.B754_zero   _       => Some 0%R
+    | Fappli_IEEE.B754_zero   _       => Some (FloatToR f)
     | Fappli_IEEE.B754_finite _ _ _ _ => Some (FloatToR f)
     | _                               => None
   end.
@@ -1499,7 +1499,7 @@ Definition oembed_fcmd : _ -> _ -> fcmd -> Syntax.Formula :=
 
 
 Definition real_float (r : R) (f : float): Prop :=
-  (FloatToR f = r)%type.
+  (F2OR f = Some r)%type.
   
 Definition stater_statef (s : stater) (a : statef) : Prop :=
   forall x, match s x, a x with
@@ -1533,13 +1533,13 @@ Definition oembed_fcmdr : _ -> _ -> fcmd -> Syntax.Formula :=
 
 (* Check to ensure that output variables are
    subset of input variables *)
-Definition var_spec_valid (ivs ovs : list (Var * Var)) : Prop :=
+(*Definition var_spec_valid (ivs ovs : list (Var * Var)) : Prop :=
   forall (iv : (Var * Var)),
-    In iv ivs -> In iv ovs.
+    (In iv ivs -> In iv ovs).*)
 
 (* Useful auxiliary lemma for proving correspondences
    between float and real states when used with models *)
-Check omodels.
+
 Lemma omodels_real_float :
       forall (vs : list (Var * Var))
              (st1 : Syntax.state) (st2 : statef),
@@ -1560,32 +1560,201 @@ Proof.
       forward_reason. assumption.
 Qed.
 
+Print statef.
+
+(* Predicate for whether a float state
+   contains any invalid values *)
+Definition statef_valid (sf : statef) : Prop :=
+  forall (v : Var) (f : float) (r : R),
+    sf v = Some f -> F2OR f = Some r.
+
+Lemma realify_stater_statef :
+  forall (sf : statef),
+    statef_valid sf ->
+    stater_statef (realify_state sf) sf.
+Proof.
+  unfold stater_statef, realify_state.
+  intros.
+  destruct (sf x) eqn:Hsfx; try constructor.
+  destruct (F2OR f) eqn:Horf.
+  - unfold real_float. unfold F2OR in Horf.
+    destruct f; simpl in *; try congruence.
+  - unfold F2OR in Horf.
+    unfold statef_valid in H.
+    destruct f; simpl in *; try congruence.
+    + apply H with (r:=0%R) in Hsfx.
+      inversion Hsfx.
+    + eapply H with (r:=0%R) in Hsfx.
+      inversion Hsfx.
+Qed.
+      
+
 (* Another auxiliary lemma *)
 Lemma realify_eval_None :
   forall x c,
     feval x c None -> reval (realify_state x) c None.
 Proof.
+Abort.
+(*
+  intros.
+  unfold reval, realify_state.
+  inversion H; subst; clear H.
+  { exists x. split.
+    - unfold stater_statef.
+      intros.
+      destruct (x x0) eqn:Hxx0.
+      + destruct (F2OR f) eqn:Ff.
+        * unfold real_float. assumption.
+        * 
+  simpl.
+  unfold realify_state.
+  inversion H; subst; clear H.
+  - Print reval.
+  econstructor.
+  unfold realify_state.
+        
 
+  SearchAbout realify_state.
   intros.
   inversion H; subst; simpl; clear H.
   - econstructor.
 Abort.
+*)
 (*  H1 : feval x c None
   ============================
    reval (realify_state x) c None*)
+
+(* I think we want the first element but not 100% sure *)
+Fixpoint syn_state_to_stater (vs : list (Var * Var)) (ss : Syntax.state) : stater :=
+  match vs with
+    | nil            => fun _ => None
+    | (lv, rv) :: vs' => (fun (x : Var) =>
+                           if x ?[eq] rv then Some (ss lv)
+                           else syn_state_to_stater vs' ss x)
+  end.
+
+Definition var_spec_valid (ivs ovs : list (Var * Var)) := True.
+
+Ltac fwd :=
+  forward_reason;
+  repeat (match goal with
+            | |- let '(_) := ?x in _ => consider x
+          end).
+
+(*
+Lemma omodels_syn_state_to_stater:
+  forall (ss : Syntax.state) (ivs : list (Var * Var)),
+    omodels Var statef (fun (st : statef) (v : Var) => realify_state st v)
+            ivs ss ->
+    omodels Var stater
+            (fun (st : stater) (v : Var) => st v) ivs
+            ss (syn_state_to_stater ivs ss).
+
+
+Proof.
+Abort.
+*)
 
 (* We must prove that "abstract" evaluation (over reals)
    refines "concrete" evaluation (over floats) *)
 (* THIS is one of our core correctness proofs
    (along with correctness of WP) *)
-Check oembed_fcmd.
+
 Lemma fcmd_rembed_refined_fembed :
   forall (c : fcmd) (ivs ovs : list (Var * Var)),
     var_spec_valid ivs ovs ->
     (|- (oembed_fcmd ivs ovs c) --> (oembed_fcmdr ivs ovs c)).
 Proof.
   intros. simpl. intros.
-  forward_reason.
+  fwd.
+  exists (syn_state_to_stater ivs (Semantics.hd tr)).
+  split.
+  admit.
+  destruct H1.
+  - left. admit.
+  - right. forward_reason.
+    exists (realify_state x0). split. 
+    + red. Print syn_state_to_stater.
+      exists x. split. (* need syn_state_to_statef *)
+      { clear -H0.
+        induction ivs.
+        { admit. }
+        { simpl.
+          simpl in *. destruct a.
+          unfold stater_statef.
+          intros. consider (x0 ?[eq] v0).
+          - intros. subst. forward_reason.
+            unfold realify_state in H.
+            destruct (x v0).
+            + unfold real_float. auto.
+            + congruence.
+          - intros.
+            specialize (IHivs (proj2 H0)).
+            unfold stater_statef in IHivs.
+            specialize (IHivs x0).
+            apply IHivs. } }
+      { right.
+        eexists. split.
+        - reflexivity.
+        - exists x0. split; eauto.
+          admit. }
+    + clear -H2.
+      induction ovs.
+      { simpl. constructor. }
+      { simpl. destruct a. simpl in H2. 
+        forward_reason. split.
+        - assumption.
+        - assumption. }
+
+
+    Lemma omodels_syn_to_stater :
+      forall (ss : Syntax.state) (ivs : list (Var * Var)),
+      omodels Var stater (fun (st : stater) (v : Var) => st v) ivs
+              ss (syn_state_to_stater ivs ss).
+    Proof.
+      intros ss ivs. generalize dependent ss.
+      induction ivs.
+      - intros. simpl. constructor.
+      - intros. simpl.
+        destruct a eqn:Ha.
+        split. consider (v0 ?[eq] v0). auto.
+        intro; congruence.
+        auto.
+        intros. 
+        consider a.
+        intros.
+        split.
+        destruct a eqn:Ha.
+        split.
+        + consider (v0 ?[eq] v0).
+          * intro.  
+          * intro.
+
+clear. 
+    Print syn_state_to_stater.
+    induction ivs.
+    + simpl. constructor.
+    + simpl. destruct a.
+      split.
+      * consider (v0 ?[eq] v).
+        intros. subst. auto.
+        intros.
+        fwd. 
+        
+  -
+        simpl.
+        unfold realify_state, syn_state_to_stater.
+
+ unfold syn_state_to_stater.
+  - Print oembed_fcmdr.
+
+clear. 
+    induction ivs. simpl. constructor.
+    simpl. destruct a. split.
+    
+
+
+clear H1. unfold omodels in *.
   unfold var_spec_valid in H.
   apply omodels_real_float in H0.
   eexists. split.
