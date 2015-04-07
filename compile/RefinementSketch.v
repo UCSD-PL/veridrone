@@ -1627,39 +1627,167 @@ Abort.
 (* I think we want the first element but not 100% sure *)
 Fixpoint syn_state_to_stater (vs : list (Var * Var)) (ss : Syntax.state) : stater :=
   match vs with
-    | nil            => fun _ => None
+    | nil             => fun _ => None
     | (lv, rv) :: vs' => (fun (x : Var) =>
                            if x ?[eq] rv then Some (ss lv)
                            else syn_state_to_stater vs' ss x)
   end.
 
-Definition var_spec_valid (ivs ovs : list (Var * Var)) := True.
+Definition syn_state_stater (vs : list (Var * Var)) (ss : Syntax.state) (sr : stater) : Prop :=
+  (syn_state_to_stater vs ss = sr)%type.
 
+Definition syn_state_statef (vs : list (Var * Var)) (ss : Syntax.state) (sf : statef) : Prop :=
+  forall (lv rv : Var),
+    In (lv,rv) vs ->
+    exists (f : float),
+      (sf rv   = Some f /\
+       F2OR f  = Some (ss lv))%type.
+                        
+(* (* old cumbersome definition *)
+  match vs with
+    | nil             =>
+      (forall (x : Var), sf x = None)%type
+    | (lv, rv) :: vs' => 
+      (forall (x : Var), 
+         if x ?[eq] rv then
+           exists f, sf lv = Some f /\
+                     Some (ss lv) = F2OR f
+         else syn_state_statef vs' ss sf)%type
+  end.
+*)
+
+
+Lemma ss_sf_test :
+  syn_state_statef [("x", "x")]
+                   (fun _ => 3)%R
+                   (fun _ => Some (nat_to_float 3)).
+Proof.
+  intros.
+  unfold syn_state_statef.
+  intros. exists (nat_to_float 3).
+  inversion H; subst; clear H.
+  - inversion H0; subst; clear H0.
+    split.
+    + reflexivity.
+    + admit.
+  - inversion H0.
+Qed.
+
+(* More aggressive forward reasoning tactic *)
 Ltac fwd :=
   forward_reason;
   repeat (match goal with
             | |- let '(_) := ?x in _ => consider x
           end).
 
-(*
+(* Validity of input spec
+   (does not relate a single program variable
+    to multiple TLA variables) *)
+Fixpoint ispec_valid (ivs : list (Var * Var)) : Prop :=
+  match ivs with
+    | nil              => True
+    | (lv, rv) :: ivs' =>
+      (Forall (fun v' => let '(_, rv') := v' in rv' <> rv) ivs /\
+       ispec_valid ivs')%type
+  end.
+
+(* Validity of output spec
+   (does not relate a single TLA variable
+    to multiple program variables)
+   (TODO: make sure this truly is what we want.) *)
+Fixpoint ospec_valid (ovs : list (Var * Var)) : Prop :=
+  match ovs with
+    | nil => True
+    | (lv, rv) :: ovs' =>
+      (Forall (fun v' => let '(lv', _) := v' in lv' <> lv) ovs /\
+       ospec_valid ovs')%type
+  end.
+
+(* Combine both *)
+Definition var_spec_valid (ivs ovs : list (Var * Var)) := 
+  (ispec_valid ivs /\ ospec_valid ovs)%type.
+
+(* Useful auxiliary lemma; sanity for relationship between 
+   omodels and syn_state_to_stater (provided valid var-map) *)
 Lemma omodels_syn_state_to_stater:
   forall (ss : Syntax.state) (ivs : list (Var * Var)),
-    omodels Var statef (fun (st : statef) (v : Var) => realify_state st v)
-            ivs ss ->
+    ispec_valid ivs ->
     omodels Var stater
             (fun (st : stater) (v : Var) => st v) ivs
             ss (syn_state_to_stater ivs ss).
-
-
 Proof.
+  intros ss ivs. generalize dependent ss.
+  induction ivs.
+  { simpl. auto. }
+  { intros. simpl.
+    destruct a eqn:Ha.
+    split.
+    - consider (v0 ?[eq] v0).
+      + intro; reflexivity.
+      + intro; congruence.
+    - simpl in H. forward_reason.
+      generalize (Forall_forall); intro Hfafa.
+      apply Hfafa with (x := (v,v0)) in H.
+      + congruence.
+      + constructor; reflexivity. }
+Qed.
+
+Check feval.
+
+(* I worry about the provability of this... *)
+Lemma omodels_crash :
+    forall (c : fcmd) (ivs : list (Var * Var)) (sf : statef)
+           (ss : Syntax.state),
+      omodels Var statef
+              (fun (st : statef) (v : Var) => realify_state st v)
+              ivs ss sf ->
+      feval sf c None ->
+      reval (syn_state_to_stater ivs ss) c None.
+Proof.
+  intros c ivs. generalize dependent c.
+  induction ivs.
+  - intros. 
+    simpl. unfold reval. exists sf.
+    split.
+    + simpl in H. unfold stater_statef.
 Abort.
+
+(* We need more lemmas for the other admits in the main theorem,
+   but I worry that not all of them are true.*)
+
+(*  intro c.
+  induction c.
+  { intros.
+    unfold reval. exists sf.
+    split.
+    - unfold stater_statef. intros x.
+      
+    inversion H0; subst; clear H0.
+    - unfold reval. exists sf.
+    split.
+    - unfold stater_statef. intros x.
+      destruct (sf x) eqn:Hsfx.
+
+    
+
+  unfold reval.
+  exists sf. 
+  split.
+  - unfold stater_statef.
+    intro.
+    destruct (sf x) eqn:Hsfx.
+    + 
+
+
+  - left. split; auto.
+Qed.
 *)
 
 (* We must prove that "abstract" evaluation (over reals)
    refines "concrete" evaluation (over floats) *)
 (* THIS is one of our core correctness proofs
    (along with correctness of WP) *)
-
+(* validity: no duplicates in second component *)
 Lemma fcmd_rembed_refined_fembed :
   forall (c : fcmd) (ivs ovs : list (Var * Var)),
     var_spec_valid ivs ovs ->
@@ -1669,111 +1797,48 @@ Proof.
   fwd.
   exists (syn_state_to_stater ivs (Semantics.hd tr)).
   split.
-  admit.
-  destruct H1.
-  - left. admit.
-  - right. forward_reason.
-    exists (realify_state x0). split. 
-    + red. Print syn_state_to_stater.
-      exists x. split. (* need syn_state_to_statef *)
-      { clear -H0.
-        induction ivs.
-        { admit. }
-        { simpl.
-          simpl in *. destruct a.
-          unfold stater_statef.
-          intros. consider (x0 ?[eq] v0).
-          - intros. subst. forward_reason.
-            unfold realify_state in H.
-            destruct (x v0).
-            + unfold real_float. auto.
-            + congruence.
-          - intros.
-            specialize (IHivs (proj2 H0)).
-            unfold stater_statef in IHivs.
-            specialize (IHivs x0).
-            apply IHivs. } }
-      { right.
-        eexists. split.
-        - reflexivity.
-        - exists x0. split; eauto.
-          admit. }
-    + clear -H2.
-      induction ovs.
-      { simpl. constructor. }
-      { simpl. destruct a. simpl in H2. 
-        forward_reason. split.
-        - assumption.
-        - assumption. }
-
-
-    Lemma omodels_syn_to_stater :
-      forall (ss : Syntax.state) (ivs : list (Var * Var)),
-      omodels Var stater (fun (st : stater) (v : Var) => st v) ivs
-              ss (syn_state_to_stater ivs ss).
-    Proof.
-      intros ss ivs. generalize dependent ss.
-      induction ivs.
-      - intros. simpl. constructor.
-      - intros. simpl.
-        destruct a eqn:Ha.
-        split. consider (v0 ?[eq] v0). auto.
-        intro; congruence.
-        auto.
-        intros. 
-        consider a.
-        intros.
-        split.
-        destruct a eqn:Ha.
-        split.
-        + consider (v0 ?[eq] v0).
-          * intro.  
-          * intro.
-
-clear. 
-    Print syn_state_to_stater.
-    induction ivs.
-    + simpl. constructor.
-    + simpl. destruct a.
-      split.
-      * consider (v0 ?[eq] v).
-        intros. subst. auto.
-        intros.
-        fwd. 
-        
-  -
-        simpl.
-        unfold realify_state, syn_state_to_stater.
-
- unfold syn_state_to_stater.
-  - Print oembed_fcmdr.
-
-clear. 
-    induction ivs. simpl. constructor.
-    simpl. destruct a. split.
-    
-
-
-clear H1. unfold omodels in *.
-  unfold var_spec_valid in H.
-  apply omodels_real_float in H0.
-  eexists. split.
-  - apply H0. 
-  - destruct H1.
-    + left. inversion H1; subst; clear H1.
-
-apply omodels_real_float.
-    
-        
-        omodels Var statef (fun st : stater) (v :
-  eexists.
-  Print omodels.
-  eexists. split.
-  unfold omodels.
-  - Print omodels.
-
-  destruct H0.
-  eexists.
+  { unfold var_spec_valid in H; forward_reason. 
+    eapply omodels_syn_state_to_stater in H.
+    eapply H. }
+  { destruct H1.
+    - left. admit.
+    - right. forward_reason.
+      exists (realify_state x0). split. 
+      + red. Print syn_state_to_stater.
+        exists x. split. (* need syn_state_to_statef *)
+        { clear -H0.
+          induction ivs.
+          { simpl in *.
+            unfold stater_statef.
+            (* I'm v. concerned about this one... *)
+            admit. } 
+          { simpl.
+            simpl in *. destruct a.
+            unfold stater_statef.
+            intros. consider (x0 ?[eq] v0).
+            - intros. subst. forward_reason.
+              unfold realify_state in H.
+              destruct (x v0).
+              + unfold real_float. auto.
+              + congruence.
+            - intros.
+              specialize (IHivs (proj2 H0)).
+              unfold stater_statef in IHivs.
+              specialize (IHivs x0).
+              apply IHivs. } }
+        { right.
+          eexists. split.
+          - reflexivity.
+          - exists x0. split; eauto.
+            admit. }
+      + clear -H2.
+        induction ovs.
+        { simpl. constructor. }
+        { simpl. destruct a. simpl in H2. 
+          forward_reason. split.
+          - assumption.
+          - assumption. }}
+Qed.
 
 (* Another way of approaching abstract evaluation *)
 (*
