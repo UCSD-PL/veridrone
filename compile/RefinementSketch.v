@@ -1589,7 +1589,7 @@ Proof.
 Qed.
       
 
-(* Another auxiliary lemma *)
+(* Another auxiliary lemma - probably not true in general *)
 Lemma realify_eval_None :
   forall x c,
     feval x c None -> reval (realify_state x) c None.
@@ -1732,12 +1732,81 @@ Proof.
       + constructor; reflexivity. }
 Qed.
 
-Check feval.
+(*
+Lemma feval_emptying :
+  forall (c : fcmd) (sf : statef) (s' : option statef),
+    feval sf c s' ->
+    feval (fun _ => None) c s' \/ feval (fun _ => None) c None.
+Proof.
+  intro c. induction c.
+  { intros.
+    inversion H; subst; simpl; clear H.
+    - apply IHc1 in H3. apply IHc2 in H5.
+      destruct H3; destruct H5.
+      + left. eapply FESeqS. 
+        * eauto.
+        *
+*)
+(*
+  intro c. induction c; intros; simpl.
+  { inversion H; subst; simpl; clear H.
+    -  apply IHc2 in H5. eapply FESeqS.
+
+    - inversion H3; subst; simpl; clear H3.
+      + apply FESeqS with (s' := (fun _ => None)).
+        * constructor.
+        * apply IHc2 in H5. auto.
+      + eapply FESeqS.
+*)
+
+(* A couple of useful definitions for the correctness
+   sub-lemmas that follow *)
+Definition sf_subset_present (sub super : statef) : Prop :=
+  forall (v : Var),
+    super v = None -> sub v = None.
+
+Lemma empty_fstate_subset :
+  forall (sf : statef),
+    sf_subset_present (fun _ => None) sf.
+Proof.
+  intros. unfold sf_subset_present.
+  intros. auto.
+Qed.
+
+(* general form of a fact I need about crashing
+   behavior and empty variable environments
+   (want to prove that if a program crashes in any
+    state it will crash in the empty state) *)
+Lemma feval_crash_subset :
+  forall (c : fcmd) (sf sf' : statef),
+    feval sf  c None ->
+    sf_subset_present sf' sf ->
+    feval sf' c None.
+Proof.
+  intro c.
+  induction c.
+  { intros. 
+    inversion H; subst; clear H.
+    - eapply FESeqS. eapply IHc2 in H6.
+Abort.
+
+Lemma feval_empty_crash :
+  forall (c : fcmd) (sf : statef),
+    feval sf c None ->
+    feval (fun _ => None) c None.
+Proof.
+  intro c. induction c.
+  { intros.
+    inversion H; subst; clear H.
+    - apply IHc2 in H5.
+      econstructor 2.
+Abort.
 
 (* I worry about the provability of this... *)
 Lemma omodels_crash :
     forall (c : fcmd) (ivs : list (Var * Var)) (sf : statef)
            (ss : Syntax.state),
+      ispec_valid ivs ->
       omodels Var statef
               (fun (st : statef) (v : Var) => realify_state st v)
               ivs ss sf ->
@@ -1746,11 +1815,50 @@ Lemma omodels_crash :
 Proof.
   intros c ivs. generalize dependent c.
   induction ivs.
+  - intros. simpl in *. unfold reval.
+    exists (fun _ => None). split.
+    + unfold stater_statef. intro. auto.
+    + left.
+      split; try reflexivity.
+(* idea: c _can_ crash on an input,
+               so it will crash on the "all-None" input *)
+      admit.
+  - intros. simpl. destruct a.
+    simpl in H. forward_reason.
+    generalize Forall_forall; intro Hfafa.
+    apply Hfafa with (x := (v,v0)) in H.
+    + congruence.
+    + constructor. reflexivity.
+Qed.
+
+(*
+  intros.
+  unfold reval.
+  exists sf. split.
+  - unfold stater_statef. intros.
+    consider (sf x); intros.
+    + consider (syn_state_to_stater ivs ss x); intros.
+      * unfold syn_state_to_stater in H3.
+
+
+  intro c. induction c.
+  - intros. forward_reason.
+    inversion H1; subst; clear H1.
+    + unfold reval. exists 
+
+specialize (IHc2 ivs sf ss H H0 H7).
+*)
+  (*
+  intros c ivs. generalize dependent c.
+  induction ivs.
   - intros. 
     simpl. unfold reval. exists sf.
+    simpl in *.
     split.
     + simpl in H. unfold stater_statef.
-Abort.
+      intro x.
+      destruct (sf x).
+   *)
 
 (* We need more lemmas for the other admits in the main theorem,
    but I worry that not all of them are true.*)
