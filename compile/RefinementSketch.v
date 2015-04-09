@@ -1484,6 +1484,7 @@ Definition F2OR (f : float) : option R :=
 Definition stater : Type := Var -> option R.
 
 (* Convert a float state to a real state *)
+(* TODO make this also take a var map? *)
 Definition realify_state (sf : statef) : stater :=
   (fun (v : Var) =>
      match (sf v) with
@@ -1500,7 +1501,7 @@ Definition oembed_fcmd : _ -> _ -> fcmd -> Syntax.Formula :=
 
 Definition real_float (r : R) (f : float): Prop :=
   (F2OR f = Some r)%type.
-  
+
 Definition stater_statef (s : stater) (a : statef) : Prop :=
   forall x, match s x, a x with
               | Some sx, Some ax => real_float sx ax
@@ -1508,9 +1509,24 @@ Definition stater_statef (s : stater) (a : statef) : Prop :=
               | _, _             => False
             end.
 
+(*
+(* TODO: do I have the variable correspondence right *)
+Fixpoint stater_statef
+           (vs : list (Var * Var)) (s : stater) (a : statef) : Prop :=
+  match vs with
+    | nil             => True
+    | (lv, rv) :: vs' =>
+      match s rv, a rv with
+        | Some srv, Some arv => real_float srv arv
+        | None, None       => True
+        | _, _             => False
+      end
+  end.
+*)
+
 (* analogous definition to oembedStep_maybenone *)
 
-(* TODO how to deal with this type error with option and stuff *)
+(* TODO: ivs vs ovs?? *)
 Definition reval (rst : stater) (c : fcmd) (rst' : option stater) : Prop :=
   (exists (fst : statef),
     stater_statef rst fst /\
@@ -1522,14 +1538,14 @@ Definition reval (rst : stater) (c : fcmd) (rst' : option stater) : Prop :=
            feval fst c (Some fst')))))%type.
 
 (* "Concrete Hoare" for floating-point language *)
-Definition FHoare :=
-  Hoare fcmd stater reval.
+Definition FHoare (ivs ovs : list (Var * Var)) :=
+  Hoare fcmd stater (reval ).
 
 (* Embedding *)
-Definition oembed_fcmdr : _ -> _ -> fcmd -> Syntax.Formula :=
+Definition oembed_fcmdr (ivs ovs : list (Var * Var)) : fcmd -> Syntax.Formula :=
   oembedStep_maybenone Var fcmd stater
-                       reval
-                       (fun st v => st v).
+                       (reval)
+                       (fun st v => st v) ivs ovs.
 
 (* Check to ensure that output variables are
    subset of input variables *)
@@ -1632,6 +1648,8 @@ Fixpoint syn_state_to_stater (vs : list (Var * Var)) (ss : Syntax.state) : state
                            if x ?[eq] rv then Some (ss lv)
                            else syn_state_to_stater vs' ss x)
   end.
+
+  
 
 Definition syn_state_stater (vs : list (Var * Var)) (ss : Syntax.state) (sr : stater) : Prop :=
   (syn_state_to_stater vs ss = sr)%type.
@@ -1820,8 +1838,10 @@ Proof.
     + unfold stater_statef. intro. auto.
     + left.
       split; try reflexivity.
+      
 (* idea: c _can_ crash on an input,
                so it will crash on the "all-None" input *)
+
       admit.
   - intros. simpl. destruct a.
     simpl in H. forward_reason.
@@ -1895,7 +1915,11 @@ Qed.
    refines "concrete" evaluation (over floats) *)
 (* THIS is one of our core correctness proofs
    (along with correctness of WP) *)
-(* validity: no duplicates in second component *)
+(* validity: no duplicates in appropriate components
+   TODO: separate "covariant" and "contravariant"
+   versions of our functions for transforming state types?
+   no; just that we need to have all of them take a var list
+*)
 Lemma fcmd_rembed_refined_fembed :
   forall (c : fcmd) (ivs ovs : list (Var * Var)),
     var_spec_valid ivs ovs ->
@@ -1903,23 +1927,31 @@ Lemma fcmd_rembed_refined_fembed :
 Proof.
   intros. simpl. intros.
   fwd.
+  Print reval.
   exists (syn_state_to_stater ivs (Semantics.hd tr)).
   split.
   { unfold var_spec_valid in H; forward_reason. 
     eapply omodels_syn_state_to_stater in H.
     eapply H. }
   { destruct H1.
-    - left. admit.
+    - left. eapply omodels_crash; eauto.
+      + red in H. forward_reason. assumption.
     - right. forward_reason.
       exists (realify_state x0). split. 
-      + red. Print syn_state_to_stater.
+      + red.
         exists x. split. (* need syn_state_to_statef *)
-        { clear -H0.
+        { 
+          (* omodels should require input state to correspond "tightly" *)
+          assert (forall (v : (Var * Var)), x (snd v) = None <-> ~ In v ivs).
+          admit.
+          clear -H0 H3.
           induction ivs.
-          { simpl in *.
-            unfold stater_statef.
-            (* I'm v. concerned about this one... *)
-            admit. } 
+          { simpl in *. red. intro.
+            specialize (H3 ("", x0)). simpl in H3.
+            consider (x x0); intros.
+            - cut (~ False); [| tauto]. intro.
+              apply H3 in H1. congruence. 
+            - constructor. }
           { simpl.
             simpl in *. destruct a.
             unfold stater_statef.
@@ -1932,12 +1964,20 @@ Proof.
             - intros.
               specialize (IHivs (proj2 H0)).
               unfold stater_statef in IHivs.
+              admit. (* need to strengthen inductive hyp *)
+              (*
               specialize (IHivs x0).
-              apply IHivs. } }
+              apply IHivs.*) } }
         { right.
           eexists. split.
           - reflexivity.
           - exists x0. split; eauto.
+            Print realify_state.
+            Print stater_statef.
+            Print reval.
+            Print stater_statef.
+            Print feval.
+            Print real_float.
             admit. }
       + clear -H2.
         induction ovs.
@@ -1949,13 +1989,76 @@ Proof.
 Qed.
 
 (* Another way of approaching abstract evaluation *)
-(*
-Definition HoareA (P : stater -> Prop) (c : fcmd) (Q : stater -> Prop) : Prop :=
-  FHoare 
-        (fun rst => exists fst : statef, stater_statef rst fst /\ P rst)%type
+Check Hoare.
+SearchAbout statef.
+Print syn_state_statef.
+Print omodels.
+
+Definition vmodels (vs : list (Var * Var)) (ss : Syntax.state) (sf : statef) : Prop :=
+  omodels Var statef (fun (st : statef) (v : Var) => realify_state st v) vs ss sf.
+
+Definition HoareA (ivs ovs : list (Var * Var)) (P : Syntax.state -> Prop) (c : fcmd) (Q : Syntax.state -> Prop) : Prop :=
+  Hoare fcmd statef feval
+        (fun fst => exists rst : Syntax.state, vmodels ivs rst fst /\ P rst)%type
         c
-        (fun st => exists ast : statef, stater_statef st ast /\ Q ast)%type.
-*)
+        (fun fst => forall rst : Syntax.state, vmodels ovs rst fst -> Q rst)%type.
+
+Lemma HoareA_embed :
+  forall P c Q vs1 vs2,
+    HoareA vs1 vs2 P c Q ->
+    (|- oembed_fcmd vs1 vs2 c -->
+                    Embed (fun st st' =>
+                             P st -> Q st')).
+Proof.
+  intros.
+  simpl.
+  intros. fwd.
+  red in H. red in H.
+  specialize (H x). destruct H.
+  - exists (Semantics.hd tr).
+    split; eauto.
+  - fwd.
+    destruct H2.
+    + exfalso; auto.
+    + fwd.
+      eapply H4. eassumption.
+      unfold vmodels. eassumption.
+Qed.
+
+Lemma hoareA_skip :
+  forall ivs P,
+    HoareA ivs ivs P FSkip P.
+Proof.
+  intros.
+  red. red. intros.
+  split.
+  - fwd. eexists. constructor.
+  - split.
+    + intro. inversion H0.
+    + intros. fwd. inversion H0; subst; clear H0.
+      (* need to add a side condition saying P and Q don't look outside their var maps *)
+      admit.
+Qed.      
+
+Lemma hoareA_seq :
+  forall vs1 vs2 vs3 P Q R c1 c2,
+    HoareA vs1 vs2 P c1 Q ->
+    HoareA vs2 vs3 Q c2 R ->
+    HoareA vs1 vs3 P (FSeq c1 c2) R.
+Proof.
+ unfold HoareA, Hoare.
+ intros. fwd.
+ specialize (H s).
+ edestruct H.
+ - eauto.
+ - clear H. fwd.
+   destruct x0.
+   + specialize (H0 s0).
+     destruct (H0).
+     * eexists. split.
+(* This is unprovable, though... How disappointing. *) 
+         
+
 
 Require Import bound.
 
