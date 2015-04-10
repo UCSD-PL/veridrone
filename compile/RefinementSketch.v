@@ -53,7 +53,7 @@ Section embedding.
 
   (** This states that the value in the TLA state is exactly
    ** equal to the value in the program state.
-   **) 
+   **)
   Fixpoint models (vars : list (Syntax.Var * var))
            (tla_st : Syntax.state) (st : state) : Prop :=
     match vars with
@@ -162,9 +162,9 @@ Section embedding.
                                                     ~(models post_vars post post_state)) \/
                         (exists post_state : state, eval init_state prg post_state /\
                                                     forall post_state : state, eval init_state prg post_state ->
-                                                                               models post_vars post post_state)))%type.                      
+                                                                               models post_vars post post_state)))%type.
 
-End embedding. 
+End embedding.
 
 (* First, we consider embedStep, embedding programs represented as state-transformers
    (written in Gallina) *)
@@ -179,7 +179,7 @@ Definition prog2 : state -> state :=
   id.
 
 (* Showing that we can prove a simple refinement fact *)
-Lemma prog2_refines_prog : 
+Lemma prog2_refines_prog :
   |- embed_coq prog2 --> ("x"! = "x").
 Proof.
   unfold embedStep, embed_coq.
@@ -196,7 +196,7 @@ Proof.
   inversion H0.
   subst. auto.
 Qed.
-  
+
 (* Example of proving an invariant for prog2 *)
 Lemma prog2_fact :
   |- ("x" = 0 /\ [] (embed_coq prog2)) --> [] "x" = 0.
@@ -276,8 +276,8 @@ Qed.
 
 (* Under this definition of embed, we can indeed prove that coq_prog3
    refines the corresponding TLA program *)
-Lemma prog3_refines_prog : 
-  |- embed_coq coq_prog3 --> 
+Lemma prog3_refines_prog :
+  |- embed_coq coq_prog3 -->
      ("x" = 0 --> "x"! = 1) /\
      ("x" = 1 --> "x"! = 0).
 Proof.
@@ -294,7 +294,7 @@ Proof.
   destruct (my_req_dec (Semantics.hd tr "x") 0).
   - rewrite e. rewrite H. split; intuition.
   - rewrite H in *. split; auto.
-    intro. congruence. 
+    intro. congruence.
 Qed.
 
 Require Import FunctionalExtensionality.
@@ -378,13 +378,13 @@ Definition cmd1 : cmd :=
 Require Import ExtLib.Tactics.
 
 (* Simple refinement proof for an embedded imperative program *)
-Lemma cmd1_refines_prog : 
+Lemma cmd1_refines_prog :
   |- embed_cmd cmd1 --> ("x"! = "x").
 Proof.
   unfold embed_cmd, embedStep. simpl.
   intros. unfold eval_comp. simpl.
   specialize (H (fun v => if v ?[eq] 0 then Some (Semantics.hd tr "x") else None)).
-  simpl in H. 
+  simpl in H.
   specialize (H (conj eq_refl I)).
   forward_reason.
   inversion H; clear H; subst.
@@ -409,7 +409,7 @@ Lemma cmd3_refines_prog3 :
                 ("x" = 1 --> "x"! = 0)).
 Proof.
   unfold embed_cmd, embedStep. simpl.
-  intros. 
+  intros.
   unfold eval_comp. simpl.
   specialize (H (fun v => if v ?[eq] 0 then Some (Semantics.hd tr "x") else None)).
   simpl in H. destruct H.
@@ -439,7 +439,7 @@ Qed.
    take a step; i.e., one which "goes wrong") is a valid refinement
    of tla prog3, which is well-behaved (is the "alternating" program).
    This is bad.
-  
+
    This shows that embedStep is insufficient for the purposes of our
    abstractor. It is important that programs that "go wrong" not be
    treated as refinements of TLA formulas.
@@ -525,7 +525,7 @@ Proof.
 
 Require Import ExtLib.Data.Option.
 
-Lemma eval_respects_eq : 
+Lemma eval_respects_eq :
   forall si sf si' sf' cmd,
     si = si' ->
     sf = sf' ->
@@ -538,7 +538,7 @@ Qed.
 (* This demonstrates that under embed_cmd''/embedStep_full a valid program does indeed
    refine a TLA program (of which it actually is a refinement)
    This is another promising sanity-check for this notion of embedding. *)
-Lemma cmd1_refines_prog'' : 
+Lemma cmd1_refines_prog'' :
   |- embed_cmd'' cmd1 --> ("x"! = "x").
 Proof.
   unfold embed_cmd'', embedStep_noex.
@@ -570,7 +570,7 @@ Qed.
    However, under embed_cmd''/embedStep_full, we can prove that the refinement holds.
 
    This is bad and shows that embedStep_noex is not sufficient for our purposes either. *)
-Lemma havoc_refines_prog'' : 
+Lemma havoc_refines_prog'' :
   |- embed_cmd'' (Havoc 0) --> ("x"! = "x").
 Proof.
   unfold embed_cmd'', embedStep_noex.
@@ -596,7 +596,7 @@ Qed.
 
 (* So, in conclusion, deterministic programs appear to be embeddable with embedStep_noex,
    but nondeterministic programs are not.
-   
+
    - One option might be to express (e.g. with SP/WP calculation)  whether a program is embeddable (deterministic).
    - We could also require that the language itself not admit nondeterminism, though this might interact badly
      with certain TLA conventions (e.g. often in TLA an invalid variable is havoc)
@@ -639,7 +639,7 @@ Proof.
 Abort.
 
 (* We can also prove valid refinements *)
-Lemma cmd1_refines_prog''' : 
+Lemma cmd1_refines_prog''' :
   |- embed_cmd''' cmd1 --> ("x"! = "x").
 Proof.
   unfold embed_cmd''', embedStep_maybenot.
@@ -655,7 +655,7 @@ Qed.
 
 (* And, we cannot prove that nondeterministic programs
    refine deterministic ones *)
-Lemma havoc_refines_prog''' : 
+Lemma havoc_refines_prog''' :
   |- embed_cmd''' (Havoc 0) --> ("x"! = "x").
 Proof.
   unfold embed_cmd''', embedStep_maybenot.
@@ -666,7 +666,7 @@ Proof.
   - exfalso. apply H0. eexists. econstructor.
   - forward_reason. inversion H0. subst. clear H0.
     unfold update in H2. simpl in H2.
-Abort.    
+Abort.
 
 Print cmd.
 Print cexpr.
@@ -699,9 +699,9 @@ Proof.
       simpl in H8. unfold update in H8. simpl in H8.
       inversion H8; subst; simpl; clear H8.
       unfold update in H2; simpl in H2.
-      rewrite <- H in H2. inversion H2. 
+      rewrite <- H in H2. inversion H2.
       reflexivity.
-Qed. 
+Qed.
 
 (* Using embedStep_allpost *)
 Definition embed_cmd_4 : cmd -> Syntax.Formula :=
@@ -723,7 +723,7 @@ Proof.
 Abort.
 
 (* We can also prove valid refinements *)
-Lemma cmd1_refines_prog2_4 : 
+Lemma cmd1_refines_prog2_4 :
   |- embed_cmd_4 cmd1 --> ("x"! = "x").
 Proof.
   unfold embed_cmd_4, embedStep_allpost.
@@ -743,7 +743,7 @@ Qed.
 
 (* However, we _can_ prove that nondeterministic programs refine deterministic ones
    So that rules out this definition *)
-Lemma havoc_refines_prog2_4 : 
+Lemma havoc_refines_prog2_4 :
   |- embed_cmd_4 (Havoc 0) --> ("x"! = "x").
 Proof.
   unfold embed_cmd_4, embedStep_allpost.
@@ -788,7 +788,7 @@ Proof.
 Abort.
 
 (* However, we are unable to prove valid refinements *)
-Lemma cmd1_refines_prog2_5 : 
+Lemma cmd1_refines_prog2_5 :
   |- embed_cmd_5 cmd1 --> ("x"! = "x").
 Proof.
   unfold embed_cmd_5, embedStep_allpost_maybenot.
@@ -807,7 +807,7 @@ Proof.
       exfalso. apply H2.
       subst.
 Abort.
-    
+
 (* New idea: have eval return an option
    Failing and looping are distinct (plus also nondeterminism)
    We believe that these capture all the pathological behaviors
@@ -828,7 +828,7 @@ Section embedding2.
 
   (** This states that the value in the TLA state is exactly
    ** equal to the value in the program state.
-   **) 
+   **)
   Fixpoint omodels (vars : list (Syntax.Var * var))
            (tla_st : Syntax.state) (st : state) : Prop :=
     match vars with
@@ -852,7 +852,7 @@ Section embedding2.
                       (~(exists post_state : state, eval init_state prg (Some post_state)) \/
                        (exists post_state : state, eval init_state prg (Some post_state) /\
                                                    omodels post_vars post post_state)))%type.
-  
+
   (** This version of embed appears to work for all the test cases we have come up
       with so far: it allows valid refinements, but does not permit proving
       refinements of pathological programs (ones that crash and/or exhibit nondeterminism)
@@ -990,7 +990,7 @@ Proof.
 Abort.
 
 (* A valid refinement, which is ineed provable. Good. *)
-Lemma cmd1_refines_prog2_6 : 
+Lemma cmd1_refines_prog2_6 :
   |- oembed_cmd [("x",0)] [("x",0)] cmd1 --> ("x"! = "x").
 Proof.
   unfold oembed_cmd, oembedStep_maybenot.
@@ -1007,7 +1007,7 @@ Qed.
 
 (* Nondeterministic refinements should not be provable.
    They are not. Good. *)
-Lemma havoc_refines_prog2_6 : 
+Lemma havoc_refines_prog2_6 :
   |- oembed_cmd [("x",0)] [("x",0)] (Havoc 0) --> ("x"! = "x").
 Proof.
   unfold oembed_cmd, oembedStep_maybenot.
@@ -1021,7 +1021,7 @@ Proof.
     unfold update in H2; simpl in H2.
     inversion H2; subst; simpl.
 Abort.
-  
+
 (* Finally, programs that nondeterministically crash.
    Unfortunately, we are still able to prove refinements with
    these that we should not be able to ... *)
@@ -1061,7 +1061,7 @@ Definition oembed_cmd' : _ -> _ -> cmd -> Syntax.Formula :=
 
 (* With this formulation we are still able to prove
    this simple valid refinement *)
-Lemma cmd1_refines_prog2_7 : 
+Lemma cmd1_refines_prog2_7 :
   |- oembed_cmd' [("x",0)] [("x",0)] cmd1 --> ("x"! = "x").
 Proof.
   unfold oembed_cmd', oembedStep_maybenone.
@@ -1091,9 +1091,9 @@ Proof.
   - inversion H0; subst.
 Abort.
 
-(* We also still cannot prove that a nondeterministic program 
+(* We also still cannot prove that a nondeterministic program
    refines a deterministic one *)
-Lemma havoc_refines_prog2_7 : 
+Lemma havoc_refines_prog2_7 :
   |- oembed_cmd' [("x",0)] [("x",0)] (Havoc 0) --> ("x"! = "x").
 Proof.
   unfold oembed_cmd', oembedStep_maybenone.
@@ -1123,7 +1123,7 @@ Proof.
     + inversion H8; subst; clear H8.
       simpl in H6. unfold update in H6. simpl in H6.
       inversion H6.
-Abort.      
+Abort.
 
 Definition prog_inc : cmd :=
   Asn 0 (CPlus (CConst 1) (CVar 0)).
@@ -1168,7 +1168,7 @@ Proof.
   split; [| split].
   { eapply H in H1. forward_reason.
     destruct x eqn:Hx; try congruence.
-    generalize H1. intro H1'. 
+    generalize H1. intro H1'.
     apply H3 in H1. apply H0 in H1.
     forward_reason.
     eexists. econstructor. apply H1'. apply H1.
@@ -1185,7 +1185,7 @@ Proof.
     apply H3 in H6. apply H0 in H6. forward_reason.
     auto.
   }
-Qed. 
+Qed.
 
 (* Hoare Skip rule *)
 Theorem SkipR :
@@ -1198,12 +1198,12 @@ Proof.
   { intro. inversion H0. }
   { intros. inversion H0; subst. assumption. }
 Qed.
-                                   
+
 (* Hoare Assignment rule; for use in weakest-precondition calculation *)
 Lemma AssR_pre : forall P n e,
   CHoare
      (fun s : state =>
-        exists val : R, cexprD e s = Some val /\ P (update s n (Some val)))%type 
+        exists val : R, cexprD e s = Some val /\ P (update s n (Some val)))%type
      (Asn n e) P.
 Proof.
   red; red; intros.
@@ -1268,7 +1268,7 @@ Proof.
     - specialize (H1 s).
       forward_reason. auto. }
 Qed.
-    
+
 (* Hoare rule for Fail; for use in weakest-precondition calculation *)
 Lemma FailR_pre : forall P, CHoare (fun _ => False) Fail P.
 Proof.
@@ -1331,7 +1331,7 @@ Fixpoint wp (c : cmd) (P : state -> Prop) : state -> Prop :=
   | Ite ex c1 c2 => (fun s =>
                        (cexprD ex s = Some 0%R /\ wp c1 P s) \/
                        (exists (r : R), r <> 0%R /\ cexprD ex s = Some r /\ wp c2 P s))%type
-  end.    
+  end.
 
 Theorem wp_sound :
   forall c P,
@@ -1369,7 +1369,7 @@ Proof.
   exists x.
   split; auto.
   destruct H1.
-  - left. intros. 
+  - left. intros.
     unfold CHoare, Hoare in H.
     specialize (H _ H2). forward_reason.
     contradiction.
@@ -1603,7 +1603,7 @@ Proof.
     + eapply H with (r:=0%R) in Hsfx.
       inversion Hsfx.
 Qed.
-      
+
 
 (* Another auxiliary lemma - probably not true in general *)
 Lemma realify_eval_None :
@@ -1621,14 +1621,14 @@ Abort.
       destruct (x x0) eqn:Hxx0.
       + destruct (F2OR f) eqn:Ff.
         * unfold real_float. assumption.
-        * 
+        *
   simpl.
   unfold realify_state.
   inversion H; subst; clear H.
   - Print reval.
   econstructor.
   unfold realify_state.
-        
+
 
   SearchAbout realify_state.
   intros.
@@ -1649,7 +1649,7 @@ Fixpoint syn_state_to_stater (vs : list (Var * Var)) (ss : Syntax.state) : state
                            else syn_state_to_stater vs' ss x)
   end.
 
-  
+
 
 Definition syn_state_stater (vs : list (Var * Var)) (ss : Syntax.state) (sr : stater) : Prop :=
   (syn_state_to_stater vs ss = sr)%type.
@@ -1660,13 +1660,13 @@ Definition syn_state_statef (vs : list (Var * Var)) (ss : Syntax.state) (sf : st
     exists (f : float),
       (sf rv   = Some f /\
        F2OR f  = Some (ss lv))%type.
-                        
+
 (* (* old cumbersome definition *)
   match vs with
     | nil             =>
       (forall (x : Var), sf x = None)%type
-    | (lv, rv) :: vs' => 
-      (forall (x : Var), 
+    | (lv, rv) :: vs' =>
+      (forall (x : Var),
          if x ?[eq] rv then
            exists f, sf lv = Some f /\
                      Some (ss lv) = F2OR f
@@ -1722,10 +1722,10 @@ Fixpoint ospec_valid (ovs : list (Var * Var)) : Prop :=
   end.
 
 (* Combine both *)
-Definition var_spec_valid (ivs ovs : list (Var * Var)) := 
+Definition var_spec_valid (ivs ovs : list (Var * Var)) :=
   (ispec_valid ivs /\ ospec_valid ovs)%type.
 
-(* Useful auxiliary lemma; sanity for relationship between 
+(* Useful auxiliary lemma; sanity for relationship between
    omodels and syn_state_to_stater (provided valid var-map) *)
 Lemma omodels_syn_state_to_stater:
   forall (ss : Syntax.state) (ivs : list (Var * Var)),
@@ -1761,7 +1761,7 @@ Proof.
     inversion H; subst; simpl; clear H.
     - apply IHc1 in H3. apply IHc2 in H5.
       destruct H3; destruct H5.
-      + left. eapply FESeqS. 
+      + left. eapply FESeqS.
         * eauto.
         *
 *)
@@ -1803,7 +1803,7 @@ Lemma feval_crash_subset :
 Proof.
   intro c.
   induction c.
-  { intros. 
+  { intros.
     inversion H; subst; clear H.
     - eapply FESeqS. eapply IHc2 in H6.
 Abort.
@@ -1838,7 +1838,7 @@ Proof.
     + unfold stater_statef. intro. auto.
     + left.
       split; try reflexivity.
-      
+
 (* idea: c _can_ crash on an input,
                so it will crash on the "all-None" input *)
 
@@ -1864,14 +1864,14 @@ Qed.
   intro c. induction c.
   - intros. forward_reason.
     inversion H1; subst; clear H1.
-    + unfold reval. exists 
+    + unfold reval. exists
 
 specialize (IHc2 ivs sf ss H H0 H7).
 *)
   (*
   intros c ivs. generalize dependent c.
   induction ivs.
-  - intros. 
+  - intros.
     simpl. unfold reval. exists sf.
     simpl in *.
     split.
@@ -1889,22 +1889,22 @@ specialize (IHc2 ivs sf ss H H0 H7).
     unfold reval. exists sf.
     split.
     - unfold stater_statef. intros x.
-      
+
     inversion H0; subst; clear H0.
     - unfold reval. exists sf.
     split.
     - unfold stater_statef. intros x.
       destruct (sf x) eqn:Hsfx.
 
-    
+
 
   unfold reval.
-  exists sf. 
+  exists sf.
   split.
   - unfold stater_statef.
     intro.
     destruct (sf x) eqn:Hsfx.
-    + 
+    +
 
 
   - left. split; auto.
@@ -1930,17 +1930,17 @@ Proof.
   Print reval.
   exists (syn_state_to_stater ivs (Semantics.hd tr)).
   split.
-  { unfold var_spec_valid in H; forward_reason. 
+  { unfold var_spec_valid in H; forward_reason.
     eapply omodels_syn_state_to_stater in H.
     eapply H. }
   { destruct H1.
     - left. eapply omodels_crash; eauto.
       + red in H. forward_reason. assumption.
     - right. forward_reason.
-      exists (realify_state x0). split. 
+      exists (realify_state x0). split.
       + red.
         exists x. split. (* need syn_state_to_statef *)
-        { 
+        {
           (* omodels should require input state to correspond "tightly" *)
           assert (forall (v : (Var * Var)), x (snd v) = None <-> ~ In v ivs).
           admit.
@@ -1950,7 +1950,7 @@ Proof.
             specialize (H3 ("", x0)). simpl in H3.
             consider (x x0); intros.
             - cut (~ False); [| tauto]. intro.
-              apply H3 in H1. congruence. 
+              apply H3 in H1. congruence.
             - constructor. }
           { simpl.
             simpl in *. destruct a.
@@ -1982,82 +1982,112 @@ Proof.
       + clear -H2.
         induction ovs.
         { simpl. constructor. }
-        { simpl. destruct a. simpl in H2. 
+        { simpl. destruct a. simpl in H2.
           forward_reason. split.
           - assumption.
           - assumption. }}
 Qed.
 
 (* Another way of approaching abstract evaluation *)
-Check Hoare.
-SearchAbout statef.
-Print syn_state_statef.
-Print omodels.
-
 Definition vmodels (vs : list (Var * Var)) (ss : Syntax.state) (sf : statef) : Prop :=
   omodels Var statef (fun (st : statef) (v : Var) => realify_state st v) vs ss sf.
 
-Definition HoareA (ivs ovs : list (Var * Var)) (P : Syntax.state -> Prop) (c : fcmd) (Q : Syntax.state -> Prop) : Prop :=
-  Hoare fcmd statef feval
-        (fun fst => exists rst : Syntax.state, vmodels ivs rst fst /\ P rst)%type
-        c
-        (fun fst => forall rst : Syntax.state, vmodels ovs rst fst -> Q rst)%type.
+(** This is the semantic side condition **)
+Definition SEMR (vs : list (Var * Var)) (P : Syntax.state -> Prop) : Prop :=
+  forall c a b, vmodels vs a c -> vmodels vs b c -> P a -> P b.
 
-Lemma HoareA_embed :
+Definition Hoare_ := Hoare fcmd statef feval.
+
+
+Definition HoareA_all (ivs ovs : list (Var * Var))
+           (P : Syntax.state -> Prop) (c : fcmd) (Q : Syntax.state -> Prop)
+: Prop :=
+  Hoare_ (fun fst => forall rst : Syntax.state, vmodels ivs rst fst -> P rst)%type
+         c
+         (fun fst => forall rst : Syntax.state, vmodels ovs rst fst -> Q rst)%type.
+
+Definition HoareA_ex (ivs ovs : list (Var * Var))
+           (P : Syntax.state -> Prop) (c : fcmd) (Q : Syntax.state -> Prop)
+: Prop :=
+  Hoare_ (fun fst => exists rst : Syntax.state, vmodels ivs rst fst /\ P rst)%type
+         c
+         (fun fst => exists rst : Syntax.state, vmodels ovs rst fst /\ Q rst)%type.
+
+Lemma HoareA_all_embed :
   forall P c Q vs1 vs2,
-    HoareA vs1 vs2 P c Q ->
+    HoareA_all vs1 vs2 P c Q ->
+    SEMR vs1 P ->
     (|- oembed_fcmd vs1 vs2 c -->
-                    Embed (fun st st' =>
-                             P st -> Q st')).
+                    Embed (fun st st' => P st -> Q st')).
 Proof.
-  intros.
-  simpl.
-  intros. fwd.
-  red in H. red in H.
-  specialize (H x). destruct H.
-  - exists (Semantics.hd tr).
-    split; eauto.
-  - fwd.
-    destruct H2.
-    + exfalso; auto.
-    + fwd.
-      eapply H4. eassumption.
-      unfold vmodels. eassumption.
+  unfold HoareA_all, Hoare. simpl; intros.
+  forward_reason.
+  destruct (H x); clear H.
+  { intros. eapply H0. 2: eassumption. 2: eassumption. eassumption. }
+  { forward_reason. destruct H3.
+    { exfalso; auto. }
+    { forward_reason.
+      eapply H5 in H3; eauto. } }
 Qed.
 
-Lemma hoareA_skip :
-  forall ivs P,
-    HoareA ivs ivs P FSkip P.
+Lemma HoareA_embed_ex :
+  forall P c Q vs1 vs2,
+    HoareA_ex vs1 vs2 P c Q ->
+    forall (HsemrQ : SEMR vs2 Q),
+    (|- oembed_fcmd vs1 vs2 c -->
+                    Embed (fun st st' => P st -> Q st')).
 Proof.
-  intros.
+  unfold HoareA_ex, Hoare_. simpl; intros.
+  forward_reason.
+  destruct (H x); clear H.
+  { eexists; eauto. }
+  { forward_reason. destruct H2; try solve [ exfalso; auto ].
+    forward_reason.
+    eapply H4 in H2.
+    forward_reason.
+    eapply HsemrQ; [ | | eassumption ]; eauto. }
+Qed.
+
+Lemma Hoare__skip :
+  forall P,
+    Hoare_ P FSkip P.
+Proof.
   red. red. intros.
   split.
-  - fwd. eexists. constructor.
-  - split.
-    + intro. inversion H0.
-    + intros. fwd. inversion H0; subst; clear H0.
-      (* need to add a side condition saying P and Q don't look outside their var maps *)
-      admit.
-Qed.      
+  { eexists; constructor. }
+  split.
+  { intro. inversion H0. }
+  { inversion 1. subst; auto. }
+Qed.
 
-Lemma hoareA_seq :
-  forall vs1 vs2 vs3 P Q R c1 c2,
-    HoareA vs1 vs2 P c1 Q ->
-    HoareA vs2 vs3 Q c2 R ->
-    HoareA vs1 vs3 P (FSeq c1 c2) R.
+Lemma Hoare__seq :
+  forall P Q R c1 c2,
+    Hoare_ P c1 Q ->
+    Hoare_ Q c2 R ->
+    Hoare_ P (FSeq c1 c2) R.
 Proof.
- unfold HoareA, Hoare.
- intros. fwd.
- specialize (H s).
- edestruct H.
- - eauto.
- - clear H. fwd.
-   destruct x0.
-   + specialize (H0 s0).
-     destruct (H0).
-     * eexists. split.
-(* This is unprovable, though... How disappointing. *) 
-         
+  unfold Hoare_, Hoare.
+  intros.
+  split.
+  { eapply H in H1.
+    forward_reason.
+    destruct x; try solve [ exfalso; auto ].
+    specialize (H0 _ (H3 _ H1)).
+    forward_reason.
+    eexists. econstructor; eauto. }
+  split.
+  { red. eapply H in H1.
+    forward_reason.
+    inversion 1; subst; auto.
+    specialize (H0 _ (H3 _ H8)).
+    forward_reason. eauto. }
+  { intros.
+    inversion H2; clear H2; subst.
+    eapply H in H1. forward_reason.
+    eapply H3 in H6.
+    eapply H0 in H6. forward_reason. eauto. }
+Qed.
+
 
 
 Require Import bound.
@@ -2071,7 +2101,7 @@ Fixpoint fexpr_to_NowTerm (fx : fexpr) : NowTerm :=
       PlusN (fexpr_to_NowTerm fx1) (fexpr_to_NowTerm fx2)
   end.
 
-Definition bound_fexpr (fx : fexpr) : list singleBoundTerm := 
+Definition bound_fexpr (fx : fexpr) : list singleBoundTerm :=
   bound_term (fexpr_to_NowTerm fx).
 
 Axiom bounds_to_formula : list singleBoundTerm -> Syntax.state -> R -> Prop.
@@ -2107,4 +2137,3 @@ Fixpoint fwp (c : fcmd) (P : Syntax.state -> Prop) : Syntax.state -> Prop :=
   end.
 
 (* *)
-
