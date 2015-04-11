@@ -2088,6 +2088,36 @@ Proof.
     eapply H0 in H6. forward_reason. eauto. }
 Qed.
 
+Print fcmd.
+
+Check Hoare_.
+Print fexprD.
+
+SearchAbout statef.
+
+(* this plus consequence should be enough to get our real assignment rule
+   that talks about bounds *)
+Lemma Hoare__asn :
+  forall P v e,
+    Hoare_
+      (fun fs : statef =>
+         exists val : float,
+           fexprD e fs = Some val /\
+           P (fupdate fs v (Some val)))%type 
+      (FAsn v e) 
+      P.
+Proof.
+  intros. red. red.
+  intros. fwd.
+  split.
+  - eexists. constructor. eassumption.
+  - split.
+    + intro. inversion H1; subst; clear H1. congruence.
+    + intros. inversion H1; subst; clear H1.
+      rewrite H in H4. inversion H4; subst; clear H4.
+      assumption.
+Qed.
+  
 
 
 Require Import bound.
@@ -2104,7 +2134,95 @@ Fixpoint fexpr_to_NowTerm (fx : fexpr) : NowTerm :=
 Definition bound_fexpr (fx : fexpr) : list singleBoundTerm :=
   bound_term (fexpr_to_NowTerm fx).
 
-Axiom bounds_to_formula : list singleBoundTerm -> Syntax.state -> R -> Prop.
+Axiom bounds_to_formula : singleBoundTerm -> Syntax.state -> Prop * (R -> Prop).
+
+Fixpoint AnyOf (Ps : list Prop) : Prop :=
+  match Ps with
+    | nil => False
+    | P :: Ps => P \/ AnyOf Ps
+  end%type.
+
+Print fexpr.
+
+Fixpoint varmap_check_fexpr (ivs : list (Var * Var)) (e : fexpr) : Prop :=
+  match e with
+    | FVar v      => exists lv, In (lv, v) ivs
+    | FConst _    => True
+    | FPlus e1 e2 => varmap_check_fexpr ivs e1 /\
+                     varmap_check_fexpr ivs e2
+  end%type.
+
+(* perhaps unnecessary *)
+Fixpoint varmap_check_fcmd (ivs : list (Var * Var)) (c : fcmd) : Prop :=
+  match c with
+    | FSeq c1 c2   => varmap_check_fcmd ivs c1 /\
+                      varmap_check_fcmd ivs c2
+    | FSkip        => True
+    | FAsn _ e     => varmap_check_fexpr ivs e
+    | FIte e c1 c2 => varmap_check_fexpr ivs e  /\
+                      varmap_check_fcmd   ivs c1 /\
+                      varmap_check_fcmd   ivs c2
+    | FHavoc _     => True
+    | FFail        => True
+  end%type.     
+
+Lemma HoareA_ex_asn :
+  forall ivs ovs (P : _ -> Prop) v e,
+    varmap_check_fexpr ivs e ->
+    HoareA_ex ivs ovs
+      (fun ss : Syntax.state =>
+         AnyOf (List.map (fun sbt =>
+                            let '(pred,bound) := bounds_to_formula sbt ss in
+                            pred /\ forall val : R,
+                                      bound val -> P (fupdate ss v val))
+                         (bound_fexpr e)))%type
+      (FAsn v e)
+      P.
+Proof.
+  red. red. red. intros.
+  forward_reason.
+  split.
+  { consider (fexprD e s); intros; eexists.
+    - econstructor; eauto.
+    - eapply FEAsnN. auto. }
+  split.
+  { clear -H H0. intro. 
+    inversion H1; subst; clear H1.
+    induction e.
+    - induction ivs.
+      + simpl in *. fwd. assumption.
+      + simpl in *. fwd. destruct a.
+        fwd. destruct H.
+        * inversion H; subst; clear H.
+          unfold realify_state in H0.
+          rewrite H4 in H0. congruence.
+        * apply IHivs; try eexists; eassumption.
+    - inversion H4.
+    - inversion H4; subst; clear H4.
+      destruct (fexprD e1 s).
+      + destruct (fexprD e2 s).
+        * inversion H2.
+        * apply IHe2; try reflexivity. 
+          inversion H. assumption.
+      + destruct (fexprD e2 s).
+        * apply IHe1; try reflexivity.
+          inversion H. assumption.
+        * inversion H. auto. }
+  { intros.
+    eexists. split.
+    (* we need a hypothesis about ovs *)
+Abort.
+    
+
+(* AnyOf -> feval will *)
+
+(* Type checking - need to see if all variables mentioned on RHS in program are
+   contained in variable map. Add successful typecheck to premises of asn
+   (and others that need it maybe) *)
+
+(* We want to be able to abstract program x := 1+1, and show that it
+   refines x > 0 *)
+
 
 (*
 Fixpoint bounds_to_formula' (bounds : list singleBoundTerm) (center : Term) : Prop :=
@@ -2136,4 +2254,5 @@ Fixpoint fwp (c : fcmd) (P : Syntax.state -> Prop) : Syntax.state -> Prop :=
   | FIte _ _ _ => fun s => False
   end.
 
-(* *)
+(* TODO: Prove that predicates produced by fwp have SEMR property
+   Also prove assignment Hoare rule *)
