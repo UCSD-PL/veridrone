@@ -2,8 +2,8 @@ Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.ProofRules.
 Require Import String.
-Open Local Scope string_scope.
-Open Local Scope HP.
+Local Open Scope string_scope.
+Local Open Scope HP.
 
 (*******************************************************************
    In this file, we explore various approaches to embedding programs.
@@ -2103,8 +2103,8 @@ Lemma Hoare__asn :
       (fun fs : statef =>
          exists val : float,
            fexprD e fs = Some val /\
-           P (fupdate fs v (Some val)))%type 
-      (FAsn v e) 
+           P (fupdate fs v (Some val)))%type
+      (FAsn v e)
       P.
 Proof.
   intros. red. red.
@@ -2117,7 +2117,7 @@ Proof.
       rewrite H in H4. inversion H4; subst; clear H4.
       assumption.
 Qed.
-  
+
 
 
 Require Import bound.
@@ -2136,13 +2136,22 @@ Definition bound_fexpr (fx : fexpr) : list singleBoundTerm :=
 
 Axiom bounds_to_formula : singleBoundTerm -> Syntax.state -> Prop * (R -> Prop).
 
+Axiom bound_fexpr_sound : forall ivs fx sbts,
+    bound_fexpr fx = sbts ->
+    Forall (fun sbt =>
+              forall st st',
+                vmodels ivs st st' ->
+                let '(P,Pr) := bounds_to_formula sbt st in
+                P -> exists fval, fexprD fx st' = Some fval
+                                  /\ exists val,
+                                    F2OR fval = Some val /\ Pr val)%type
+           sbts.
+
 Fixpoint AnyOf (Ps : list Prop) : Prop :=
   match Ps with
     | nil => False
     | P :: Ps => P \/ AnyOf Ps
   end%type.
-
-Print fexpr.
 
 Fixpoint varmap_check_fexpr (ivs : list (Var * Var)) (e : fexpr) : Prop :=
   match e with
@@ -2164,12 +2173,12 @@ Fixpoint varmap_check_fcmd (ivs : list (Var * Var)) (c : fcmd) : Prop :=
                       varmap_check_fcmd   ivs c2
     | FHavoc _     => True
     | FFail        => True
-  end%type.     
+  end%type.
 
 Lemma HoareA_ex_asn :
-  forall ivs ovs (P : _ -> Prop) v e,
+  forall ivs (P : _ -> Prop) v e,
     varmap_check_fexpr ivs e ->
-    HoareA_ex ivs ovs
+    HoareA_ex ivs ivs
       (fun ss : Syntax.state =>
          AnyOf (List.map (fun sbt =>
                             let '(pred,bound) := bounds_to_formula sbt ss in
@@ -2186,7 +2195,7 @@ Proof.
     - econstructor; eauto.
     - eapply FEAsnN. auto. }
   split.
-  { clear -H H0. intro. 
+  { clear -H H0. intro.
     inversion H1; subst; clear H1.
     induction e.
     - induction ivs.
@@ -2202,17 +2211,30 @@ Proof.
       destruct (fexprD e1 s).
       + destruct (fexprD e2 s).
         * inversion H2.
-        * apply IHe2; try reflexivity. 
+        * apply IHe2; try reflexivity.
           inversion H. assumption.
       + destruct (fexprD e2 s).
         * apply IHe1; try reflexivity.
           inversion H. assumption.
         * inversion H. auto. }
   { intros.
-    eexists. split.
-    (* we need a hypothesis about ovs *)
-Abort.
-    
+    inversion H2; clear H2; subst.
+    generalize (bound_fexpr_sound ivs e _ eq_refl).
+    intros. revert H1.
+    generalize dependent (bound_fexpr e).
+    induction 1.
+    { simpl in *; destruct 1. }
+    { simpl in *; destruct 1.
+      { clear H2 IHForall.
+        specialize (H1 x s H0).
+        destruct (bounds_to_formula x0 x).
+        forward_reason.
+        eapply H3 in H6.
+        eexists; split; eauto.
+        clear - H0 H4. admit. }
+      { eauto. } } }
+Qed.
+
 
 (* AnyOf -> feval will *)
 
