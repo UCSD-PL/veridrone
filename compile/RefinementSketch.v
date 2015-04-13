@@ -2231,7 +2231,48 @@ Proof.
         forward_reason.
         eapply H3 in H6.
         eexists; split; eauto.
-        clear - H0 H4. admit. }
+        rewrite H5 in H1.
+        inv_all. subst.
+        clear - H0 H4.
+
+        induction ivs.
+        - simpl; auto.
+        - simpl.
+          simpl in H0. fwd. intros. fwd.
+          split.          
+          + unfold fupdate. unfold realify_state in *.
+            consider (v ?[eq] v0); intros.
+            { consider (v ?[eq] v1); intros.
+              { auto. }
+              { consider (s v1); intros; try congruence.
+                subst.
+                rewrite <- H5. eapply eq_trans.
+                - symmetry. apply H4.
+                - 
+
+                - subst. rewrite <- H0.
+                  
+            * subst. eapply eq_trans.
+              symmetry in H4. apply H4.
+              unfold realify_state in H0.
+              consider (s v1); intros.
+              
+
+            consider (v ?[eq] v1); intros.
+            * auto.
+            * unfold realify_state in H0. 
+              consider (s v1).
+              destruct (s v1); intros. 
+              subst. inv_all. subst.
+consider (s v1); intros.
+              subst. red in IHivs.
+
+              ewrite <- H4. unfold realify_state in H0.
+              consider (s v1).
+              intros. subst.
+              
+              unfold realify_state.
+          + auto. }            
       { eauto. } } }
 Qed.
 
