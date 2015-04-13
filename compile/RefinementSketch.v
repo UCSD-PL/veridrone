@@ -2176,14 +2176,15 @@ Fixpoint varmap_check_fcmd (ivs : list (Var * Var)) (c : fcmd) : Prop :=
   end%type.
 
 Lemma HoareA_ex_asn :
-  forall ivs (P : _ -> Prop) v e,
+  forall ivs (P : _ -> Prop) v v' e,
     varmap_check_fexpr ivs e ->
+    In (v, v') ivs ->
     HoareA_ex ivs ivs
       (fun ss : Syntax.state =>
          AnyOf (List.map (fun sbt =>
                             let '(pred,bound) := bounds_to_formula sbt ss in
                             pred /\ forall val : R,
-                                      bound val -> P (fupdate ss v val))
+                                      bound val -> P (fupdate ss v' val))
                          (bound_fexpr e)))%type
       (FAsn v e)
       P.
@@ -2195,16 +2196,30 @@ Proof.
     - econstructor; eauto.
     - eapply FEAsnN. auto. }
   split.
-  { clear -H H0. intro.
-    inversion H1; subst; clear H1.
+  { clear -H H0 H1. intro.
+    inversion H2; subst; clear H2.
     induction e.
-    - induction ivs.
-      + simpl in *. fwd. assumption.
-      + simpl in *. fwd. destruct a.
-        fwd. destruct H.
-        * inversion H; subst; clear H.
-          unfold realify_state in H0.
-          rewrite H4 in H0. congruence.
+    - generalize dependent v.
+      generalize dependent v'.      
+      induction ivs.
+      + intros. simpl in *. fwd. assumption.
+      + intros. simpl in *. fwd. destruct a. fwd.
+        destruct H.        
+        { inversion H; subst; clear H.
+          unfold realify_state in H1.
+          rewrite H5 in H1. congruence. }
+        { destruct H0.
+          - inversion H0; subst; clear H0.
+            unfold realify_state in H1.
+            rewrite H
+
+          destruct H0.
+          - inversion H; subst; clear H.
+            unfold realify_state in H1.
+            rewrite H5 in H1. congruence.
+          - apply IHivs.
+
+
         * apply IHivs; try eexists; eassumption.
     - inversion H4.
     - inversion H4; subst; clear H4.
@@ -2238,17 +2253,19 @@ Proof.
         induction ivs.
         - simpl; auto.
         - simpl.
+          Print vmodels.
           simpl in H0. fwd. intros. fwd.
           split.          
-          + unfold fupdate. unfold realify_state in *.
+          + unfold fupdate. unfold realify_state. 
             consider (v ?[eq] v0); intros.
             { consider (v ?[eq] v1); intros.
               { auto. }
-              { consider (s v1); intros; try congruence.
+              { consider (s v1); intros.
+                - subst.
                 subst.
                 rewrite <- H5. eapply eq_trans.
                 - symmetry. apply H4.
-                - 
+                - red in IHivs.
 
                 - subst. rewrite <- H0.
                   
