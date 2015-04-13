@@ -1705,7 +1705,7 @@ Fixpoint ispec_valid (ivs : list (Var * Var)) : Prop :=
   match ivs with
     | nil              => True
     | (lv, rv) :: ivs' =>
-      (Forall (fun v' => let '(_, rv') := v' in rv' <> rv) ivs /\
+      (Forall (fun v' => let '(_, rv') := v' in rv' <> rv) ivs' /\
        ispec_valid ivs')%type
   end.
 
@@ -1717,11 +1717,11 @@ Fixpoint ospec_valid (ovs : list (Var * Var)) : Prop :=
   match ovs with
     | nil => True
     | (lv, rv) :: ovs' =>
-      (Forall (fun v' => let '(lv', _) := v' in lv' <> lv) ovs /\
+      (Forall (fun v' => let '(lv', _) := v' in lv' <> lv) ovs' /\
        ospec_valid ovs')%type
   end.
 
-(* Combine both *)
+(* Combine both *) (* WARNING THIS IS WRONG!!!!! *)
 Definition var_spec_valid (ivs ovs : list (Var * Var)) :=
   (ispec_valid ivs /\ ospec_valid ovs)%type.
 
@@ -1747,8 +1747,9 @@ Proof.
       generalize (Forall_forall); intro Hfafa.
       apply Hfafa with (x := (v,v0)) in H.
       + congruence.
-      + constructor; reflexivity. }
-Qed.
+Abort.
+(*      + constructor; reflexivity. }
+Qed.*)
 
 (*
 Lemma feval_emptying :
@@ -1848,8 +1849,8 @@ Proof.
     generalize Forall_forall; intro Hfafa.
     apply Hfafa with (x := (v,v0)) in H.
     + congruence.
-    + constructor. reflexivity.
-Qed.
+    + Abort. (*constructor. reflexivity.
+Qed.*)
 
 (*
   intros.
@@ -1925,7 +1926,7 @@ Lemma fcmd_rembed_refined_fembed :
     var_spec_valid ivs ovs ->
     (|- (oembed_fcmd ivs ovs c) --> (oembed_fcmdr ivs ovs c)).
 Proof.
-  intros. simpl. intros.
+(*  intros. simpl. intros.
   fwd.
   Print reval.
   exists (syn_state_to_stater ivs (Semantics.hd tr)).
@@ -1985,8 +1986,8 @@ Proof.
         { simpl. destruct a. simpl in H2.
           forward_reason. split.
           - assumption.
-          - assumption. }}
-Qed.
+          - assumption. }}*)
+Abort.
 
 (* Another way of approaching abstract evaluation *)
 Definition vmodels (vs : list (Var * Var)) (ss : Syntax.state) (sf : statef) : Prop :=
@@ -2167,7 +2168,7 @@ Fixpoint varmap_check_fcmd (ivs : list (Var * Var)) (c : fcmd) : Prop :=
     | FSeq c1 c2   => varmap_check_fcmd ivs c1 /\
                       varmap_check_fcmd ivs c2
     | FSkip        => True
-    | FAsn _ e     => varmap_check_fexpr ivs e
+    | FAsn v e     => In (v, v) ivs /\ varmap_check_fexpr ivs e
     | FIte e c1 c2 => varmap_check_fexpr ivs e  /\
                       varmap_check_fcmd   ivs c1 /\
                       varmap_check_fcmd   ivs c2
@@ -2175,9 +2176,58 @@ Fixpoint varmap_check_fcmd (ivs : list (Var * Var)) (c : fcmd) : Prop :=
     | FFail        => True
   end%type.
 
+Lemma vmodels_irrelevant_update :
+  forall (ivs : list (Var * Var)) (v v' : Var) (s : statef)
+         (x : Syntax.state) (x1 : R) (val : float),
+    vmodels ivs x s ->
+    Forall (fun (vv : (Var * Var)) =>
+              let '(lv, rv) := vv in 
+              lv <> v' /\ rv <> v)%type ivs ->
+    vmodels ivs (fupdate x v' x1) (fupdate s v (Some val)).
+Proof.
+  induction 2. 
+  - simpl. constructor.
+  - destruct x0. fwd.
+    simpl.
+    split.
+    + unfold fupdate, realify_state.
+      do 2 (rewrite rel_dec_neq_false; eauto with typeclass_instances).
+      red in H. red in H. fwd. rewrite H. reflexivity.
+    + apply IHForall. inversion H. assumption.
+Qed.
+
+(* The actually correct definition of var_spec_valid *)
+Fixpoint var_spec_valid' {T U : Type} (vs : list (T * U)) : Prop :=
+  match vs with 
+    | nil             => True
+    | (lv, rv) :: vs' =>
+      (Forall (fun vv => 
+                let '(lv', rv') := vv in
+                lv' <> lv /\ rv' <> rv)%type vs' /\
+      var_spec_valid' vs')%type
+  end.
+
+(* Lemmas aboutt Forall, needed for HoareA_ex_asn *)
+Lemma Forall_impl : forall T (P Q : T -> Prop) ls,
+                      Forall (fun x => P x -> Q x) ls ->
+                      (Forall P ls -> Forall Q ls).
+Proof.
+  induction 2.
+  - constructor.
+  - inversion H; clear H; subst.
+    constructor; eauto.
+Qed.
+
+Lemma Forall_tauto : forall T (P : T -> Prop) ls,
+                       (forall x, P x) ->
+                       Forall P ls.
+Proof.
+  induction ls; simpl; intros; eauto.
+Qed.
+
 Lemma HoareA_ex_asn :
   forall ivs (P : _ -> Prop) v v' e,
-    var_spec_valid ivs ivs ->
+    var_spec_valid' ivs ->
     varmap_check_fexpr ivs e ->
     In (v, v') ivs ->
     HoareA_ex ivs ivs
@@ -2185,9 +2235,9 @@ Lemma HoareA_ex_asn :
          AnyOf (List.map (fun sbt =>
                             let '(pred,bound) := bounds_to_formula sbt ss in
                             pred /\ forall val : R,
-                                      bound val -> P (fupdate ss v' val))
+                                      bound val -> P (fupdate ss v val))
                          (bound_fexpr e)))%type
-      (FAsn v e)
+      (FAsn v' e)
       P.
 Proof.
   red. red. red. intros.
@@ -2235,79 +2285,34 @@ Proof.
       rewrite H5 in H7. inversion H7; subst; clear H7.
       eexists; split; [|apply H4]. 
 
-      clear -H1 H2 H6 H.
-      apply or_introl with (B := (~ In (v, v') ivs)) in H1.
-      generalize dependent H1.
+      (* factor this out as a lemma *)
+      clear -H2 H6 H H1.
       induction ivs.
-      - intros. simpl in *. constructor.
-      - intros.
-        simpl in *. destruct a. fwd. red in H. simpl in H. fwd.
-        inversion H; subst; clear H.
-        congruence. } }
+      - simpl in *. constructor.
+      - destruct H1.
+        + simpl. fwd. intros. subst. split. 
+          * unfold fupdate, realify_state.
+            inversion H1; subst; clear H1; simpl.
+            do 2 (rewrite rel_dec_eq_true; eauto with typeclass_instances).
+          * clear IHivs. simpl in H2. fwd.
+            inversion H1; subst; clear H1.
+            apply vmodels_irrelevant_update; auto.
+            clear -H0.
+            red in H0. fwd. 
+            revert H. apply Forall_impl.
+            eapply Forall_tauto.
+            clear. destruct x. tauto.
+        + simpl in H. destruct a. fwd.
+          simpl in H2. fwd.
+          simpl. split.
+          * eapply Forall_forall in H; eauto.
+            simpl in H. fwd.
+            unfold fupdate, realify_state.
+            do 2 (rewrite rel_dec_neq_false; eauto with typeclass_instances).
+          * auto. } }
 Qed.
 
 
-(* 
-        destruct H1. 
-        + destruct H1.
-          { inversion H1; subst; clear H1.
-            split.
-            - unfold fupdate, realify_state.
-              consider (v ?[eq] v'); intro; subst;
-              consider (v' ?[eq] v'); intro; try congruence.
-              symmetry; assumption.
-              consider (v' ?[eq] v); intro; try congruence.
-              rewrite -> H0. unfold realify_state. reflexivity. 
-            - apply IHivs; auto. 
-              + red. split; auto.
-              + inversion H; subst; clear H.
-                inversion H3; subst; clear H3.
-                congruence. }
-          { split.
-            - unfold fupdate, realify_state.
-              inversion H; subst; clear H.
-              congruence.
-            - apply IHivs; try (red; split); auto. }
-        + inversion H; subst; clear H.
-         
-          { unfold fupdate, 
-
-              + red; split; auto.
-              + 
-              inversion H3; subst; clear H3.
-              consider (v' ?[eq] v0); intro; subst.
-              + consider (v ?[eq] v1); intro; subst.
-                * symmetry; auto.
-                * unfold realify_state in H0. destruct (s v1).
-              +
-
-inversion H1; subst; clear H1. 
-            apply IHivs. apply H1. apply H2.
-            red. split; auto.
-        +
-            
-            
-            consider (v' ?[eq] v); intro.
-            - 
-
-          split.
-          * unfold fupdate realify_state.
-
- Focus 2. split. Focus 2.
-        apply IHivs. 
-        + inversion H1; subst; clear H1.
-        split. Focus 2. auto.
-        + 
-      red.
-      
-
-
-      admit. (* lemma *) } }
-Qed.      
-
-
-Lemma 
-*)
 
 (* AnyOf -> feval will *)
 
@@ -2330,15 +2335,64 @@ Fixpoint bounds_to_formula' (bounds : list singleBoundTerm) (center : Term) : Pr
   end.
 *)
 
+(*
+    HoareA_ex ivs ivs
+      (fun ss : Syntax.state =>
+         AnyOf (List.map (fun sbt =>
+                            let '(pred,bound) := bounds_to_formula sbt ss in
+                            pred /\ forall val : R,
+                                      bound val -> P (fupdate ss v val))
+                         (bound_fexpr e)))%type
+      (FAsn v' e)
+      P
+*)
+
+(* TODO prove consequence *)
+
+(*
+Lemma fwp_correct :
+  forall ivs c P,
+    HoareA_ex ivs ivs
+*)
+(*
+    HoareA_ex ivs ivs
+      (fun ss : Syntax.state =>
+         AnyOf (List.map (fun sbt =>
+                            let '(pred,bound) := bounds_to_formula sbt ss in
+                            pred /\ forall val : R,
+                                      bound val -> P (fupdate ss v val))
+                         (bound_fexpr e)))%type
+      (FAsn v' e)
+      P.
+*)
+
+Check conseqR.
+
+Lemma Hoare__conseq :
+  forall (P P' Q Q' : statef -> Prop) (c : fcmd),
+    (forall (st : statef), P st  -> P' st) ->
+    (forall (st : statef), Q' st -> Q  st) ->
+    Hoare_ P' c Q' ->
+    Hoare_ P c Q.
+Proof.
+  intros. unfold Hoare_, Hoare in *.
+  intros. apply H in H2. apply H1 in H2. fwd. 
+  split; [|split]; try eexists; eauto.
+Qed.
+
 (* Weakest-precondition calcluation function for fcmd language *)
+(* TODO made fwp take ivs? *)
 Fixpoint fwp (c : fcmd) (P : Syntax.state -> Prop) : Syntax.state -> Prop :=
   match c with
   | FSkip => P
   | FSeq c1 c2 => fwp c1 (fwp c2 P)
-  | FAsn v e => (fun s =>
-                   exists val, bounds_to_formula (bound_fexpr e) s val /\
-                   let s' := fupdate s v val in
-                   P s')%type
+  | FAsn v e => (fun ss =>
+                   AnyOf (List.map
+                            (fun sbt =>
+                               let '(pred,bound) := bounds_to_formula sbt ss in
+                               pred /\ forall val : R,
+                                         bound val -> P (fupdate ss v val))
+                            (bound_fexpr e)))%type
   | FFail => fun s => False
   | FHavoc v => fun s => False
   (*| FIte ex c1 c2 => (fun s =>
@@ -2348,6 +2402,36 @@ Fixpoint fwp (c : fcmd) (P : Syntax.state -> Prop) : Syntax.state -> Prop :=
                                                    fwp c2 P s))%type*)
   | FIte _ _ _ => fun s => False
   end.
+
+Lemma fwp_correct :
+  forall c ivs P,
+    var_spec_valid' ivs ->
+    varmap_check_fcmd ivs c ->
+    HoareA_ex ivs ivs
+              (fwp c P)
+              c
+              P.
+Proof.
+  intros c.
+  induction c; intros.
+  { simpl. eapply Hoare__seq.
+    - eapply IHc1. 
+      + assumption.
+      + simpl in H0; fwd; assumption.
+    - eapply IHc2. 
+      + assumption. 
+      + simpl in H0; fwd; assumption. }
+  { eapply Hoare__skip. }
+  { eapply HoareA_ex_asn; simpl in H0; fwd; assumption. }
+  { (* wp implemented as false here; could perhaps be weaker *)
+    simpl. repeat red. intros.
+    fwd. contradiction. }
+  { (* wp implemented as false here; could perhaps be weaker *)
+    simpl. repeat red. intros.
+    fwd. contradiction. }
+  { simpl. repeat red. intros.
+    fwd. contradiction. }
+Qed.
 
 (* TODO: Prove that predicates produced by fwp have SEMR property
    Also prove assignment Hoare rule *)
