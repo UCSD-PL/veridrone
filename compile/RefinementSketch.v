@@ -2177,6 +2177,7 @@ Fixpoint varmap_check_fcmd (ivs : list (Var * Var)) (c : fcmd) : Prop :=
 
 Lemma HoareA_ex_asn :
   forall ivs (P : _ -> Prop) v v' e,
+    var_spec_valid ivs ivs ->
     varmap_check_fexpr ivs e ->
     In (v, v') ivs ->
     HoareA_ex ivs ivs
@@ -2196,103 +2197,117 @@ Proof.
     - econstructor; eauto.
     - eapply FEAsnN. auto. }
   split.
-  { clear -H H0 H1. intro.
-    inversion H2; subst; clear H2.
+  { clear -H0 H2. intro.
+    inversion H; subst; clear H.
     induction e.
-    - generalize dependent v.
-      generalize dependent v'.      
-      induction ivs.
+    - induction ivs.
       + intros. simpl in *. fwd. assumption.
       + intros. simpl in *. fwd. destruct a. fwd.
-        destruct H.        
+        destruct H.
         { inversion H; subst; clear H.
-          unfold realify_state in H1.
-          rewrite H5 in H1. congruence. }
-        { destruct H0.
-          - inversion H0; subst; clear H0.
-            unfold realify_state in H1.
-            rewrite H
-
-          destruct H0.
-          - inversion H; subst; clear H.
-            unfold realify_state in H1.
-            rewrite H5 in H1. congruence.
-          - apply IHivs.
-
-
-        * apply IHivs; try eexists; eassumption.
+          unfold realify_state in H0.
+          rewrite H4 in H0. congruence. }
+        { eauto. } 
     - inversion H4.
     - inversion H4; subst; clear H4.
       destruct (fexprD e1 s).
       + destruct (fexprD e2 s).
-        * inversion H2.
+        * inversion H1.
         * apply IHe2; try reflexivity.
-          inversion H. assumption.
+          inversion H0. assumption.
       + destruct (fexprD e2 s).
         * apply IHe1; try reflexivity.
-          inversion H. assumption.
-        * inversion H. auto. }
+          inversion H0. assumption.
+        * inversion H0. auto. }
   { intros.
-    inversion H2; clear H2; subst.
-    generalize (bound_fexpr_sound ivs e _ eq_refl).
-    intros. revert H1.
-    generalize dependent (bound_fexpr e).
-    induction 1.
-    { simpl in *; destruct 1. }
-    { simpl in *; destruct 1.
-      { clear H2 IHForall.
-        specialize (H1 x s H0).
-        destruct (bounds_to_formula x0 x).
-        forward_reason.
-        eapply H3 in H6.
-        eexists; split; eauto.
-        rewrite H5 in H1.
-        inv_all. subst.
-        clear - H0 H4.
+    inversion H4; clear H4; subst.
+    generalize (bound_fexpr_sound ivs e _ eq_refl). intro.
 
-        induction ivs.
-        - simpl; auto.
-        - simpl.
-          Print vmodels.
-          simpl in H0. fwd. intros. fwd.
-          split.          
-          + unfold fupdate. unfold realify_state. 
-            consider (v ?[eq] v0); intros.
-            { consider (v ?[eq] v1); intros.
-              { auto. }
-              { consider (s v1); intros.
-                - subst.
-                subst.
-                rewrite <- H5. eapply eq_trans.
-                - symmetry. apply H4.
-                - red in IHivs.
+    induction (bound_fexpr e).
+    { simpl in *. contradiction. }
+    { simpl in *.
+      inversion H4; subst; clear H4.
+      destruct H3; auto.
+      clear IHl H9.
+      specialize (H8 _ _ H2).
+      destruct (bounds_to_formula a x). fwd.
+      specialize (H4 _ H8).
+      rewrite H5 in H7. inversion H7; subst; clear H7.
+      eexists; split; [|apply H4]. 
 
-                - subst. rewrite <- H0.
-                  
-            * subst. eapply eq_trans.
-              symmetry in H4. apply H4.
-              unfold realify_state in H0.
-              consider (s v1); intros.
-              
-
-            consider (v ?[eq] v1); intros.
-            * auto.
-            * unfold realify_state in H0. 
-              consider (s v1).
-              destruct (s v1); intros. 
-              subst. inv_all. subst.
-consider (s v1); intros.
-              subst. red in IHivs.
-
-              ewrite <- H4. unfold realify_state in H0.
-              consider (s v1).
-              intros. subst.
-              
-              unfold realify_state.
-          + auto. }            
-      { eauto. } } }
+      clear -H1 H2 H6 H.
+      apply or_introl with (B := (~ In (v, v') ivs)) in H1.
+      generalize dependent H1.
+      induction ivs.
+      - intros. simpl in *. constructor.
+      - intros.
+        simpl in *. destruct a. fwd. red in H. simpl in H. fwd.
+        inversion H; subst; clear H.
+        congruence. } }
 Qed.
 
+
+(* 
+        destruct H1. 
+        + destruct H1.
+          { inversion H1; subst; clear H1.
+            split.
+            - unfold fupdate, realify_state.
+              consider (v ?[eq] v'); intro; subst;
+              consider (v' ?[eq] v'); intro; try congruence.
+              symmetry; assumption.
+              consider (v' ?[eq] v); intro; try congruence.
+              rewrite -> H0. unfold realify_state. reflexivity. 
+            - apply IHivs; auto. 
+              + red. split; auto.
+              + inversion H; subst; clear H.
+                inversion H3; subst; clear H3.
+                congruence. }
+          { split.
+            - unfold fupdate, realify_state.
+              inversion H; subst; clear H.
+              congruence.
+            - apply IHivs; try (red; split); auto. }
+        + inversion H; subst; clear H.
+         
+          { unfold fupdate, 
+
+              + red; split; auto.
+              + 
+              inversion H3; subst; clear H3.
+              consider (v' ?[eq] v0); intro; subst.
+              + consider (v ?[eq] v1); intro; subst.
+                * symmetry; auto.
+                * unfold realify_state in H0. destruct (s v1).
+              +
+
+inversion H1; subst; clear H1. 
+            apply IHivs. apply H1. apply H2.
+            red. split; auto.
+        +
+            
+            
+            consider (v' ?[eq] v); intro.
+            - 
+
+          split.
+          * unfold fupdate realify_state.
+
+ Focus 2. split. Focus 2.
+        apply IHivs. 
+        + inversion H1; subst; clear H1.
+        split. Focus 2. auto.
+        + 
+      red.
+      
+
+
+      admit. (* lemma *) } }
+Qed.      
+
+
+Lemma 
+*)
 
 (* AnyOf -> feval will *)
 
