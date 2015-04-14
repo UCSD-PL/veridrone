@@ -2225,6 +2225,74 @@ Proof.
   induction ls; simpl; intros; eauto.
 Qed.
 
+Lemma vmodels_fupdate_match :
+   forall (ivs : list (Var * Var)) (v v' : Var)
+          (sf : statef) (ss : Syntax.state) (r : R) (f : float),
+   var_spec_valid' ivs ->
+   In (v, v') ivs ->
+   vmodels ivs ss sf ->
+   F2OR f = Some r ->
+   vmodels ivs (fupdate ss v r) (fupdate sf v' (Some f)).
+Proof.
+  induction ivs.
+  - simpl in *. constructor.
+  - intros.
+    destruct H0.
+    + simpl. fwd. intros. subst. split. 
+      * unfold fupdate, realify_state.
+        inversion H1; subst; clear H1; simpl.
+        do 2 (rewrite rel_dec_eq_true; eauto with typeclass_instances).
+      * clear IHivs. simpl in H3. fwd.
+        inversion H1; subst; clear H1.
+        apply vmodels_irrelevant_update; auto.
+        clear -H0.
+        red in H0. fwd. 
+        revert H. apply Forall_impl.
+        eapply Forall_tauto.
+        clear. destruct x. tauto.
+    + simpl in H. destruct a. fwd.
+      simpl in H2. fwd.
+      simpl. split.
+      * eapply Forall_forall in H; eauto.
+        simpl in H. fwd.
+        unfold fupdate, realify_state.
+        do 2 (rewrite rel_dec_neq_false; eauto with typeclass_instances).
+        simpl in H1. fwd. rewrite H1. reflexivity.
+      * simpl in H1. fwd. eauto. 
+Qed.
+
+Lemma varmap_check_contradiction :
+  forall (ivs : list (Var * Var)) (v : Var) (fe : fexpr)
+         (sf : statef) (ss : Syntax.state),
+    varmap_check_fexpr ivs fe ->
+    vmodels ivs ss sf ->
+    fexprD fe sf = None ->
+    False.
+Proof.
+  intros.
+  induction fe.
+  - induction ivs.
+    + intros. simpl in *. fwd. assumption.
+    + intros. simpl in *. fwd. destruct a. fwd.
+      destruct H.
+      { inversion H; subst; clear H.
+        unfold realify_state in H0.
+        rewrite H1 in H0. congruence. }
+      { eauto. } 
+  - inversion H1.
+  - inversion H1; subst; clear H1.
+    destruct (fexprD fe1 sf).
+    + destruct (fexprD fe2 sf).
+      * inversion H3.
+      * apply IHfe2; try reflexivity.
+        inversion H. assumption.
+    + destruct (fexprD fe2 sf).
+      * apply IHfe1; try reflexivity.
+        inversion H. assumption.
+      * inversion H. auto. 
+Qed.
+
+(* Significant correctness lemma for HoareA/Abstractor as a whole *)
 Lemma HoareA_ex_asn :
   forall ivs (P : _ -> Prop) v v' e,
     var_spec_valid' ivs ->
@@ -2249,26 +2317,7 @@ Proof.
   split.
   { clear -H0 H2. intro.
     inversion H; subst; clear H.
-    induction e.
-    - induction ivs.
-      + intros. simpl in *. fwd. assumption.
-      + intros. simpl in *. fwd. destruct a. fwd.
-        destruct H.
-        { inversion H; subst; clear H.
-          unfold realify_state in H0.
-          rewrite H4 in H0. congruence. }
-        { eauto. } 
-    - inversion H4.
-    - inversion H4; subst; clear H4.
-      destruct (fexprD e1 s).
-      + destruct (fexprD e2 s).
-        * inversion H1.
-        * apply IHe2; try reflexivity.
-          inversion H0. assumption.
-      + destruct (fexprD e2 s).
-        * apply IHe1; try reflexivity.
-          inversion H0. assumption.
-        * inversion H0. auto. }
+    eapply varmap_check_contradiction; eauto. }
   { intros.
     inversion H4; clear H4; subst.
     generalize (bound_fexpr_sound ivs e _ eq_refl). intro.
@@ -2284,37 +2333,12 @@ Proof.
       specialize (H4 _ H8).
       rewrite H5 in H7. inversion H7; subst; clear H7.
       eexists; split; [|apply H4]. 
-
-      (* factor this out as a lemma *)
-      clear -H2 H6 H H1.
-      induction ivs.
-      - simpl in *. constructor.
-      - destruct H1.
-        + simpl. fwd. intros. subst. split. 
-          * unfold fupdate, realify_state.
-            inversion H1; subst; clear H1; simpl.
-            do 2 (rewrite rel_dec_eq_true; eauto with typeclass_instances).
-          * clear IHivs. simpl in H2. fwd.
-            inversion H1; subst; clear H1.
-            apply vmodels_irrelevant_update; auto.
-            clear -H0.
-            red in H0. fwd. 
-            revert H. apply Forall_impl.
-            eapply Forall_tauto.
-            clear. destruct x. tauto.
-        + simpl in H. destruct a. fwd.
-          simpl in H2. fwd.
-          simpl. split.
-          * eapply Forall_forall in H; eauto.
-            simpl in H. fwd.
-            unfold fupdate, realify_state.
-            do 2 (rewrite rel_dec_neq_false; eauto with typeclass_instances).
-          * auto. } }
+      apply vmodels_fupdate_match; auto. } }
 Qed.
 
 
 
-(* AnyOf -> feval will *)
+(* Anyof -> feval will *)
 
 (* Type checking - need to see if all variables mentioned on RHS in program are
    contained in variable map. Add successful typecheck to premises of asn
@@ -2446,7 +2470,10 @@ Fact fwp_test :
     (fun _ => 0%R).
 Proof.
   compute.
-  simpl. 
+  simpl. left.
+  generalize (bound_fexpr_sound). intro.
+  SearchAbout bounds_to_formula.
+  
 Abort.
 (* TODO: Prove that predicates produced by fwp have SEMR property
    Also prove assignment Hoare rule *)
