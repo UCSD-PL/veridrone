@@ -2433,5 +2433,20 @@ Proof.
     fwd. contradiction. }
 Qed.
 
+Print fcmd.
+Print fexpr.
+
+Definition simple_prog : fcmd :=
+  FAsn "x" (FConst (nat_to_float 1%nat)).
+
+Opaque nat_to_float.
+
+Fact fwp_test :
+  (fwp simple_prog (fun (ss : Syntax.state) => (ss "x" > 0)%R)%type)
+    (fun _ => 0%R).
+Proof.
+  compute.
+  simpl. 
+Abort.
 (* TODO: Prove that predicates produced by fwp have SEMR property
    Also prove assignment Hoare rule *)
