@@ -39,7 +39,7 @@ Record singleBoundTerm : Type := mkSBT {lb : Term;
 (*used for addition when the result is positive and multiplication when both the arguments are positive*)
 
 Definition bd := mkSBT (RealT R0) (RealT R0) (RealT R0 > RealT R0) .
-
+Print Bplus_correct.
 Definition simpleBound 
            (triple1 triple2:singleBoundTerm) 
            (combFunc:Term->Term->Term)  
@@ -111,43 +111,100 @@ Definition simpleBound7
         ((combFunc (ub triple1) (lb triple2)) * (RealT R1 - RealT error)) 
         fla.
 
+(*used for multiplication - when one of the arguments is negative*)
+Definition simpleBound8 
+           (triple1 triple2:singleBoundTerm) 
+           (combFunc:Term->Term->Term)  
+           (fla:Formula) : 
+  singleBoundTerm := 
+  mkSBT ((combFunc (lb triple1)  (ub triple2)) * (RealT R1+ RealT error)) 
+        ((combFunc (ub triple1) (lb triple2)) * (RealT R1 + RealT error)) 
+        fla.
+(*used for additon - when lb1 + lb2 < floatMin*)
+Definition simpleBound9
+           (triple1 triple2:singleBoundTerm) 
+           (combFunc:Term->Term->Term)  
+           (fla:Formula) : 
+  singleBoundTerm := 
+  mkSBT 0 
+        ((combFunc (ub triple1) (ub triple2)) * (RealT R1 + RealT error)) 
+        fla.
+
+
 
 Definition floatMax:= bpow radix2 custom_emax.
 Definition floatMin := bpow radix2 custom_emin%Z.
 
-Print Bplus_correct.
-Check Bplus_correct.
+(*used for addition when ub1 + ub2 < floatMin*)
+Definition simpleBound10
+           (triple1 triple2:singleBoundTerm) 
+           (combFunc:Term->Term->Term)  
+           (fla:Formula) : 
+  singleBoundTerm := 
+  mkSBT 0 floatMin 
+        fla.
+
+
+
+(*used for subtraction - when lb1 + lb2 is greater than -floatMin*)
+Definition simpleBound11
+           (triple1 triple2:singleBoundTerm) 
+           (combFunc:Term->Term->Term)  
+           (fla:Formula) : 
+  singleBoundTerm := 
+  mkSBT ((combFunc (lb triple1)  (lb triple2)) * (RealT R1 + RealT error)) 0
+        fla.
+
 Definition combineTriplePlus (triple triple2 : singleBoundTerm) :=
   ((simpleBound triple triple2 PlusT 
                 (premise triple /\ 
                  premise triple2 /\ 
-                 ((floatMin <= lb triple + lb triple2) \/ (floatMin <= ((0 -  ub triple) + (0 - ub triple2))) ) /\ 
+                 ((floatMin <= lb triple + lb triple2)) /\ 
                  ((ub triple + ub triple2)*(1+error) < floatMax) /\
-                 (((0 - lb triple + (0 - lb triple2))*(1+error)) < floatMax) /\ 
                  (lb triple + lb triple2 >= R0)))
-     :: ((simpleBound4 triple triple2 PlusT 
-                       (premise triple /\ 
-                        premise triple2 /\ 
-                        ((floatMin <= lb triple + lb triple2) \/ (floatMin <= ((0 - ub triple) + (0 - ub triple2)))) /\ 
-                        ((ub triple + ub triple2)*(1+error) < floatMax) /\
-                        (((0 - lb triple + (0 - lb triple2))*(1+error)) < floatMax) /\ 
-                        (ub triple + ub triple2 < R0))) ::
-                                                        List.nil)).   
+     :: (simpleBound4 triple triple2 PlusT 
+                      (premise triple /\ 
+                       premise triple2 /\ 
+                       (floatMin <= ((0 - ub triple) + (0 - ub triple2))) /\
+                       (((0 - lb triple + (0 - lb triple2))*(1+error)) < floatMax) /\ 
+                       (ub triple + ub triple2 < R0)))
+     :: (simpleBound9 triple triple2 PlusT 
+                      (premise triple /\ 
+                       premise triple2 /\
+                       (lb triple + lb triple2 < floatMin) /\ 
+                       (ub triple + ub triple2 >= floatMin) /\ 
+                       ((ub triple + ub triple2)*(1+error) < floatMax) /\ 
+                       (lb triple + lb triple2 >= R0)))
+     :: (simpleBound10 triple triple2 PlusT 
+                      (premise triple /\ 
+                       premise triple2 /\
+                       (ub triple + ub triple2 < floatMin) /\ 
+                       ((ub triple + ub triple2)*(1+error) < floatMax) /\ 
+                       (lb triple + lb triple2 >= R0)))
+    
+     :: List.nil). 
 
+(*
+    (((ub triple - ub triple2 >= floatMin) /\ (lb triple - lb triple2 >=floatMin) /\ (ub triple2 - lb triple >= floatMin)) \/
+                                         ((ub triple2 - ub triple >= floatMin) /\ (lb triple - lb triple2 >=floatMin)) \/
+                                         ((ub triple - ub triple2 >= floatMin) /\ (lb triple2 - lb triple >= floatMin)) \/
+                                         ((ub triple2 - ub triple >=floatMin) /\ (ub triple - lb triple2 >=floatMin) /\ (lb triple2 - lb triple >= floatMin)) ) /\
+*)
+Print Float.
 Definition combineTripleMinus (triple triple2 : singleBoundTerm) :=
   ((simpleBound2 triple triple2 MinusT 
-                (premise triple /\ 
-                 premise triple2  /\ 
-                 (lb triple >= ub triple2) /\
-                 ((floatMin <= lb triple - ub triple2) /\ 
-                ((ub triple - lb triple2)*(1+error) < floatMax))))
+                 (premise triple /\ 
+                  premise triple2  /\ 
+                  (lb triple >= ub triple2) /\
+                 (floatMin <= lb triple - ub triple2) /\ 
+                ((ub triple - lb triple2)*(1+error) < floatMax)))
      :: (simpleBound5 triple triple2 MinusT 
-                       (premise triple /\ 
-                        premise triple2 /\
-                        (ub triple <= lb triple2) /\
-                        ((floatMin <= lb triple2 - ub triple)) /\
-                        ((ub triple2 - lb triple)*(1+error) < floatMax)) ::
-                                                        List.nil)).   
+                      (premise triple /\ 
+                       premise triple2 /\
+                       (ub triple <= lb triple2) /\
+                       (floatMin <= lb triple2 - ub triple) /\
+                       ((ub triple2 - lb triple)*(1+error) < floatMax)) 
+                    :: List.nil)).   
 Definition combineTripleMult (triple triple2 : singleBoundTerm) :=
   ((simpleBound triple triple2 MultT 
                 (premise triple /\ 
@@ -451,23 +508,41 @@ induction lst.
 Qed.
 
 
+CoFixpoint traceFromState (st:state) : (trace) := 
+  Semantics.Cons state st (traceFromState st).
+
+
+Definition denote_singleBoundTermNew (st:state) (s:singleBoundTerm) : Prop*(R->Prop) :=
+  let tr := traceFromState st in                                              
+  let s1 := Semantics.hd tr in
+  let s2 := Semantics.hd (Semantics.tl tr) in
+  ((eval_formula (premise s) tr, fun f => eval_term (lb s) s1 s2 <= f <= eval_term (ub s) s1 s2)%R).
+
+
+
 Definition denote_singleBoundTerm (f : R) (tr : trace) (s : singleBoundTerm) : Prop :=
   let s1 := Semantics.hd tr in
   let s2 := Semantics.hd (Semantics.tl tr) in
   (eval_formula (premise s) tr
    -> eval_term (lb s) s1 s2 <= f <= eval_term (ub s) s1 s2)%R.
 
-Definition boundDef' (expr:NowTerm) (tr:trace) (fState: fstate) : Prop :=
+Print List.Forall.
+
+
+Definition boundDef' (expr:NowTerm) (st:state) (fState: fstate) : Prop :=
   match eval_NowTerm fState expr with
   | Some evalAsF =>
     match floatToReal evalAsF with
     | Some f =>
-      List.Forall (denote_singleBoundTerm f tr) (bound_term expr)
+      List.Forall (fun (term:singleBoundTerm) 
+                   => match (denote_singleBoundTermNew st term)  with 
+                        | (premise,pred) => premise -> (pred f)
+                      end
+                  ) (bound_term expr)
     | None => True
     end
   | None => True
   end.
-
 
 
 
@@ -939,6 +1014,7 @@ Lemma resultImplicationsMult :
         inversion H.
         rewrite H2 in H0.
         simpl in *.
+
         inversion H0.
         apply H0.
         inversion H.
@@ -1210,8 +1286,7 @@ Lemma validFexpProof : Valid_exp (FLT_exp (3 - custom_emax - custom_prec) custom
   unfold FLT_exp in *.
   
   lia.
-  intros. unfold FLT_exp in *.
-  
+  intros. unfold FLT_exp in *.  
   lia.
 Qed.
 
@@ -1232,12 +1307,11 @@ Qed.
 
 Definition choiceDef := (fun x => negb (Zeven x)).
 
-(* commenting this for now - since we are abstracting the float type
-Lemma precThm: (forall k : Z, (custom_emin < k)%Z -> (custom_prec <= k - FLT_exp (3-custom_emax - custom_prec) custom_prec k)%Z).
+(* commenting this for now - since we are abstracting the float type 
+Lemma precThm: (forall k : Z, (-1021 < k)%Z -> (custom_prec <= k - FLT_exp (3-custom_emax - custom_prec) custom_prec k)%Z).
   intros.
   unfold custom_emax in *. unfold custom_prec in *. unfold FLT_exp. unfold custom_emin in *. 
   unfold Z.max.
-  Search (Z->Z -> {_}+{_}).
   pose proof Z_lt_ge_dec ((k - 53)%Z) ((3 - 1024 - 53)%Z).
   pose (k - 53 ?= 3 - 1024 - 53)%Z.
   Print Datatypes.Eq.
@@ -1246,7 +1320,7 @@ Lemma precThm: (forall k : Z, (custom_emin < k)%Z -> (custom_prec <= k - FLT_exp
   destruct H0 eqn:H0_des. 
   destruct (k - 53 ?= 3 - 1024 - 53)%Z eqn:des.
   lia.  simpl in *. 
-  clear des.
+c  clear des.
   simpl in *.
   lia. 
   lia.
@@ -1769,10 +1843,17 @@ Qed.
 
 
 Declare ML Module "z3Tactic".
-
-
+(*((ub2 >= lb1) /\ 
+      (ub1 >= lb2) /\ 
+      (((ub1 - ub2 >= floatMin) /\ (lb1 - lb2 >=floatMin) /\ (ub2 - lb1 >= floatMin)) \/
+       ((ub2 - ub1 >= floatMin) /\ (lb1 - lb2 >=floatMin)) \/
+       ((ub1 - ub2 >= floatMin) /\ (lb2 - lb1 >= floatMin)) \/
+       ((ub2 - ub1 >=floatMin) /\ (ub1 - lb2 >=floatMin) /\ (lb2 - lb1 >= floatMin)) ))*)
 Lemma minusfloatMinBoundProof:  forall (x1 x2 lb1 lb2 ub1 ub2:R), 
-( ((lb1 >= ub2) /\ (floatMin <= lb1 - ub2)) \/ ( (ub1 <= lb2) /\(floatMin <= lb2 - ub1)) -> lb1 <= x1 -> lb2 <= x2 -> x1 <= ub1 -> x2 <= ub2 -> (Rabs (x1 - x2) >= floatMin))%R. 
+    (((lb1 >= ub2) /\ (floatMin <= lb1 - ub2)) \/ 
+     ((ub1 <= lb2) /\(floatMin <= lb2 - ub1))
+    -> 
+  lb1 <= x1 -> lb2 <= x2 -> x1 <= ub1 -> x2 <= ub2 -> (Rabs (x1 - x2) >= floatMin))%R. 
 Proof.
 intros.
 pose proof floatMinGt0.
@@ -1780,22 +1861,23 @@ unfold Rabs.
 destruct Rcase_abs.
 destruct H.
 psatz R.
-decompose [and] H.
- repeat match goal with
-          | H : @eq R _ _ |- _ => revert H
-          | H : @Rle _ _ |- _ => revert H
-          | H : @Rge _ _ |- _ => revert H
-          | H : @Rlt _ _ |- _ => revert H
-          | H :@ Rgt _ _ |- _ => revert H
-          | H : @Rge _ _ |- _ => revert H
-        end.
-(*z3Tactic*)
-psatz R.
-
 destruct H.
 decompose [and] H.
-psatz R.
+clear H.
+(*z3Tactic*)
 
+psatz R.
+destruct H.
+decompose [and] H.
+clear H.
+z3 solve_dbg.
+clear -H6 H0 H3.
+psatz R.
+z3 solve_dbg.
+decompose [and] H.
+clear H.
+z3 solve_dbg.
+clear -H6 r H4 H1 H2.
 psatz R.
 Qed.
 Lemma plusfloatMinBoundProof:  forall (x1 x2 lb1 lb2 ub1 ub2:R), ((floatMin <= lb1 + lb2) \/ (floatMin <= 0 - ub1 + (0 - ub2)) -> lb1 <= x1 -> lb2 <= x2 -> x1 <= ub1 -> x2 <= ub2 -> (Rabs (x1 + x2) >= floatMin))%R. 
@@ -1860,8 +1942,20 @@ lb1 <= x1 -> lb2 <= x2 -> x1 <= ub1 -> x2 <= ub2 ->
 Proof.
   intros.
   pose proof relative_error as Rel_Err.
-  remember (FLT_exp (3 - custom_emax - custom_prec) custom_prec) as round_fexp.
+(* 
+
+
+(Rabs
+                (round radix2 (Fcore_FLX.FLX_exp custom_prec)
+                   (Znearest choiceDef) (x1 * x2) - 
+                 x1 * x2) <=
+              / 2 * bpow radix2 (- custom_prec + 1) * Rabs (x1 * x2))%R*)
+  unfold round_mode.
+  unfold FLT_exp.
+  unfold Fcore_FLX.FLX_exp in *.
+  remember (FLT_exp (3 - custom_emax - custom_prec) custom_prec) as round_fexp. 
   specialize (Rel_Err radix2 round_fexp).
+  Check relative_error.
   subst.
   specialize (Rel_Err validFexpProof (custom_emin)%Z custom_prec precThm (round_mode mode_NE)). 
   specialize (Rel_Err (valid_rnd_N choiceDef)).
@@ -1898,7 +1992,20 @@ intros.
   apply Rel_Err.
 Qed.
 
-
+Lemma relErrorBasedOnFloatMinTruthPlus2 : forall (x1 x2 lb1 lb2 ub1 ub2:R), (lb1 <= x1 -> 
+      lb2 <= x2 -> 
+      x1 <= ub1 -> 
+      x2 <= ub2 ->  (Rabs
+                (round radix2 (Fcore_FLX.FLX_exp custom_prec)
+                   (Znearest choiceDef) (x1 + x2) - 
+                 (x1 + x2)) <=
+              / 2 * bpow radix2 (- custom_prec + 1) * Rabs (x1 + x2)))%R.
+Proof.
+  intros.
+  pose proof relative_error_N_FLX as Rel_Err.
+  specialize (Rel_Err radix2 custom_prec custom_precGt0 choiceDef (x1+x2)%R).
+  apply Rel_Err.
+Qed.
 Lemma relErrorBasedOnFloatMinTruthPlus : forall (x1 x2 lb1 lb2 ub1 ub2:R), 
     (
       (floatMin <= lb1 + lb2)  
@@ -1921,6 +2028,9 @@ Lemma relErrorBasedOnFloatMinTruthPlus : forall (x1 x2 lb1 lb2 ub1 ub2:R),
 Proof.
   intros.
   pose proof relative_error as Rel_Err.
+  pose proof relative_error_N_FLX as Rel_Err2.
+  specialize (Rel_Err2 radix2 custom_prec custom_precGt0 choiceDef (x1+x2)%R).
+  
   remember (FLT_exp (3 - custom_emax - custom_prec) custom_prec) as round_fexp.
   specialize (Rel_Err radix2 round_fexp).
   subst.
@@ -1940,7 +2050,8 @@ Qed.
 Lemma minusRoundingTruth : forall (f1 f2:float)  (lb1 lb2 ub1 ub2 r1 r2:R),  (Some r1 = (floatToReal f1) -> 
                                                                               Some r2 = (floatToReal f2) ->
                                                                               ( (((lb1 >= ub2)  /\  (floatMin <= lb1 - ub2)) /\  ((ub1 - lb2)*(1+error) < floatMax)) \/ 
-                                                                                (((ub1 <= lb2)  /\  (floatMin <= lb2 - ub1)) /\  ((ub2 - lb1)*(1+error) < floatMax))) ->
+                                                                                (((ub1 <= lb2)  /\  (floatMin <= lb2 - ub1)) /\  ((ub2 - lb1)*(1+error) < floatMax)) 
+                                                                              ) ->
                                                                               (lb1 <= r1) ->
                                                                               (lb2 <= r2) ->
                                                                               (r1 <= ub1) ->
@@ -1982,12 +2093,12 @@ Proof.
 
       destruct Rcase_abs;destruct Rcase_abs;destruct Rcase_abs;
       repeat match goal with
-             | H : @eq R _ _ |- _ => revert H
-             | H : @Rle _ _ |- _ => revert H
-             | H : @Rge _ _ |- _ => revert H
-             | H : @Rlt _ _ |- _ => revert H
-             | H :@ Rgt _ _ |- _ => revert H
-             | H : @Rge _ _ |- _ => revert H
+               | H : @eq R _ _ |- _ => revert H
+               | H : @Rle _ _ |- _ => revert H
+               | H : @Rge _ _ |- _ => revert H
+               | H : @Rlt _ _ |- _ => revert H
+               | H :@ Rgt _ _ |- _ => revert H
+               | H : @Rge _ _ |- _ => revert H
              end;
       unfold error;
       unfold floatMax;
@@ -2017,286 +2128,12 @@ Proof.
 
     clear H7.
 
-    destruct Rcase_abs. 
-    {
-      destruct Rcase_abs. 
-      {
-        destruct Rcase_abs. 
-
-        {
-          destruct H1'.
-          {
-            decompose [and] H7.
-
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   end;
-              unfold error.
-
-            unfold floatMax.
-            psatz R.
-          }
-          {
-            decompose [and] H7.
-            clear H7.
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   end.
-            unfold error.
-            unfold floatMax.
-            psatz R.  
-          }
-        }
-        {
-          destruct H1'.
-          {
-            clear H7.
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   end.
-            unfold error.
-            unfold floatMax.
-            psatz R.
-          }
-          {
-            
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   end.
-            unfold error.
-            unfold floatMax.
-            psatz R.
-          }
-        }
-      }
-      {      
-        destruct Rcase_abs. 
-
-        {
-          destruct H1'.
-          {
-            decompose [and] H7.
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   end.
-            unfold error.
-            unfold floatMax.
-            psatz R.
-          }
-          {
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   end.
-            unfold error.
-            unfold floatMax.
-            psatz R.
-          }
-        }
-        {
-          destruct H1'.
-          {
-            decompose [and] H7.
-            clear H1 H7 .
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   end.
-            unfold error.
-            unfold floatMax.
-            psatz R.
-            
-          }
-          {
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   end.
-            unfold error.
-            unfold floatMax.
-            psatz R.
-          }
-        }
-      }   
-    }
-    {
-      destruct Rcase_abs. 
-      {
-        destruct Rcase_abs. 
-
-        {
-          destruct H1'.
-          {
-            decompose [and] H7.
-            
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   end;
-              unfold error.
-            unfold floatMax.
-            psatz R.
-          }
-          {
-            decompose [and] H7.
-            
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   end;
-              unfold error.
-            unfold floatMax.
-            psatz R.
-          }
-        }
-        {
-          destruct H1'.
-          {
-            decompose [and] H7.
-            clear H0 H1 H7 H11.
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   end;
-              unfold error.
-            unfold floatMax.
-            psatz R.
-          }
-          {
-            decompose [and] H7.
-            clear H0 H11 H7 H11.
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   end;
-              unfold error.
-            unfold floatMax.
-            psatz R.
-          }
-        }
-      }
-      {
-        
-        destruct Rcase_abs.
-        {
-          repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 end;
-          unfold error.
-          unfold floatMax.
-          psatz R.
-        }
-        {
-          destruct  H1'.
-          {
-            destruct H1.
-            {
-              decompose [and] H7.
-              clear H11 H0 H7.
-              repeat match goal with
-                     | H : @eq R _ _ |- _ => revert H
-                     | H : @Rle _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                     | H : @Rlt _ _ |- _ => revert H
-                     | H :@ Rgt _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                     end;
-                unfold error.
-              unfold floatMax.
-              psatz R.
-            }
-            {
-              decompose [and] H7.
-              clear H11 H0 H7.
-              repeat match goal with
-                     | H : @eq R _ _ |- _ => revert H
-                     | H : @Rle _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                     | H : @Rlt _ _ |- _ => revert H
-                     | H :@ Rgt _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                     end;
-                unfold error.
-              unfold floatMax.
-              psatz R.
-            }
-          }
-          {
-            decompose [and] H7.
-            clear H11 H0 H7.
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   end;
-              unfold error.
-            unfold floatMax.
-            psatz R.
-          }
-        }
-      }
-    }
+    destruct Rcase_abs;
+      destruct Rcase_abs;
+      destruct Rcase_abs; destruct H1';
+      unfold error in *; unfold floatMax in *;
+      psatz R.
+    
   }
   {
     inversion H.
@@ -2331,626 +2168,222 @@ Proof.
     clear H Heqarg2 H0 H8 H7.
     unfold error in *.
     unfold custom_prec,custom_emax in *.
-    destruct Rcase_abs. 
-    {
-      destruct Rcase_abs. 
-      {
-        destruct Rcase_abs. 
-
-        {
-      destruct H1'.
-      {
-        decompose [and] H.
-        clear H H11.
-        clear H6 H9 errorGt0 H9 H10  r3 H7 r.
-        clear H1.
-        repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-
-        unfold floatMax.
-        unfold custom_prec,custom_emax in *.
-        psatz R.
-      }
-
-
-       {
-         decompose [and] H.
-         clear H.
-         clear H1 H11.
-         clear r0 r errorGt0 H9 H10.
-         clear -H6 r3 H7 H2 H3 H4 H5 H8. 
-        repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-        unfold error.
-        unfold floatMax.
-        unfold custom_prec,custom_emax in *.
-        psatz R.
-      }
-    }
-    {
-        destruct H1'.
-        {
-          
-          
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
-          unfold error.
-          unfold floatMax.
-          unfold custom_prec,custom_emax in *.
-          psatz R.
-        }
-        {
-          
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
-          unfold error.
-          unfold floatMax.
-          unfold custom_prec,custom_emax in *.
-          psatz R.
-        }
-    }
+    destruct Rcase_abs;
+      destruct Rcase_abs; 
+      destruct Rcase_abs; 
+      unfold floatMax,custom_prec,custom_emax in *;
+      psatz R.
   }
-  {      
-    destruct Rcase_abs. 
-
-    {
-      destruct H1'.
-      {
-        decompose [and] H.
-        clear H10 H11 H .
-        repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-        unfold error.
-        unfold floatMax.
-        unfold custom_prec,custom_emax in *.
-        psatz R.
-      }
-      {
-        repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-        unfold error.
-        unfold floatMax.
-        unfold custom_prec,custom_emax in *.
-        psatz R.
-      }
-    }
-    {
-      destruct H1'.
-      {
-        decompose [and]  H.
-        clear H11 H10.
-        repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-        unfold error.
-        unfold floatMax.
-        unfold custom_prec,custom_emax in *.
-        psatz R.
-      }
-      {
-        decompose [and]  H.
-        clear H11 H10.
-        repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-        unfold error.
-        unfold floatMax.
-        unfold custom_prec,custom_emax in *.
-        psatz R.
-      }
-    }
-  }   
-}
-{
-  destruct Rcase_abs. 
+  
   {
-    destruct Rcase_abs. 
-     {
-       destruct H1'.
-       {
-         decompose [and] H.
-         clear H11 H10.
-         repeat match goal with
-                  | H : @eq R _ _ |- _ => revert H
-                  | H : @Rle _ _ |- _ => revert H
-                  | H : @Rge _ _ |- _ => revert H
-                  | H : @Rlt _ _ |- _ => revert H
-                  | H :@ Rgt _ _ |- _ => revert H
-                  | H : @Rge _ _ |- _ => revert H
-                end.
-         unfold error.
-         unfold floatMax.
-         unfold custom_prec,custom_emax in *.
-         psatz R.
-       }
-       {
-         decompose [and] H.
-         clear H11 H10.
-         repeat match goal with
-                  | H : @eq R _ _ |- _ => revert H
-                  | H : @Rle _ _ |- _ => revert H
-                  | H : @Rge _ _ |- _ => revert H
-                  | H : @Rlt _ _ |- _ => revert H
-                  | H :@ Rgt _ _ |- _ => revert H
-                  | H : @Rge _ _ |- _ => revert H
-                end.
-         unfold error.
-         unfold floatMax.
-         unfold custom_prec,custom_emax in *.
-         psatz R.
-       }
-     }
-     {
-       {
-         destruct H1'.
-         {
-           decompose [and] H.
-           clear H11 H10.
-           repeat match goal with
-                    | H : @eq R _ _ |- _ => revert H
-                    | H : @Rle _ _ |- _ => revert H
-                    | H : @Rge _ _ |- _ => revert H
-                    | H : @Rlt _ _ |- _ => revert H
-                    | H :@ Rgt _ _ |- _ => revert H
-                    | H : @Rge _ _ |- _ => revert H
-                  end.
-           unfold error.
-           unfold floatMax.
-           unfold custom_prec,custom_emax in *.
-           psatz R.
-         }
-         {
-            decompose [and] H.
-           clear H11 H10.
-           repeat match goal with
-                    | H : @eq R _ _ |- _ => revert H
-                    | H : @Rle _ _ |- _ => revert H
-                    | H : @Rge _ _ |- _ => revert H
-                    | H : @Rlt _ _ |- _ => revert H
-                    | H :@ Rgt _ _ |- _ => revert H
-                    | H : @Rge _ _ |- _ => revert H
-                  end.
-           unfold error.
-           unfold floatMax.
-           unfold custom_prec,custom_emax in *.
-           psatz R.
-         }
-       }
-     }
+    inversion H0.
   }
   {
-    destruct Rcase_abs.
-    {
-      destruct H1'.
-      {
-        decompose [and] H1.
-        clear  H10.
-        repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-        unfold error.
-        unfold floatMax.
-        unfold custom_prec,custom_emax in *.
-        psatz R.
-      }
-      {
-        decompose [and] H1.
-        clear  H10.
-        repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-        unfold error.
-        unfold floatMax.
-        unfold custom_prec,custom_emax in *.
-        psatz R.
-      }
-    }
-    {
-       destruct H1'.
-      {
-        decompose [and] H.
-        clear H11 H H10 H9.
-        clear -errorGt0 H6 H7 H3 H4.
-        repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-        unfold error.
-        unfold floatMax.
-        unfold custom_prec,custom_emax in *.
-        psatz R.
-      }
-      {
-        decompose [and] H.
-        clear H11 H H10 H9.        
-        repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-        unfold error.
-        unfold floatMax.
-        unfold custom_prec,custom_emax in *.
-        psatz R.
-      }
-    }
+    inversion H0.
   }
-}
-}
-{
+  {
+    pose proof relErrorBasedOnFloatMinTruthMinus.
+    assert (H1':=H1).
+    apply andOrProof in H1.
+    specialize (H6 r1 r2 lb1 lb2 ub1 ub2 H1 H2 H3 H4 H5).
+    inversion H as [r1Value].
+    inversion H0 as [r2Value].
+    unfold B2R.
+    rewrite <- r1Value.
+    rewrite <- r2Value.
+    unfold Rabs in *.
+    pose proof errorGt0 as errorGt0.
+    remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                    (round_mode mode_NE) (r1 - r2)) as roundedValue.
+    clear HeqroundedValue.
+    clear H H0.
+    pose proof floatMaxGt0.
+    pose proof floatMinGt0.
+    clear r1Value.
+    clear r2Value.
+    
+    destruct Rcase_abs;
+      destruct Rcase_abs;
+      destruct Rcase_abs;
+      unfold error,floatMax in *;
+      psatz R.
+  }    
+Qed.  
+  Lemma abs: forall x y, (x >= y \/ x <= (0-y) -> y <= Rabs x)%R.
+        Proof.
+          intros.
+          destruct H;unfold Rabs;destruct Rcase_abs;psatz R;psatz R.
+        Qed.
+
+ Lemma orExtra : forall (p1 p2:Prop), p1 -> p1 \/ p2.
+        intros.
+        intuition.
+      Qed.
+Lemma plusRoundingTruth3 : forall (f1 f2: float)  (lb1 lb2 ub1 ub2 x1 x2:R), 
+    (
+      Some x1 = (floatToReal f1) -> 
+      Some x2 = (floatToReal f2) ->
+      (
+        x1 + x2 >= floatMin \/ x1 + x2 <= (0-floatMin)
+      ) ->
+      lb1 <= x1 ->
+      lb2 <= x2 ->
+      (ub1 + ub2)*(1+error ) < floatMax -> 
+      (0 - lb1 + (0 - lb2))* (1+error) < floatMax ->
+      x1 <= ub1 ->
+      x2 <= ub2 ->
+      (
+        (
+          Rabs 
+            (round 
+               radix2 
+               (FLT_exp 
+                  (3-custom_emax- custom_prec) 
+                  custom_prec) 
+               (round_mode mode_NE) 
+               (B2R custom_prec custom_emax f1 
+                + B2R custom_prec custom_emax f2))
+        ) 
+        <  (bpow radix2 custom_emax)
+      )
+    )%R.
+Proof.
+  intros.
+  unfold floatToReal in *.
+
+ (*getting the relative error proof*)
+  remember (x1 + x2)%R as realResult. 
+  pose proof relative_error.
+  remember (FLT_exp (3 - custom_emax - custom_prec) custom_prec) as round_fexp.
+  
+
+  specialize (H8 radix2 round_fexp). 
+  rewrite Heqround_fexp in H8.
+  specialize (H8 validFexpProof  (custom_emin)%Z custom_prec  precThm (round_mode mode_NE)).
+  specialize (H8 (valid_rnd_N choiceDef) (x1+x2)%R).
+  
+  intros.
+  pose proof abs as absProof.
+  specialize (absProof realResult floatMin H1).
+  rewrite HeqrealResult in absProof.
+  unfold floatMin in absProof.
+  specialize (H8 absProof).
+  clear absProof.
+  rewrite HeqrealResult in *.
+  rewrite Heqround_fexp.
+  clear HeqrealResult round_fexp Heqround_fexp.
+  (*getting the relative error proof*)
+  destruct f1.
+  {
+    destruct f2. 
+    {
+      inversion H.
+      inversion H0.
+      
+
+      Check relErrorBasedOnFloatMinTruthPlus.
+      unfold B2R in *.
+      unfold Rabs in *.
+      pose proof errorGt0 as errorGt0.
+      remember  (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) 
+                       (round_mode mode_NE) (0 + 0)) as roundedValue.
+      clear HeqroundedValue.
+      clear H H0.
+      pose proof floatMaxGt0.
+      pose proof floatMinGt0.
+      clear H1.
+      unfold error in *.
+      unfold floatMax in *.
+      destruct Rcase_abs; destruct Rcase_abs; destruct Rcase_abs;
+      psatz R.
+    }
+    inversion H0.
+    inversion H0.
+    inversion H.
+    inversion H0.
+    rewrite H10 in *.
+    unfold B2R in *.
+    unfold Rabs in *.
+    pose proof errorGt0 as errorGt0.
+    rewrite <- H11 in *.
+    remember  (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) 
+                     (round_mode mode_NE) (0  + x2)) as roundedValue.
+    clear HeqroundedValue.
+    clear H10.
+    clear H H0.
+    pose proof floatMaxGt0.
+    pose proof floatMinGt0.
+    clear H1.
+    clear H11.
+
+    destruct Rcase_abs; destruct Rcase_abs; destruct Rcase_abs;
+    unfold error in *;
+    unfold floatMax in *;
+    psatz R.
+    
+    
+  }
   inversion H0.
-}
-{
+  inversion H.
+  inversion H.
+  
+  destruct f2.
+  
+
+  inversion H.
   inversion H0.
-}
-{
-  pose proof relErrorBasedOnFloatMinTruthMinus.
-  assert (H1':=H1).
-  apply andOrProof in H1.
-  specialize (H6 r1 r2 lb1 lb2 ub1 ub2 H1 H2 H3 H4 H5).
-  inversion H as [r1Value].
-  inversion H0 as [r2Value].
-  unfold B2R.
-  rewrite <- r1Value.
-  rewrite <- r2Value.
+  unfold B2R in *.
+  rewrite H11 in *.
+  rewrite <- H10 in *.
   unfold Rabs in *.
   pose proof errorGt0 as errorGt0.
-  remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
-                  (round_mode mode_NE) (r1 - r2)) as roundedValue.
+  unfold error in *.
+  remember  (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) 
+                   (round_mode mode_NE) (x1 + 0)) as roundedValue.
   clear HeqroundedValue.
+  clear H11 H10.
   clear H H0.
   pose proof floatMaxGt0.
   pose proof floatMinGt0.
-  clear r1Value.
-  clear r2Value.
- 
-  destruct Rcase_abs.
-  {
-    destruct Rcase_abs.
-    {
-      destruct Rcase_abs.
-      {
-        destruct H1'.
-        {
-          decompose [and] H7.
-          clear H0 H11.
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end;
-            unfold error.
-          unfold floatMax.
-          psatz R.
-        }
-        {
-          decompose [and] H7.
-          clear H11 H0. 
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
-          unfold error.
-          unfold floatMax.
-          psatz R.
-        }
-      }
-      {
-        destruct H1'.
-        {
-          decompose [and] H7.
-          clear H0 H1 H11.
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
-          unfold error.
-          unfold floatMax.
-          psatz R.
-        }
-        {
-          decompose [and] H7.
-          clear H11 H0.
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
-          unfold error.
-          unfold floatMax.
-          psatz R.
-        }
-      }
-    }
-    {
-      destruct Rcase_abs.
-      {
-        destruct H1'.
-        {
-          decompose [and] H7.
-          clear H0 H11.
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
-          unfold error.
-          unfold floatMax.
-          psatz R.          
-        }
-        {
-          decompose [and] H7.
-          clear H11 H0.
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
-          unfold error.
-          unfold floatMax.
-          psatz R.
-        }
-      }
-      {
-        destruct H1'.
-        {
-          decompose [and] H7.
-          clear H11 H0.
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
-          unfold error.
-          unfold floatMax.
-          psatz R.
-        }
-        {
-          decompose [and] H7.
-          clear H11 H0.
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
-          unfold error.
-          unfold floatMax.
-          psatz R.
-        }
-      }
-    }
-  }
-  {
-    destruct Rcase_abs.
-    {
-      destruct Rcase_abs.
-      {
-        destruct H1'.
-        {
-          decompose [and] H7.
-          clear H11 H0.
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end;
-            unfold error.
-          unfold floatMax.
-          psatz R.
-        }
-        {
-          decompose [and] H7.
-          clear H11 H0.
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end;
-            unfold error.
-          unfold floatMax.
-          psatz R.
-        }
-      }
-      {
-        destruct H1'.
-        {
-          decompose [and] H7.
-          clear H11 H0.
-          repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-          unfold error.
-          unfold floatMax.
-          psatz R.
-      }
-      {
-        decompose [and] H7.
-          clear H11 H0.
-          repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end.
-          unfold error.
-          unfold floatMax.
-          psatz R.
-      }
-    }
-    }
-    {
-      destruct Rcase_abs.
-      {
-        repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-               end;
-        unfold error.
-        unfold floatMax.
-        psatz R.
-      }
-      {
-        destruct H1'.
-        {
-          destruct H1.
-          {
-            decompose [and] H7.
-            clear H0 H11.
-            repeat match goal with
-                     | H : @eq R _ _ |- _ => revert H
-                     | H : @Rle _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                     | H : @Rlt _ _ |- _ => revert H
-                     | H :@ Rgt _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                   end;
-              unfold error.
-            unfold floatMax.
-            psatz R.
-          }
-          {
-            decompose [and] H7.
-            clear H0 H11.
-            repeat match goal with
-                     | H : @eq R _ _ |- _ => revert H
-                     | H : @Rle _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                     | H : @Rlt _ _ |- _ => revert H
-                     | H :@ Rgt _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                   end;
-              unfold error.
-            unfold floatMax.
-            psatz R.
-          }
-        }
-        {
-          decompose [and] H7.
-          clear H11 H0.
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end;
-            unfold error.
-          unfold floatMax.
-          psatz R.
-        }
-      }
-    }
-  }
-}
+  clear H1.
+  destruct Rcase_abs; destruct Rcase_abs; destruct Rcase_abs;
+  unfold error in *;
+  unfold floatMax in *;
+  psatz R.
 
-Qed.  
+  inversion H0.
+  inversion H0.
+
+  inversion H.
+  inversion H0.
+  unfold B2R in *.
+  rewrite <- H10 in *.
+  rewrite <- H11 in *.
+  unfold Rabs in *.
+  pose proof errorGt0 as errorGt0.
+  unfold error in *.
+  remember  (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) 
+                   (round_mode mode_NE) (x1 + x2)) as roundedValue.
+  clear HeqroundedValue.
+  clear H11 H10.
+  clear H H0.
+  pose proof floatMaxGt0.
+  pose proof floatMinGt0.
+  clear H1.
+  destruct Rcase_abs; destruct Rcase_abs; destruct Rcase_abs;
+  repeat match goal with
+           | H : @eq R _ _ |- _ => revert H
+           | H : @Rle _ _ |- _ => revert H
+           | H : @Rge _ _ |- _ => revert H
+           | H : @Rlt _ _ |- _ => revert H
+           | H :@ Rgt _ _ |- _ => revert H
+           | H : @Rge _ _ |- _ => revert H
+         end;
+  unfold error;
+  unfold floatMax;
+  psatz R.
+Qed.
+
 
 
 Lemma plusRoundingTruth : forall (f1 f2: float)  (lb1 lb2 ub1 ub2 r1 r2:R), 
@@ -4450,7 +3883,6 @@ Proof.
 Qed.
 
 
-
 Lemma plusRoundingTruth2 : forall (f1 f2: float)  (r1 r2:R) , 
     Some r1 = floatToReal f1 -> 
 
@@ -4536,7 +3968,6 @@ Proof.
   simpl in H5.
   apply H5.
 Qed.
-
 
 
 Lemma natFloatMinBoundProof : 
@@ -4674,19 +4105,57 @@ Proof.
   apply H2.
 Qed.
 
+ Lemma denote_singleBoundTermsEquality :   (forall (st : state) (expr : NowTerm) (fState : fstate),
+   related fState (hd (traceFromState st)) ->
+   match eval_NowTerm fState expr with
+   | Some evalAsF =>
+       match floatToReal evalAsF with
+       | Some f =>
+           List.Forall
+             (fun term : singleBoundTerm =>
+              let (premise0, pred) := denote_singleBoundTermNew st term in
+              premise0 -> pred f) (bound_term expr)
+       | None => True
+       end
+   | None => True
+   end) =   (forall (st : state) (expr : NowTerm) (fState : fstate),
+   related fState (hd (traceFromState st)) ->
+   match eval_NowTerm fState expr with
+   | Some evalAsF =>
+       match floatToReal evalAsF with
+       | Some f =>
+           List.Forall
+          (denote_singleBoundTerm f (traceFromState st))   (bound_term expr)
+       | None => True
+       end
+   | None => True
+   end).
+    unfold denote_singleBoundTermNew.
+    unfold denote_singleBoundTerm.
+    reflexivity.
+  Qed.
+
+
+
 
 Lemma bound_proof' : 
-  forall (tr:Semantics.trace) (expr:NowTerm) (fState:fstate),
-    related fState (Semantics.hd tr) -> 
-    boundDef' expr tr fState.
+  forall (st:state) (expr:NowTerm) (fState:fstate),
+    related fState (Semantics.hd (traceFromState st)) -> 
+    boundDef' expr st fState.
 Proof.
-  unfold boundDef'.
+  unfold boundDef'. 
+  rewrite denote_singleBoundTermsEquality.
   intros.
   remember (eval_NowTerm fState expr). destruct o; trivial.
   remember (floatToReal f). destruct o; trivial.
   revert Heqo. revert Heqo0. revert f. revert r.
+  remember (traceFromState st) as tr.
+  clear Heqtr.
   induction expr.
-  { simpl. constructor; [ | constructor ].
+
+  { simpl. 
+    intros.
+    constructor; [ | constructor ].
     red. simpl. intros XXX; clear XXX.
     simpl in Heqo.
     red in H. symmetry in Heqo.
@@ -4710,10 +4179,7 @@ Proof.
       pose proof conjoin2 as premise.
       
       specialize (premise (floatMin <= INR n)%R (INR n >= 0)%R (INR n * (1 + error) < floatMax)%R H1 H3 H4).
-      Lemma orExtra : forall (p1 p2:Prop), p1 -> p1 \/ p2.
-        intros.
-        intuition.
-      Qed.
+     
       intros.
       pose proof orExtra as orExtra1.
       specialize (orExtra1 ((floatMin <= INR n)%R /\
@@ -4996,6 +4462,7 @@ Proof.
     unfold floatToReal in Heqo0.
     rewrite H9 in Heqo0.
     unfold floatToReal in Heqo0.
+    unfold denote_singleBoundTerm in *.
     destruct f eqn:f_des.
     {
       rewrite <- H9 in Heqo0.
@@ -5006,16 +4473,14 @@ Proof.
       clear H f Heqo0 H0 H1 H8 f_des Heqo' H9 H10 .
       assert (floatToRealProof1:= H2).
       assert (floatToRealProof2:= H3).
-      clear H2 H3.
-      
+      clear H2 H3.      
       
       unfold denote_singleBoundTerm in *.
       intros.
       simpl in H6.
       unfold simpleBound in *.
       unfold simpleBound4 in *.
-      destruct H6.
-      
+      destruct H6. 
       {
         rewrite <- H0 in H.
         simpl in H.
@@ -5027,14 +4492,13 @@ Proof.
         assert (expr2Bound := H3).
         assert (floatMinCase := H2).
         assert (floatMaxBound1 := H6). 
-        assert (floatMaxBound2 := H7).
-        assert (resultGe0 := H9).
-        clear H4 H2 H1 H3 H H5 H7 H0 H9 H6 IHexpr1 IHexpr2.
+        assert (resultGe0 := H8).
+        clear H4 H2 H1 H3 H H5  H0 H8 H6 IHexpr1 IHexpr2.
         unfold Semantics.eval_comp in *.
+        unfold eval_term in .
         simpl in floatMinCase.
         simpl in expr1Bound.
         simpl in expr2Bound.
-        simpl in floatMaxBound2.
         simpl in floatMaxBound1.
         simpl in resultGe0.
         simpl.
@@ -5043,6 +4507,8 @@ Proof.
         remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
         remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
+        
+        
         pose proof relErrorBasedOnFloatMinTruthPlus as relErrorBasedOnFloatMinTruthPlus.
         specialize (relErrorBasedOnFloatMinTruthPlus x1 x2 lb1 lb2 ub1 ub2).
         destruct expr1Bound.
@@ -5050,8 +4516,17 @@ Proof.
         pose proof or_introl.
         
         intros.
+        assert (floatMinCase1 := floatMinCase).
+        clear floatMinCase.
+        pose proof orExtra as floatMinCase. 
+        specialize (floatMinCase (floatMin <= lb1 + lb2)%R  (floatMin <= 0 - ub1 + (0 - ub2))%R floatMinCase1).
+        clear floatMinCase1.
         specialize (relErrorBasedOnFloatMinTruthPlus floatMinCase H H1 H0 H2).
-        pose proof plusRoundingTruth as plusRoundingTruth.
+        pose proof plusRoundingTruth as plusRoundingTruth. 
+        Lemma floatMaxBoundHelper : forall lb1 lb2 floatMax error, (lb1 + lb2 >= R0)%R -> (floatMax > 0)%R ->  (error > R0)%R -> ((0-lb1+(0-lb2))*(1+error)<floatMax)%R.
+          intros. psatz R. Qed.
+        pose proof floatMaxBoundHelper as floatMaxBound2.
+        specialize (floatMaxBound2 lb1 lb2 floatMax error resultGe0 floatMaxGt0 errorGt0).
         specialize (plusRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 floatMinCase H H1 floatMaxBound1 floatMaxBound2 H0 H2).
         pose proof plusRoundingTruth2 as plusRoundingTruth2.
         specialize (plusRoundingTruth2 x x0 x1 x2 floatToRealProof1 floatToRealProof2 plusRoundingTruth).
@@ -5066,7 +4541,6 @@ Proof.
                          (round_mode mode_NE)
                          (B2R custom_prec custom_emax x +
                           B2R custom_prec custom_emax x0)) as roundedValue. 
-
         simpl in plusRoundingTruth2.
         simpl in plusResultStmt.
         rewrite <- plusResultStmt in plusRoundingTruth2.
@@ -5117,14 +4591,12 @@ Proof.
           assert (expr2Bound := H3).
           assert (floatMinCase := H2).
           assert (floatMaxBound1 := H6). 
-          assert (floatMaxBound2 := H7).
-          assert (resultGe0 := H9).
-          clear H4 H2 H1 H3 H H5 H7 H0 H9 H6 IHexpr1 IHexpr2.
+          assert (resultGe0 := H8).
+          clear H4 H2 H1 H3 H H5 H0 H8 H6 IHexpr1 IHexpr2.
           unfold Semantics.eval_comp in *.
           simpl in floatMinCase.
           simpl in expr1Bound.
           simpl in expr2Bound.
-          simpl in floatMaxBound2.
           simpl in floatMaxBound1.
           simpl in resultGe0.
           simpl.
@@ -5139,10 +4611,19 @@ Proof.
           destruct expr2Bound.
           pose proof or_introl.
           
-          intros.
+          intros.          
+          assert (floatMinCase1 := floatMinCase).
+          clear floatMinCase.
+          pose proof orExtra2 as floatMinCase. 
+          specialize (floatMinCase (floatMin <= lb1 + lb2)%R  (floatMin <= 0 - ub1 + (0 - ub2))%R floatMinCase1).
+          clear floatMinCase1.
           specialize (relErrorBasedOnFloatMinTruthPlus floatMinCase H H1 H0 H2).
           pose proof plusRoundingTruth as plusRoundingTruth.
-          specialize (plusRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 floatMinCase H H1 floatMaxBound1 floatMaxBound2 H0 H2).
+           Lemma floatMaxBoundHelper2 : forall ub1 ub2 floatMax error, (ub1 + ub2 < R0)%R -> (floatMax > 0)%R ->  (error > R0)%R -> ((ub1 + ub2)*(1+error)<floatMax)%R.
+             intros. psatz R. Qed.
+           pose proof floatMaxBoundHelper2 as floatMaxBound2.
+           specialize (floatMaxBound2 ub1 ub2 floatMax error resultGe0 floatMaxGt0 errorGt0).
+           specialize (plusRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 floatMinCase H H1 floatMaxBound2 floatMaxBound1 H0 H2).
           pose proof plusRoundingTruth2 as plusRoundingTruth2.
           specialize (plusRoundingTruth2 x x0 x1 x2 floatToRealProof1 floatToRealProof2 plusRoundingTruth).
           revert plusResultStmt. intros plusResultStmt.
@@ -5183,20 +4664,675 @@ Proof.
           unfold Rabs in *.
           pose proof errorLessThan1 as errorLessThan1.
           unfold error in *.
-          destruct Rcase_abs; destruct Rcase_abs;
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end;
-          psatz R.
+          destruct Rcase_abs;destruct Rcase_abs;psatz R.
         }
-        
         {
-          intuition.
+                    destruct H0.
+          {
+            rewrite <- H0 in H.
+            simpl in H.
+            rewrite <- H0.
+            decompose [and] H.
+            apply IHexpr1 in H1.
+            apply IHexpr2 in H3.
+            assert (expr1Bound := H1).
+            assert (expr2Bound := H3).
+            assert (floatMinCase1 := H2).
+            assert (floatMinCase2 := H6).
+            assert (floatMaxBound1 := H7).
+            assert (resultGe0 := H9).
+            clear H4 H2 H1 H3 H H5 H0 H7 H9 H6 IHexpr1 IHexpr2.
+            unfold Semantics.eval_comp in *.
+            simpl in floatMinCase1.
+            simpl in floatMinCase2.
+            simpl in expr1Bound.
+            simpl in expr2Bound.
+            simpl in floatMaxBound1.
+            simpl in resultGe0.
+            simpl.
+            remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
+            remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
+            remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
+            remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+            clear Hequb1 Hequb2 Heqlb1 Heqlb2.
+            destruct (Rge_dec (x1+x2)%R floatMin).
+            {
+              assert (floatMinCase3 := r0).
+              clear r0.
+              (* relative_error*)
+              pose proof relative_error as relative_error.
+              specialize (relative_error radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) validFexpProof (custom_emin)%Z custom_prec precThm (round_mode mode_NE) (valid_rnd_N choiceDef) (x1 + x2)%R).
+              Lemma absHelper: forall x y, (x>=0)%R -> (x>=y)%R -> (y<=(Rabs x))%R.
+                intros. unfold Rabs in *. destruct Rcase_abs; psatz R. Qed.
+              Lemma posResInf : forall lb1 lb2 x1 x2, (x1 >= lb1 -> x2 >= lb2 -> lb1 + lb2 >=0 -> x1 + x2 >= 0)%R.
+                intros. 
+                z3 solve_dbg. psatz R. Qed.
+              intros.
+              
+              pose proof absHelper as absProof.
+              pose proof posResInf as posResInf.
+              destruct expr1Bound.
+              destruct expr2Bound.
+              assert (x1lb := H).
+              assert (x1ub := H0).
+              assert (x2lb := H1).
+              assert (x2ub := H2).
+              clear H H0 H1 H2.
+              SearchAbout (_<=_->_>=_)%R.
+              apply Rle_ge in x1lb.
+              apply Rle_ge in x2lb.
+              specialize (posResInf lb1 lb2 x1 x2 x1lb x2lb resultGe0).
+              specialize (absProof (x1+x2)%R floatMin posResInf floatMinCase3).
+              specialize (relative_error absProof).
+              (* relative_error *)
+              pose proof plusRoundingTruth3 as plusRoundingTruth3.
+              specialize (plusRoundingTruth3 x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 ).
+              pose proof orExtra as floatMinPremise.
+              specialize (floatMinPremise (x1 + x2 >= floatMin)%R (x1 + x2 <= 0 - floatMin)%R floatMinCase3).
+              apply Rge_le in x1lb.
+              apply Rge_le in x2lb.
+              specialize (plusRoundingTruth3 floatMinPremise x1lb x2lb floatMaxBound1).
+              pose proof floatMaxBoundHelper as floatMaxBound2.
+              specialize (floatMaxBound2 lb1 lb2 floatMax error resultGe0 floatMaxGt0 errorGt0).
+              specialize (plusRoundingTruth3 floatMaxBound2 x1ub x2ub).
+              pose proof plusRoundingTruth2 as plusRoundingTruth2.
+              specialize (plusRoundingTruth2 x x0 x1 x2 floatToRealProof1 floatToRealProof2
+                         plusRoundingTruth3).
+              rewrite <- plusResultStmt in plusRoundingTruth2.
+              remember (  B2R custom_prec custom_emax
+                         (B754_zero custom_prec custom_emax b)).
+              simpl in Heqr0.
+              rewrite Heqr0 in plusRoundingTruth2.
+              destruct plusRoundingTruth2.
+              clear r0 Heqr0.
+              assert (bplusCorrectStmt := H).
+              assert (resultFiniteTruth := H0).
+              clear H H0.
+              clear bplusCorrectStmt resultFiniteTruth plusRoundingTruth3 absProof floatMinPremise floatMinCase1 floatMinCase2 floatMinCase3 floatMaxBound1 floatMaxBound2.
+              apply validFloat2 in floatToRealProof1.
+              apply validFloat2 in floatToRealProof2.
+              pose proof errorGt0.
+              psatz R.
+            }
+            {
+              apply Rnot_ge_lt in n.
+              Check relative_error.
+              Definition el2 (r : radix) (x : R) (lbp : ln_beta_prop r x) : 
+                (x <> 0%R -> (bpow r (ln_beta_val r x lbp - 1) <= Rabs x < bpow r (ln_beta_val r x lbp)))%R := let '(Build_ln_beta_prop _ pf) := lbp in pf.
+              generalize (el2 radix2 (x1+x2)%R (ln_beta radix2 (x1+x2))).
+              intros ln_beta_premise. 
+              Lemma subNormal: forall x:R,  (x > R0)%R -> (x < floatMin)%R ->  (ln_beta radix2 x <= custom_emin)%Z.
+                intros.
+                unfold floatMin in *.
+                assert (H1 := H).
+                pose proof ln_beta_le_bpow.
+                apply Rgt_not_eq in H.
+                specialize (H2 radix2 x custom_emin H).
+                
+
+                Lemma abs2: forall x0 y : R, (x0 > 0)%R -> (x0 < y)%R -> (Rabs x0 < y)%R.
+                  intros. unfold Rabs. destruct Rcase_abs. 
+                  psatz R.
+                  psatz R.
+                Qed.
+
+                intros.
+                pose proof abs2.
+                specialize (H3 x (bpow radix2 custom_emin) H1 H0).
+                specialize (H2 H3).
+                apply H2.
+              Qed.
+              intros. 
+              Lemma absImp : forall x, (x > 0)%R-> Rabs x = x.
+                intros. unfold Rabs. destruct Rcase_abs. psatz R. psatz R. Qed.
+              intros.
+              pose proof absImp as absImp.
+              pose proof posResInf as posResInf.
+              destruct expr1Bound.
+              destruct expr2Bound.
+              assert (x1lb := H).
+              assert (x1ub := H0).
+              assert (x2lb := H1).
+              assert (x2ub := H2).
+              clear H H0 H1 H2.
+              apply Rle_ge in x1lb.
+              apply Rle_ge in x2lb.
+              specialize (posResInf lb1 lb2 x1 x2 x1lb x2lb resultGe0).
+              apply Rge_le in posResInf.
+              Check Rle_lt_or_eq_dec.
+              destruct (Rle_lt_or_eq_dec 0 (x1+x2)%R).
+              {
+                apply posResInf.
+              }
+              {
+                pose proof subNormal as subNormalProof. 
+                apply Rlt_gt in r0.
+                specialize (subNormalProof (x1+x2)%R r0 n).
+                remember (ln_beta radix2 (x1 + x2)) as ex.
+                Lemma gt0ImpNE0 :forall x, (x>0 -> x<>0)%R.
+                  intros. psatz R. Qed.
+                pose proof gt0ImpNE0 as gt0ImpNE0.
+                specialize (gt0ImpNE0 (x1+x2)%R r0).
+                specialize (ln_beta_premise gt0ImpNE0).
+                Check bpow_lt.
+                pose proof bpow_le as bpow_le.
+                specialize (bpow_le radix2 ex custom_emin subNormalProof).
+                pose proof plusRoundingTruth2.
+                Lemma floatMaxProofRounding : 
+                  forall x ex, (bpow radix2 (ex - 1) <= Rabs (x) < bpow radix2 ex)%R -> 
+                               (ex <= custom_emin)%Z ->
+                               (x < floatMin -> x > 0 ->                        
+                                (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x = bpow radix2 ((FLT_exp (3 - custom_emax - custom_prec) custom_prec) ex) \/ round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x = R0 \/ bpow radix2 (ex - 1)<= round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x <= bpow radix2 ex) /\ Rabs (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x) < bpow radix2 custom_emax)%R.
+                  intros. 
+                  assert (gt0 := H2).                  
+                  apply gt0ImpNE0 in H2.
+                  pose proof bpow_le.
+                  specialize (H3 radix2 ex custom_emin H0).
+                  pose proof emaxGtEmin.
+                  SearchAbout (_ > _ -> _ < _)%Z.
+                  apply Z.gt_lt in H4.
+                  
+                  pose proof bpow_lt.
+                  specialize (H5 radix2 emin emax H4 ).
+                  clear H4.
+                  pose proof absImp.
+                  specialize (H4 x gt0).
+                  rewrite H4 in H.
+                  clear H4.
+                  destruct (Coqlib.zle ex  (FLT_exp (3 - custom_emax - custom_prec) custom_prec ex)).
+                  {
+                    pose proof round_bounded_small_pos.
+                    specialize (H4 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef) x ex).
+                    specialize (H4 l H).
+                    remember  (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                     (round_mode mode_NE) x).
+                    destruct H4.
+                    {
+                      rewrite H4 in *.
+                      pose proof floatMaxGt0.
+                      unfold floatMax in *.
+                      unfold Rabs. destruct Rcase_abs.                       
+                      split. constructor 2. constructor 1. intuition. 
+                      psatz R. split. constructor 2. constructor 1. intuition.
+                      psatz R. 
+                    }
+                    {
+                      pose proof bpow_lt.
+                      unfold FLT_exp in *.
+                      SearchAbout ({_ <= _} + {_ > _ })%Z.
+                      destruct (Z_le_gt_dec (ex - custom_prec) (3 - custom_emax - custom_prec)%Z).
+                      {
+                        Lemma zMaxProof : forall x1 x2, (x1<=x2 -> Z.max x1 x2 = x2)%Z. 
+                          intros. SearchAbout Z.max . pose proof Z.max_r. 
+                          specialize (H0 x1 x2 H). apply H0.
+                        Qed.
+                        intros.
+                        pose proof zMaxProof as zMaxProof.
+                        specialize (zMaxProof (ex - custom_prec)%Z (3 - custom_emax - custom_prec)%Z l0).
+                        rewrite zMaxProof in *.
+                        
+                        clear zMaxProof l0 H6 Heqr. 
+                        pose proof errorGt0.
+                        unfold error in *.
+                        Lemma fexpEminGtEmax :  (3 - custom_emax - custom_prec < custom_emax)%Z.
+                          pose proof precGe1. pose proof precLtEmax. unfold error,custom_emax, custom_prec in *. 
+                          lia. 
+                        Qed.
+                        intros.
+                        pose proof fexpEminGtEmax as fexpEminGtEmax.
+                        pose proof bpow_lt.
+                        specialize (H7 radix2 (3 - custom_emax - custom_prec)%Z custom_emax fexpEminGtEmax).
+                        split. 
+                        constructor 1. apply H4.
+                        clear fexpEminGtEmax H H1 H6 l H2 H5.     
+                        SearchAbout bpow.
+                        pose proof bpow_gt_0.
+                        specialize (H radix2 (3 - custom_emax - custom_prec)%Z).
+                        pose proof bpow_gt_0.
+                        specialize (H1 radix2 custom_emax).
+                        unfold Rabs. destruct Rcase_abs. psatz R.   psatz R.
+                      }
+                      {
+                        pose proof zMaxProof as zMaxProof. 
+                        SearchAbout (_>_ -> _<_)%Z.
+                        apply Z.gt_lt in g.
+                        SearchAbout (_<_ -> _<=_)%Z.
+                        pose proof Z.lt_le_incl.
+                        
+                        specialize (H7 (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z g).
+                        specialize (zMaxProof   (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z H7).
+                        SearchAbout Z.max.
+                        rewrite Z.max_comm in zMaxProof.
+                        rewrite zMaxProof in *.
+                        
+                        clear zMaxProof g H7 H6 Heqr. 
+                        
+                        Lemma fexpEminGtEmax1 : forall ex,  (ex <= custom_emin -> (ex <= ex - custom_prec) -> ex - custom_prec < custom_emax)%Z.
+                          intros. unfold custom_emin, custom_prec,custom_emax in *. 
+                          pose proof precGe1. pose proof precLtEmax.
+                          pose proof emaxGtEmin. lia.
+                        Qed.
+                        intros.
+                        pose proof fexpEminGtEmax1.
+                        specialize (H6 ex H0 l).
+                        pose proof bpow_lt.
+                        specialize (H7 radix2 (ex - custom_prec)%Z custom_emax H6).
+                        clear H.
+                        pose proof errorGt0. unfold error in *. unfold custom_emax,custom_emin,custom_prec in *.
+                        pose proof bpow_gt_0. specialize (H8 radix2 (ex-prec)%Z).
+                        split. constructor 1. apply H4.
+                        unfold Rabs. destruct Rcase_abs.
+                        psatz R. psatz R.
+                      }
+                    }
+                  }
+                  {
+                    pose proof round_bounded_large_pos.
+                    apply Z.gt_lt in g.
+                    specialize (H4 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef) x ex g H).
+                    remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                    (round_mode mode_NE) x).
+                    split. constructor 2. constructor 2. apply H4.
+                    unfold custom_emax, custom_prec, custom_emin in *.
+                    unfold Rabs. destruct Rcase_abs.
+                    pose proof bpow_gt_0.
+                    specialize (H6 radix2 ex).
+                    pose proof bpow_gt_0.
+                    specialize (H7 radix2 (ex-1)%Z).
+                    psatz R. psatz R.
+                    
+                  }
+                Qed.
+
+
+                Lemma floatMaxProof1 : forall x, 
+                    (x < floatMin ->
+                     x > 0 ->
+                     Rabs (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                 (round_mode mode_NE) x) < bpow radix2 custom_emax)%R.
+                  intros.
+                  generalize (el2 radix2 (x)%R (ln_beta radix2 (x))).
+                  intros. 
+                  assert (gt0 := H0).
+                  apply gt0ImpNE0 in H0.
+                  specialize (H1 H0).
+                  pose proof subNormal.
+                  specialize (H2 x gt0 H).
+                  remember (ln_beta radix2 x) as ex.
+                  pose proof bpow_le.
+                  specialize (H3 radix2 ex custom_emin H2).
+                  pose proof emaxGtEmin.
+                  SearchAbout (_ > _ -> _ < _)%Z.
+                  apply Z.gt_lt in H4.
+                  
+                  pose proof bpow_lt.
+                  specialize (H5 radix2 emin emax H4 ).
+                  clear H4.
+                  pose proof absImp.
+                  specialize (H4 x gt0).
+                  rewrite H4 in H1.
+                  clear H4.
+                  destruct (Coqlib.zle ex  (FLT_exp (3 - custom_emax - custom_prec) custom_prec ex)).
+                  {
+                    pose proof round_bounded_small_pos.
+                    specialize (H4 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef) x ex).
+                    specialize (H4 l H1).
+                    remember  (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                     (round_mode mode_NE) x).
+                    destruct H4.
+                    {
+                      rewrite H4 in *.
+                      pose proof floatMaxGt0.
+                      unfold floatMax in *.
+                      unfold Rabs. destruct Rcase_abs.                       
+                      psatz R. psatz R.
+                    }
+                    {
+                      pose proof bpow_lt.
+                      unfold FLT_exp in *.
+                      SearchAbout ({_ <= _} + {_ > _ })%Z.
+                      destruct (Z_le_gt_dec (ex - custom_prec) (3 - custom_emax - custom_prec)%Z).
+                      {
+                        intros.
+                        pose proof zMaxProof as zMaxProof.
+                        specialize (zMaxProof (ex - custom_prec)%Z (3 - custom_emax - custom_prec)%Z l0).
+                        rewrite zMaxProof in H4.
+                        clear zMaxProof l0 H6 Heqr. 
+                        pose proof errorGt0.
+                        unfold error in *.
+                        intros.
+                        pose proof fexpEminGtEmax as fexpEminGtEmax.
+                        pose proof bpow_lt.
+                        specialize (H7 radix2 (3 - custom_emax - custom_prec)%Z custom_emax fexpEminGtEmax).
+                        clear fexpEminGtEmax H H1 H6 l H2 H5.     
+                        SearchAbout bpow.
+                        pose proof bpow_gt_0.
+                        specialize (H radix2 (3 - custom_emax - custom_prec)%Z).
+                        pose proof bpow_gt_0.
+                        specialize (H1 radix2 custom_emax).
+                        unfold Rabs. destruct Rcase_abs. psatz R. psatz R.
+                      }
+                      {
+                        pose proof zMaxProof as zMaxProof. 
+                        SearchAbout (_>_ -> _<_)%Z.
+                        apply Z.gt_lt in g.
+                        SearchAbout (_<_ -> _<=_)%Z.
+                        pose proof Z.lt_le_incl.
+                        
+                        specialize (H7 (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z g).
+                        specialize (zMaxProof   (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z H7).
+                        SearchAbout Z.max.
+                        rewrite Z.max_comm in zMaxProof.
+                        rewrite zMaxProof in l, H4.
+                        
+                        clear zMaxProof g H7 H6 Heqr. 
+                        
+                        intros.
+                        pose proof fexpEminGtEmax1.
+                        specialize (H6 ex H2 l).
+                        pose proof bpow_lt.
+                        specialize (H7 radix2 (ex - custom_prec)%Z custom_emax H6).
+                        clear H.
+                        pose proof errorGt0. unfold error in *. unfold custom_emax,custom_emin,custom_prec in *.
+                        pose proof bpow_gt_0. specialize (H8 radix2 (ex-prec)%Z).
+                        unfold Rabs. destruct Rcase_abs.
+                        psatz R. psatz R.
+                      }
+                    }
+                  }
+                  {
+                    pose proof round_bounded_large_pos.
+                    apply Z.gt_lt in g.
+                    specialize (H4 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef) x ex g H1).
+                    remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                    (round_mode mode_NE) x).
+                    unfold custom_emax, custom_prec, custom_emin in *.
+                    unfold Rabs. destruct Rcase_abs.
+                    pose proof bpow_gt_0.
+                    specialize (H6 radix2 ex).
+                    pose proof bpow_gt_0.
+                    specialize (H7 radix2 (ex-1)%Z).
+                    psatz R. psatz R.
+                    
+                  }
+                Qed.
+                intros.
+                pose proof floatMaxProofRounding.
+                specialize (H0 (x1 +x2)%R ex ln_beta_premise subNormalProof n r0).
+                apply validFloat2 in floatToRealProof1.
+                apply validFloat2 in floatToRealProof2.
+                
+                specialize (H x x0 x1 x2 floatToRealRelationForExpr1 floatToRealRelationForExpr2).
+                rewrite <- floatToRealProof1 in H.
+                rewrite <- floatToRealProof2 in H.
+                destruct H0.
+                specialize (H H1).
+                destruct H.
+                rewrite <- plusResultStmt in H.
+                unfold B2R in H.
+                rewrite H.
+                remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                (round_mode mode_NE) (x1 + x2)) as roundedValue.
+                destruct H0.
+                {
+                  unfold FLT_exp in H0.
+                  destruct (Z_le_gt_dec (ex - custom_prec) (3 - custom_emax - custom_prec)%Z).
+                  {
+                    pose proof zMaxProof as zMaxProof.
+                    specialize (zMaxProof (ex - custom_prec)%Z (3 - custom_emax - custom_prec)%Z l).
+                    rewrite zMaxProof in *.
+                    clear zMaxProof.  
+                    
+                    pose proof customEminMinValue as customEminMinValue.
+                    SearchAbout (_ > _ -> _ < _)%Z.
+                    apply Z.gt_lt in customEminMinValue.
+                    pose proof bpow_lt.
+                    specialize (H3 radix2 (3 - custom_emax - custom_prec)%Z custom_emin customEminMinValue).
+                    unfold floatMin in *.
+                    unfold error, custom_emin,custom_emax, custom_prec in *.
+                    pose proof bpow_gt_0 as bpowGt0_1.
+                    specialize (bpowGt0_1 radix2 (- prec + 1)%Z)%R.
+                    clear H H2 H1 l customEminMinValue ln_beta_premise floatToRealProof1 floatToRealProof2 absImp posResInf.
+                    split.
+                    pose proof bpow_gt_0 as bpow_gt_0_2.
+                    specialize (bpow_gt_0_2 radix2 (3-emax-prec)%Z).
+                    psatz R.
+                    psatz R.
+                  }
+                  {
+                    pose proof zMaxProof as zMaxProof.
+                    Lemma zlt_le : forall x1 x2, (x1 > x2 -> x1 >= x2)%Z.
+                      intros.
+                      lia.
+                    Qed.
+                    intros.
+                    apply zlt_le in g.
+                    apply Z.ge_le in g.
+                    specialize (zMaxProof (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z g).
+                    SearchAbout Z.max.
+                    pose proof Z.max_comm.
+                    specialize (H3 (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z).
+                    rewrite <- H3 in H0.
+                    rewrite zMaxProof in *.
+                    clear zMaxProof H3 g.
+                    Lemma exCustomPrec : forall x, (x <= custom_emin ->  custom_prec >=1 -> x - custom_prec  < custom_emin)%Z. 
+                      intros. lia. 
+                    Qed.
+                    intros.
+                    specialize (exCustomPrec ex subNormalProof custom_precGe1).
+                    intros.
+                    pose proof bpow_lt.
+                    specialize (H4 radix2 (ex-custom_prec)%Z custom_emin H3).
+                    pose proof bpow_gt_0.
+                    specialize (H5 radix2 (ex - prec)%Z ).
+                    pose proof bpow_gt_0.
+                    specialize (H6 radix2 (- prec +1)%Z).
+                    unfold floatMin, error, custom_emin,custom_emax, custom_prec in *.
+                    psatz R.
+                    
+                  }
+                }
+                {
+                  destruct H0.
+                  {
+                    unfold floatMin in *.
+                    pose proof bpow_gt_0.
+                    specialize (H3 radix2 custom_emin).
+                    unfold error in *.
+                    pose proof bpow_gt_0.
+                    specialize (H4 radix2 (-custom_prec +1)%Z).
+                    psatz R.
+                  }
+                  {
+                    unfold floatMin in *.
+                    pose proof bpow_gt_0.
+                    specialize (H3 radix2 custom_emin).
+                    unfold error in *.
+                    pose proof bpow_gt_0.
+                    specialize (H4 radix2 (-custom_prec +1)%Z).
+                    pose proof bpow_gt_0.
+                    specialize (H5 radix2 (ex -1 )%Z).
+                    pose proof bpow_gt_0.
+                    specialize (H6 radix2 (ex)%Z ).
+                    psatz R.
+                  }
+                }
+              }
+              {
+                pose proof plusRoundingTruth2.
+                pose proof round_0 as round_0.
+                specialize (round_0 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef)).
+                Lemma zeroLtFloatMax : forall x, (x = 0 -> Rabs x <floatMax)%R .
+                  intros.  unfold Rabs in *. destruct Rcase_abs; unfold floatMax in *;
+                  pose proof bpow_gt_0;
+                  specialize (H0 radix2 custom_emax);
+                  psatz R.
+                Qed.
+                pose proof zeroLtFloatMax.
+                specialize (H0 (round radix2
+                                      (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                      (round_mode mode_NE) 0) round_0).
+                apply validFloat2 in floatToRealProof1.
+                apply validFloat2 in floatToRealProof2.
+                unfold floatMax in *.
+                specialize (H x x0 x1 x2 floatToRealRelationForExpr1 floatToRealRelationForExpr2).
+                rewrite <- floatToRealProof1 in H.
+                rewrite <- floatToRealProof2 in H.
+                unfold floatMin in *.
+                pose proof bpow_gt_0.
+                specialize (H1 radix2 custom_emin).
+                pose proof errorGt0.
+                psatz R.
+              }
+            }
+          }
+          {
+            destruct H0.
+            {
+              rewrite <- H0 in H.
+              simpl in H.
+              rewrite <- H0.
+              decompose [and] H.
+              apply IHexpr1 in H1.
+              apply IHexpr2 in H3.
+              assert (expr1Bound := H1).
+              assert (expr2Bound := H3).
+              assert (floatMinCase1 := H2).
+              assert (floatMaxBound1 := H6).
+              assert (resultGe0 := H8).
+              clear H1 H2 H3 H6 H8 H IHexpr1 IHexpr2.
+              unfold Semantics.eval_comp in *.
+              simpl in *.
+              remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
+              remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
+              remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
+              remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+              clear Hequb1 Hequb2 Heqlb1 Heqlb2.
+              destruct (Rle_dec floatMin (x1+x2)%R).
+              {
+                psatz R.
+              }
+              {
+                SearchAbout (~(_<=_) -> (_>_))%R.
+                apply Rnot_le_gt in n.
+                pose proof floatMaxProofRounding as floatMaxProofRounding.
+                generalize (el2 radix2 (x1+x2)%R (ln_beta radix2 (x1+x2)%R)).
+                intros.
+                destruct (Rle_lt_or_eq_dec 0 (x1+x2)%R).
+                {
+                  psatz R.
+                }
+                {
+                  assert (resultNe0 := r0).                
+                  apply RMicromega.Rlt_neq in resultNe0.
+                  assert (ln_beta_premise :=H).
+                  clear H.
+                  specialize (ln_beta_premise resultNe0).
+                  remember (ln_beta radix2 (x1 + x2)) as ex.
+                  specialize (floatMaxProofRounding (x1 + x2)%R ex ln_beta_premise).
+                  pose proof subNormal as subNormalProof.
+                  apply Rlt_gt in r0.
+                  apply Rgt_lt in n.
+                  specialize (subNormalProof (x1+x2)%R r0 n).
+                  rewrite <- Heqex in subNormalProof.
+                  specialize (floatMaxProofRounding subNormalProof n r0).
+                  destruct floatMaxProofRounding.
+                  pose proof plusRoundingTruth2 as plusRoundingTruth2.
+                  apply validFloat2 in floatToRealRelationForExpr1.
+                  apply validFloat2 in floatToRealRelationForExpr2.
+                  specialize (plusRoundingTruth2 x x0 x1 x2 floatToRealProof1 floatToRealProof2).
+                  rewrite <- floatToRealRelationForExpr1 in plusRoundingTruth2.
+                  rewrite <- floatToRealRelationForExpr2 in plusRoundingTruth2.
+                  specialize (plusRoundingTruth2 H1).
+                  destruct plusRoundingTruth2.
+                  rewrite <- plusResultStmt in H2.
+                  unfold B2R in H2.
+                  rewrite H2 in *.
+                  remember ( round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                   (round_mode mode_NE) (x1 + x2)) as roundedValue.
+                  destruct H.
+                  {
+                    unfold FLT_exp in H.
+                    Lemma roundedValLessThanFloatMin: forall ex, ((ex <=custom_emin)%Z -> (bpow radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec ex) <= floatMin))%R. 
+                      intros.
+                      unfold FLT_exp. 
+                      destruct (Coqlib.zle (3 - custom_emax - custom_prec) (ex-custom_prec)).
+                      {
+                        SearchAbout Z.max.
+                        pose proof Z.max_l.
+                        specialize (H0 (ex-custom_prec)%Z (3 - custom_emax - custom_prec)%Z l).
+                        rewrite H0.
+                        unfold floatMin.
+                        Lemma exHelper : forall x, (x <= custom_emin -> x - custom_prec <custom_emin)%Z. 
+                          intros. unfold custom_prec, custom_emin in *.
+                          pose proof precGe1.
+                          lia.
+                        Qed.
+                        specialize (exHelper ex H).
+                        intros.
+                        pose proof bpow_lt.
+                        specialize (H2 radix2 (ex - custom_prec)%Z custom_emin H1).
+                        psatz R.
+                      }
+                      {
+                        pose proof Z.max_r.
+                        SearchAbout (_>_ -> _ >= _)%Z.
+                        apply zlt_le in g.
+                        SearchAbout (_>=_ -> _<=_)%Z.
+                        apply Z.ge_le in g.
+                        specialize (H0 (ex - custom_prec)%Z (3 - custom_emax - custom_prec)%Z g).
+                        rewrite H0.
+                        unfold floatMin.
+                        unfold custom_emin,custom_prec, custom_emax in *.
+                        pose proof eminMinValue.
+                        SearchAbout (_>_ -> _<_)%Z.
+                        apply Z.gt_lt in H1.
+                        pose proof bpow_lt.
+                        specialize (H2 radix2  (3 - emax - prec)%Z emin H1).
+                        psatz R.
+                      }
+                    Qed.
+                    intros.
+                    pose proof roundedValLessThanFloatMin.
+                    specialize (H6 ex subNormalProof).
+                    unfold FLT_exp in H6.
+                    pose proof bpow_gt_0.
+                    specialize (H7 radix2 (Z.max (ex - custom_prec) (3 - custom_emax - custom_prec))).
+                    psatz R.
+                  }  
+                  {
+                    destruct H.
+                    {
+                      unfold floatMin.
+                      pose proof bpow_gt_0.
+                      specialize (H6 radix2 custom_emin).
+                      psatz R.
+                    }
+                    {
+                      pose proof bpow_le.
+                      specialize (H6 radix2 ex custom_emin subNormalProof).
+                      pose proof bpow_gt_0.
+                      specialize (H7 radix2 (ex-1)%Z).
+                      unfold floatMin.
+                      psatz R.
+                    }
+
+                  }
+                }
+                {
+                  unfold floatMin.
+                  pose proof bpow_gt_0.
+                  specialize (H1 radix2 custom_emin).
+                  psatz R.
+                }
+                
+               
+              }
+            }
+            {
+              intuition.
+            }
+          }
         }
       }
     }
@@ -5211,9 +5347,6 @@ Proof.
     }
     
     {
-     
-
-
       rewrite <- H9 in Heqo0.
       inversion Heqo0.
       assert (plusResultStmt := H9).
@@ -5243,15 +5376,13 @@ Proof.
         assert (expr1Bound := H1).
         assert (expr2Bound := H3).
         assert (floatMinCase := H2).
-        assert (floatMaxBound1 := H6). 
-        assert (floatMaxBound2 := H7).
-        assert (resultGe0 := H9).
-        clear H4 H2 H1 H3 H H5 H7 H0 H9 H6 IHexpr1 IHexpr2.
+        assert (floatMaxBound1 := H6).
+        assert (resultGe0 := H8).
+        clear H4 H2 H1 H3 H H5 H0 H8 H6 IHexpr1 IHexpr2.
         unfold Semantics.eval_comp in *.
         simpl in floatMinCase.
         simpl in expr1Bound.
         simpl in expr2Bound.
-        simpl in floatMaxBound2.
         simpl in floatMaxBound1.
         simpl in resultGe0.
         simpl.
@@ -5265,10 +5396,15 @@ Proof.
         destruct expr1Bound.
         destruct expr2Bound.
         pose proof or_introl.
-        
         intros.
+        assert (partialFloatMinCase := floatMinCase).
+        clear floatMinCase.
+        pose proof orExtra as floatMinCase.
+        specialize (floatMinCase ((floatMin <= lb1 + lb2)%R) ((floatMin <= 0 - ub1 + (0 - ub2))%R) partialFloatMinCase).
         specialize (relErrorBasedOnFloatMinTruthPlus floatMinCase H H1 H0 H2).
         pose proof plusRoundingTruth as plusRoundingTruth.
+        pose proof floatMaxBoundHelper as floatMaxBound2.
+        specialize (floatMaxBound2 lb1 lb2 floatMax error resultGe0 floatMaxGt0 errorGt0). 
         specialize (plusRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 floatMinCase H H1 floatMaxBound1 floatMaxBound2 H0 H2).
         pose proof plusRoundingTruth2 as plusRoundingTruth2.
         specialize (plusRoundingTruth2 x x0 x1 x2 floatToRealProof1 floatToRealProof2 plusRoundingTruth).
@@ -5277,20 +5413,17 @@ Proof.
         apply validFloat2 in floatToRealProof2.
         rewrite floatToRealProof2 in relErrorBasedOnFloatMinTruthPlus.
         rewrite floatToRealProof1 in relErrorBasedOnFloatMinTruthPlus.
-        
-
         remember ( round radix2
                          (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
                          (round_mode mode_NE)
                          (B2R custom_prec custom_emax x +
-                          B2R custom_prec custom_emax x0)) as roundedValue. 
-
+                          B2R custom_prec custom_emax x0)) as roundedValue.
         simpl in plusRoundingTruth2.
         simpl in plusResultStmt.
         rewrite <- plusResultStmt in plusRoundingTruth2.
         simpl in plusRoundingTruth2.
         decompose [and] plusRoundingTruth2.
-        rewrite  H4.
+        rewrite H4.
         clear H5.
         clear plusRoundingTruth2.
         assert (plusRoundingTruth2:= H4).
@@ -5300,15 +5433,15 @@ Proof.
         clear plusRoundingTruth.
         rewrite <- floatToRealProof2 in relErrorBasedOnFloatMinTruthPlus.
         rewrite <- floatToRealProof1 in relErrorBasedOnFloatMinTruthPlus.
-        rewrite <- floatToRealProof2  in HeqroundedValue.
+        rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
-
         pose proof errorGt0.
-        clear floatMinCase floatMaxBound1 floatMaxBound2 HeqroundedValue 
-              plusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 e0 e x3 x4 x4 x5 x x0 expr1 expr2 tr fState b m r.
-        pose proof errorLessThan1.
+        clear floatMinCase floatMaxBound1 floatMaxBound2 HeqroundedValue
+              plusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
         unfold error in *.
         unfold Rabs in *.
+        pose proof errorLessThan1 as errorLessThan1.
+        unfold error in *.
         destruct Rcase_abs; destruct Rcase_abs;
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
@@ -5320,6 +5453,211 @@ Proof.
                end;
         psatz R.
       }
+      
+    (*getting the relative error proof*)
+    (*
+        remember (x1 + x2)%R as realResult. 
+        destruct (Rge_dec realResult floatMin) .
+        {
+`          pose proof relative_error as relative_error.
+          remember (FLT_exp (3 - custom_emax - custom_prec) custom_prec) as round_fexp.
+          
+          specialize (relative_error radix2 round_fexp). 
+          rewrite Heqround_fexp in relative_error.
+          specialize (relative_error validFexpProof  (custom_emin)%Z custom_prec  precThm (round_mode mode_NE)).
+          specialize (relative_error (valid_rnd_N choiceDef) (x1+x2)%R).
+          
+          intros.
+          pose proof orExtra as absPremise.
+          specialize (absPremise  (realResult >= floatMin)%R  (realResult <= (0 - floatMin))%R r0).
+          pose proof abs as absProof.
+          specialize (absProof realResult floatMin absPremise).
+          rewrite HeqrealResult in absProof.
+          unfold floatMin in absProof.
+          specialize (relative_error absProof).
+          (*getting the relative error proof*)
+          
+
+          pose proof relErrorBasedOnFloatMinTruthPlus as relErrorBasedOnFloatMinTruthPlus.
+          specialize (relErrorBasedOnFloatMinTruthPlus x1 x2 lb1 lb2 ub1 ub2).
+          destruct expr1Bound.
+          destruct expr2Bound.
+          pose proof or_introl.
+          
+          intros.
+          assert (floatMinCase1 := floatMinCase).
+          clear floatMinCase.
+          pose proof orExtra as floatMinCase. 
+          specialize (floatMinCase (floatMin <= lb1 + lb2)%R  (floatMin <= 0 - ub1 + (0 - ub2))%R floatMinCase1).
+          clear floatMinCase1.
+          specialize (relErrorBasedOnFloatMinTruthPlus floatMinCase H H1 H0 H2).
+
+          
+          pose proof plusRoundingTruth3 as plusRoundingTruth3.
+          specialize (plusRoundingTruth3 x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 ).
+          apply validFloat2 in floatToRealProof1.
+          apply validFloat2 in floatToRealProof2.
+          rewrite <- floatToRealProof1 in plusRoundingTruth3.
+          rewrite <- floatToRealProof2 in plusRoundingTruth3.
+          rewrite HeqrealResult in absPremise.
+          specialize (plusRoundingTruth3 absPremise H H1 floatMaxBound1 floatMaxBound2 H0 H2).
+          
+
+
+          pose proof plusRoundingTruth2 as plusRoundingTruth2.
+          rewrite floatToRealProof1 in plusRoundingTruth3.
+          rewrite floatToRealProof2 in plusRoundingTruth3.
+          specialize (plusRoundingTruth2 x x0 x1 x2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 plusRoundingTruth3).
+          revert plusResultStmt. intros plusResultStmt.
+          rewrite <- floatToRealProof1 in plusRoundingTruth3,plusRoundingTruth2.
+          rewrite <- floatToRealProof2 in plusRoundingTruth3,plusRoundingTruth2.
+          
+
+          remember ( round radix2
+                           (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                           (round_mode mode_NE)
+                           (x1 +x2)) as roundedValue. 
+          clear relErrorBasedOnFloatMinTruthPlus.
+          
+          rewrite <- plusResultStmt in plusRoundingTruth2.
+          unfold B2R in plusRoundingTruth2.
+          decompose [and] plusRoundingTruth2.
+          rewrite  H4.
+          pose proof errorGt0.
+          clear H4 H3 H5 plusRoundingTruth2 plusRoundingTruth3 plusResultStmt floatMinCase floatMaxBound1 floatMaxBound2 HeqroundedValue floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 e0 e x3 x4 x4 x5 x0 expr1 expr2 tr fState b m r.
+          pose proof errorLessThan1.
+          unfold error in *.
+          unfold Rabs in *.
+          clear Heqround_fexp absPremise absProof r0.
+          destruct Rcase_abs; destruct Rcase_abs;
+          psatz R.
+        }
+        {
+          apply Rnot_ge_gt in n.
+          Check bpow.
+          Check ln_beta
+          Lemma subNormal: forall x:R,  (x > R0)%R -> (x < floatMin)%R ->  (ln_beta radix2 x <= custom_emin)%Z.
+            intros.
+            unfold floatMin in *.
+            assert (H1 := H).
+            pose proof ln_beta_le_bpow.
+            apply Rgt_not_eq in H.
+            specialize (H2 radix2 x custom_emin H).
+            
+
+            Lemma abs2: forall x0 y : R, (x0 > 0)%R -> (x0 < y)%R -> (Rabs x0 < y)%R.
+              intros. unfold Rabs. destruct Rcase_abs. 
+              psatz R.
+              psatz R.
+            Qed.
+
+            intros.
+            pose proof abs2.
+            specialize (H3 x (bpow radix2 custom_emin) H1 H0).
+            specialize (H2 H3).
+            apply H2.
+          Qed.
+          
+          intros.
+          pose proof subNormal.
+          specialize (H (x1+x2)%R).
+          Definition el2 (r : radix) (x : R) (lbp : ln_beta_prop r x) : 
+            (x <> 0%R -> (bpow r (ln_beta_val r x lbp - 1) <= Rabs x < bpow r (ln_beta_val r x lbp)))%R := let '(Build_ln_beta_prop _ pf) := lbp in pf.
+          generalize (el2 radix2 (x1+x2)%R (ln_beta radix2 (x1+x2))).
+          intros.
+
+          Lemma realBound : forall lb1 lb2 ub1 ub2 x1 x2, (lb1 <= x1 <= ub1 )%R ->
+                                                          (lb2 <= x2 <= ub2)%R -> 
+                                                          (lb1 + lb2 >=0)%R -> (x1 + x2 >=0)%R.
+          Proof. intros. psatz R. Qed.
+          pose proof realBound as realBound.
+          specialize (realBound lb1 lb2 ub1 ub2 x1 x2 expr1Bound expr2Bound resultGe0).
+          SearchAbout bpow. 
+          Check bpow_lt.
+          Lemma ltFminImpLtFmax : forall x, (x < floatMin -> x < floatMax)%R.
+            Proof.
+              intros. unfold floatMin, floatMax in *. pose proof bpow_lt. pose proof custom_emaxGtCustom_emin. specialize (H0 radix2 custom_emin custom_emax).  apply Z.gt_lt in H1. specialize (H0 H1). 
+clear H1. psatz R. Qed.
+            
+            intros.
+            SearchAbout ((_>_) -> (_<_))%R.
+            apply Rgt_lt in n.
+            assert (resultLtFmin:= n).
+            apply ltFminImpLtFmax in n.
+            assert (resultLtFmax :=n);clear n.
+            specialize (resultLtFmax ).
+
+            
+            destruct (Rle_lt_or_eq_dec R0 (x1+x2)%R).
+            {
+              apply Rge_le in realBound.
+              apply realBound.
+            }
+            {
+              apply Rlt_gt in r0.
+              rewrite HeqrealResult in resultLtFmin.
+              apply Rgt_lt in resultLtFmin.
+              specialize (H r0 resultLtFmin).
+              Lemma helper: forall x1 x2:R, (x1+x2 > 0)%R -> (x1 + x2)%R <> R0.
+                intros.
+                psatz R.
+              Qed.
+              assert (resGt0 := r0).
+              apply helper in r0.
+              specialize (H0 r0).
+              SearchAbout ({_ <= _} + {_ > _ })%Z.
+              destruct (Coqlib.zle (ln_beta radix2 (x1 + x2)) (FLT_exp (3 - custom_emax - custom_prec) custom_prec (ln_beta radix2 (x1 + x2)))).
+              
+              pose proof round_bounded_small_pos as round_bound.
+              specialize (round_bound radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) 
+                                      (round_mode mode_NE) (valid_rnd_N choiceDef) (x1+x2)%R  (ln_beta radix2 (x1 + x2)) l) .
+              
+              Lemma helper1 : forall x y1 y2, (x > 0)%R ->(y1 <= Rabs x < y2  -> y1 <= x < y2)%R.  
+                intros. unfold Rabs in *. destruct Rcase_abs. 
+                psatz R. psatz R.
+              Qed.
+              intros.
+              pose proof helper1 as helper1.
+              
+              specialize (helper1 (x1+x2)%R (bpow radix2 ((ln_beta radix2 (x1 + x2)) - 1)) (bpow radix2 (ln_beta radix2 (x1 + x2))) resGt0 H0).
+              specialize (round_bound helper1).
+              pose proof plusRoundingTruth2.
+              Lemma powRelation : forall x y z, (x <= y)%Z -> (y<z)%Z -> (x<z)%Z.  
+                intros. lia. Qed.
+              intros.
+              pose proof custom_emaxGtCustom_emin.
+              SearchAbout ((_ > _) -> ( _ < _) )%Z.
+              apply Z.gt_lt in H2.
+              specialize (powRelation (ln_beta radix2 (x1 + x2)) custom_emin custom_emax H H2).
+              intros.
+              pose proof bpow_lt.
+              specialize (H4 radix2 (ln_beta radix2 (x1 + x2)) custom_emax H3).
+              Check relative_error.
+              (*need to start from here. need to prove that in round_bound evalution to both things in the or condition, will have the result being less than the maximum float Value*)
+              destruct (Zle_dec (ln_beta radix2 (x1 + x2)) (FLT_exp (3 - custom_emax - custom_prec) custom_prec (ln_beta radix2 (x1 + x2)))).
+              specialize (round_bound helper1).
+              apply helper2 in H0.
+              intros.
+              specialize (helper1 (x1+x2)%R (bpow radix2 (ln - 1)) (bpow radix2 ln) resGt0 H0).
+              
+              intros.
+            SearchAbout bpow.
+            
+            generalize ().
+          }
+
+                   
+                   
+
+          remember (ln_beta radix2 (x1+x2)%R).
+          SearchAbout ln_beta.
+          apply ln_beta_unique in Heql.
+          compute in H.
+          
+
+          pose proof round_bounded_small_pos as.
+     *)
+
       {
         destruct H0.
         {
@@ -5332,15 +5670,13 @@ Proof.
           assert (expr1Bound := H1).
           assert (expr2Bound := H3).
           assert (floatMinCase := H2).
-          assert (floatMaxBound1 := H6). 
-          assert (floatMaxBound2 := H7).
-          assert (resultGe0 := H9).
-          clear H4 H2 H1 H3 H H5 H7 H0 H9 H6 IHexpr1 IHexpr2.
+          assert (floatMaxBound1 := H6).
+          assert (resultGe0 := H8).
+          clear H4 H2 H1 H3 H H5 H0 H8 H6 IHexpr1 IHexpr2.
           unfold Semantics.eval_comp in *.
           simpl in floatMinCase.
           simpl in expr1Bound.
           simpl in expr2Bound.
-          simpl in floatMaxBound2.
           simpl in floatMaxBound1.
           simpl in resultGe0.
           simpl.
@@ -5356,9 +5692,17 @@ Proof.
           pose proof or_introl.
           
           intros.
+          assert (floatMinCase1 := floatMinCase).
+          clear floatMinCase.
+          pose proof orExtra2 as floatMinCase. 
+          specialize (floatMinCase (floatMin <= lb1 + lb2)%R  (floatMin <= 0 - ub1 + (0 - ub2))%R floatMinCase1).
+          clear floatMinCase1.
           specialize (relErrorBasedOnFloatMinTruthPlus floatMinCase H H1 H0 H2).
           pose proof plusRoundingTruth as plusRoundingTruth.
-          specialize (plusRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 floatMinCase H H1 floatMaxBound1 floatMaxBound2 H0 H2).
+          pose proof floatMaxBoundHelper2 as floatMaxBound2.
+          specialize (floatMaxBound2 ub1 ub2 floatMax error resultGe0 floatMaxGt0 errorGt0).
+          
+          specialize (plusRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 floatMinCase H H1 floatMaxBound2 floatMaxBound1 H0 H2).
           pose proof plusRoundingTruth2 as plusRoundingTruth2.
           specialize (plusRoundingTruth2 x x0 x1 x2 floatToRealProof1 floatToRealProof2 plusRoundingTruth).
           revert plusResultStmt. intros plusResultStmt.
@@ -5399,24 +5743,428 @@ Proof.
           unfold error in *.
           unfold Rabs in *.
           destruct Rcase_abs;  destruct Rcase_abs;
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H :@ Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end;
           psatz R.
         }
-        {
-          intuition.
+        { 
+          destruct H0.
+          {
+            rewrite <- H0 in H.
+            simpl in H.
+            rewrite <- H0.
+            decompose [and] H.
+            apply IHexpr1 in H1.
+            apply IHexpr2 in H3.
+            assert (expr1Bound := H1).
+            assert (expr2Bound := H3).
+            assert (floatMinCase1 := H2).
+            assert (floatMinCase2 := H6).
+            assert (floatMaxBound1 := H7).
+            assert (resultGe0 := H9).
+            clear H4 H2 H1 H3 H H5 H0 H7 H9 H6 IHexpr1 IHexpr2.
+            unfold Semantics.eval_comp in *.
+            simpl in floatMinCase1.
+            simpl in floatMinCase2.
+            simpl in expr1Bound.
+            simpl in expr2Bound.
+            simpl in floatMaxBound1.
+            simpl in resultGe0.
+            simpl.
+            remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
+            remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
+            remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
+            remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+            clear Hequb1 Hequb2 Heqlb1 Heqlb2.
+            destruct (Rge_dec (x1+x2)%R floatMin).
+            {
+              assert (floatMinCase3 := r0).
+              clear r0.
+              (* relative_error*)
+              pose proof relative_error as relative_error.
+              specialize (relative_error radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) validFexpProof (custom_emin)%Z custom_prec precThm (round_mode mode_NE) (valid_rnd_N choiceDef) (x1 + x2)%R).
+              intros.
+              
+              pose proof absHelper as absProof.
+              pose proof posResInf as posResInf.
+              destruct expr1Bound.
+              destruct expr2Bound.
+              assert (x1lb := H).
+              assert (x1ub := H0).
+              assert (x2lb := H1).
+              assert (x2ub := H2).
+              clear H H0 H1 H2.
+              SearchAbout (_<=_->_>=_)%R.
+              apply Rle_ge in x1lb.
+              apply Rle_ge in x2lb.
+              specialize (posResInf lb1 lb2 x1 x2 x1lb x2lb resultGe0).
+              specialize (absProof (x1+x2)%R floatMin posResInf floatMinCase3).
+              specialize (relative_error absProof).
+              (* relative_error *)
+              pose proof plusRoundingTruth3 as plusRoundingTruth3.
+              specialize (plusRoundingTruth3 x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 ).
+              pose proof orExtra as floatMinPremise.
+              specialize (floatMinPremise (x1 + x2 >= floatMin)%R (x1 + x2 <= 0 - floatMin)%R floatMinCase3).
+              apply Rge_le in x1lb.
+              apply Rge_le in x2lb.
+              specialize (plusRoundingTruth3 floatMinPremise x1lb x2lb floatMaxBound1).
+              pose proof floatMaxBoundHelper as floatMaxBound2.
+              specialize (floatMaxBound2 lb1 lb2 floatMax error resultGe0 floatMaxGt0 errorGt0).
+              specialize (plusRoundingTruth3 floatMaxBound2 x1ub x2ub).
+              pose proof plusRoundingTruth2 as plusRoundingTruth2.
+              specialize (plusRoundingTruth2 x x0 x1 x2 floatToRealProof1 floatToRealProof2
+                         plusRoundingTruth3).
+              rewrite <- plusResultStmt in plusRoundingTruth2.
+              remember ( B2R custom_prec custom_emax
+                         (B754_finite custom_prec custom_emax b m e e0)).
+              simpl in Heqr0.
+              rewrite Heqr0 in plusRoundingTruth2.
+              destruct plusRoundingTruth2.
+              clear r0 Heqr0.
+              assert (bplusCorrectStmt := H).
+              assert (resultFiniteTruth := H0).
+              clear H H0.
+              rewrite (bplusCorrectStmt).
+              clear bplusCorrectStmt resultFiniteTruth plusRoundingTruth3 absProof floatMinPremise floatMinCase1 floatMinCase2 floatMinCase3 floatMaxBound1 floatMaxBound2.
+              apply validFloat2 in floatToRealProof1.
+              apply validFloat2 in floatToRealProof2.
+              rewrite <- floatToRealProof1.
+              rewrite <- floatToRealProof2.
+              Lemma boundUsingRelativeErrorProof : forall lb1 lb2 ub1 ub2 x1 x2, 
+                  (lb1 <= x1 ->
+                  x1 <= ub1 -> 
+                  lb2 <= x2 ->
+                  x2 <= ub2 -> 
+                  lb1 + lb2 >= 0 ->
+                  (Rabs
+                     (round radix2
+                            (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                            (round_mode mode_NE) (x1 + x2) - 
+                      (x1 + x2)) <
+                   bpow radix2 (- custom_prec + 1) * Rabs (x1 + x2))%R 
+
+                  ->
+                  
+                  0 <=
+                  round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                        (round_mode mode_NE)
+                        (x1 + x2) <=
+                  (ub1 + ub2) * (1 + error))%R.
+                intros.
+                remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+         (round_mode mode_NE) (x1 + x2))%R as roundedValue.
+                pose proof errorGt0 as errorGt0.
+                pose proof errorLessThan1 as errorLessThan1.
+                clear HeqroundedValue.
+                unfold error in *.
+                unfold Rabs in *. destruct Rcase_abs; destruct Rcase_abs;
+                psatz R. Qed.
+              intros.
+              pose proof boundUsingRelativeErrorProof as boundUsingRelativeErrorProof.
+              specialize (boundUsingRelativeErrorProof lb1 lb2 ub1 ub2 x1 x2 x1lb x1ub x2lb x2ub resultGe0 relative_error).
+              apply boundUsingRelativeErrorProof.
+            }
+            {
+              apply Rnot_ge_lt in n.
+              Check relative_error.
+              generalize (el2 radix2 (x1+x2)%R (ln_beta radix2 (x1+x2))).
+              intros ln_beta_premise. 
+              
+              intros. 
+              intros.
+              pose proof absImp as absImp.
+              pose proof posResInf as posResInf.
+              destruct expr1Bound.
+              destruct expr2Bound.
+              assert (x1lb := H).
+              assert (x1ub := H0).
+              assert (x2lb := H1).
+              assert (x2ub := H2).
+              clear H H0 H1 H2.
+              apply Rle_ge in x1lb.
+              apply Rle_ge in x2lb.
+              specialize (posResInf lb1 lb2 x1 x2 x1lb x2lb resultGe0).
+              apply Rge_le in posResInf.
+              Check Rle_lt_or_eq_dec.
+              destruct (Rle_lt_or_eq_dec 0 (x1+x2)%R).
+              {
+                apply posResInf.
+              }
+              {
+                pose proof subNormal as subNormalProof. 
+                apply Rlt_gt in r0.
+                specialize (subNormalProof (x1+x2)%R r0 n).
+                remember (ln_beta radix2 (x1 + x2)) as ex.
+                pose proof gt0ImpNE0 as gt0ImpNE0.
+                specialize (gt0ImpNE0 (x1+x2)%R r0).
+                specialize (ln_beta_premise gt0ImpNE0).
+                Check bpow_lt.
+                pose proof bpow_le as bpow_le.
+                specialize (bpow_le radix2 ex custom_emin subNormalProof).
+                pose proof plusRoundingTruth2.
+                
+
+                intros.
+                pose proof floatMaxProofRounding.
+                specialize (H0 (x1 +x2)%R ex ln_beta_premise subNormalProof n r0).
+                apply validFloat2 in floatToRealProof1.
+                apply validFloat2 in floatToRealProof2.
+                
+                specialize (H x x0 x1 x2 floatToRealRelationForExpr1 floatToRealRelationForExpr2).
+                rewrite <- floatToRealProof1 in H.
+                rewrite <- floatToRealProof2 in H.
+                destruct H0.
+                specialize (H H1).
+                destruct H.
+                rewrite <- plusResultStmt in H.
+                unfold B2R in H.
+                rewrite H.
+                remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                (round_mode mode_NE) (x1 + x2)) as roundedValue.
+                destruct H0.
+                {
+                  unfold FLT_exp in H0.
+                  destruct (Z_le_gt_dec (ex - custom_prec) (3 - custom_emax - custom_prec)%Z).
+                  {
+                    pose proof zMaxProof as zMaxProof.
+                    specialize (zMaxProof (ex - custom_prec)%Z (3 - custom_emax - custom_prec)%Z l).
+                    rewrite zMaxProof in *.
+                    clear zMaxProof.  
+                    
+                    pose proof customEminMinValue as customEminMinValue.
+                    SearchAbout (_ > _ -> _ < _)%Z.
+                    apply Z.gt_lt in customEminMinValue.
+                    pose proof bpow_lt.
+                    specialize (H3 radix2 (3 - custom_emax - custom_prec)%Z custom_emin customEminMinValue).
+                    unfold floatMin in *.
+                    unfold error, custom_emin,custom_emax, custom_prec in *.
+                    pose proof bpow_gt_0 as bpowGt0_1.
+                    specialize (bpowGt0_1 radix2 (- prec + 1)%Z)%R.
+                    clear H H2 H1 l customEminMinValue ln_beta_premise floatToRealProof1 floatToRealProof2 absImp posResInf.
+                    split.
+                    pose proof bpow_gt_0 as bpow_gt_0_2.
+                    specialize (bpow_gt_0_2 radix2 (3-emax-prec)%Z).
+                    psatz R.
+                    psatz R.
+                  }
+                  {
+                    pose proof zMaxProof as zMaxProof.
+                    intros.
+                    apply zlt_le in g.
+                    apply Z.ge_le in g.
+                    specialize (zMaxProof (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z g).
+                    SearchAbout Z.max.
+                    pose proof Z.max_comm.
+                    specialize (H3 (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z).
+                    rewrite <- H3 in H0.
+                    rewrite zMaxProof in *.
+                    clear zMaxProof H3 g.
+                    intros.
+                    specialize (exCustomPrec ex subNormalProof custom_precGe1).
+                    intros.
+                    pose proof bpow_lt.
+                    specialize (H4 radix2 (ex-custom_prec)%Z custom_emin H3).
+                    pose proof bpow_gt_0.
+                    specialize (H5 radix2 (ex - prec)%Z ).
+                    pose proof bpow_gt_0.
+                    specialize (H6 radix2 (- prec +1)%Z).
+                    unfold floatMin, error, custom_emin,custom_emax, custom_prec in *.
+                    psatz R.
+                    
+                  }
+                }
+                {
+                  destruct H0.
+                  {
+                    unfold floatMin in *.
+                    pose proof bpow_gt_0.
+                    specialize (H3 radix2 custom_emin).
+                    unfold error in *.
+                    pose proof bpow_gt_0.
+                    specialize (H4 radix2 (-custom_prec +1)%Z).
+                    psatz R.
+                  }
+                  {
+                    unfold floatMin in *.
+                    pose proof bpow_gt_0.
+                    specialize (H3 radix2 custom_emin).
+                    unfold error in *.
+                    pose proof bpow_gt_0.
+                    specialize (H4 radix2 (-custom_prec +1)%Z).
+                    pose proof bpow_gt_0.
+                    specialize (H5 radix2 (ex -1 )%Z).
+                    pose proof bpow_gt_0.
+                    specialize (H6 radix2 (ex)%Z ).
+                    psatz R.
+                  }
+                }
+              }
+              {
+                pose proof plusRoundingTruth2.
+                pose proof round_0 as round_0.
+                specialize (round_0 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef)).
+                
+                pose proof zeroLtFloatMax.
+                specialize (H0 (round radix2
+                                      (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                      (round_mode mode_NE) 0) round_0).
+                apply validFloat2 in floatToRealProof1.
+                apply validFloat2 in floatToRealProof2.
+                unfold floatMax in *.
+                specialize (H x x0 x1 x2 floatToRealRelationForExpr1 floatToRealRelationForExpr2).
+                rewrite <- floatToRealProof1 in H.
+                rewrite <- floatToRealProof2 in H.
+                rewrite <- e1 in H.
+                specialize (H H0).              
+                rewrite <- plusResultStmt in H.
+                unfold B2R in H.
+                rewrite round_0 in *.
+                destruct H.
+                rewrite H.
+                unfold floatMin in *.
+                pose proof bpow_gt_0.
+                specialize (H2 radix2 custom_emin).
+                unfold error in *.
+                pose proof bpow_gt_0.
+                specialize (H3 radix2 (-custom_prec +1)%Z).
+                psatz R.
+              }
+            }
+          }
+          {
+            destruct H0.
+          {
+            rewrite <- H0 in H.
+            simpl in H.
+            rewrite <- H0.
+            decompose [and] H.
+            apply IHexpr1 in H1.
+            apply IHexpr2 in H3.
+            assert (expr1Bound := H1).
+            assert (expr2Bound := H3).
+            assert (floatMinCase1 := H2).
+            assert (floatMaxBound1 := H6).
+            assert (resultGe0 := H8).
+            clear H1 H2 H3 H6 H8 H IHexpr1 IHexpr2.
+            unfold Semantics.eval_comp in *.
+            simpl in *.
+            remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
+            remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
+            remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
+            remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+            clear Hequb1 Hequb2 Heqlb1 Heqlb2.
+            destruct (Rle_dec floatMin (x1+x2)%R).
+            {
+              psatz R.
+            }
+            {
+              SearchAbout (~(_<=_) -> (_>_))%R.
+              apply Rnot_le_gt in n.
+              pose proof floatMaxProofRounding as floatMaxProofRounding.
+              generalize (el2 radix2 (x1+x2)%R (ln_beta radix2 (x1+x2)%R)).
+              intros.
+              destruct (Rle_lt_or_eq_dec 0 (x1+x2)%R).
+              {
+                psatz R.
+              }
+              {
+                assert (resultNe0 := r0).                
+                apply RMicromega.Rlt_neq in resultNe0.
+                assert (ln_beta_premise :=H).
+                clear H.
+                specialize (ln_beta_premise resultNe0).
+                remember (ln_beta radix2 (x1 + x2)) as ex.
+                specialize (floatMaxProofRounding (x1 + x2)%R ex ln_beta_premise).
+                pose proof subNormal as subNormalProof.
+                apply Rlt_gt in r0.
+                apply Rgt_lt in n.
+                specialize (subNormalProof (x1+x2)%R r0 n).
+                rewrite <- Heqex in subNormalProof.
+                specialize (floatMaxProofRounding subNormalProof n r0).
+                destruct floatMaxProofRounding.
+                pose proof plusRoundingTruth2 as plusRoundingTruth2.
+                apply validFloat2 in floatToRealRelationForExpr1.
+                apply validFloat2 in floatToRealRelationForExpr2.
+                specialize (plusRoundingTruth2 x x0 x1 x2 floatToRealProof1 floatToRealProof2).
+                rewrite <- floatToRealRelationForExpr1 in plusRoundingTruth2.
+                rewrite <- floatToRealRelationForExpr2 in plusRoundingTruth2.
+                specialize (plusRoundingTruth2 H1).
+                destruct plusRoundingTruth2.
+                rewrite <- plusResultStmt in H2.
+                unfold B2R in H2.
+                rewrite H2 in *.
+                remember ( round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                 (round_mode mode_NE) (x1 + x2)) as roundedValue.
+                destruct H.
+                {
+                  unfold FLT_exp in H.
+                 
+                  intros.
+                  pose proof roundedValLessThanFloatMin.
+                  specialize (H6 ex subNormalProof).
+                  unfold FLT_exp in H6.
+                  pose proof bpow_gt_0.
+                  specialize (H7 radix2 (Z.max (ex - custom_prec) (3 - custom_emax - custom_prec))).
+                  psatz R.
+                }  
+                {
+                  destruct H.
+                  {
+                    unfold floatMin.
+                    pose proof bpow_gt_0.
+                    specialize (H6 radix2 custom_emin).
+                    psatz R.
+                  }
+                  {
+                    pose proof bpow_le.
+                    specialize (H6 radix2 ex custom_emin subNormalProof).
+                    pose proof bpow_gt_0.
+                    specialize (H7 radix2 (ex-1)%Z).
+                    unfold floatMin.
+                    psatz R.
+                  }
+
+                }
+              }
+              {
+
+                 pose proof plusRoundingTruth2.
+                 
+                pose proof round_0 as round_0.
+                specialize (round_0 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef)).
+                pose proof zeroLtFloatMax.
+                specialize (H2 (round radix2
+                                      (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                      (round_mode mode_NE) 0) round_0).
+                apply validFloat2 in floatToRealProof1.
+                apply validFloat2 in floatToRealProof2.
+                unfold floatMax in *.
+                specialize (H1 x x0 x1 x2 floatToRealRelationForExpr1 floatToRealRelationForExpr2).
+                rewrite <- floatToRealProof1 in H1.
+                rewrite <- floatToRealProof2 in H1.
+                rewrite <- e1 in H1.
+                specialize (H1 H2).              
+                rewrite <- plusResultStmt in H1.
+                unfold B2R in H1.
+                rewrite round_0 in *.
+                destruct H1.
+                rewrite H1.
+                unfold floatMin in *.
+                pose proof bpow_gt_0.
+                specialize (H6 radix2 custom_emin).
+                unfold error in *.
+                psatz R.
+              }
+            }
+          }
+          {
+            intuition.
+          }
+          }
         }
       }
     }
-  }
+  } 
   {
-   
+    
     simpl. unfold getBound. unfold plusBound.
     intros.
     Print plusMinusfoldListwithList.
@@ -5458,7 +6206,7 @@ Proof.
       unfold simpleBound5 in *.
       destruct H6.
       {
-         
+        
         rewrite <- H0 in H.
         simpl in H.
         rewrite <- H0.
@@ -5470,9 +6218,9 @@ Proof.
         assert (floatMinCase := H6).
         assert (floatMaxBound1 := H8).
         assert (resultGe0 := H2).
-         clear H4 H2 H1 H3 H H5  H0  H6 IHexpr1 IHexpr2.
-       unfold Semantics.eval_comp in *.
-         simpl in floatMinCase.
+        clear H4 H2 H1 H3 H H5  H0  H6 IHexpr1 IHexpr2.
+        unfold Semantics.eval_comp in *.
+        simpl in floatMinCase.
         simpl in expr1Bound.
         simpl in expr2Bound.
         simpl in floatMaxBound1.
@@ -5490,7 +6238,7 @@ Proof.
         pose proof or_introl.
         intros.
         
-       
+        
         intros.
         pose proof conjoin as conjoin.
         specialize (conjoin (lb1 >= ub2)%R (floatMin <= lb1 - ub2)%R%R).
@@ -5512,15 +6260,15 @@ Proof.
         intros.
         pose proof andExtra as andExtra.
         specialize (andExtra (lb1 >= ub2 /\ floatMin <= lb1 - ub2)%R ((ub1 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
-      
-          
+        
+        
         pose proof orExtra as extraFloatMinCase2.
         simpl in andExtra.
         simpl in extraFloatMinCase2.
         Local Open Scope R_scope.
         specialize (extraFloatMinCase2 
                       (((lb1 >= ub2) /\ (floatMin <= lb1 - ub2)) /\ ((ub1 - lb2) * (1 + error) < floatMax)) (((ub1 <= lb2)%R /\
-  (floatMin <= lb2 - ub1)) /\ ((ub2 - lb1) * (1 + error) < floatMax))).
+                                                                                                              (floatMin <= lb2 - ub1)) /\ ((ub2 - lb1) * (1 + error) < floatMax))).
         simpl in extraFloatMinCase2.
         specialize (extraFloatMinCase2 andExtra).
         
@@ -5624,38 +6372,14 @@ Proof.
         {
           split.
           {
-            repeat match goal with
-                     | H : @eq R _ _ |- _ => revert H
-                     | H : @Rle _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                     | H : @Rlt _ _ |- _ => revert H
-                     | H : @Rgt _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                   end.
+            z3 solve_dbg.
             psatz R.
            }
           destruct Rcase_abs.
-          
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H : @Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
+          z3 solve_dbg.
           psatz R.
-          repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H : @Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
+          z3 solve_dbg.
           psatz R.
-          
- 
         }
       }
       {
@@ -5743,7 +6467,8 @@ Proof.
         rewrite H4.
         clear H5.
         clear minusRoundingTruth2.
-        assert (minusRoundingTruth2:= H4).
+        assert (minusRoundingTruth2
+:= H4).
         clear H4.
         clear minusResultStmt.
         clear H3.
@@ -5872,17 +6597,7 @@ Proof.
         }
         }        
         {
-          {
-            repeat match goal with
-                   | H : @eq R _ _ |- _ => revert H
-                   | H : @Rle _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                   | H : @Rlt _ _ |- _ => revert H
-                   | H : @Rgt _ _ |- _ => revert H
-                   | H : @Rge _ _ |- _ => revert H
-                 end.
-            psatz R.
-          }
+          intuition.
         }
       }
     }
@@ -5984,6 +6699,7 @@ Proof.
                          (round_mode mode_NE)
                          (B2R custom_prec custom_emax x -
                           B2R custom_prec custom_emax x0)) as roundedValue.
+        Print Bminus_correct.
         simpl in minusRoundingTruth2.
         simpl in minusResultStmt.
         rewrite <- minusResultStmt in minusRoundingTruth2.
@@ -6308,20 +7024,14 @@ Proof.
         }
         {
           {
-            repeat match goal with
-                     | H : @eq R _ _ |- _ => revert H
-                     | H : @Rle _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                     | H : @Rlt _ _ |- _ => revert H
-                     | H : @Rgt _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                   end.
-            psatz R.
+             {
+               intuition.
+             }
           }
         }
-      }
+      }  
     }
-  }  
+  }
   {
     simpl. unfold getBound. unfold plusBound.
     intros.
@@ -8119,3 +8829,4 @@ Proof.
     }
   }
 Qed.
+
