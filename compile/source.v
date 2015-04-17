@@ -24,8 +24,10 @@ Local Open Scope SrcLang_scope.
 Variable prec:Z.
 Variable emax:Z.
 Variable emin:Z.
+Hypothesis emaxGtEmin : (emax > emin)%Z.
 Hypothesis precGe1: (prec >= 1)%Z.
 Hypothesis precLtEmax : (prec < emax)%Z.
+Hypothesis eminMinValue : (emin > 3 - emax - prec)%Z.
 Hypothesis nan : binary_float prec emax -> binary_float prec emax -> bool * nan_pl prec.
 Locate FLT_exp.
 Hypothesis precThm : forall k : Z,
@@ -37,9 +39,18 @@ Definition custom_emax:= emax.
 Definition custom_float_zero := B754_zero custom_prec custom_emax false.
 Definition custom_emin := emin.
 Definition float := binary_float custom_prec custom_emax.
+Lemma customEminMinValue : (custom_emin > 3 - custom_emax - custom_prec)%Z.
+unfold custom_emin, custom_emax, custom_prec.
+apply eminMinValue.
+Qed.
 Lemma custom_precGe1: (custom_prec >= 1)%Z.
 unfold custom_prec.
 apply precGe1.
+Qed.
+Lemma custom_emaxGtCustom_emin : (custom_emax > custom_emin)%Z.
+Proof.
+unfold custom_emax,custom_emin.
+apply emaxGtEmin.
 Qed.
 Print Floats.float.
 Print binary64.
