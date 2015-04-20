@@ -1871,13 +1871,10 @@ psatz R.
 destruct H.
 decompose [and] H.
 clear H.
-z3 solve_dbg.
 clear -H6 H0 H3.
 psatz R.
-z3 solve_dbg.
 decompose [and] H.
 clear H.
-z3 solve_dbg.
 clear -H6 r H4 H1 H2.
 psatz R.
 Qed.
@@ -4707,7 +4704,7 @@ Proof.
                 intros. unfold Rabs in *. destruct Rcase_abs; psatz R. Qed.
               Lemma posResInf : forall lb1 lb2 x1 x2, (x1 >= lb1 -> x2 >= lb2 -> lb1 + lb2 >=0 -> x1 + x2 >= 0)%R.
                 intros. 
-                z3 solve_dbg. psatz R. Qed.
+                psatz R. Qed.
               intros.
               
               pose proof absHelper as absProof.
@@ -6373,13 +6370,10 @@ clear H1. psatz R. Qed.
         {
           split.
           {
-            z3 solve_dbg.
             psatz R.
            }
           destruct Rcase_abs.
-          z3 solve_dbg.
           psatz R.
-          z3 solve_dbg.
           psatz R.
         }
       }
