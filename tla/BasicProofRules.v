@@ -40,6 +40,7 @@ Fixpoint next (F:Formula) :=
     | Syntax.Exists _ f => Exists x, next (f x)
     | Syntax.Forall _ f => Forall x, next (f x)
     | PropF P => PropF P
+    | Enabled F => Enabled (next F)
     | Always F => Always (next F)
     | Eventually F => Eventually (next F)
     | Embed P => Embed (fun _ en => P en en)

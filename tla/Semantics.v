@@ -56,6 +56,7 @@ Fixpoint eval_formula (F:Formula) (tr:trace) :=
     | PropF P => P
     | Syntax.Exists _ F => exists x, eval_formula (F x) tr
     | Syntax.Forall _ F => forall x, eval_formula (F x) tr
+    | Enabled F => exists tr', eval_formula F (Cons (hd tr) tr')
     | Always F => forall n, eval_formula F (nth_suf n tr)
     | Eventually F => exists n, eval_formula F (nth_suf n tr)
     | Embed P => P (hd tr) (hd (tl tr))

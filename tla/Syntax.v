@@ -42,6 +42,7 @@ Inductive Formula :=
 | PropF : Prop -> Formula
 | Exists : forall T, (T -> Formula) -> Formula
 | Forall : forall T, (T -> Formula) -> Formula
+| Enabled : Formula -> Formula
 | Always : Formula -> Formula
 | Eventually : Formula -> Formula
 | Embed : (state -> state -> Prop) -> Formula.
