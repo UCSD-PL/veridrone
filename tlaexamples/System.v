@@ -1,6 +1,7 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Rbasic_fun.
 Require Import Coq.Classes.RelationClasses.
+Require Import Coq.Classes.Morphisms.
 Require Import TLA.TLA.
 Require Import TLA.ProofRules.
 Require Import TLA.ArithFacts.
@@ -86,6 +87,50 @@ Definition SysCompose (a b : SysRec) : SysRec :=
 
 Definition SysSafe (a : SysRec) : Formula :=
   SysD a -->> SysD_or_stuck a.
+
+Definition SysRec_equiv (a b : SysRec) : Prop :=
+  a.(dvars) = b.(dvars) /\
+  a.(cvars) = b.(cvars) /\
+  (a.(Init) -|- b.(Init)) /\
+  (a.(Prog) -|- b.(Prog)) /\
+  (a.(world) = b.(world)) /\
+  (a.(WConstraint) -|- b.(WConstraint)) /\
+  a.(maxTime) = b.(maxTime).
+
+Lemma Proper_Enabled :
+  Proper (lequiv ==> lequiv) Enabled.
+Proof.
+  red. red. unfold lequiv, lentails. simpl.
+  unfold tlaEntails. simpl. intros. split.
+  { intros. destruct H0. exists x0. intuition. }
+  { intros. destruct H0. exists x0. intuition. }
+Qed.
+
+Lemma Proper_Always :
+  Proper (lequiv ==> lequiv) Always.
+Proof.
+  red. red. unfold lequiv, lentails. simpl.
+  intuition. restoreAbstraction. tlaRevert. apply always_imp.
+  charge_tauto.
+  restoreAbstraction. tlaRevert.
+  apply always_imp. charge_tauto.
+Qed.
+
+Existing Instance Proper_Always.
+
+Existing Instance Proper_Enabled.
+
+Lemma Proper_SysSafe :
+  Proper (SysRec_equiv ==> lequiv) SysSafe.
+Proof.
+  red. red. unfold SysSafe. intros. red in H.
+  unfold SysD, SysD_or_stuck, sysD, sysD_or_stuck, Next, Next_or_stuck.
+  decompose [and] H. destruct H0. destruct H2. rewrite H1.
+  unfold Discr. rewrite H3. rewrite H4. rewrite H5. rewrite H7.
+  reflexivity.
+Qed.
+
+Existing Instance Proper_SysSafe.
 
 Ltac tlaRevert := first [ apply landAdj | apply lrevert ].
 
@@ -564,12 +609,30 @@ Section ComposeWorld.
 End ComposeWorld.
 *)
 
+Theorem Enabled_and (A B : Formula) :
+  Enabled (A //\\ B) |-- Enabled A //\\ Enabled B.
+Proof.
+  breakAbstraction. intros. split; destruct H;
+  exists x; tauto.
+Qed.
+
+Theorem Enabled_imp (A B : Formula) :
+  A |-- B ->
+  Enabled A |-- Enabled B.
+Proof.
+  breakAbstraction. intros. destruct H0.
+  eauto.
+Qed.
+
 Theorem ComposeRefine (a b : SysRec) :
-  forall Hsafe : |-- SysSafe b,
+  forall Hsafe : |-- SysSafe (SysCompose a b),
   SysD (SysCompose a b) |-- SysD a.
 Proof.
-(*
-  unfold SysCompose, SysD, sysD, Next.
+  intro.
+  unfold SysSafe in Hsafe. apply landAdj in Hsafe.
+  rewrite landtrueL in Hsafe. rewrite Hsafe.
+  unfold SysCompose, SysD_or_stuck, SysD, sysD_or_stuck,
+  sysD, Next_or_stuck, Next.
   simpl. restoreAbstraction.
   repeat rewrite <- Always_and.
   repeat charge_split; try charge_tauto.
@@ -598,18 +661,17 @@ Proof.
         * charge_tauto.
         * unfold all_in. intros.
           apply List.in_or_app. intuition.
-    - apply lorR2. charge_split; try charge_tauto.
+    - apply lorR2. apply lorR2. apply lorR2.
+      charge_split; try charge_tauto.
       rewrite (Unchanged_weaken (dvars a ++ cvars a)).
       + charge_tauto.
       + unfold all_in. intros. apply List.in_or_app.
         apply List.in_app_or in H. intuition. }
-*)
-Admitted.
+Qed.
 
 Theorem ComposeComm (a b : SysRec) :
   SysD (SysCompose a b) |-- SysD (SysCompose b a).
 Proof.
-(*
   intros. unfold SysCompose, SysD, sysD, Next.
   simpl. restoreAbstraction.
   repeat rewrite <- Always_and.
@@ -636,7 +698,27 @@ Proof.
         * unfold all_in. intros.
           apply List.in_or_app. apply List.in_app_or in H.
           tauto.
-    - apply lorR2. charge_split; try charge_tauto.
+    - apply lorR2. apply lorR1. charge_intros. unfold Discr.
+      charge_use. tlaRevert. apply forget_prem. charge_intros.
+      apply Enabled_imp. rewrite Rmin_comm.
+      repeat charge_split; try charge_tauto.
+      rewrite Unchanged_weaken.
+      + charge_tauto.
+      + unfold all_in. intros. apply List.in_or_app.
+        apply List.in_app_or in H. intuition.
+    - apply lorR2. apply lorR2. apply lorR1. charge_intros.
+      rewrite <- uncurry. charge_use. tlaSplit.
+      { charge_tauto. }
+      { tlaRevert. apply forget_prem. charge_intros.
+        apply Enabled_imp. repeat charge_split; try charge_tauto.
+        rewrite World_weaken.
+        + charge_tauto.
+        + unfold all_in. intros. apply List.in_or_app.
+          apply List.in_app_or in H. intuition.
+        + unfold all_in. intros. apply List.in_or_app.
+          apply List.in_app_or in H. intuition. }
+    - apply lorR2. apply lorR2. apply lorR2.
+      charge_split; try charge_tauto.
       rewrite Unchanged_weaken.
       + charge_tauto.
       + unfold all_in. intros. apply List.in_or_app.
@@ -646,21 +728,26 @@ Proof.
         * right. apply List.in_or_app.
           apply List.in_app_or in H0. tauto. }
 Qed.
-*) Admitted.
+
+Axiom Proper_SysCompose : Proper (SysRec_equiv ==> SysRec_equiv ==> SysRec_equiv) SysCompose.
+Existing Instance Proper_SysCompose.
+
+Axiom SysCompose_Comm : forall a b, SysRec_equiv (SysCompose a b) (SysCompose b a).
 
 Theorem Compose (a b : SysRec) P Q G :
+  forall Hsafe : |-- SysSafe (SysCompose a b),
   G |-- SysD a -->> [] P ->
   G //\\ [] P |-- SysD b -->> [] Q ->
   G |-- SysD (SysCompose a b) -->> [](P //\\ Q).
-Proof. (*
-  intros Ha Hb.
+Proof.
+  intros Hsafe Ha Hb.
   rewrite <- Always_and.
   tlaIntro. tlaAssert ([]P).
   - charge_apply Ha. rewrite ComposeRefine.
-    charge_tauto.
+    charge_tauto. auto.
   - tlaAssert (SysD b).
     + rewrite ComposeComm; rewrite ComposeRefine.
-      charge_tauto.
+      charge_tauto. rewrite SysCompose_Comm. assumption.
     + charge_tauto.
 Qed.
-*) Admitted.
+
