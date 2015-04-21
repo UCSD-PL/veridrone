@@ -23,6 +23,7 @@ Require Import compcert.flocq.Core.Fcore_Raux.
 Require Import compcert.flocq.Core.Fcore_FLT.
 Require Import compcert.flocq.Core.Fcore_generic_fmt.                       
 
+
 Require Import compcert.flocq.Core.Fcore_Raux.
 
 
@@ -528,7 +529,25 @@ Definition denote_singleBoundTerm (f : R) (tr : trace) (s : singleBoundTerm) : P
 
 Print List.Forall.
 
+Definition boundDef' :=
+fun (expr : NowTerm) (st : Syntax.state) (fState : fstate) =>
+match eval_NowTerm fState expr with
+| Some evalAsF =>
 
+        List.Forall
+          (fun term : singleBoundTerm =>
+           let (premise, pred) := denote_singleBoundTermNew st term in
+           premise ->
+                  match floatToReal evalAsF with
+                        | Some f => pred f
+                        | None => True
+                  end) (bound_term expr)
+
+| None => True
+end.
+
+
+(*
 Definition boundDef' (expr:NowTerm) (st:state) (fState: fstate) : Prop :=
   match eval_NowTerm fState expr with
   | Some evalAsF =>
@@ -543,7 +562,8 @@ Definition boundDef' (expr:NowTerm) (st:state) (fState: fstate) : Prop :=
     end
   | None => True
   end.
-
+*)
+Print boundDef'.
 
 
 Lemma emptyListappend : forall (A:Type) (lst:list A), lst ++ (List.nil) = lst. 
@@ -1870,13 +1890,10 @@ psatz R.
 destruct H.
 decompose [and] H.
 clear H.
-z3 solve_dbg.
 clear -H6 H0 H3.
 psatz R.
-z3 solve_dbg.
 decompose [and] H.
 clear H.
-z3 solve_dbg.
 clear -H6 r H4 H1 H2.
 psatz R.
 Qed.
@@ -4105,46 +4122,99 @@ Proof.
   apply H2.
 Qed.
 
- Lemma denote_singleBoundTermsEquality :   (forall (st : state) (expr : NowTerm) (fState : fstate),
+
+
+ Lemma denote_singleBoundTermsEquality :   forall (st : state) (expr : NowTerm) (fState : fstate),
    related fState (hd (traceFromState st)) ->
    match eval_NowTerm fState expr with
    | Some evalAsF =>
-       match floatToReal evalAsF with
-       | Some f =>
            List.Forall
              (fun term : singleBoundTerm =>
               let (premise0, pred) := denote_singleBoundTermNew st term in
-              premise0 -> pred f) (bound_term expr)
-       | None => True
-       end
+              premise0 -> match floatToReal evalAsF with 
+                            | Some f => pred f
+                            | None => True
+                          end) (bound_term expr)
+
    | None => True
-   end) =   (forall (st : state) (expr : NowTerm) (fState : fstate),
+   end ->   
    related fState (hd (traceFromState st)) ->
    match eval_NowTerm fState expr with
    | Some evalAsF =>
-       match floatToReal evalAsF with
-       | Some f =>
+     match floatToReal evalAsF with 
+       | Some f => 
            List.Forall
           (denote_singleBoundTerm f (traceFromState st))   (bound_term expr)
        | None => True
-       end
+     end
    | None => True
-   end).
+   end.
+   
     unfold denote_singleBoundTermNew.
     unfold denote_singleBoundTerm.
-    reflexivity.
-  Qed.
-
-
-
+    Lemma boundTermProof : forall fState st expr,  
+        match eval_NowTerm fState expr with
+          | Some evalAsF =>
+            List.Forall
+              (fun term : singleBoundTerm =>
+                 eval_formula (premise term) (traceFromState st) ->
+                 match floatToReal evalAsF with
+                   | Some f =>
+                     (eval_term (lb term) (hd (traceFromState st))
+                                (hd (tl (traceFromState st))) <= f <=
+                      eval_term (ub term) (hd (traceFromState st))
+                                (hd (tl (traceFromState st))))%R
+                   | None => True
+                 end) (bound_term expr)
+          | None => True
+        end ->  
+        match eval_NowTerm fState expr with
+          | Some evalAsF =>
+            match floatToReal evalAsF with
+              | Some f =>
+                List.Forall
+                  (fun s : singleBoundTerm =>
+                     eval_formula (premise s) (traceFromState st) ->
+                     (eval_term (lb s) (hd (traceFromState st))
+                                (hd (tl (traceFromState st))) <= f <=
+                      eval_term (ub s) (hd (traceFromState st))
+                                (hd (tl (traceFromState st))))%R) 
+                  (bound_term expr)
+              | None => True
+            end
+          | None => True
+        end.
+      intros.
+      remember (eval_NowTerm fState expr) as evaluatedFloat.
+      destruct evaluatedFloat.
+      {
+        (remember (floatToReal f) as floatConvertedToReal).
+        destruct floatConvertedToReal eqn:floatConvertedToReal_des. 
+        {
+          apply H. 
+        }
+        {
+          intuition.
+        }
+      }
+      {
+        apply H.
+        
+      }
+    Qed.
+    intros.    
+   
+     pose proof boundTermProof.
+     specialize (H2 fState st expr H0).
+     apply H2.
+ Qed.
 
 Lemma bound_proof' : 
   forall (st:state) (expr:NowTerm) (fState:fstate),
-    related fState (Semantics.hd (traceFromState st)) -> 
+    related fState st -> 
     boundDef' expr st fState.
 Proof.
   unfold boundDef'. 
-  rewrite denote_singleBoundTermsEquality.
   intros.
   remember (eval_NowTerm fState expr). destruct o; trivial.
   remember (floatToReal f). destruct o; trivial.
@@ -4153,20 +4223,30 @@ Proof.
   clear Heqtr.
   induction expr.
 
+
+
   { simpl. 
     intros.
-    constructor; [ | constructor ].
-    red. simpl. intros XXX; clear XXX.
-    simpl in Heqo.
-    red in H. symmetry in Heqo.
+    constructor; [ | constructor ]. intros.
+    unfold premise in H0.
+    unfold eval_formula in H0.
+    unfold lb. unfold ub.
+    simpl.
+    red in H.
+    symmetry in Heqo.
     apply H in Heqo.
     rewrite <- Heqo in *.
     inversion Heqo0.
-    subst. constructor; psatz R. }
+    psatz R.
+  }
+
   { simpl. constructor; [ | constructor ].
     {
-      red. simpl. intros.
-      unfold Semantics.eval_comp in H0.
+      intros.
+      simpl in *.
+      unfold Semantics.eval_comp in *.
+    
+      
       simpl in H0.
       decompose [and] H0.
       clear H0.
@@ -4240,6 +4320,7 @@ Proof.
         pose proof errorGt0 as errorGt0.
         pose proof errorLessThan1 as errorLessThan1.
         unfold error in *.
+        
         destruct Rcase_abs;
           destruct Rcase_abs;
           repeat match goal with
@@ -4302,7 +4383,10 @@ Proof.
       }
     } 
     {
-      red. simpl. intros.
+
+      intros.
+      simpl in *.
+      unfold Semantics.eval_comp in *.
       unfold Semantics.eval_comp in H0.
       simpl in H0.
       decompose [and] H0.
@@ -4432,7 +4516,8 @@ Proof.
   }
  
   { simpl. constructor; [ | constructor ].
-    red. simpl. intro XXX; clear XXX.
+    simpl in *. 
+    intro XXX; clear XXX.
     simpl in Heqo.
     inversion Heqo. subst.
     unfold floatToReal in Heqo0.
@@ -4449,6 +4534,7 @@ Proof.
     specialize (IHexpr2 _ _ H3 H1).
     2: eexists; eauto.
     eapply Forall_forall. intros.
+    revert H5.
     eapply In_cross_In in H4.
     forward_reason.
     eapply Forall_forall in IHexpr1; eauto.
@@ -4476,12 +4562,13 @@ Proof.
       clear H2 H3.      
       
       unfold denote_singleBoundTerm in *.
-      intros.
+      intros H.
       simpl in H6.
       unfold simpleBound in *.
       unfold simpleBound4 in *.
       destruct H6. 
       {
+       
         rewrite <- H0 in H.
         simpl in H.
         rewrite <- H0.
@@ -4502,10 +4589,10 @@ Proof.
         simpl in floatMaxBound1.
         simpl in resultGe0.
         simpl.
-        remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-        remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-        remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-        remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         
         
@@ -4600,10 +4687,10 @@ Proof.
           simpl in floatMaxBound1.
           simpl in resultGe0.
           simpl.
-          remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-          remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-          remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-          remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+          remember (eval_term (lb x4) st st) as lb1.
+          remember (eval_term (lb x5) st st) as lb2.
+          remember (eval_term (ub x5) st st) as ub2.
+          remember (eval_term (ub x4) st st) as ub1.
           clear Hequb1 Hequb2 Heqlb1 Heqlb2.
           pose proof relErrorBasedOnFloatMinTruthPlus as relErrorBasedOnFloatMinTruthPlus.
           specialize (relErrorBasedOnFloatMinTruthPlus x1 x2 lb1 lb2 ub1 ub2).
@@ -4690,10 +4777,10 @@ Proof.
             simpl in floatMaxBound1.
             simpl in resultGe0.
             simpl.
-            remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-            remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-            remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-            remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+            remember (eval_term (lb x4) st st) as lb1.
+            remember (eval_term (lb x5) st st) as lb2.
+            remember (eval_term (ub x5) st st) as ub2.
+            remember (eval_term (ub x4) st st) as ub1.
             clear Hequb1 Hequb2 Heqlb1 Heqlb2.
             destruct (Rge_dec (x1+x2)%R floatMin).
             {
@@ -4706,7 +4793,7 @@ Proof.
                 intros. unfold Rabs in *. destruct Rcase_abs; psatz R. Qed.
               Lemma posResInf : forall lb1 lb2 x1 x2, (x1 >= lb1 -> x2 >= lb2 -> lb1 + lb2 >=0 -> x1 + x2 >= 0)%R.
                 intros. 
-                z3 solve_dbg. psatz R. Qed.
+                psatz R. Qed.
               intros.
               
               pose proof absHelper as absProof.
@@ -5203,10 +5290,10 @@ Proof.
               clear H1 H2 H3 H6 H8 H IHexpr1 IHexpr2.
               unfold Semantics.eval_comp in *.
               simpl in *.
-              remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-              remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-              remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-              remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+              remember (eval_term (lb x4) st st) as lb1.
+              remember (eval_term (lb x5) st st) as lb2.
+              remember (eval_term (ub x5) st st) as ub2.
+              remember (eval_term (ub x4) st st) as ub1.
               clear Hequb1 Hequb2 Heqlb1 Heqlb2.
               destruct (Rle_dec floatMin (x1+x2)%R).
               {
@@ -5359,7 +5446,7 @@ Proof.
       
       
       unfold denote_singleBoundTerm in *.
-      intros.
+      intros H.
       simpl in H6.
       unfold simpleBound in *.
       unfold simpleBound4 in *.
@@ -5386,10 +5473,10 @@ Proof.
         simpl in floatMaxBound1.
         simpl in resultGe0.
         simpl.
-        remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-        remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-        remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-        remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         pose proof relErrorBasedOnFloatMinTruthPlus as relErrorBasedOnFloatMinTruthPlus.
         specialize (relErrorBasedOnFloatMinTruthPlus x1 x2 lb1 lb2 ub1 ub2).
@@ -5680,10 +5767,10 @@ clear H1. psatz R. Qed.
           simpl in floatMaxBound1.
           simpl in resultGe0.
           simpl.
-          remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-          remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-          remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-          remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+          remember (eval_term (lb x4) st st) as lb1.
+          remember (eval_term (lb x5) st st) as lb2.
+          remember (eval_term (ub x5) st st) as ub2.
+          remember (eval_term (ub x4) st st) as ub1.
           clear Hequb1 Hequb2 Heqlb1 Heqlb2.
           pose proof relErrorBasedOnFloatMinTruthPlus as relErrorBasedOnFloatMinTruthPlus.
           specialize (relErrorBasedOnFloatMinTruthPlus x1 x2 lb1 lb2 ub1 ub2).
@@ -5769,10 +5856,10 @@ clear H1. psatz R. Qed.
             simpl in floatMaxBound1.
             simpl in resultGe0.
             simpl.
-            remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-            remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-            remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-            remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+            remember (eval_term (lb x4) st st) as lb1.
+            remember (eval_term (lb x5) st st) as lb2.
+            remember (eval_term (ub x5) st st) as ub2.
+            remember (eval_term (ub x4) st st) as ub1.
             clear Hequb1 Hequb2 Heqlb1 Heqlb2.
             destruct (Rge_dec (x1+x2)%R floatMin).
             {
@@ -6046,10 +6133,10 @@ clear H1. psatz R. Qed.
             clear H1 H2 H3 H6 H8 H IHexpr1 IHexpr2.
             unfold Semantics.eval_comp in *.
             simpl in *.
-            remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-            remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-            remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-            remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+            remember (eval_term (lb x4) st st) as lb1.
+            remember (eval_term (lb x5) st st) as lb2.
+            remember (eval_term (ub x5) st st) as ub2.
+            remember (eval_term (ub x4) st st) as ub1.
             clear Hequb1 Hequb2 Heqlb1 Heqlb2.
             destruct (Rle_dec floatMin (x1+x2)%R).
             {
@@ -6176,6 +6263,7 @@ clear H1. psatz R. Qed.
     specialize (IHexpr2 _ _ H3 H1).
     2: eexists; eauto.
     eapply Forall_forall. intros.
+    revert H5.
     eapply In_cross_In in H4.
     forward_reason.
     eapply Forall_forall in IHexpr1; eauto.
@@ -6200,7 +6288,7 @@ clear H1. psatz R. Qed.
       assert (floatToRealProof2:= H3).
       clear H2 H3.
       unfold denote_singleBoundTerm in *.
-      intros.
+      intros H.
       simpl in H6.
       unfold simpleBound2 in *.
       unfold simpleBound5 in *.
@@ -6226,10 +6314,10 @@ clear H1. psatz R. Qed.
         simpl in floatMaxBound1.
         simpl in resultGe0.
         simpl.
-        remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-        remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-        remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-        remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         pose proof relErrorBasedOnFloatMinTruthMinus as relErrorBasedOnFloatMinTruthMinus.
         specialize (relErrorBasedOnFloatMinTruthMinus x1 x2 lb1 lb2 ub1 ub2).
@@ -6404,10 +6492,10 @@ clear H1. psatz R. Qed.
         simpl in floatMaxBound1.
         simpl in resultGe0.
         simpl.
-        remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-        remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-        remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-        remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         pose proof relErrorBasedOnFloatMinTruthMinus as relErrorBasedOnFloatMinTruthMinus.
         specialize (relErrorBasedOnFloatMinTruthMinus x1 x2 lb1 lb2 ub1 ub2).
@@ -6623,7 +6711,7 @@ clear H1. psatz R. Qed.
       assert (floatToRealProof2:= H3).
       clear H2 H3.
       unfold denote_singleBoundTerm in *.
-      intros.
+      intros H.
       simpl in H6.
       unfold simpleBound2 in *.
       unfold simpleBound5 in *.
@@ -6648,10 +6736,10 @@ clear H1. psatz R. Qed.
         simpl in floatMaxBound1.
         simpl in resultGe0.
         simpl.
-        remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-        remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-        remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-        remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         pose proof relErrorBasedOnFloatMinTruthMinus as relErrorBasedOnFloatMinTruthMinus.
         specialize (relErrorBasedOnFloatMinTruthMinus x1 x2 lb1 lb2 ub1 ub2).
@@ -6839,10 +6927,10 @@ clear H1. psatz R. Qed.
           simpl in floatMaxBound1.
           simpl in resultGe0.
           simpl.
-          remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-          remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-          remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-          remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+          remember (eval_term (lb x4) st st) as lb1.
+          remember (eval_term (lb x5) st st) as lb2.
+          remember (eval_term (ub x5) st st) as ub2.
+          remember (eval_term (ub x4) st st) as ub1.
           clear Hequb1 Hequb2 Heqlb1 Heqlb2.
           pose proof relErrorBasedOnFloatMinTruthMinus as relErrorBasedOnFloatMinTruthMinus.
           specialize (relErrorBasedOnFloatMinTruthMinus x1 x2 lb1 lb2 ub1 ub2).
@@ -7043,6 +7131,7 @@ clear H1. psatz R. Qed.
     specialize (IHexpr2 _ _ H3 H1).
     2: eexists; eauto.
     eapply Forall_forall. intros.
+    revert H5.
     eapply In_cross_In in H4.
     forward_reason.
     eapply Forall_forall in IHexpr1; eauto.
@@ -7067,7 +7156,7 @@ clear H1. psatz R. Qed.
       assert (floatToRealProof2:= H3).
       clear H2 H3.
       unfold denote_singleBoundTerm in *.
-      intros.
+      intros H.
       simpl in H6.
       unfold simpleBound in *.
       unfold simpleBound4 in *.
@@ -7094,10 +7183,10 @@ clear H1. psatz R. Qed.
         simpl in resultGe1.
         simpl in resultGe2.
         simpl.
-        remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-        remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-        remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-        remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
         specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -7309,10 +7398,10 @@ clear H1. psatz R. Qed.
            simpl in resultGe1.
            simpl in resultGe2.
            simpl.
-           remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-           remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-           remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-           remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+           remember (eval_term (lb x4) st st) as lb1.
+           remember (eval_term (lb x5) st st) as lb2.
+           remember (eval_term (ub x5) st st) as ub2.
+           remember (eval_term (ub x4) st st) as ub1.
            clear Hequb1 Hequb2 Heqlb1 Heqlb2.
            pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
            specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -7536,10 +7625,10 @@ clear H1. psatz R. Qed.
            simpl in resultGe1.
            simpl in resultGe2.
            simpl.
-           remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-           remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-           remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-           remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+           remember (eval_term (lb x4) st st) as lb1.
+           remember (eval_term (lb x5) st st) as lb2.
+           remember (eval_term (ub x5) st st) as ub2.
+           remember (eval_term (ub x4) st st) as ub1.
            clear Hequb1 Hequb2 Heqlb1 Heqlb2.
            pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
            specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -7747,10 +7836,10 @@ clear H1. psatz R. Qed.
            simpl in resultGe1.
            simpl in resultGe2.
            simpl.
-           remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-           remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-           remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-           remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+           remember (eval_term (lb x4) st st) as lb1.
+           remember (eval_term (lb x5) st st) as lb2.
+           remember (eval_term (ub x5) st st) as ub2.
+           remember (eval_term (ub x4) st st) as ub1.
            clear Hequb1 Hequb2 Heqlb1 Heqlb2.
            pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
            specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -7961,7 +8050,7 @@ clear H1. psatz R. Qed.
       assert (floatToRealProof2:= H3).
       clear H2 H3.
       unfold denote_singleBoundTerm in *.
-      intros.
+      intros H.
       simpl in H6.
       unfold simpleBound in *.
       unfold simpleBound4 in *.
@@ -7988,10 +8077,10 @@ clear H1. psatz R. Qed.
         simpl in resultGe1.
         simpl in resultGe2.
         simpl.
-        remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-        remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-        remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-        remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
         specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -8201,10 +8290,10 @@ clear H1. psatz R. Qed.
           simpl in resultGe1.
           simpl in resultGe2.
           simpl.
-          remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-          remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-          remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-          remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+          remember (eval_term (lb x4) st st) as lb1.
+          remember (eval_term (lb x5) st st) as lb2.
+          remember (eval_term (ub x5) st st) as ub2.
+          remember (eval_term (ub x4) st st) as ub1.
           clear Hequb1 Hequb2 Heqlb1 Heqlb2.
           pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
           specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -8425,10 +8514,10 @@ clear H1. psatz R. Qed.
             simpl in resultGe1.
             simpl in resultGe2.
             simpl.
-            remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-            remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-            remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-            remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+            remember (eval_term (lb x4) st st) as lb1.
+            remember (eval_term (lb x5) st st) as lb2.
+            remember (eval_term (ub x5) st st) as ub2.
+            remember (eval_term (ub x4) st st) as ub1.
             clear Hequb1 Hequb2 Heqlb1 Heqlb2.
             pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
             specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -8634,10 +8723,10 @@ clear H1. psatz R. Qed.
               simpl in resultGe1.
               simpl in resultGe2.
               simpl.
-              remember (eval_term (lb x4) (hd tr) (hd (tl tr))) as lb1.
-              remember (eval_term (lb x5) (hd tr) (hd (tl tr))) as lb2.
-              remember (eval_term (ub x5) (hd tr) (hd (tl tr))) as ub2.
-              remember (eval_term (ub x4) (hd tr) (hd (tl tr))) as ub1.
+              remember (eval_term (lb x4) st st) as lb1.
+              remember (eval_term (lb x5) st st) as lb2.
+              remember (eval_term (ub x5) st st) as ub2.
+              remember (eval_term (ub x4) st st) as ub1.
               clear Hequb1 Hequb2 Heqlb1 Heqlb2.
               pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
               specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -8828,5 +8917,13 @@ clear H1. psatz R. Qed.
       }
     }
   }
+  {
+    apply Forall_forall.
+    intros.
+    unfold denote_singleBoundTermNew. 
+    intuition.
+  }
+
+    
 Qed.
 
