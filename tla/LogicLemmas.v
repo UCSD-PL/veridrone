@@ -67,6 +67,11 @@ End logic.
 
 Ltac charge_split := apply landR.
 
+Ltac charge_simple_split :=
+  match goal with
+  | |- _ |-- _ //\\ _ => apply landR
+  end.
+
 Ltac charge_search_prems found :=
   match goal with
   | |- ?X |-- ?Y =>
@@ -114,12 +119,24 @@ Ltac charge_apply H :=
     end
   end.
 
+Ltac charge_left :=
+  match goal with
+  | |- _ |-- _ \\// _ => apply lorR1
+  end.
+
+Ltac charge_right :=
+  match goal with
+  | |- _ |-- _ \\// _ => apply lorR2
+  end.
+
 Ltac charge_tauto :=
-  repeat charge_split ;
+  repeat charge_simple_split ;
   solve [ charge_assumption
         | charge_trivial
         | charge_intro; repeat charge_intro; charge_tauto
         | charge_split; solve [ charge_tauto ]
+        | apply lorR1 ; solve [ charge_tauto ]
+        | apply lorR2 ; solve [ charge_tauto ]
         | match goal with
           | H : _ |-- _ |- _ =>
             charge_apply H ; charge_tauto
