@@ -1,6 +1,6 @@
-Require Import TLA.Tactics.
 Require Import Rdefinitions.
 Require Import RIneq.
+Require Import TLA.Tactics.
 
 (* Some obvious but useful real arithmetic
    facts. *)
@@ -35,6 +35,10 @@ Proof. solve_linear. Qed.
 
 Lemma Rmult_le_compat_neg_r : forall r r1 r2 : R,
  (r <= 0)%R -> (r1 <= r2)%R -> (r2*r <= r1*r)%R.
+Proof. solve_nonlinear. Qed.
+
+Lemma Rmult_le_compat_pos_r : forall r r1 r2 : R,
+ (r >= 0)%R -> (r1 <= r2)%R -> (r1*r <= r2*r)%R.
 Proof. solve_nonlinear. Qed.
 
 Lemma inv_le_0 : forall r,
@@ -101,7 +105,7 @@ Proof. solve_linear. Qed.
 
 Lemma Rmult_le_algebra : forall r1 r2 r3,
   (r2 > 0 -> r1 <= r2*r3 -> r1 * (/r2) <= r3)%R.
-Proof. 
+Proof.
   intros.
   apply (Rmult_le_reg_r r2); solve_linear.
   rewrite Rmult_assoc.
@@ -114,4 +118,16 @@ Proof.
   intros.
   apply Rminus_le_algebra in H0.
   apply Rmult_le_algebra in H0; auto.
+Qed.
+
+Require Import Coq.Classes.RelationClasses.
+Require Import RIneq.
+Instance Reflexive_Rge : Reflexive Rge.
+Proof.
+  red. intro. apply Req_ge. reflexivity.
+Qed.
+
+Instance Reflexive_Rle : Reflexive Rle.
+Proof.
+  red. intro. apply Req_ge. reflexivity.
 Qed.

@@ -1,57 +1,86 @@
+Require Import Coq.Reals.Rdefinitions.
+Require Import Coq.Reals.RIneq.
 Require Import Coq.micromega.Psatz.
+Require Import Z3.Tactic.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.Lib.
 Require Import TLA.ProofRules.
-Require Import Rdefinitions.
-Require Import Coq.Reals.RIneq.
+Require Import TLA.Automation.
 
-Declare ML Module "z3Tactic".
 
 (* Some useful tactics for our examples. *)
+
+Lemma reason_action : forall P Q,
+    (forall a b tr,
+        eval_formula
+          P
+          (Stream.Cons a
+                       (Stream.Cons b tr)) ->
+        eval_formula
+          Q (Stream.Cons a (Stream.Cons b tr))) ->
+    (P |-- Q).
+Proof.
+  red. red. red. intros. destruct tr.
+  destruct tr. auto.
+Qed.
+
+Ltac reason_action_tac :=
+  eapply reason_action; simpl;
+  let pre := fresh "pre" in
+  let post := fresh "post" in
+  let tr := fresh "tr" in
+  intros pre post tr;
+    breakAbstraction; simpl; unfold eval_comp;
+    simpl; intros.
 
 (* This solves linear real arithmetic goals.
    It should be complete. *)
 Ltac solve_linear :=
-  simpl; intros; unfold eval_comp in *;
+  breakAbstraction; intros; unfold eval_comp in *;
   simpl in *; intuition; try psatzl R.
 
 (* This tries to solve nonlinear real
    arithmetic goals. It is not complete
    and can be incredibly inefficient. *)
 Ltac solve_nonlinear :=
-  simpl; intros; unfold eval_comp in *;
+  breakAbstraction; intros; unfold eval_comp in *;
   simpl in *; intuition; try psatz R.
 
 (* This simplifies real arithmetic goals.
    It sometimes is useful to run this before
    sending things to solve_nonlinear. *)
 Ltac R_simplify :=
-  field_simplify;
+  unfold state, Value; field_simplify;
   unfold Rdiv;
-  repeat rewrite RMicromega.Rinv_1.
+  repeat rewrite RMicromega.Rinv_1;
+  repeat
+    match goal with
+    | H:_ |- _ =>
+      unfold state, Value in H; field_simplify in H;
+      unfold Rdiv in H;
+      repeat rewrite RMicromega.Rinv_1 in H;
+      revert H
+    end; intros.
 
 (* Doesn't change the goal but runs
    z3 on real arithmetic goals. At the
    moment, you have to look in the *coq*
    buffer for the output. *)
+Ltac z3_prepare :=
+  intros.
+
 Ltac z3_solve :=
-  intros;
-  repeat match goal with
-           | H : @eq R _ _ |- _ => revert H
-           | H : @Rle _ _ |- _ => revert H
-           | H : @Rge _ _ |- _ => revert H
-           | H : @Rlt _ _ |- _ => revert H
-           | H :@ Rgt _ _ |- _ => revert H
-           | H : @Rge _ _ |- _ => revert H
-         end;
-  z3Tactic.
+  z3_prepare; z3 solve.
+
+Ltac z3_quick :=
+  z3_prepare; z3 solve.
 
 (* rewrites the values of variables in the next
    state into hypothesis and goals. *)
 Ltac rewrite_next_st :=
   repeat match goal with
-           | [ H : eq (hd (tl _) _)  _ |- _ ]
+           | [ H : eq (Stream.hd (Stream.tl _) _)  _ |- _ ]
              => rewrite H in *
          end.
 
@@ -105,7 +134,7 @@ Ltac prove_diff_inv known :=
   match goal with
       |- context [ Continuous ?eqs ] =>
       match goal with
-          |- (|- _ --> Comp (next_term ?t1)
+          |- (|-- _ -->> Comp (next_term ?t1)
                    (next_term ?t2) ?op) =>
           apply diff_ind with
           (Hyps:=known) (G:=Comp t1 t2 op) (cp:=eqs)
@@ -136,6 +165,10 @@ Fixpoint unnext (F:Formula) : Formula :=
     | Comp t1 t2 op =>
       Comp (unnext_term t1) (unnext_term t2) op
     | And F1 F2 => And (unnext F1) (unnext F2)
+    | Or F1 F2 => Or (unnext F1) (unnext F2)
+    | Imp F1 F2 => Imp (unnext F1) (unnext F2)
+    | Syntax.Exists T f => Syntax.Exists T (fun t => unnext (f t))
+    | Syntax.Forall T f => Syntax.Forall T (fun t => unnext (f t))
     | _ => F
   end.
 
@@ -147,7 +180,7 @@ Ltac prove_inductive :=
   match goal with
     | [ |- context [Continuous ?deqs] ] =>
       match goal with
-        | [ |- (|- _ --> (?HH --> ?GG))] =>
+        | [ |- (|-- _ -->> (?HH -->> ?GG))] =>
           abstract (apply diff_ind_imp
                     with (eqs:=deqs) (H:=unnext HH)
                                      (G:=unnext GG);
@@ -158,7 +191,7 @@ Ltac prove_inductive :=
           abstract
             (apply unchanged_continuous with (eqs:=deqs);
              solve_linear)
-        | [ |- (|- _ --> ?GG) ] =>
+        | [ |- (|-- _ -->> ?GG) ] =>
           abstract (eapply diff_ind
                     with (cp:=deqs) (G:=unnext GG)
                                     (Hyps:=TRUE);

@@ -1,7 +1,10 @@
--R ../Z3-plugin Exploit
+-R ../Z3-plugin/src Z3
 -R . TLA
+-I ../Charge/Charge!/bin
+Stream.v
 Syntax.v
 Semantics.v
+LogicLemmas.v
 Lib.v
 BasicProofRules.v
 DifferentialInduction.v
@@ -10,3 +13,5 @@ ProofRules.v
 ArithFacts.v
 Substitution.v
 Tactics.v
+Automation.v
+TLA.v

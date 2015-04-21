@@ -16,8 +16,13 @@ Fixpoint Unchanged (xs:list Var) : Formula :=
   match xs with
     | nil => TRUE
     | cons x xs =>
-      (x! = x) /\ (Unchanged xs)
+      (x! = x) //\\ (Unchanged xs)
   end.
+
+(* Formula taking the maximum of two terms. *)
+Definition Max (a b : Term)
+           (c : Term -> Formula) : Formula :=
+  (a >= b -->> (c a)) //\\ (a <= b -->> c b).
 
 (* State formula expressing that the values of all
    variables in xs in the current state are equal
@@ -26,7 +31,7 @@ Fixpoint VarsAgree (xs:list Var) (st:state) : Formula :=
   match xs with
     | nil => TRUE
     | cons x xs =>
-      (x = st x) /\ (VarsAgree xs st)
+      (x = st x) //\\ (VarsAgree xs st)
   end.
 
 (* Action formula expressing that the values of all
@@ -36,7 +41,7 @@ Fixpoint AVarsAgree (xs:list Var) (st:state) : Formula :=
   match xs with
     | nil => TRUE
     | cons x xs =>
-      (x! = st x) /\ (AVarsAgree xs st)
+      (x! = st x) //\\ (AVarsAgree xs st)
   end.
 
 (* A type representing a differential equation.
@@ -81,14 +86,12 @@ Definition is_solution (f : R -> state)
    equations represented by cp. *)
 Definition Continuous (cp:list DiffEq) : Formula :=
   let xs := List.map get_var cp in
-  Exists R
-         (fun r =>
-            Exists (R -> state)
-                   (fun f =>
-                         (r > 0)
-                      /\ (PropF (is_solution f cp r))
-                      /\ (VarsAgree xs (f R0))
-                      /\ (AVarsAgree xs (f r)))).
+  Exists r : R,
+  Exists f : R -> state,
+         (r > 0)
+    //\\ (PropF (is_solution f cp r))
+    //\\ (VarsAgree xs (f R0))
+    //\\ (AVarsAgree xs (f r)).
 
 Close Scope string_scope.
 Close Scope HP_scope.
