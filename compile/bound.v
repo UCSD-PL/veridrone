@@ -156,33 +156,74 @@ Definition simpleBound11
   mkSBT ((combFunc (lb triple1)  (lb triple2)) * (RealT R1 + RealT error)) 0
         fla.
 
-Definition combineTriplePlus (triple triple2 : singleBoundTerm) :=
+Definition isFloatConstValid (f:binary_float custom_prec custom_emax) : Prop 
+  := match f with 
+       | B754_zero _ => True
+       | B754_infinity _=> False
+       | B754_nan _ _=> False
+       | B754_finite _ _ _ _=> True
+     end.
+
+
+Definition plusResultValidity (t1 t2 : NowTerm) := 
+      (forall (fState:fstate),
+          let result := (lift2
+                           (Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                  custom_nan mode_NE) (eval_NowTerm fState t1) (eval_NowTerm fState t2)) 
+          in match result with 
+                | Some f => isFloatConstValid f 
+                | None => False
+              end).
+Definition minusResultValidity (t1 t2 : NowTerm) := 
+      (forall (fState:fstate),
+          let result := (lift2
+                           (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                  custom_nan mode_NE) (eval_NowTerm fState t1) (eval_NowTerm fState t2)) 
+          in match result with 
+                | Some f => isFloatConstValid f 
+                | None => False
+              end).
+
+Definition multResultValidity (t1 t2 : NowTerm) := 
+      (forall (fState:fstate),
+          let result := (lift2
+                           (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                  custom_nan mode_NE) (eval_NowTerm fState t1) (eval_NowTerm fState t2)) 
+          in match result with 
+                | Some f => isFloatConstValid f 
+                | None => False
+              end).
+
+Definition combineTriplePlus (triple triple2 : singleBoundTerm) (t1 t2 : NowTerm):=
   ((simpleBound triple triple2 PlusT 
                 (premise triple /\ 
                  premise triple2 /\ 
                  ((floatMin <= lb triple + lb triple2)) /\ 
                  ((ub triple + ub triple2)*(1+error) < floatMax) /\
-                 (lb triple + lb triple2 >= R0)))
+                 (lb triple + lb triple2 >= R0) /\
+                 (PropF (plusResultValidity t1 t2))))
      :: (simpleBound4 triple triple2 PlusT 
                       (premise triple /\ 
                        premise triple2 /\ 
                        (floatMin <= ((0 - ub triple) + (0 - ub triple2))) /\
                        (((0 - lb triple + (0 - lb triple2))*(1+error)) < floatMax) /\ 
-                       (ub triple + ub triple2 < R0)))
+                       (ub triple + ub triple2 < R0)/\
+                       (PropF (plusResultValidity t1 t2))))
      :: (simpleBound9 triple triple2 PlusT 
                       (premise triple /\ 
                        premise triple2 /\
                        (lb triple + lb triple2 < floatMin) /\ 
                        (ub triple + ub triple2 >= floatMin) /\ 
                        ((ub triple + ub triple2)*(1+error) < floatMax) /\ 
-                       (lb triple + lb triple2 >= R0)))
+                       (lb triple + lb triple2 >= R0)/\
+                       (PropF (plusResultValidity t1 t2))))
      :: (simpleBound10 triple triple2 PlusT 
                       (premise triple /\ 
                        premise triple2 /\
                        (ub triple + ub triple2 < floatMin) /\ 
                        ((ub triple + ub triple2)*(1+error) < floatMax) /\ 
-                       (lb triple + lb triple2 >= R0)))
-    
+                       (lb triple + lb triple2 >= R0)/\
+                       (PropF (plusResultValidity t1 t2))))
      :: List.nil). 
 
 (*
@@ -192,45 +233,49 @@ Definition combineTriplePlus (triple triple2 : singleBoundTerm) :=
                                          ((ub triple2 - ub triple >=floatMin) /\ (ub triple - lb triple2 >=floatMin) /\ (lb triple2 - lb triple >= floatMin)) ) /\
 *)
 Print Float.
-Definition combineTripleMinus (triple triple2 : singleBoundTerm) :=
+Definition combineTripleMinus (triple triple2 : singleBoundTerm) (t1 t2:NowTerm):=
   ((simpleBound2 triple triple2 MinusT 
                  (premise triple /\ 
                   premise triple2  /\ 
                   (lb triple >= ub triple2) /\
                  (floatMin <= lb triple - ub triple2) /\ 
-                ((ub triple - lb triple2)*(1+error) < floatMax)))
+                ((ub triple - lb triple2)*(1+error) < floatMax)/\
+                (PropF (minusResultValidity t1 t2))))
      :: (simpleBound5 triple triple2 MinusT 
                       (premise triple /\ 
                        premise triple2 /\
                        (ub triple <= lb triple2) /\
                        (floatMin <= lb triple2 - ub triple) /\
-                       ((ub triple2 - lb triple)*(1+error) < floatMax)) 
+                       ((ub triple2 - lb triple)*(1+error) < floatMax) /\
+                       (PropF (minusResultValidity t1 t2)))
                     :: List.nil)).   
-Definition combineTripleMult (triple triple2 : singleBoundTerm) :=
+Definition combineTripleMult (triple triple2 : singleBoundTerm) (t1 t2:NowTerm):=
   ((simpleBound triple triple2 MultT 
                 (premise triple /\ 
                  premise triple2 /\ 
                  (floatMin <= lb triple * lb triple2) /\ 
                  ((ub triple * ub triple2)*(1+error) < floatMax) /\ 
-                 (lb triple >= R0) /\ (lb triple2 >= R0)))
+                 (lb triple >= R0) /\ (lb triple2 >= R0) /\ 
+                (PropF (multResultValidity t1 t2))))
     :: (simpleBound3 triple triple2 MultT 
                       (premise triple /\ 
                        premise triple2 /\ 
                        (floatMin <= (0 - ub triple) * (0 - ub triple2)) /\ 
                        (((0 - lb triple) * (0 - lb triple2))*(1+error) < floatMax) /\ 
-                       (ub triple < R0) /\ (ub triple2 < R0))) 
+                       (ub triple < R0) /\ (ub triple2 < R0) /\ 
+                       (PropF (multResultValidity t1 t2))))
           :: (simpleBound6 triple triple2 MultT 
                       (premise triple /\ 
                        premise triple2 /\ 
                        (floatMin <= (lb triple) * (0 - (ub triple2))) /\ 
                        ((ub triple * (0 - lb triple2))*(1+error) < floatMax) /\ 
-                       (lb triple >= R0) /\  (ub triple2 < R0))) 
+                       (lb triple >= R0) /\  (ub triple2 < R0) /\ (PropF (multResultValidity t1 t2)))) 
                       ::  (simpleBound7 triple triple2 MultT 
                                         (premise triple /\ 
                                          premise triple2 /\ 
                                          (floatMin <= (0 - ub triple) * lb triple2) /\ 
                                          (((0 - lb triple) * (ub triple2))*(1+error) < floatMax) /\ 
-                                         (ub triple < R0) /\  (lb triple2 >= R0))) :: List.nil).   
+                                         (ub triple < R0) /\  (lb triple2 >= R0) /\ (PropF (multResultValidity t1 t2)))) :: List.nil).   
 
 
 
@@ -418,22 +463,8 @@ Definition multfoldListwithList
 
 Print cross.
 
-Definition plusBound 
-           (list1 list2: list singleBoundTerm) :
-  list singleBoundTerm:= 
-  cross combineTriplePlus list1 list2.
-(*  (plusMinusfoldListwithList list1 list2 PlusT simpleBound simpleBound4).*)
 
-Definition minusBound 
-           (list1 list2: list singleBoundTerm): 
-  list singleBoundTerm:=
-  cross combineTripleMinus list1 list2.
 
-Definition multBound 
-           (list1 list2: list singleBoundTerm) :
-  list singleBoundTerm:=
-  multfoldListwithList list1 list2 MultT simpleBound simpleBound3 simpleBound6 simpleBound6.
-  
 
 Definition lift4 {T U V W X: Type} 
                  (f : T -> U -> V -> W -> X) 
@@ -455,19 +486,55 @@ Definition getBound (t1 t2:NowTerm)
                                         list singleBoundTerm) :=  
   boundFunc (bound_term_func t1) (bound_term_func t2).
 
+Print eval_NowTerm.
+
+
+
+Definition isVarValid (v:Var) : Prop 
+  := forall (fState:fstate),
+    match (fstate_lookup fState v) with 
+        | Some f => isFloatConstValid f
+        | None => False
+    end.
+
+
 
 Definition natBound (n:nat): list singleBoundTerm :=
 
-   [ (mkSBT (RealT R0) (RealT ((INR n) * (1+error))) ((floatMin <= RealT (INR n)) /\ (INR n >= 0) /\  ((INR n)* (1+error) <  (floatMax)))) ;  (mkSBT (RealT ((INR n) * (1+error))) (RealT R0) ((floatMin <= (0 - INR n)) /\ (INR n < 0) /\  ((0 - INR n)* (1+error) <  (floatMax))))]. 
+   [ (mkSBT (RealT R0) (RealT ((INR n) * (1+error))) ((floatMin <= RealT (INR n)) /\ (INR n >= 0) /\  ((INR n)* (1+error) <  (floatMax)) /\ (PropF (isFloatConstValid (nat_to_float n))) )) ;  (mkSBT (RealT ((INR n) * (1+error))) (RealT R0) ((floatMin <= (0 - INR n)) /\ (INR n < 0) /\  ((0 - INR n)* (1+error) <  (floatMax)) /\ (PropF (isFloatConstValid (nat_to_float n))) )  )].
+
+
+
+Print eval_NowTerm.
+Print singleBoundTerm.
+Fixpoint addPlusResultValidity (bounds:list singleBoundTerm) (t1:NowTerm) (t2:NowTerm) := 
+  match bounds with 
+    | (h :: t) => 
+      (match h with  
+         | mkSBT lb ub premise  =>
+           (let resultValidPremise := 
+                (forall (fState:fstate),
+                    let result := (lift2
+                                     (Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                            custom_nan mode_NE) (eval_NowTerm fState t1) (eval_NowTerm fState t2)) 
+                    in (match result with 
+                          | Some f => isFloatConstValid f 
+                          | None => False
+                        end)
+                ) in (mkSBT lb ub (premise /\ PropF resultValidPremise))
+           )
+       end) ::  (addPlusResultValidity t t1 t2) 
+  | Nil => Nil
+  end. 
 
 Fixpoint bound_term (x:NowTerm)  : (list singleBoundTerm):= 
   match x with
-    | VarNowN var =>  [mkSBT (VarNowT var) (VarNowT var) TRUE]
+    | VarNowN var =>  [mkSBT (VarNowT var) (VarNowT var) (PropF (isVarValid var))]
     | NatN n =>  natBound n
-    | FloatN f => [mkSBT (RealT (B2R _ _ f)) (RealT (B2R _ _ f)) TRUE]
-    | PlusN t1 t2 => cross combineTriplePlus (bound_term t1) (bound_term t2) 
-    | MinusN t1 t2 => cross combineTripleMinus (bound_term t1) (bound_term t2)
-    | MultN t1 t2 =>  cross combineTripleMult (bound_term t1) (bound_term t2)
+    | FloatN f => [mkSBT (RealT (B2R _ _ f)) (RealT (B2R _ _ f)) (PropF (isFloatConstValid f))]
+    | PlusN t1 t2 => cross (fun bd1 bd2 => combineTriplePlus bd1 bd2 t1 t2) (bound_term t1) (bound_term t2)
+    | MinusN t1 t2 => cross (fun bd1 bd2 => combineTripleMinus bd1 bd2 t1 t2) (bound_term t1) (bound_term t2)
+    | MultN t1 t2 =>  cross (fun bd1 bd2 => combineTripleMult bd1 bd2 t1 t2) (bound_term t1) (bound_term t2)
   end.
 
 
@@ -540,7 +607,7 @@ match eval_NowTerm fState expr with
            premise ->
                   match floatToReal evalAsF with
                         | Some f => pred f
-                        | None => True
+                        | None => False
                   end) (bound_term expr)
 
 | None => True
@@ -4200,7 +4267,7 @@ Qed.
       {
         apply H.
         
-      }
+      } 
     Qed.
     intros.    
    
@@ -4208,6 +4275,7 @@ Qed.
      specialize (H2 fState st expr H0).
      apply H2.
  Qed.
+
 
 Lemma bound_proof' : 
   forall (st:state) (expr:NowTerm) (fState:fstate),
@@ -4245,10 +4313,10 @@ Proof.
       intros.
       simpl in *.
       unfold Semantics.eval_comp in *.
-    
       
       simpl in H0.
       decompose [and] H0.
+      clear H5.
       clear H0.
       
       Lemma conjoin2 : forall (p1 p2 p3:Prop), p1 -> p2 -> p3 -> p1 /\ p2 /\ p3.
@@ -4258,7 +4326,7 @@ Proof.
       intros. 
       pose proof conjoin2 as premise.
       
-      specialize (premise (floatMin <= INR n)%R (INR n >= 0)%R (INR n * (1 + error) < floatMax)%R H1 H3 H4).
+      specialize (premise (floatMin <= INR n)%R (INR n >= 0)%R (INR n * (1 + error) < floatMax)%R H1 H3 H2).
      
       intros.
       pose proof orExtra as orExtra1.
@@ -4390,11 +4458,12 @@ Proof.
       unfold Semantics.eval_comp in H0.
       simpl in H0.
       decompose [and] H0.
+      clear H5.
       clear H0.
       intros. 
       pose proof conjoin2 as premise.
       
-      specialize (premise (floatMin <= 0 - INR n)%R  (INR n < 0)%R ((0 - INR n) * (1 + error) < floatMax)%R H1 H3 H4).
+      specialize (premise (floatMin <= 0 - INR n)%R  (INR n < 0)%R ((0 - INR n) * (1 + error) < floatMax)%R H1 H3 H2).
       intros.
         Lemma orExtra2 : forall p1 p2 : Prop, p2 -> p1 \/ p2.
           intros; intuition. Qed.
@@ -4523,7 +4592,7 @@ Proof.
     unfold floatToReal in Heqo0.
     destruct f; simpl; inversion Heqo0; intuition.
   }
-  { simpl.   unfold getBound. unfold plusBound.
+  { simpl.   unfold getBound. 
     intros.
     Print plusMinusfoldListwithList.
     assert (Heqo':=Heqo).
@@ -4573,6 +4642,9 @@ Proof.
         simpl in H.
         rewrite <- H0.
         decompose [and] H.
+        clear H9.
+        assert (H8:= H7).
+        clear H7.
         apply IHexpr1 in H1.
         apply IHexpr2 in H3.
         assert (expr1Bound := H1).
@@ -4672,6 +4744,9 @@ Proof.
           simpl in H.
           rewrite <- H0.
           decompose [and] H.
+          clear H9.
+          assert (H8:=H7).
+          clear H7.
           apply IHexpr1 in H1.
           apply IHexpr2 in H3.
           assert (expr1Bound := H1).
@@ -4760,6 +4835,8 @@ Proof.
             simpl in H.
             rewrite <- H0.
             decompose [and] H.
+            clear H10.
+            assert (H9:=H8).
             apply IHexpr1 in H1.
             apply IHexpr2 in H3.
             assert (expr1Bound := H1).
@@ -5280,6 +5357,9 @@ Proof.
               simpl in H.
               rewrite <- H0.
               decompose [and] H.
+              clear H9.
+              assert (H8:=H7).
+              clear H7.
               apply IHexpr1 in H1.
               apply IHexpr2 in H3.
               assert (expr1Bound := H1).
@@ -5458,14 +5538,15 @@ Proof.
 
         rewrite <- H0.
         decompose [and] H.
+        clear H9.
         apply IHexpr1 in H1.
         apply IHexpr2 in H3.
         assert (expr1Bound := H1).
         assert (expr2Bound := H3).
         assert (floatMinCase := H2).
         assert (floatMaxBound1 := H6).
-        assert (resultGe0 := H8).
-        clear H4 H2 H1 H3 H H5 H0 H8 H6 IHexpr1 IHexpr2.
+        assert (resultGe0 := H7).
+        clear H4 H2 H1 H3 H H5 H0 H7 H6 IHexpr1 IHexpr2.
         unfold Semantics.eval_comp in *.
         simpl in floatMinCase.
         simpl in expr1Bound.
@@ -5758,8 +5839,8 @@ clear H1. psatz R. Qed.
           assert (expr2Bound := H3).
           assert (floatMinCase := H2).
           assert (floatMaxBound1 := H6).
-          assert (resultGe0 := H8).
-          clear H4 H2 H1 H3 H H5 H0 H8 H6 IHexpr1 IHexpr2.
+          assert (resultGe0 := H7).
+          clear H4 H2 H1 H3 H H5 H0 H7 H6 H9 IHexpr1 IHexpr2.
           unfold Semantics.eval_comp in *.
           simpl in floatMinCase.
           simpl in expr1Bound.
@@ -5846,8 +5927,8 @@ clear H1. psatz R. Qed.
             assert (floatMinCase1 := H2).
             assert (floatMinCase2 := H6).
             assert (floatMaxBound1 := H7).
-            assert (resultGe0 := H9).
-            clear H4 H2 H1 H3 H H5 H0 H7 H9 H6 IHexpr1 IHexpr2.
+            assert (resultGe0 := H8).
+            clear H4 H2 H1 H3 H H5 H0 H7 H8 H10 H6 IHexpr1 IHexpr2.
             unfold Semantics.eval_comp in *.
             simpl in floatMinCase1.
             simpl in floatMinCase2.
@@ -6129,8 +6210,8 @@ clear H1. psatz R. Qed.
             assert (expr2Bound := H3).
             assert (floatMinCase1 := H2).
             assert (floatMaxBound1 := H6).
-            assert (resultGe0 := H8).
-            clear H1 H2 H3 H6 H8 H IHexpr1 IHexpr2.
+            assert (resultGe0 := H7).
+            clear H1 H2 H3 H6 H7 H9 H IHexpr1 IHexpr2.
             unfold Semantics.eval_comp in *.
             simpl in *.
             remember (eval_term (lb x4) st st) as lb1.
@@ -6252,7 +6333,7 @@ clear H1. psatz R. Qed.
   } 
   {
     
-    simpl. unfold getBound. unfold plusBound.
+    simpl. unfold getBound.
     intros.
     Print plusMinusfoldListwithList.
     assert (Heqo':=Heqo).
@@ -6304,9 +6385,9 @@ clear H1. psatz R. Qed.
         assert (expr1Bound := H1).
         assert (expr2Bound := H3).
         assert (floatMinCase := H6).
-        assert (floatMaxBound1 := H8).
+        assert (floatMaxBound1 := H7).
         assert (resultGe0 := H2).
-        clear H4 H2 H1 H3 H H5  H0  H6 IHexpr1 IHexpr2.
+        clear H4 H2 H1 H3 H H5  H0 H9 H6 IHexpr1 IHexpr2.
         unfold Semantics.eval_comp in *.
         simpl in floatMinCase.
         simpl in expr1Bound.
@@ -6392,7 +6473,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear  floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  H8  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+        clear  floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  H7  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
         pose proof errorLessThan1.
         unfold error in *.
         unfold Rabs in *.
@@ -6460,10 +6541,13 @@ clear H1. psatz R. Qed.
         {
           split.
           {
+            z3 solve_dbg.
             psatz R.
            }
           destruct Rcase_abs.
+          z3 solve_dbg.
           psatz R.
+          z3 solve_dbg.
           psatz R.
         }
       }
@@ -6479,9 +6563,9 @@ clear H1. psatz R. Qed.
         assert (expr1Bound := H1).
         assert (expr2Bound := H3).
         assert (floatMinCase := H6).
-        assert (floatMaxBound1 := H8).
+        assert (floatMaxBound1 := H7).
         assert (resultGe0 := H2).
-         clear H4 H2 H1 H3 H H5  H0  H6 IHexpr1 IHexpr2.
+         clear H4 H2 H1 H3 H H5  H0 H9 H6 IHexpr1 IHexpr2.
        unfold Semantics.eval_comp in *.
          simpl in floatMinCase.
         simpl in expr1Bound.
@@ -6563,7 +6647,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear  floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  H8  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+        clear  floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  H7  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
         pose proof errorLessThan1.
         unfold error in *.
         unfold Rabs in *.
@@ -6723,9 +6807,9 @@ clear H1. psatz R. Qed.
         assert (expr1Bound := H1).
         assert (expr2Bound := H3).
         assert (floatMinCase := H6).
-        assert (floatMaxBound1 := H8).
+        assert (floatMaxBound1 := H7).
         assert (resultGe0 := H2).
-        clear H4 H2 H1 H3 H H5 H0 H6 IHexpr1 IHexpr2.
+        clear H4 H2 H1 H3 H H5 H0 H6 H7 IHexpr1 IHexpr2.
         unfold Semantics.eval_comp in *.
         simpl in floatMinCase.
         simpl in expr1Bound.
@@ -6803,7 +6887,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 H8 x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+        clear floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 H9 x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
         pose proof errorLessThan1.
         unfold error in *.
         unfold Rabs in *.
@@ -6914,9 +6998,9 @@ clear H1. psatz R. Qed.
           assert (expr1Bound := H1).
           assert (expr2Bound := H3).
           assert (floatMinCase := H6).
-          assert (floatMaxBound1 := H8).
+          assert (floatMaxBound1 := H7).
           assert (resultGe0 := H2).
-          clear H4 H2 H1 H3 H H5 H0 H6 IHexpr1 IHexpr2.
+          clear H4 H2 H1 H3 H H5 H0 H6 H9 IHexpr1 IHexpr2.
           unfold Semantics.eval_comp in *.
           simpl in floatMinCase.
           simpl in expr1Bound.
@@ -6992,7 +7076,7 @@ clear H1. psatz R. Qed.
           rewrite <- floatToRealProof2 in HeqroundedValue.
           rewrite <- floatToRealProof1 in HeqroundedValue.
           pose proof errorGt0.
-          clear floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 H8 x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+          clear floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 H7 x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
           pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
@@ -7118,7 +7202,7 @@ clear H1. psatz R. Qed.
     }
   }
   {
-    simpl. unfold getBound. unfold plusBound.
+    simpl. unfold getBound.
     intros.
     assert (Heqo':=Heqo).
     apply resultImplicationsMult in Heqo.
@@ -7170,8 +7254,8 @@ clear H1. psatz R. Qed.
         assert (floatMinCase := H2).
         assert (floatMaxBound1 := H6).
         assert (resultGe1 := H7).
-        assert (resultGe2 := H9).
-        clear H4 H2 H1 H3 H H5 H0 H6 IHexpr1 IHexpr2.
+        assert (resultGe2 := H8).
+        clear H4 H2 H1 H3 H H5 H0 H10 H6 IHexpr1 IHexpr2.
         unfold Semantics.eval_comp in *.
         simpl in floatMinCase.
         simpl in expr1Bound.
@@ -7263,7 +7347,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear H7 H9 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
           pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
@@ -7385,8 +7469,8 @@ clear H1. psatz R. Qed.
            assert (floatMinCase := H2).
            assert (floatMaxBound1 := H6).
            assert (resultGe1 := H7).
-           assert (resultGe2 := H9).
-           clear H4 H2 H1 H3 H H5 H0 H6 IHexpr1 IHexpr2.
+           assert (resultGe2 := H8).
+           clear H4 H2 H1 H3 H H5 H10 H0 H6 IHexpr1 IHexpr2.
            unfold Semantics.eval_comp in *.
            simpl in floatMinCase.
            simpl in expr1Bound.
@@ -7496,7 +7580,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear H7 H9 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
           pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
@@ -7612,8 +7696,8 @@ clear H1. psatz R. Qed.
            assert (floatMinCase := H2).
            assert (floatMaxBound1 := H6).
            assert (resultGe1 := H7).
-           assert (resultGe2 := H9).
-           clear H4 H2 H1 H3 H H5 H0 H6 IHexpr1 IHexpr2.
+           assert (resultGe2 := H8).
+           clear H4 H2 H1 H3 H H5 H10 H0 H6 IHexpr1 IHexpr2.
            unfold Semantics.eval_comp in *.
            simpl in floatMinCase.
            simpl in expr1Bound.
@@ -7708,7 +7792,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear H7 H9 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
           pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
@@ -7823,8 +7907,8 @@ clear H1. psatz R. Qed.
            assert (floatMinCase := H2).
            assert (floatMaxBound1 := H6).
            assert (resultGe1 := H7).
-           assert (resultGe2 := H9).
-           clear H4 H2 H1 H3 H H5 H0 H6 IHexpr1 IHexpr2.
+           assert (resultGe2 := H8).
+           clear H4 H2 H1 H3 H H5 H10 H0 H6 IHexpr1 IHexpr2.
            unfold Semantics.eval_comp in *.
            simpl in floatMinCase.
            simpl in expr1Bound.
@@ -7919,7 +8003,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear H7 H9 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
           pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
@@ -8064,8 +8148,8 @@ clear H1. psatz R. Qed.
         assert (floatMinCase := H2).
         assert (floatMaxBound1 := H6).
         assert (resultGe1 := H7).
-        assert (resultGe2 := H9).
-        clear H4 H2 H1 H3 H H5 H0 H6 IHexpr1 IHexpr2.
+        assert (resultGe2 := H8).
+        clear H4 H2 H1 H3 H H5 H0 H10 H6 IHexpr1 IHexpr2.
         unfold Semantics.eval_comp in *.
         simpl in floatMinCase.
         simpl in expr1Bound.
@@ -8155,7 +8239,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear H7 H9 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
         pose proof errorLessThan1.
         unfold error in *.
         unfold Rabs in *.
@@ -8277,8 +8361,8 @@ clear H1. psatz R. Qed.
           assert (floatMinCase := H2).
           assert (floatMaxBound1 := H6).
           assert (resultGe1 := H7).
-          assert (resultGe2 := H9).
-          clear H4 H2 H1 H3 H H5 H0 H6 IHexpr1 IHexpr2.
+          assert (resultGe2 := H8).
+          clear H4 H2 H1 H3 H H5 H10 H0 H6 IHexpr1 IHexpr2.
           unfold Semantics.eval_comp in *.
           simpl in floatMinCase.
           simpl in expr1Bound.
@@ -8385,7 +8469,7 @@ clear H1. psatz R. Qed.
           rewrite <- floatToRealProof2 in HeqroundedValue.
           rewrite <- floatToRealProof1 in HeqroundedValue.
           pose proof errorGt0.
-          clear H7 H9 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+          clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
           pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
@@ -8436,12 +8520,12 @@ clear H1. psatz R. Qed.
               }
               {
                 repeat match goal with
-                       | H : @eq R _ _ |- _ => revert H
-                       | H : @Rle _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
-                       | H : @Rlt _ _ |- _ => revert H
-                       | H : @Rgt _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
                        end.
                 psatz R.
               }
@@ -8452,36 +8536,36 @@ clear H1. psatz R. Qed.
             {
               
               repeat match goal with
-                     | H : @eq R _ _ |- _ => revert H
-                     | H : @Rle _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                     | H : @Rlt _ _ |- _ => revert H
-                     | H : @Rgt _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
+                       | H : @eq R _ _ |- _ => revert H
+                       | H : @Rle _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                       | H : @Rlt _ _ |- _ => revert H
+                       | H : @Rgt _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
                      end.
               psatz R.
             }
             destruct Rcase_abs.
             {
               repeat match goal with
-                     | H : @eq R _ _ |- _ => revert H
-                     | H : @Rle _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                     | H : @Rlt _ _ |- _ => revert H
-                     | H : @Rgt _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
+                       | H : @eq R _ _ |- _ => revert H
+                       | H : @Rle _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                       | H : @Rlt _ _ |- _ => revert H
+                       | H : @Rgt _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
                      end.
               
               psatz R.
             }
             {
               repeat match goal with
-                     | H : @eq R _ _ |- _ => revert H
-                     | H : @Rle _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
-                     | H : @Rlt _ _ |- _ => revert H
-                     | H : @Rgt _ _ |- _ => revert H
-                     | H : @Rge _ _ |- _ => revert H
+                       | H : @eq R _ _ |- _ => revert H
+                       | H : @Rle _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                       | H : @Rlt _ _ |- _ => revert H
+                       | H : @Rgt _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
                      end.
               psatz R.
             }
@@ -8501,8 +8585,8 @@ clear H1. psatz R. Qed.
             assert (floatMinCase := H2).
             assert (floatMaxBound1 := H6).
             assert (resultGe1 := H7).
-            assert (resultGe2 := H9).
-            clear H4 H2 H1 H3 H H5 H0 H6 IHexpr1 IHexpr2.
+            assert (resultGe2 := H8).
+            clear H4 H2 H1 H3 H H5 H10 H0 H6 IHexpr1 IHexpr2.
             unfold Semantics.eval_comp in *.
             simpl in floatMinCase.
             simpl in expr1Bound.
@@ -8595,7 +8679,7 @@ clear H1. psatz R. Qed.
             rewrite <- floatToRealProof2 in HeqroundedValue.
             rewrite <- floatToRealProof1 in HeqroundedValue.
             pose proof errorGt0.
-            clear H7 H9 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+            clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
             pose proof errorLessThan1.
             unfold error in *.
             unfold Rabs in *.
@@ -8608,23 +8692,23 @@ clear H1. psatz R. Qed.
                 split.
                 { 
                   repeat match goal with
-                         | H : @eq R _ _ |- _ => revert H
-                         | H : @Rle _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
-                         | H : @Rlt _ _ |- _ => revert H
-                         | H : @Rgt _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
+                           | H : @eq R _ _ |- _ => revert H
+                           | H : @Rle _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
+                           | H : @Rlt _ _ |- _ => revert H
+                           | H : @Rgt _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
                          end.
                   psatz R.
                 }
                 {
                   repeat match goal with
-                         | H : @eq R _ _ |- _ => revert H
-                         | H : @Rle _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
-                         | H : @Rlt _ _ |- _ => revert H
-                         | H : @Rgt _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
+                           | H : @eq R _ _ |- _ => revert H
+                           | H : @Rle _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
+                           | H : @Rlt _ _ |- _ => revert H
+                           | H : @Rgt _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
                          end.
                   psatz R.
                 }
@@ -8634,23 +8718,23 @@ clear H1. psatz R. Qed.
                 {
                   
                   repeat match goal with
-                         | H : @eq R _ _ |- _ => revert H
-                         | H : @Rle _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
-                         | H : @Rlt _ _ |- _ => revert H
-                         | H : @Rgt _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
+                           | H : @eq R _ _ |- _ => revert H
+                           | H : @Rle _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
+                           | H : @Rlt _ _ |- _ => revert H
+                           | H : @Rgt _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
                          end.
                   psatz R.
                 }
                 {
                   repeat match goal with
-                         | H : @eq R _ _ |- _ => revert H
-                         | H : @Rle _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
-                         | H : @Rlt _ _ |- _ => revert H
-                         | H : @Rgt _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
+                           | H : @eq R _ _ |- _ => revert H
+                           | H : @Rle _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
+                           | H : @Rlt _ _ |- _ => revert H
+                           | H : @Rgt _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
                          end.
                   psatz R.
                 }
@@ -8661,36 +8745,36 @@ clear H1. psatz R. Qed.
               {
                 
                 repeat match goal with
-                       | H : @eq R _ _ |- _ => revert H
-                       | H : @Rle _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
-                       | H : @Rlt _ _ |- _ => revert H
-                       | H : @Rgt _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
                        end.
                 psatz R.
               }
               destruct Rcase_abs.
               {
                 repeat match goal with
-                       | H : @eq R _ _ |- _ => revert H
-                       | H : @Rle _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
-                       | H : @Rlt _ _ |- _ => revert H
-                       | H : @Rgt _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
                        end.
                 
                 psatz R.
               }
               {
                 repeat match goal with
-                       | H : @eq R _ _ |- _ => revert H
-                       | H : @Rle _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
-                       | H : @Rlt _ _ |- _ => revert H
-                       | H : @Rgt _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
                        end.
                 psatz R.
               }
@@ -8710,8 +8794,8 @@ clear H1. psatz R. Qed.
               assert (floatMinCase := H2).
               assert (floatMaxBound1 := H6).
               assert (resultGe1 := H7).
-              assert (resultGe2 := H9).
-              clear H4 H2 H1 H3 H H5 H0 H6 IHexpr1 IHexpr2.
+              assert (resultGe2 := H8).
+              clear H4 H2 H1 H3 H H5 H10 H0 H6 IHexpr1 IHexpr2.
               unfold Semantics.eval_comp in *.
               simpl in floatMinCase.
               simpl in expr1Bound.
@@ -8804,7 +8888,7 @@ clear H1. psatz R. Qed.
               rewrite <- floatToRealProof2 in HeqroundedValue.
               rewrite <- floatToRealProof1 in HeqroundedValue.
               pose proof errorGt0.
-              clear H7 H9 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
+              clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
               pose proof errorLessThan1.
               unfold error in *.
               unfold Rabs in *.
@@ -8818,23 +8902,23 @@ clear H1. psatz R. Qed.
                   { 
                     
                     repeat match goal with
-                           | H : @eq R _ _ |- _ => revert H
-                           | H : @Rle _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
-                           | H : @Rlt _ _ |- _ => revert H
-                           | H : @Rgt _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
+                             | H : @eq R _ _ |- _ => revert H
+                             | H : @Rle _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
+                             | H : @Rlt _ _ |- _ => revert H
+                             | H : @Rgt _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
                            end.
                     psatz R.
                   }
                   {
                     repeat match goal with
-                           | H : @eq R _ _ |- _ => revert H
-                           | H : @Rle _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
-                           | H : @Rlt _ _ |- _ => revert H
-                           | H : @Rgt _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
+                             | H : @eq R _ _ |- _ => revert H
+                             | H : @Rle _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
+                             | H : @Rlt _ _ |- _ => revert H
+                             | H : @Rgt _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
                            end.
                     psatz R.
                   }
@@ -8844,23 +8928,23 @@ clear H1. psatz R. Qed.
                   {
                     
                     repeat match goal with
-                           | H : @eq R _ _ |- _ => revert H
-                           | H : @Rle _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
-                           | H : @Rlt _ _ |- _ => revert H
-                           | H : @Rgt _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
+                             | H : @eq R _ _ |- _ => revert H
+                             | H : @Rle _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
+                             | H : @Rlt _ _ |- _ => revert H
+                             | H : @Rgt _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
                            end.
                     psatz R.
                   }
                   {
                     repeat match goal with
-                           | H : @eq R _ _ |- _ => revert H
-                           | H : @Rle _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
-                           | H : @Rlt _ _ |- _ => revert H
-                           | H : @Rgt _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
+                             | H : @eq R _ _ |- _ => revert H
+                             | H : @Rle _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
+                             | H : @Rlt _ _ |- _ => revert H
+                             | H : @Rgt _ _ |- _ => revert H
+                             | H : @Rge _ _ |- _ => revert H
                            end.
                     psatz R.
                   }
@@ -8871,36 +8955,36 @@ clear H1. psatz R. Qed.
                 {
                   
                   repeat match goal with
-                         | H : @eq R _ _ |- _ => revert H
-                         | H : @Rle _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
-                         | H : @Rlt _ _ |- _ => revert H
-                         | H : @Rgt _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
+                           | H : @eq R _ _ |- _ => revert H
+                           | H : @Rle _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
+                           | H : @Rlt _ _ |- _ => revert H
+                           | H : @Rgt _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
                          end.
                   psatz R.
                 }
                 destruct Rcase_abs.
                 {
                   repeat match goal with
-                         | H : @eq R _ _ |- _ => revert H
-                         | H : @Rle _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
-                         | H : @Rlt _ _ |- _ => revert H
-                         | H : @Rgt _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
+                           | H : @eq R _ _ |- _ => revert H
+                           | H : @Rle _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
+                           | H : @Rlt _ _ |- _ => revert H
+                           | H : @Rgt _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
                          end.
                   
                   psatz R.
                 }
                 {
                   repeat match goal with
-                         | H : @eq R _ _ |- _ => revert H
-                         | H : @Rle _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
-                         | H : @Rlt _ _ |- _ => revert H
-                         | H : @Rgt _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
+                           | H : @eq R _ _ |- _ => revert H
+                           | H : @Rle _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
+                           | H : @Rlt _ _ |- _ => revert H
+                           | H : @Rgt _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
                          end.
                   psatz R.
                 }
@@ -8915,12 +8999,257 @@ clear H1. psatz R. Qed.
     }
   }
   {
+
+    Lemma floatConstValidityProof : forall f, isFloatConstValid f -> None = floatToReal f -> False. 
+      intros. 
+      unfold isFloatConstValid in *.
+      destruct f.
+      { unfold floatToReal in *.
+        simpl in *.
+        inversion H0.
+      }
+      {
+        intuition.
+      }
+      {
+        intuition.
+      }
+      {
+        unfold floatToReal in *.
+        simpl in *.
+        inversion H0.
+      }
+    Qed.
     apply Forall_forall.
     intros.
     unfold denote_singleBoundTermNew. 
     intuition.
+    destruct expr. 
+    {
+      unfold bound_term in *.
+      simpl in *.
+      destruct H0.
+      {
+        rewrite <-H0 in H1.
+        simpl in H1.
+        unfold isVarValid in H1.
+        specialize (H1 fState).
+        rewrite <- Heqo in H1.
+        revert H1 Heqo0.
+        apply floatConstValidityProof.
+      }   
+      {
+        intuition.
+      }
+    }
+    {
+      unfold bound_term in *.
+      simpl in *.
+      destruct H0.
+      {
+        subst.
+        simpl in *.
+        decompose [and] H1.
+        inversion Heqo.
+        rewrite <-H6 in H5.
+        revert H5 Heqo0.
+        apply floatConstValidityProof.
+      }
+      {
+        destruct H0. 
+        {
+          subst.
+          simpl in *.
+          unfold Semantics.eval_comp in *.
+          simpl in *.
+          decompose [and] H1.
+          inversion Heqo.
+          rewrite <-H6 in H5.
+          revert H5 Heqo0.
+          apply floatConstValidityProof.
+          
+        }
+        {
+          intuition.
+        }
+      }
+    }
+    {
+      unfold bound_term in *.
+      simpl in *.
+      destruct H0.
+      {
+        subst.
+        simpl in *.
+        inversion Heqo.
+        rewrite <- H2 in H1.
+        revert H1 Heqo0.
+        apply floatConstValidityProof.
+      }
+      {
+        intuition.
+      }
+    }
+    {
+      
+      
+      Lemma plusResultValidityProof : forall expr1 expr2 fState f, plusResultValidity expr1 expr2 -> (Some f = lift2 
+                                                                                                                 (Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                                                                                                        custom_nan mode_NE) (eval_NowTerm fState expr1)
+                                                                                                                 (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
+        intros.
+
+        unfold plusResultValidity in *.
+        specialize (H fState).
+        rewrite <- H0 in H.
+        revert H H1.
+        apply floatConstValidityProof.
+      Qed.
+      Lemma minusResultValidityProof : forall expr1 expr2 fState f, minusResultValidity expr1 expr2 -> (Some f = lift2 
+                                                                                                                   (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                                                                                                           custom_nan mode_NE) (eval_NowTerm fState expr1)
+                                                                                                                   (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
+        intros.
+        unfold minusResultValidity in *.
+        specialize (H fState).
+        rewrite <- H0 in H.
+        revert H H1.
+        apply floatConstValidityProof.
+      Qed.
+      Lemma multResultValidityProof : forall expr1 expr2 fState f, multResultValidity expr1 expr2 -> (Some f = lift2 
+                                                                                                                 (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                                                                                                        custom_nan mode_NE) (eval_NowTerm fState expr1)
+                                                                                                                 (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
+        intros.
+        unfold multResultValidity in *.
+        specialize (H fState).
+        rewrite <- H0 in H.
+        revert H H1.
+        apply floatConstValidityProof.
+      Qed.
+      simpl in *.    
+      eapply In_cross_In in H0.
+      forward_reason.
+      simpl in *.
+      destruct H3.
+      {
+        unfold simpleBound in *.
+        subst.
+        simpl in *.
+        decompose [and] H1.
+        revert H9 Heqo Heqo0.
+        apply plusResultValidityProof.  
+      }
+      {
+        destruct H3.
+        {
+          unfold simpleBound4 in *.
+          subst.
+          simpl in *.
+          decompose [and] H1.
+          revert H9 Heqo Heqo0.
+          apply plusResultValidityProof.  
+        }
+        {
+          destruct H3.
+          {
+            unfold simpleBound9 in *.
+            subst.
+            simpl in *.
+            decompose [and] H1.
+            revert H10 Heqo Heqo0.
+            apply plusResultValidityProof.  
+          }
+          {
+            destruct H3.
+            {
+              unfold simpleBound10 in *.
+              subst.
+              simpl in *.
+              decompose [and] H1.
+              revert H9 Heqo Heqo0.
+              apply plusResultValidityProof.  
+            }
+            {
+              intuition.
+            }
+          }
+        }
+      }
+    }
+    {
+      simpl in *.    
+      eapply In_cross_In in H0.
+      forward_reason.
+      simpl in *.
+      destruct H3.
+      {
+        subst.
+        simpl in *.
+        decompose [and] H1.
+        revert H9 Heqo Heqo0.
+        apply minusResultValidityProof.  
+      }
+      {
+        destruct H3.
+        {
+          subst.
+          simpl in *.
+          decompose [and] H1.
+          revert H9 Heqo Heqo0.
+          apply minusResultValidityProof.  
+        }
+        {
+          intuition.  
+        }
+      }
+    }
+    {
+      simpl in *.    
+      eapply In_cross_In in H0.
+      forward_reason.
+      simpl in *.
+      destruct H3.
+
+      {
+        subst.
+        simpl in *.
+        decompose [and] H1.
+        revert H10 Heqo Heqo0.
+        apply multResultValidityProof.  
+      }
+      {
+        destruct H3.
+        {
+          subst.
+          simpl in *.
+          decompose [and] H1.
+          revert H10 Heqo Heqo0.
+          apply multResultValidityProof.  
+        }
+        {
+          destruct H3.
+          {
+            subst.
+            simpl in *.
+            decompose [and] H1.
+            revert H10 Heqo Heqo0.
+            apply multResultValidityProof.  
+          }
+          {
+            destruct H3.
+            {
+              subst.
+              simpl in *.
+              decompose [and] H1.
+              revert H10 Heqo Heqo0.
+              apply multResultValidityProof.  
+            }  
+            { intuition. }
+          }
+        }          
+      }         
+    }
   }
 
-    
 Qed.
-
