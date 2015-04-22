@@ -46,8 +46,6 @@ Fixpoint subst_term_term (t1 t2 : Term) (x : Var)
     | RealT _ => t1
   end.
 
-Print Formula.
-
 (* If next is true, substitutes t for x! in F.
    If next is false, substitutes t for x in F. *)
 Fixpoint subst_term_formula (F:Formula) (t : Term) (x : Var)
