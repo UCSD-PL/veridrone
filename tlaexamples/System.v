@@ -750,4 +750,3 @@ Proof.
       charge_tauto. rewrite SysCompose_Comm. assumption.
     + charge_tauto.
 Qed.
-
