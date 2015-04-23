@@ -1821,6 +1821,7 @@ Proof.
       econstructor 2.
 Abort.
 
+(*
 (* I worry about the provability of this... *)
 Lemma omodels_crash :
     forall (c : fcmd) (ivs : list (Var * Var)) (sf : statef)
@@ -1851,6 +1852,7 @@ Proof.
     + congruence.
     + Abort. (*constructor. reflexivity.
 Qed.*)
+*)
 
 (*
   intros.
@@ -1883,34 +1885,6 @@ specialize (IHc2 ivs sf ss H H0 H7).
 
 (* We need more lemmas for the other admits in the main theorem,
    but I worry that not all of them are true.*)
-
-(*  intro c.
-  induction c.
-  { intros.
-    unfold reval. exists sf.
-    split.
-    - unfold stater_statef. intros x.
-
-    inversion H0; subst; clear H0.
-    - unfold reval. exists sf.
-    split.
-    - unfold stater_statef. intros x.
-      destruct (sf x) eqn:Hsfx.
-
-
-
-  unfold reval.
-  exists sf.
-  split.
-  - unfold stater_statef.
-    intro.
-    destruct (sf x) eqn:Hsfx.
-    +
-
-
-  - left. split; auto.
-Qed.
-*)
 
 (* We must prove that "abstract" evaluation (over reals)
    refines "concrete" evaluation (over floats) *)
@@ -2123,26 +2097,88 @@ Qed.
 
 Require Import bound.
 
-(* Calculating bounds for expressions *)
-Fixpoint fexpr_to_NowTerm (fx : fexpr) : NowTerm :=
-  match fx with
-    | FVar v   => VarNowN v
-    | FConst f => FloatN f
-    | FPlus fx1 fx2 =>
-      PlusN (fexpr_to_NowTerm fx1) (fexpr_to_NowTerm fx2)
+(* Variable translation functions *)
+Fixpoint vtrans_flt2tla (ivs : list (Var * Var)) (v : Var) : Var :=
+  match ivs with
+    | nil              => v (* bogus *)
+    | (vl, vr) :: ivs' =>
+      if v ?[eq] vr then vl
+      else vtrans_flt2tla ivs' v
   end.
 
-Definition bound_fexpr (fx : fexpr) : list singleBoundTerm :=
-  bound_term (fexpr_to_NowTerm fx).
+Fixpoint vtrans_tla2flt (ivs : list (Var * Var)) (v : Var) : Var :=
+  match ivs with
+    | nil              => v (* bogus *)
+    | (vl, vr) :: ivs' =>
+      if v ?[eq] vl then vr
+      else vtrans_tla2flt ivs' v
+  end.
 
-Print singleBoundTerm.
-Check denote_singleBoundTerm.
+(* The actually correct definition of var_spec_valid *)
+Fixpoint var_spec_valid' {T U : Type} (vs : list (T * U)) : Prop :=
+  match vs with 
+    | nil             => True
+    | (lv, rv) :: vs' =>
+      (Forall (fun vv => 
+                let '(lv', rv') := vv in
+                lv' <> lv /\ rv' <> rv)%type vs' /\
+      var_spec_valid' vs')%type
+  end.
+
+(*
+Lemma vtrans_flt2tla2flt :
+  forall ivs v,
+    var_spec_valid' ivs ->
+    vtrans_flt2tla ivs (vtrans_tla2flt ivs v) = v.
+Proof.
+  induction ivs.
+  - reflexivity. 
+  - intros. simpl. destruct a.
+    consider (v ?[eq] v0); intros.
+    + subst. rewrite RelDec.rel_dec_eq_true; eauto with typeclass_instances.
+    + simpl in H. fwd. rewrite IHivs; auto.
+      Print var_spec_valid'.
+      clear -H. induction ivs.
+      * simpl.
+      unfold vtrans_tla2flt.
+
+Lemma vtrans_tla2flt2tla :
+  forall ivs v,
+    vtrans_tla2flt ivs (vtrans_flt2tla ivs v) = v.
+Proof.
+  induction ivs.
+  - reflexivity.
+  - intros. simpl. destruct a.
+    consider (v ?[eq] v1); intros.
+    + subst. rewrite RelDec.rel_dec_eq_true; try eauto with typeclass_instances.
+    + rewrite IHivs.
+      consider (v ?[eq] v0); intros.
+      * subst. rewrite RelDec.rel_dec_eq_true; eauto with typeclass_instances.
+
+   + subst. consider (v0 ?[eq] v0); intros; congruence.
+    + simpl.
+      consider (v ?[eq] v0); intros.
+      * subst. consider (v0 ?[eq] v0); subst; intros.
+*)
+
+(* Calculating bounds for expressions *)
+Fixpoint fexpr_to_NowTerm (fx : fexpr) (ivs : list (Var * Var)) : NowTerm :=
+  match fx with
+    | FVar v   => VarNowN (vtrans_flt2tla ivs v)
+    | FConst f => FloatN f
+    | FPlus fx1 fx2 =>
+      PlusN (fexpr_to_NowTerm fx1 ivs) (fexpr_to_NowTerm fx2 ivs)
+  end.
+
+Definition bound_fexpr (fx : fexpr) (ivs : list (Var * Var)) : list singleBoundTerm :=
+  bound_term (fexpr_to_NowTerm fx ivs).
 
 Definition bounds_to_formula (sbt : singleBoundTerm) (ss : Syntax.state) : (Prop * (R -> Prop)) :=
   denote_singleBoundTermNew ss sbt.
 
 (* Used to translate between two different representations
    of floating-point state (since bounds proofs use a different one    Only checks to see if related on variables in fstate *)
+(* This isn't really the notion we want; we instead use fstate_to_statef *)
 Fixpoint fstate_statef (fs : fstate) (sf : statef) : Prop :=
   match fs with
     | nil           => True
@@ -2195,17 +2231,6 @@ Proof.
 Qed.
 *)
 
-(* The actually correct definition of var_spec_valid *)
-Fixpoint var_spec_valid' {T U : Type} (vs : list (T * U)) : Prop :=
-  match vs with 
-    | nil             => True
-    | (lv, rv) :: vs' =>
-      (Forall (fun vv => 
-                let '(lv', rv') := vv in
-                lv' <> lv /\ rv' <> rv)%type vs' /\
-      var_spec_valid' vs')%type
-  end.
-
 (* TODO maybe have a concept of statef "containing" var map *)
 Fixpoint statef_to_fstate (ivs : list (Var * Var)) (sf : statef) : fstate :=
   match ivs with
@@ -2218,9 +2243,6 @@ Fixpoint statef_to_fstate (ivs : list (Var * Var)) (sf : statef) : fstate :=
                                vl = use tla var for float state *)
       end
   end.
-
-Check bound_proof'.
-Print related.
 
 Lemma related_vmodels :
   forall (ivs : list (Var * Var)) (ss : Syntax.state) (sf : statef),
@@ -2241,8 +2263,6 @@ Proof.
     inversion H5; subst; clear H5.    
     rewrite H3. reflexivity. 
 Qed.
-
-Check fexprD.
       
 Check bound_proof'.
 Print boundDef'.
@@ -2288,15 +2308,16 @@ Proof.
      { fwd. 
        specialize (IHivs _ _ H1 H0).
        rewrite <- IHivs.
-       consider (st v0); intros; try reflexivity.
-       simpl.
-       consider (x ?[eq] v); intros; try reflexivity.
-       subst.
-       SearchAbout Forall.
-       generalize (Forall_forall). intro Hfafa.
-       edestruct Hfafa. clear H4.
-       specialize (H3 H _ H0).
-       simpl in H3. fwd. congruence. }
+       consider (st v0); intros.
+       - simpl.
+         consider (x ?[eq] v); intros.
+         + subst. generalize Forall_forall. intros Hfafa.
+           edestruct Hfafa. clear H4. specialize (H3 H _ H0). simpl in H3.
+           fwd. congruence.
+         + rewrite IHivs. consider (v1 ?[eq] v0); intros.
+           * subst. auto.
+           * reflexivity.
+       - reflexivity. }
 Qed.
 
 (* Important auxiliary lemma related fexprD and eval_NowTerm *)
@@ -2309,21 +2330,38 @@ Lemma fexpr_NowTerm_related_eval :
     varmap_check_fexpr ivs fx ->
     fexprD fx st' = Some f ->
     eval_NowTerm (statef_to_fstate ivs st')
-                 (fexpr_to_NowTerm fx) = Some f. 
+                 (fexpr_to_NowTerm fx ivs) = Some f. 
 Proof.
   induction fx; eauto.
   - simpl. intros. fwd.
     rewrite <- H3.
     eapply related_vmodels_lookup; eauto.
-   - simpl. intros. fwd.
+    generalize dependent x.
+    induction ivs.
+    + simpl in *. contradiction.
+    + simpl. destruct a. simpl in *. intros. fwd.
+      destruct H2.
+      { inversion H2; subst; clear H2. left. rewrite RelDec.rel_dec_eq_true; eauto with typeclass_instances. }
+      { right. consider (v ?[eq] v1); intros.
+        - subst. 
+          eapply Forall_forall in H; eauto.
+          inversion H. congruence.
+        - eapply IHivs; eauto.
+          unfold realify_state in H0.
+          consider (st' v1); intros.
+          + apply related_vmodels; auto. 
+          + auto. }
+  - intros. simpl. simpl in H2, H3. fwd.
     consider (fexprD fx1 st'); intros; try congruence.
-    erewrite IHfx1; try reflexivity; auto.
     consider (fexprD fx2 st'); intros; try congruence.
-    erewrite IHfx2; try reflexivity; auto.
-Qed.    
+    erewrite IHfx1; eauto.
+    erewrite IHfx2; eauto.
+Qed.
 
+
+(* THE correctness lemma for bound_fexpr (that we use) *)
 Lemma bound_fexpr_sound : forall ivs fx sbts,
-    bound_fexpr fx = sbts ->
+    bound_fexpr fx ivs = sbts ->
     var_spec_valid' ivs ->
     varmap_check_fexpr ivs fx ->
     Forall (fun sbt =>
@@ -2339,91 +2377,31 @@ Proof.
   intros.
   generalize (bound_proof'). intro Hbp.
   generalize (related_vmodels). intro Hrvm.
+  generalize (related_vmodels_lookup). intro Hrvml.
+  generalize (fexpr_NowTerm_related_eval). intro Hfntre.
   apply Forall_forall. intros.
+  specialize (fun v1 v2 => Hrvml ivs v1 v2 H0).
+  specialize (Hbp st (fexpr_to_NowTerm fx ivs)).
+  specialize (Hfntre ivs st st' H0 H4).
   specialize (Hrvm ivs st st' H0 H4).
-  specialize (Hbp st (fexpr_to_NowTerm fx) _ Hrvm).
+  fwd.
+  specialize (Hbp _ Hrvm).
   fwd. intros.
+  unfold bounds_to_formula, denote_singleBoundTermNew in H5.  simpl in H5.
+  inversion H5; subst; clear H5.
   exists f.
   split; auto.
   unfold boundDef' in Hbp. simpl in Hbp.
-
-  cutrewrite ((eval_NowTerm (statef_to_fstate ivs st') (fexpr_to_NowTerm fx) = Some f)%type) in Hbp. 
-  - subst.
-    eapply Forall_forall in Hbp; try eassumption.
-    
-    
-    
-    + 
-  
-  Focus 2.
-  
-  -
-  
-
-  destruct x. subst.
-  inversion H4; subst; clear H4.
-  eexists.
-  split.
-
-  (* lemma about fexpr_to_NowTerm and fexprD *)
-  (* if a term evaluates to a float, *)
-
-
-  consider (eval_NowTerm (statef_to_fstate ivs st') (fexpr_to_NowTerm fx)); intros.
-  Focus 2.
-  induction ivs.
-  - simpl in H. Print eval_NowTerm.
-
-  - consider (F2OR f). Focus 2.
-    intros. 
-    + intros.
-    exists (F2OR f).
-
-    + assumption.
-    + unfold bound_fexpr in H1.
-      eapply Forall_forall in Hbp; eauto.
-      consider (floatToReal f0); intros.
-      *
-  -
-      eapply Forall_forall in H1.
-    * 
-   
-  Focus 2.
-  
-  simpl in H6.
-  - intros. 
-  Print boundDef'.
-  SearchAbout fexpr.
-  specialize (Hbp _ _ _ Hrvm).
-  eapply related_vmodels in H0.
-
-
-  intros ivs fx. generalize dependent ivs.
-  induction fx.
-  - intros. apply Forall_forall.
-    intros. 
-    fwd. intros. simpl.
-    Check bound_proof'.
-    Print fstate.
-    Print statef.
-    Print related.
-    apply related_vmodels in H1.
-    eexists. split.
-    + 
-    Check bound_proof'.
-    Print related.
-    
-  intros ivs fx. induction fx.
-  - intros. apply Forall_forall; intros.
-    fwd. intros.
-
-  generalize bound_proof'. intro Hbp'.
-  intros.
-  unfold boundDef' in Hbp'.
-  apply Forall_forall.
-  intros.
-  fwd. intros.
-  destruct (bounds_to_formula x st).
+  specialize (Hfntre fx f H1 H3).
+  rewrite Hfntre in Hbp.
+  apply Forall_forall with (x := x) in Hbp.
+  - consider (floatToReal f); intros.
+    + exists r. split.
+      * rewrite <- H. reflexivity.
+      * auto.
+    + exfalso; auto.
+  - unfold bound_fexpr in *; assumption.
+Qed.
 
 
 Fixpoint AnyOf (Ps : list Prop) : Prop :=
