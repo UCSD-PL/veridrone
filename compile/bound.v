@@ -6541,13 +6541,10 @@ clear H1. psatz R. Qed.
         {
           split.
           {
-            z3 solve_dbg.
             psatz R.
            }
           destruct Rcase_abs.
-          z3 solve_dbg.
           psatz R.
-          z3 solve_dbg.
           psatz R.
         }
       }
