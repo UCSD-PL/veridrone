@@ -71,10 +71,10 @@ Fixpoint subst_term_formula (F:Formula) (t : Term) (x : Var)
 (* Some notation *)
 Notation "F [ t /! x ]" :=
   (subst_term_formula F t x true)
-    (at level 50).
+    (at level 50) : HP_scope.
 Notation "F [ t // x ]" :=
   (subst_term_formula F t x false)
-    (at level 50).
+    (at level 50) : HP_scope.
 
 (* And now a whole bunch of lemmas about
    substitutions. *)
