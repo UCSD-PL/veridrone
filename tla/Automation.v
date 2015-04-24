@@ -1,8 +1,7 @@
-Require Import RelationClasses.
+Require Import Coq.Classes.RelationClasses.
+Require Import ChargeTactics.Tactics.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
-Require Import TLA.LogicLemmas.
-Export TLA.LogicLemmas.
 
 (** NOTE: Avoid using this **)
 Ltac breakAbstraction :=
@@ -46,18 +45,15 @@ Ltac tlaAssume :=
           | apply landL2 ; tlaAssume ]
   end.
 
-Ltac tlaIntro :=
-  first [ apply lforallR; intro
-        | apply limplAdj_true
-        | apply limplAdj ].
+Ltac tlaIntro := charge_intro.
 
 Ltac tlaIntuition :=
   breakAbstraction ; intuition ; restoreAbstraction.
 
 Ltac tlaAssert H :=
-  apply lcut with (R:=H).
+  apply Lemmas.lcut with (R:=H).
 
-Ltac tlaRevert := first [ apply landAdj | apply lrevert ].
+Ltac tlaRevert := first [ apply landAdj | apply Lemmas.lrevert ].
 
 (** Rewriting **)
 Section RW_Impl.
@@ -73,7 +69,7 @@ Section RW_Impl.
   Global Instance Transitive_RW_Impl : Transitive RW_Impl.
   Proof.
     red; red. intros. apply limplAdj.
-    eapply lcut. instantiate (1 := y).
+    eapply Lemmas.lcut. instantiate (1 := y).
     apply landAdj. apply H.
     apply landL1. apply H0.
   Qed.
@@ -156,7 +152,6 @@ End RW_Impl.
 Class SimpleEntail (A B : Formula) : Prop :=
   slentails : lentails A B.
 
-
 Hint Extern 1 (SimpleEntail _ _) => match goal with
                                     | |- ?X => idtac X; red; charge_tauto
                                     end : typeclass_instances.
@@ -186,3 +181,5 @@ Proof.
 Qed.
 
 Arguments rw_impl {P A B} _ _ _ _.
+
+Export ChargeTactics.Tactics.

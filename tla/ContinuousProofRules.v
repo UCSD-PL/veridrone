@@ -221,7 +221,7 @@ Lemma diff_ind_imp : forall F H G eqs,
   (F |-- (next H -->> next G)).
 Proof.
   intros F H G eqs HstG HstH Hin Hinit Hcont Hind.
-  apply lrevert. apply imp_right.
+  tlaRevert. apply imp_right.
   assert (|-- (Continuous eqs //\\ next H) -->> H) by
     (eapply extract_vars_0; eauto; charge_assumption).
   assert (|-- (Continuous eqs //\\ H) -->> next H) by

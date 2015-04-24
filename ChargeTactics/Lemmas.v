@@ -37,6 +37,40 @@ Section logic.
       P |-- R.
   Proof. intros; eapply lcut; eauto. Qed.
 
+  Lemma lapply2 : forall P Q R S,
+      P |-- Q -->> R -->> S ->
+      P |-- Q ->
+      P |-- R ->
+      P |-- S.
+  Proof. intros; eapply lcut; eauto using lapply. Qed.
+
+  Lemma lapply3 : forall P Q R S T,
+      P |-- Q -->> R -->> S -->> T ->
+      P |-- Q ->
+      P |-- R ->
+      P |-- S ->
+      P |-- T.
+  Proof. intros; eapply lcut; eauto using lapply2. Qed.
+
+  Lemma lapply4 : forall P Q R S T U,
+      P |-- Q -->> R -->> S -->> T -->> U ->
+      P |-- Q ->
+      P |-- R ->
+      P |-- S ->
+      P |-- T ->
+      P |-- U.
+  Proof. intros; eapply lcut; eauto using lapply3. Qed.
+
+  Lemma lapply5 : forall P Q R S T U V,
+      P |-- Q -->> R -->> S -->> T -->> U -->> V->
+      P |-- Q ->
+      P |-- R ->
+      P |-- S ->
+      P |-- T ->
+      P |-- U ->
+      P |-- V.
+  Proof. intros; eapply lcut; eauto using lapply4. Qed.
+
   Lemma land_lor_distr_L : forall P Q R,
       P //\\ (Q \\// R) -|- (P //\\ Q) \\// (P //\\ R).
   Proof.
@@ -65,14 +99,9 @@ Section logic.
 
 End logic.
 
-Ltac charge_split := apply landR.
+Local Ltac charge_split := apply landR.
 
-Ltac charge_simple_split :=
-  match goal with
-  | |- _ |-- _ //\\ _ => apply landR
-  end.
-
-Ltac charge_search_prems found :=
+Local Ltac charge_search_prems found :=
   match goal with
   | |- ?X |-- ?Y =>
     solve [ found
@@ -80,26 +109,32 @@ Ltac charge_search_prems found :=
           | apply landL2 ; charge_search_prems found ]
   end.
 
-Ltac charge_assumption :=
+Local Ltac charge_assumption :=
   charge_search_prems reflexivity.
 
-Ltac charge_intro :=
+Local Ltac charge_intro :=
   first [ apply lforallR; intro
         | apply limplAdj_true
         | apply limplAdj ].
 
-Ltac charge_intros :=
+Local Ltac charge_intros :=
   repeat match goal with
          | |- _ |-- _ -->> _ =>
            charge_intro
+         | |- _ |-- @lforall _ _ _ _ =>
+           charge_intro
          end.
 
-Ltac charge_trivial := apply ltrueR.
+Local Ltac charge_trivial := apply ltrueR.
 
-Ltac charge_use :=
-  eapply lapply; [ charge_assumption | ].
+Local Ltac charge_use :=
+  first [ eapply lapply; [ charge_assumption | ]
+        | eapply lapply2; [ charge_assumption | | ]
+        | eapply lapply3; [ charge_assumption | | | ]
+        | eapply lapply4; [ charge_assumption | | | | ]
+        | eapply lapply5; [ charge_assumption | | | | | ] ].
 
-Ltac ends_with H ABC C :=
+Local Ltac ends_with H ABC C :=
   let rec go k ABC :=
       match ABC with
       | C => k
@@ -110,7 +145,7 @@ Ltac ends_with H ABC C :=
   in
   go ltac:(idtac) ABC.
 
-Ltac charge_apply H :=
+Local Ltac charge_apply H :=
   match type of H with
   | _ |-- ?X =>
     match goal with
@@ -119,24 +154,12 @@ Ltac charge_apply H :=
     end
   end.
 
-Ltac charge_left :=
-  match goal with
-  | |- _ |-- _ \\// _ => apply lorR1
-  end.
-
-Ltac charge_right :=
-  match goal with
-  | |- _ |-- _ \\// _ => apply lorR2
-  end.
-
-Ltac charge_tauto :=
-  repeat charge_simple_split ;
+Local Ltac charge_tauto :=
+  repeat charge_split ;
   solve [ charge_assumption
         | charge_trivial
         | charge_intro; repeat charge_intro; charge_tauto
         | charge_split; solve [ charge_tauto ]
-        | apply lorR1 ; solve [ charge_tauto ]
-        | apply lorR2 ; solve [ charge_tauto ]
         | match goal with
           | H : _ |-- _ |- _ =>
             charge_apply H ; charge_tauto
@@ -152,7 +175,6 @@ Section logic2.
     (A -->> B) //\\ (B -->> A).
 
   Notation "x <<-->> y" := (liff x y) (at level 78).
-
 
   Lemma ltrue_liff : forall A B,
       |-- A <<-->> B <-> A -|- B.
@@ -205,6 +227,69 @@ Section logic2.
     intros. charge_tauto.
   Qed.
 
+  Lemma land_limpl_specialize_ap : forall P Q L R G,
+      L //\\ R |-- P ->
+      L //\\ Q //\\ R |-- G ->
+      L //\\ (P -->> Q) //\\ R |-- G.
+  Proof.
+    intros. charge_tauto.
+  Qed.
+
+  Lemma land_limpl_specializeR_ap : forall P Q R G,
+      R |-- P ->
+      Q //\\ R |-- G ->
+      (P -->> Q) //\\ R |-- G.
+  Proof.
+    intros; charge_tauto.
+  Qed.
+
+  Lemma land_limpl_specializeL_ap : forall P Q R G,
+      R |-- P ->
+      Q //\\ R |-- G ->
+      R //\\ (P -->> Q) |-- G.
+  Proof.
+    intros; charge_tauto.
+  Qed.
+
+  Lemma landA_ap : forall P Q R G,
+      (P //\\ Q) //\\ R |-- G ->
+      P //\\ Q //\\ R |-- G.
+  Proof.
+    intros. charge_tauto.
+  Qed.
+
+  Lemma land_lexists_ap : forall T (P : T -> L) Q R S,
+      (forall x, S //\\ P x //\\ Q |-- R) ->
+      S //\\ (lexists P) //\\ Q |-- R.
+  Proof.
+    intros. rewrite landC. rewrite landA.
+    eapply landAdj.
+    apply lexistsL.
+    intro. specialize (H x).
+    charge_tauto.
+  Qed.
+
+  Lemma land_lexistsL_ap : forall T (P : T -> L) R S,
+      (forall x, S //\\ P x |-- R) ->
+      S //\\ (lexists P) |-- R.
+  Proof.
+    intros. rewrite landC.
+    eapply landAdj.
+    apply lexistsL.
+    intro. specialize (H x).
+    charge_tauto.
+  Qed.
+
+  Lemma land_lexistsR_ap : forall T (P : T -> L) R S,
+      (forall x, P x //\\ S |-- R) ->
+      lexists P //\\ S |-- R.
+  Proof.
+    intros.
+    eapply landAdj.
+    apply lexistsL.
+    intro. specialize (H x).
+    charge_tauto.
+  Qed.
 
 End logic2.
 

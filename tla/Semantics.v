@@ -31,15 +31,13 @@ Fixpoint eval_term (t:Term) (s1 s2:state) : R :=
 (* Semantics of comparison operators *)
 Definition eval_comp (t1 t2:Term) (op:CompOp) (s1 s2:state) :
   Prop :=
-  let (e1, e2) := (eval_term t1 s1 s2, eval_term t2 s1 s2) in
-  let op := match op with
-              | Gt => Rgt
-              | Ge => Rge
-              | Lt => Rlt
-              | Le => Rle
-              | Eq => eq
-            end in
-  op e1 e2.
+  match op with
+  | Gt => Rgt
+  | Ge => Rge
+  | Lt => Rlt
+  | Le => Rle
+  | Eq => eq
+  end (eval_term t1 s1 s2) (eval_term t2 s1 s2).
 
 (* Semantics of temporal formulas *)
 Fixpoint eval_formula (F:Formula) (tr:trace) :=

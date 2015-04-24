@@ -229,7 +229,7 @@ Proof.
       unfold eval_comp; simpl; intuition.
   - intuition;
     inversion H2; clear H2;
-    exists x0; 
+    exists x0;
     specialize (H x0 t1 t2 x b tr);
     simpl in H; unfold eval_comp in H;
     apply H in H0;
@@ -307,35 +307,64 @@ Proof.
     intros. apply H; assumption.
 Qed.
 
-Lemma subst_formula_eq : forall F t (x:Var),
+Lemma subst_formula_eq : forall t (x:Var) F,
   |-- x = t -->>
      ((subst_term_formula F t x false -->> F) //\\
       (F -->> subst_term_formula F t x false)).
 Proof.
-  induction F; simpl; unfold tlaEntails; simpl; auto; intros.
-  - unfold eval_comp; simpl.
-    erewrite <- subst_term_term_eq_varnow with (t1:=t);
-      eauto.
+  induction F; try solve [ simpl; unfold tlaEntails; simpl; auto; intros ].
+  - simpl; unfold tlaEntails; simpl; auto; intros.
+    unfold eval_comp; simpl.
     erewrite <- subst_term_term_eq_varnow with (t1:=t0);
       eauto.
-  - intuition;
+    erewrite <- subst_term_term_eq_varnow with (t1:=t1);
+      eauto.
+    red. simpl. eassumption.
+  - simpl; unfold tlaEntails; simpl; auto; intros.
+    intuition;
     try eapply IHF1;
     try eapply IHF2;
     eauto; intuition.
-  - intuition;
-    [ left; eapply IHF1 |
-      right; eapply IHF2 |
-      left; eapply IHF1 |
-      right; eapply IHF2 ];
-    eauto; intuition.
-  - intuition;
-    eapply IHF2; eauto;
-    apply H1; eapply IHF1; eauto.
-  - split;
-    intro H2; inversion H2; clear H2;
-    specialize (H x0 t x tr); simpl in H;
-    apply H in H0; inversion H0;
-    try eexists; eauto.
+  - intros. simpl; restoreAbstraction.
+    charge_intro.
+    apply landAdj in IHF1.
+    rewrite landtrueL in IHF1.
+    apply landAdj in IHF2.
+    rewrite landtrueL in IHF2.
+    tlaAssert (x = t). reflexivity.
+    etransitivity. eapply IHF1.
+    rewrite IHF2.
+    charge_intro. charge_fwd.
+    charge_split; charge_intro;
+    repeat rewrite Lemmas.land_lor_distr_L;
+    apply lorL; charge_fwd.
+    apply lorR1. charge_tauto.
+    apply lorR2. charge_tauto.
+    apply lorR1. charge_tauto.
+    apply lorR2. charge_tauto.
+  - simpl. restoreAbstraction.
+    charge_intro.
+    apply landAdj in IHF1.
+    rewrite landtrueL in IHF1.
+    apply landAdj in IHF2.
+    rewrite landtrueL in IHF2.
+    tlaAssert (x = t). reflexivity.
+    etransitivity. eapply IHF1.
+    rewrite IHF2.
+    clear. charge_intro.
+    charge_split; charge_intros; charge_fwd; charge_tauto.
+  - simpl. restoreAbstraction.
+    charge_intro; charge_split; charge_intro; charge_fwd.
+    { specialize (H x0).
+      apply landAdj in H. rewrite landtrueL in H.
+      rewrite H.
+      eapply lexistsR; instantiate(1 :=x0).
+      charge_fwd. charge_tauto. }
+    { specialize (H x0).
+      apply landAdj in H. rewrite landtrueL in H.
+      rewrite H.
+      eapply lexistsR; instantiate(1 :=x0).
+      charge_fwd. charge_tauto. }
 Qed.
 
 Lemma subst_term_eq_next : forall t1 x t2,

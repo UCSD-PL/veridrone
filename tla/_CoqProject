@@ -1,10 +1,10 @@
 -R ../Z3-plugin/src Z3
 -R . TLA
 -I ../Charge/Charge!/bin
+-R ../ChargeTactics ChargeTactics
 Stream.v
 Syntax.v
 Semantics.v
-LogicLemmas.v
 Lib.v
 BasicProofRules.v
 DifferentialInduction.v
