@@ -1427,6 +1427,22 @@ Definition fupdate {T : Type} (s : Var -> T) (v : Var) (val : T) : Var -> T :=
 
 Definition fzero := Eval compute in (nat_to_float 0).
 
+Require Import compcert.flocq.Core.Fcore_ulp.
+
+Definition F2OR (f : float) : option R :=
+  match f with
+    | Fappli_IEEE.B754_zero   _       => Some (FloatToR f)
+    | Fappli_IEEE.B754_finite _ _ _ _ => Some (FloatToR f)
+    | _                               => None
+  end.
+
+Definition float_lt (f1 f2 : float)  : Prop :=
+  (*(F2OR f1 = Some r1 /\ F2OR f2 = Some r2 /\ (r1 < r2)%R)%type.*)
+  (FloatToR f1 < FloatToR f2)%R.
+
+Definition float_ge (f1 f2 : float) : Prop :=
+  (FloatToR f1 >= FloatToR f2)%R.
+
 Inductive feval : statef -> fcmd -> option statef -> Prop :=
 | FESkip : forall s, feval s FSkip (Some s)
 | FESeqS : forall s s' os'' a b,
@@ -1443,14 +1459,15 @@ Inductive feval : statef -> fcmd -> option statef -> Prop :=
     fexprD e s = None ->
     feval s (FAsn v e) None
 | FEIteT :
-    forall s os' ex c1 c2,
-      fexprD ex s = Some fzero ->
+    forall s os' ex c1 c2 f,
+      fexprD ex s = Some f ->
+      float_lt f fzero ->
       feval s c1 os' ->
       feval s (FIte ex c1 c2) os'
 | FEIteF:
     forall s os' ex c1 c2 f,
       fexprD ex s = Some f ->
-      f <> fzero ->
+      float_ge f fzero ->
       feval s c2 os' ->
       feval s (FIte ex c1 c2) os'
 | FEIteN :
@@ -1470,12 +1487,6 @@ Print float.
 Print Fappli_IEEE.binary_float.
 Check Fappli_IEEE.B754_finite.
 
-Definition F2OR (f : float) : option R :=
-  match f with
-    | Fappli_IEEE.B754_zero   _       => Some (FloatToR f)
-    | Fappli_IEEE.B754_finite _ _ _ _ => Some (FloatToR f)
-    | _                               => None
-  end.
 
 (* TODO side condition: output variables should be subset of
    input variables *)
@@ -2545,7 +2556,7 @@ Lemma HoareA_ex_asn :
                             let '(pred,bound) := bounds_to_formula sbt ss in
                             pred /\ forall val : R,
                                       bound val -> P (fupdate ss v val))
-                         (bound_fexpr e)))%type
+                         (bound_fexpr e ivs)))%type
       (FAsn v' e)
       P.
 Proof.
@@ -2566,70 +2577,23 @@ Proof.
     induction (bound_fexpr e).
     { simpl in *. contradiction. }
     { simpl in *.
+      fwd.
       inversion H4; subst; clear H4.
       destruct H3; auto.
       clear IHl H9.
-      specialize (H8 _ _ H2).
-      destruct (bounds_to_formula a x). fwd.
-      specialize (H4 _ H8).
-      rewrite H5 in H7. inversion H7; subst; clear H7.
-      eexists; split; [|apply H4]. 
-      apply vmodels_fupdate_match; auto. } }
+      fwd.
+      specialize (H8 _ _ _ H7 H2 H3). fwd.
+      exists (fupdate x v x1).
+      split; auto.
+      apply vmodels_fupdate_match; auto. 
+      rewrite H7 in H5. inversion H5; subst; clear H5.
+      assumption. } }
 Qed.
 
-
-
-(* Anyof -> feval will *)
-
-(* Type checking - need to see if all variables mentioned on RHS in program are
-   contained in variable map. Add successful typecheck to premises of asn
-   (and others that need it maybe) *)
 
 (* We want to be able to abstract program x := 1+1, and show that it
    refines x > 0 *)
 
-
-(*
-Fixpoint bounds_to_formula' (bounds : list singleBoundTerm) (center : Term) : Prop :=
-  match bounds with
-    | nil => True
-    | (mkSBT lb ub side) :: bounds' =>
-      ((bounds_to_formula' bounds' center) /\
-      (side -> ((Comp lb center Le) /\
-                (Comp center ub Le))))%type
-  end.
-*)
-
-(*
-    HoareA_ex ivs ivs
-      (fun ss : Syntax.state =>
-         AnyOf (List.map (fun sbt =>
-                            let '(pred,bound) := bounds_to_formula sbt ss in
-                            pred /\ forall val : R,
-                                      bound val -> P (fupdate ss v val))
-                         (bound_fexpr e)))%type
-      (FAsn v' e)
-      P
-*)
-
-(* TODO prove consequence *)
-
-(*
-Lemma fwp_correct :
-  forall ivs c P,
-    HoareA_ex ivs ivs
-*)
-(*
-    HoareA_ex ivs ivs
-      (fun ss : Syntax.state =>
-         AnyOf (List.map (fun sbt =>
-                            let '(pred,bound) := bounds_to_formula sbt ss in
-                            pred /\ forall val : R,
-                                      bound val -> P (fupdate ss v val))
-                         (bound_fexpr e)))%type
-      (FAsn v' e)
-      P.
-*)
 
 Check conseqR.
 
@@ -2645,27 +2609,238 @@ Proof.
   split; [|split]; try eexists; eauto.
 Qed.
 
+Print feval.
+Check FIte.
+Print feval.
+(*
+Lemma Hoare__ite :
+  forall P Q c1 c2 e s,
+    fexprD e s
+    Hoare_ ( B /\ P) c1 Q ->
+    Hoare_ (~B /\ P) c2 Q ->
+    Hoare_ P (FIte e c1 c2) Q.
+Proof.
+*)
+SearchAbout singleBoundTerm.
+
+Lemma vtrans_flt2tla_In :
+  forall x v ivs,
+    var_spec_valid' ivs ->
+    In (x, v) ivs ->
+    vtrans_flt2tla ivs v = x.
+Proof.
+  induction ivs.
+  - intros. inversion H0.
+  - intros. simpl in *. destruct a. fwd.
+    destruct H0.
+    + inversion H0; subst; clear H0.
+      rewrite RelDec.rel_dec_eq_true; eauto with typeclass_instances.
+    + rewrite IHivs; auto. consider (v ?[eq] v1); intros.
+      { eapply Forall_forall in H; eauto.
+        simpl in H. fwd. subst. congruence. }
+      { reflexivity. }
+Qed.
+
+Lemma HoareA_ex_ite :
+  forall ex ivs (P Q : _ -> Prop) (*v v'*) c1 c2,
+    var_spec_valid' ivs ->
+    varmap_check_fexpr ivs ex ->
+    Forall (fun sbt =>
+              (HoareA_ex ivs ivs (fun ss => (eval_term (lb sbt) ss ss <  0)%R /\ P ss) c1 Q) /\
+              (HoareA_ex ivs ivs (fun ss => (eval_term (ub sbt) ss ss >= 0)%R /\ P ss) c2 Q))%type
+           (bound_fexpr ex ivs) ->
+    HoareA_ex ivs ivs
+              P
+              (FIte ex c1 c2)
+              Q.
+Proof.
+  induction ex.
+  { intros. unfold bound_fexpr in H1. simpl in *. fwd.
+    inversion H1; subst; clear H1. fwd.
+    unfold HoareA_ex, Hoare_, Hoare in *.
+    simpl in *. intros. fwd. clear H5.
+    specialize (H1 s). specialize (H2 s).
+    consider (Fcore_Raux.Rcompare (x0 (vtrans_flt2tla ivs v)) 0); intros.
+    { apply Fcore_Raux.Rcompare_Eq_inv in H5. apply Req_ge in H5.
+      destruct H2.
+      - exists x0. eauto.
+      - fwd. split.
+        + exists x1. eapply FEIteF; eauto.
+          {
+           
+              vmodels ivs ss sf ->
+
+
+ SearchAbout vmodels.
+
+
+    (*
+    split; [|split].
+    { consider (Fcore_Raux.Rcompare (x0 (vtrans_flt2tla ivs v)) 0); intros.
+      - apply Fcore_Raux.Rcompare_Eq_inv in H5. apply Req_ge in H5.
+        destruct H2.
+        + exists x0. split; auto.
+        + fwd. exists x1. admit. 
+      - apply Fcore_Raux.Rcompare_Lt_inv in H5.
+        destruct H1.
+        + exists x0. split; auto.
+        + fwd. exists x1. admit.
+      - apply Fcore_Raux.Rcompare_Gt_inv in H5.
+        assert (x0 (vtrans_flt2tla ivs v) >= 0)%R by (clear -H5; psatz R).
+        destruct H2.
+        + exists x0. split; auto.
+        + fwd. exists x1. admit. }
+    { intro. inversion H5; subst; clear H5.
+      - replace (vtrans_flt2tla ivs v) with x in H1; [|admit].
+        destruct H1. 
+        + eexists. split; [|split]; eauto.
+          unfold float_lt in H12. simpl in H12.
+          simpl in H10. admit.
+        + fwd; contradiction.
+      - destruct H2. 
+        + eexists. split; [|split]; eauto.
+          unfold float_ge in H12. simpl in H12.
+          simpl in H10. admit.
+        + fwd; contradiction. 
+      - simpl in H8. admit. }
+    { intros.
+      consider (Fcore_Raux.Rcompare (x0 (vtrans_flt2tla ivs v)) 0); intros.
+      - apply Fcore_Raux.Rcompare_Eq_inv in H6. apply Req_ge in H6.
+        destruct H2.
+        + exists x0. split; auto.
+        + fwd. apply H8. 
+          inversion H5; subst; clear H5.
+          * unfold float_lt in H15. simpl in H15.
+            admit.
+          * assumption.
+      - admit. (*samey*)
+      - admit. } }
+    { intros.
+      unfold bound_fexpr in H1. simpl in H1. inversion H1; subst; clear H1. clear H5.
+      fwd.
+      simpl in *.
+      unfold HoareA_ex, Hoare_, Hoare in *. fwd.
+      consider (Fcore_Raux.Rcompare (Fappli_IEEE.B2R custom_prec custom_emax f) 0); intros.
+      - apply Fcore_Raux.Rcompare_Eq_inv in H3. apply Req_ge in H3. clear H1. edestruct H2.
+        + fwd. exists x. eauto.
+        + fwd. split; [|split].
+          * exists x. eapply FEIteF; eauto. simpl. reflexivity.
+          * intro. inversion H8; subst; clear H8; try contradiction.
+            { admit. }
+            { inversion H11. }
+          * intros. apply H6. admit.
+      - split.
+        *)
+}
+    }
+
+        
+        
+ unfold float_lt in H12. simpl in H12.
+        
+        destruct
+          * simpl.
+
+    
+    split.
+    -
+
+    consider (Fcore_Raux.Rcompare (ss (vtrans_flt2tla ivs v)) 0).
+    - intros. apply Fcore_Raux.Rcompare_Eq_inv in H3.
+      generalize H3. intro H3'.
+      apply Req_ge in H3.
+      apply H2 in H3. clear H1 H2 H5.
+      unfold HoareA_ex, Hoare_, Hoare in *. intros. fwd.
+      specialize (H3 s).
+      destruct H3; [eexists; split; eauto|]. fwd.      
+      split; [|split].
+      + eexists. eapply FEIteF; eauto. simpl. Focus 2. unfold float_ge, fzero. simpl. rewrite <- H3'. 
+admit.
+      + fwd. intro. inversion H6; subst; clear H6; try contradiction.
+        * admit. (* unfold float_lt in H13. simpl in H13. simpl in H11. *)
+        * simpl in H9. admit. (*eexists. fwd. eapply FEIteF.
+          simpl. (* lemma about var trans and lookup. *) admit. *)
+      + intros. fwd. apply H6. inversion H5; subst; clear H5.
+        * 
+      red. r
+      SearchAbout ((_ = _) -> (_ >= _))%R.
+  red. red. red. intros.
+  fwd.
+  split; [|split].
+  { induction ex.
+    - simpl in H0. fwd. unfold bound_fexpr in H1. simpl in H1.
+      inversion H1; subst; clear H1.
+      fwd. simpl in *.
+simpl in H1. eexists. econstructor.
+      simpl. unfold vmodels, omodels in H2.
+      induction ivs.
+      + simpl in *; contradiction.
+      + destruct a. fwd.
+        
+      SearchAbout vmodels.
+}
+  {}
+  {}
+
+  induction ex.
+  - simpl; intros. fwd. destruct H1; try contradiction.
+    fwd.
+    consider ( (ss (vtrans_flt2tla ivs v) < 0)).
+    + red. red. red. intros.
+      
+
+
+ Print HoareA_ex.
+
+    +
+  intros.
+  
+
+(*
+(fun ss =>
+                 AnyOf (List.map
+                          (fun sbt =>
+                             (* NB the bounds on 0 are just 0 *)
+                             (* "ex is maybe < 0" *)
+                             ((eval_term (lb sbt) ss ss <  0)%R -> fwp c1 P ivs ss) /\
+                             (* "ex is maybe >= 0" *)
+                             ((eval_term (ub sbt) ss ss >= 0)%R -> fwp c2 P ivs ss))
+                          (bound_fexpr ex ivs)))%type
+*)
+
+
 (* Weakest-precondition calcluation function for fcmd language *)
 (* TODO made fwp take ivs? *)
-Fixpoint fwp (c : fcmd) (P : Syntax.state -> Prop) : Syntax.state -> Prop :=
+Check eval_term.
+
+Fixpoint fwp (c : fcmd) (P : Syntax.state -> Prop) (ivs : list (Var * Var)) : Syntax.state -> Prop :=
   match c with
   | FSkip => P
-  | FSeq c1 c2 => fwp c1 (fwp c2 P)
+  | FSeq c1 c2 => fwp c1 (fwp c2 P ivs) ivs
   | FAsn v e => (fun ss =>
                    AnyOf (List.map
                             (fun sbt =>
                                let '(pred,bound) := bounds_to_formula sbt ss in
                                pred /\ forall val : R,
                                          bound val -> P (fupdate ss v val))
-                            (bound_fexpr e)))%type
+                            (bound_fexpr e ivs)))%type
   | FFail => fun s => False
   | FHavoc v => fun s => False
-  (*| FIte ex c1 c2 => (fun s =>
+  | FIte ex c1 c2 => (fun ss =>
+                        AnyOf (List.map
+                                   (fun sbt =>
+                                      (* NB the bounds on 0 are just 0 *)
+                                      (* "ex is maybe < 0" *)
+                                      ((eval_term (lb sbt) ss ss <  0)%R -> fwp c1 P ivs ss) /\
+                                      (* "ex is maybe >= 0" *)
+                                      ((eval_term (ub sbt) ss ss >= 0)%R -> fwp c2 P ivs ss))
+                                   (bound_fexpr ex ivs)))%type
+  (*| FIte ex c1 c2 => (fun ss =>
                         (fexprD ex s = Some fzero /\ fwp c1 P s) \/
                         (exists (f : source.float), f <> fzero /\
                                                    fexprD ex s = Some f /\
-                                                   fwp c2 P s))%type*)
-  | FIte _ _ _ => fun s => False
+                                                   fwp c2 P s))%type *)
+  (*| FIte _ _ _ => fun s => False*)
   end.
 
 Lemma fwp_correct :
@@ -2673,7 +2848,7 @@ Lemma fwp_correct :
     var_spec_valid' ivs ->
     varmap_check_fcmd ivs c ->
     HoareA_ex ivs ivs
-              (fwp c P)
+              (fwp c P ivs)
               c
               P.
 Proof.
@@ -2697,9 +2872,6 @@ Proof.
   { simpl. repeat red. intros.
     fwd. contradiction. }
 Qed.
-
-Print fcmd.
-Print fexpr.
 
 Definition simple_prog : fcmd :=
   FAsn "x" (FConst (nat_to_float 1%nat)).
