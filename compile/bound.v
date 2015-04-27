@@ -1,9 +1,8 @@
 Require Import Coq.micromega.Psatz.
 Require Import Coq.Reals.Raxioms.
 Require Import Coq.micromega.Psatz.
-Require Import compcert.cfrontend.Clight.
-Require Import compcert.cfrontend.Cop.
-Require Import compcert.cfrontend.Ctypes.
+Require Import compcert.flocq.Core.Fcore_defs.
+
 Require Import compcert.lib.Integers.
 Require Import Coq.Reals.Rdefinitions.
 Require Import List.
@@ -11,7 +10,6 @@ Import ListNotations.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.Lib.
-Require Import compcert.flocq.Core.Fcore_defs.
 Require Import compcert.flocq.Appli.Fappli_IEEE.
 Require Import compcert.flocq.Appli.Fappli_IEEE_bits.
 Require Import compcert.flocq.Core.Fcore_Raux.
@@ -501,7 +499,7 @@ Definition isVarValid (v:Var) : Prop
 
 Definition natBound (n:nat): list singleBoundTerm :=
 
-   [ (mkSBT (RealT R0) (RealT ((INR n) * (1+error))) ((floatMin <= RealT (INR n)) /\ (INR n >= 0) /\  ((INR n)* (1+error) <  (floatMax)) /\ (PropF (isFloatConstValid (nat_to_float n))) )) ;  (mkSBT (RealT ((INR n) * (1+error))) (RealT R0) ((floatMin <= (0 - INR n)) /\ (INR n < 0) /\  ((0 - INR n)* (1+error) <  (floatMax)) /\ (PropF (isFloatConstValid (nat_to_float n))) )  )].
+   [ (mkSBT (RealT ((INR n) *(1-error)) ) (RealT ((INR n) * (1+error))) ((floatMin <= RealT (INR n)) /\ (INR n >= 0) /\  ((INR n)* (1+error) <  (floatMax)) /\ (PropF (isFloatConstValid (nat_to_float n))) )) ;  (mkSBT (RealT ((INR n) * (1+error))) (RealT ((INR n)*(1-error))) ((floatMin <= (0 - INR n)) /\ (INR n < 0) /\  ((0 - INR n)* (1+error) <  (floatMax)) /\ (PropF (isFloatConstValid (nat_to_float n))) )  )].
 
 
 
@@ -4359,7 +4357,7 @@ Proof.
         rewrite <- H5 in natRoundingTruth2 at 1.
         
         unfold B2R in natRoundingTruth2.
-
+        
         
         rewrite natRoundingTruth2.
         clear natRoundingTruth2.
@@ -8520,12 +8518,12 @@ clear H1. psatz R. Qed.
               }
               {
                 repeat match goal with
-                         | H : @eq R _ _ |- _ => revert H
-                         | H : @Rle _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
-                         | H : @Rlt _ _ |- _ => revert H
-                         | H : @Rgt _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
+                       | H : @eq R _ _ |- _ => revert H
+                       | H : @Rle _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                       | H : @Rlt _ _ |- _ => revert H
+                       | H : @Rgt _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
                        end.
                 psatz R.
               }
@@ -8536,36 +8534,36 @@ clear H1. psatz R. Qed.
             {
               
               repeat match goal with
-                       | H : @eq R _ _ |- _ => revert H
-                       | H : @Rle _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
-                       | H : @Rlt _ _ |- _ => revert H
-                       | H : @Rgt _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
+                     | H : @eq R _ _ |- _ => revert H
+                     | H : @Rle _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
+                     | H : @Rlt _ _ |- _ => revert H
+                     | H : @Rgt _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
                      end.
               psatz R.
             }
             destruct Rcase_abs.
             {
               repeat match goal with
-                       | H : @eq R _ _ |- _ => revert H
-                       | H : @Rle _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
-                       | H : @Rlt _ _ |- _ => revert H
-                       | H : @Rgt _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
+                     | H : @eq R _ _ |- _ => revert H
+                     | H : @Rle _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
+                     | H : @Rlt _ _ |- _ => revert H
+                     | H : @Rgt _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
                      end.
               
               psatz R.
             }
             {
               repeat match goal with
-                       | H : @eq R _ _ |- _ => revert H
-                       | H : @Rle _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
-                       | H : @Rlt _ _ |- _ => revert H
-                       | H : @Rgt _ _ |- _ => revert H
-                       | H : @Rge _ _ |- _ => revert H
+                     | H : @eq R _ _ |- _ => revert H
+                     | H : @Rle _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
+                     | H : @Rlt _ _ |- _ => revert H
+                     | H : @Rgt _ _ |- _ => revert H
+                     | H : @Rge _ _ |- _ => revert H
                      end.
               psatz R.
             }
@@ -8692,23 +8690,23 @@ clear H1. psatz R. Qed.
                 split.
                 { 
                   repeat match goal with
-                           | H : @eq R _ _ |- _ => revert H
-                           | H : @Rle _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
-                           | H : @Rlt _ _ |- _ => revert H
-                           | H : @Rgt _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
                          end.
                   psatz R.
                 }
                 {
                   repeat match goal with
-                           | H : @eq R _ _ |- _ => revert H
-                           | H : @Rle _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
-                           | H : @Rlt _ _ |- _ => revert H
-                           | H : @Rgt _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
                          end.
                   psatz R.
                 }
@@ -8718,23 +8716,23 @@ clear H1. psatz R. Qed.
                 {
                   
                   repeat match goal with
-                           | H : @eq R _ _ |- _ => revert H
-                           | H : @Rle _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
-                           | H : @Rlt _ _ |- _ => revert H
-                           | H : @Rgt _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
                          end.
                   psatz R.
                 }
                 {
                   repeat match goal with
-                           | H : @eq R _ _ |- _ => revert H
-                           | H : @Rle _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
-                           | H : @Rlt _ _ |- _ => revert H
-                           | H : @Rgt _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
                          end.
                   psatz R.
                 }
@@ -8745,36 +8743,36 @@ clear H1. psatz R. Qed.
               {
                 
                 repeat match goal with
-                         | H : @eq R _ _ |- _ => revert H
-                         | H : @Rle _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
-                         | H : @Rlt _ _ |- _ => revert H
-                         | H : @Rgt _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
+                       | H : @eq R _ _ |- _ => revert H
+                       | H : @Rle _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                       | H : @Rlt _ _ |- _ => revert H
+                       | H : @Rgt _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
                        end.
                 psatz R.
               }
               destruct Rcase_abs.
               {
                 repeat match goal with
-                         | H : @eq R _ _ |- _ => revert H
-                         | H : @Rle _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
-                         | H : @Rlt _ _ |- _ => revert H
-                         | H : @Rgt _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
+                       | H : @eq R _ _ |- _ => revert H
+                       | H : @Rle _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                       | H : @Rlt _ _ |- _ => revert H
+                       | H : @Rgt _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
                        end.
                 
                 psatz R.
               }
               {
                 repeat match goal with
-                         | H : @eq R _ _ |- _ => revert H
-                         | H : @Rle _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
-                         | H : @Rlt _ _ |- _ => revert H
-                         | H : @Rgt _ _ |- _ => revert H
-                         | H : @Rge _ _ |- _ => revert H
+                       | H : @eq R _ _ |- _ => revert H
+                       | H : @Rle _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
+                       | H : @Rlt _ _ |- _ => revert H
+                       | H : @Rgt _ _ |- _ => revert H
+                       | H : @Rge _ _ |- _ => revert H
                        end.
                 psatz R.
               }
@@ -8902,23 +8900,23 @@ clear H1. psatz R. Qed.
                   { 
                     
                     repeat match goal with
-                             | H : @eq R _ _ |- _ => revert H
-                             | H : @Rle _ _ |- _ => revert H
-                             | H : @Rge _ _ |- _ => revert H
-                             | H : @Rlt _ _ |- _ => revert H
-                             | H : @Rgt _ _ |- _ => revert H
-                             | H : @Rge _ _ |- _ => revert H
+                           | H : @eq R _ _ |- _ => revert H
+                           | H : @Rle _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
+                           | H : @Rlt _ _ |- _ => revert H
+                           | H : @Rgt _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
                            end.
                     psatz R.
                   }
                   {
                     repeat match goal with
-                             | H : @eq R _ _ |- _ => revert H
-                             | H : @Rle _ _ |- _ => revert H
-                             | H : @Rge _ _ |- _ => revert H
-                             | H : @Rlt _ _ |- _ => revert H
-                             | H : @Rgt _ _ |- _ => revert H
-                             | H : @Rge _ _ |- _ => revert H
+                           | H : @eq R _ _ |- _ => revert H
+                           | H : @Rle _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
+                           | H : @Rlt _ _ |- _ => revert H
+                           | H : @Rgt _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
                            end.
                     psatz R.
                   }
@@ -8928,23 +8926,23 @@ clear H1. psatz R. Qed.
                   {
                     
                     repeat match goal with
-                             | H : @eq R _ _ |- _ => revert H
-                             | H : @Rle _ _ |- _ => revert H
-                             | H : @Rge _ _ |- _ => revert H
-                             | H : @Rlt _ _ |- _ => revert H
-                             | H : @Rgt _ _ |- _ => revert H
-                             | H : @Rge _ _ |- _ => revert H
+                           | H : @eq R _ _ |- _ => revert H
+                           | H : @Rle _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
+                           | H : @Rlt _ _ |- _ => revert H
+                           | H : @Rgt _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
                            end.
                     psatz R.
                   }
                   {
                     repeat match goal with
-                             | H : @eq R _ _ |- _ => revert H
-                             | H : @Rle _ _ |- _ => revert H
-                             | H : @Rge _ _ |- _ => revert H
-                             | H : @Rlt _ _ |- _ => revert H
-                             | H : @Rgt _ _ |- _ => revert H
-                             | H : @Rge _ _ |- _ => revert H
+                           | H : @eq R _ _ |- _ => revert H
+                           | H : @Rle _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
+                           | H : @Rlt _ _ |- _ => revert H
+                           | H : @Rgt _ _ |- _ => revert H
+                           | H : @Rge _ _ |- _ => revert H
                            end.
                     psatz R.
                   }
@@ -8955,36 +8953,36 @@ clear H1. psatz R. Qed.
                 {
                   
                   repeat match goal with
-                           | H : @eq R _ _ |- _ => revert H
-                           | H : @Rle _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
-                           | H : @Rlt _ _ |- _ => revert H
-                           | H : @Rgt _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
                          end.
                   psatz R.
                 }
                 destruct Rcase_abs.
                 {
                   repeat match goal with
-                           | H : @eq R _ _ |- _ => revert H
-                           | H : @Rle _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
-                           | H : @Rlt _ _ |- _ => revert H
-                           | H : @Rgt _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
                          end.
                   
                   psatz R.
                 }
                 {
                   repeat match goal with
-                           | H : @eq R _ _ |- _ => revert H
-                           | H : @Rle _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
-                           | H : @Rlt _ _ |- _ => revert H
-                           | H : @Rgt _ _ |- _ => revert H
-                           | H : @Rge _ _ |- _ => revert H
+                         | H : @eq R _ _ |- _ => revert H
+                         | H : @Rle _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
+                         | H : @Rlt _ _ |- _ => revert H
+                         | H : @Rgt _ _ |- _ => revert H
+                         | H : @Rge _ _ |- _ => revert H
                          end.
                   psatz R.
                 }
@@ -9000,256 +8998,258 @@ clear H1. psatz R. Qed.
   }
   {
 
-    Lemma floatConstValidityProof : forall f, isFloatConstValid f -> None = floatToReal f -> False. 
-      intros. 
-      unfold isFloatConstValid in *.
-      destruct f.
-      { unfold floatToReal in *.
-        simpl in *.
-        inversion H0.
-      }
-      {
-        intuition.
-      }
-      {
-        intuition.
-      }
-      {
-        unfold floatToReal in *.
-        simpl in *.
-        inversion H0.
-      }
-    Qed.
-    apply Forall_forall.
-    intros.
-    unfold denote_singleBoundTermNew. 
-    intuition.
-    destruct expr. 
-    {
-      unfold bound_term in *.
-      simpl in *.
-      destruct H0.
-      {
-        rewrite <-H0 in H1.
-        simpl in H1.
-        unfold isVarValid in H1.
-        specialize (H1 fState).
-        rewrite <- Heqo in H1.
-        revert H1 Heqo0.
-        apply floatConstValidityProof.
-      }   
-      {
-        intuition.
-      }
-    }
-    {
-      unfold bound_term in *.
-      simpl in *.
-      destruct H0.
-      {
-        subst.
-        simpl in *.
-        decompose [and] H1.
-        inversion Heqo.
-        rewrite <-H6 in H5.
-        revert H5 Heqo0.
-        apply floatConstValidityProof.
-      }
-      {
-        destruct H0. 
-        {
-          subst.
+ Lemma floatConstValidityProof : forall f, isFloatConstValid f -> None = floatToReal f -> False. 
+        intros. 
+        unfold isFloatConstValid in *.
+        destruct f.
+        { unfold floatToReal in *.
           simpl in *.
-          unfold Semantics.eval_comp in *.
-          simpl in *.
-          decompose [and] H1.
-          inversion Heqo.
-          rewrite <-H6 in H5.
-          revert H5 Heqo0.
-          apply floatConstValidityProof.
-          
+          inversion H0.
         }
         {
           intuition.
         }
-      }
-    }
-    {
-      unfold bound_term in *.
-      simpl in *.
-      destruct H0.
-      {
-        subst.
-        simpl in *.
-        inversion Heqo.
-        rewrite <- H2 in H1.
-        revert H1 Heqo0.
-        apply floatConstValidityProof.
-      }
-      {
-        intuition.
-      }
-    }
-    {
-      
-      
-      Lemma plusResultValidityProof : forall expr1 expr2 fState f, plusResultValidity expr1 expr2 -> (Some f = lift2 
-                                                                                                                 (Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax
-                                                                                                                        custom_nan mode_NE) (eval_NowTerm fState expr1)
-                                                                                                                 (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
-        intros.
-
-        unfold plusResultValidity in *.
-        specialize (H fState).
-        rewrite <- H0 in H.
-        revert H H1.
-        apply floatConstValidityProof.
-      Qed.
-      Lemma minusResultValidityProof : forall expr1 expr2 fState f, minusResultValidity expr1 expr2 -> (Some f = lift2 
-                                                                                                                   (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax
-                                                                                                                           custom_nan mode_NE) (eval_NowTerm fState expr1)
-                                                                                                                   (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
-        intros.
-        unfold minusResultValidity in *.
-        specialize (H fState).
-        rewrite <- H0 in H.
-        revert H H1.
-        apply floatConstValidityProof.
-      Qed.
-      Lemma multResultValidityProof : forall expr1 expr2 fState f, multResultValidity expr1 expr2 -> (Some f = lift2 
-                                                                                                                 (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax
-                                                                                                                        custom_nan mode_NE) (eval_NowTerm fState expr1)
-                                                                                                                 (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
-        intros.
-        unfold multResultValidity in *.
-        specialize (H fState).
-        rewrite <- H0 in H.
-        revert H H1.
-        apply floatConstValidityProof.
-      Qed.
-      simpl in *.    
-      eapply In_cross_In in H0.
-      forward_reason.
-      simpl in *.
-      destruct H3.
-      {
-        unfold simpleBound in *.
-        subst.
-        simpl in *.
-        decompose [and] H1.
-        revert H9 Heqo Heqo0.
-        apply plusResultValidityProof.  
-      }
-      {
-        destruct H3.
         {
-          unfold simpleBound4 in *.
-          subst.
+          intuition.
+        }
+        {
+          unfold floatToReal in *.
           simpl in *.
-          decompose [and] H1.
-          revert H9 Heqo Heqo0.
-          apply plusResultValidityProof.  
+          inversion H0.
         }
-        {
-          destruct H3.
-          {
-            unfold simpleBound9 in *.
-            subst.
-            simpl in *.
-            decompose [and] H1.
-            revert H10 Heqo Heqo0.
-            apply plusResultValidityProof.  
-          }
-          {
-            destruct H3.
-            {
-              unfold simpleBound10 in *.
-              subst.
-              simpl in *.
-              decompose [and] H1.
-              revert H9 Heqo Heqo0.
-              apply plusResultValidityProof.  
-            }
-            {
-              intuition.
-            }
-          }
-        }
-      }
-    }
+       Qed.
+   apply Forall_forall.
+  intros.
+  unfold denote_singleBoundTermNew. 
+  intuition.
+  destruct expr. 
+  {
+    unfold bound_term in *.
+    simpl in *.
+    destruct H0.
     {
-      simpl in *.    
-      eapply In_cross_In in H0.
-      forward_reason.
-      simpl in *.
-      destruct H3.
-      {
-        subst.
-        simpl in *.
-        decompose [and] H1.
-        revert H9 Heqo Heqo0.
-        apply minusResultValidityProof.  
-      }
-      {
-        destruct H3.
-        {
-          subst.
-          simpl in *.
-          decompose [and] H1.
-          revert H9 Heqo Heqo0.
-          apply minusResultValidityProof.  
-        }
-        {
-          intuition.  
-        }
-      }
-    }
+      rewrite <-H0 in H1.
+      simpl in H1.
+      unfold isVarValid in H1.
+      specialize (H1 fState).
+      rewrite <- Heqo in H1.
+      revert H1 Heqo0.
+      apply floatConstValidityProof.
+    }   
     {
-      simpl in *.    
-      eapply In_cross_In in H0.
-      forward_reason.
-      simpl in *.
-      destruct H3.
-
-      {
-        subst.
-        simpl in *.
-        decompose [and] H1.
-        revert H10 Heqo Heqo0.
-        apply multResultValidityProof.  
-      }
-      {
-        destruct H3.
-        {
-          subst.
-          simpl in *.
-          decompose [and] H1.
-          revert H10 Heqo Heqo0.
-          apply multResultValidityProof.  
-        }
-        {
-          destruct H3.
-          {
-            subst.
-            simpl in *.
-            decompose [and] H1.
-            revert H10 Heqo Heqo0.
-            apply multResultValidityProof.  
-          }
-          {
-            destruct H3.
-            {
-              subst.
-              simpl in *.
-              decompose [and] H1.
-              revert H10 Heqo Heqo0.
-              apply multResultValidityProof.  
-            }  
-            { intuition. }
-          }
-        }          
-      }         
+      intuition.
     }
   }
+  {
+    unfold bound_term in *.
+    simpl in *.
+    destruct H0.
+    {
+      subst.
+      simpl in *.
+      decompose [and] H1.
+      inversion Heqo.
+      rewrite <-H6 in H5.
+      revert H5 Heqo0.
+      apply floatConstValidityProof.
+    }
+    {
+      destruct H0. 
+      {
+        subst.
+        simpl in *.
+        unfold Semantics.eval_comp in *.
+        simpl in *.
+        decompose [and] H1.
+      inversion Heqo.
+      rewrite <-H6 in H5.
+      revert H5 Heqo0.
+      apply floatConstValidityProof.
+     
+    }
+      {
+        intuition.
+        }
+  }
+    }
+  {
+    unfold bound_term in *.
+    simpl in *.
+    destruct H0.
+    {
+      subst.
+      simpl in *.
+      inversion Heqo.
+      rewrite <- H2 in H1.
+      revert H1 Heqo0.
+      apply floatConstValidityProof.
+     
+
+    }
+    {
+      intuition.
+    }
+  }
+  {
+      
+       
+       Lemma plusResultValidityProof : forall expr1 expr2 fState f, plusResultValidity expr1 expr2 -> (Some f = lift2 
+                                                                                                                  (Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                                                                                                         custom_nan mode_NE) (eval_NowTerm fState expr1)
+                                                                                                                  (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
+         intros.
+
+         unfold plusResultValidity in *.
+         specialize (H fState).
+         rewrite <- H0 in H.
+         revert H H1.
+         apply floatConstValidityProof.
+       Qed.
+           Lemma minusResultValidityProof : forall expr1 expr2 fState f, minusResultValidity expr1 expr2 -> (Some f = lift2 
+                                                                                                                  (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                                                                                                         custom_nan mode_NE) (eval_NowTerm fState expr1)
+                                                                                                                  (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
+         intros.
+         unfold minusResultValidity in *.
+         specialize (H fState).
+         rewrite <- H0 in H.
+         revert H H1.
+         apply floatConstValidityProof.
+       Qed.
+            Lemma multResultValidityProof : forall expr1 expr2 fState f, multResultValidity expr1 expr2 -> (Some f = lift2 
+                                                                                                                  (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                                                                                                         custom_nan mode_NE) (eval_NowTerm fState expr1)
+                                                                                                                  (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
+         intros.
+         unfold multResultValidity in *.
+         specialize (H fState).
+         rewrite <- H0 in H.
+         revert H H1.
+         apply floatConstValidityProof.
+       Qed.
+       simpl in *.    
+       eapply In_cross_In in H0.
+       forward_reason.
+       simpl in *.
+       destruct H3.
+       {
+         unfold simpleBound in *.
+         subst.
+         simpl in *.
+         decompose [and] H1.
+         revert H9 Heqo Heqo0.
+         apply plusResultValidityProof.  
+       }
+       {
+         destruct H3.
+         {
+           unfold simpleBound4 in *.
+           subst.
+           simpl in *.
+           decompose [and] H1.
+           revert H9 Heqo Heqo0.
+           apply plusResultValidityProof.  
+         }
+         {
+           destruct H3.
+           {
+             unfold simpleBound9 in *.
+             subst.
+             simpl in *.
+             decompose [and] H1.
+             revert H10 Heqo Heqo0.
+             apply plusResultValidityProof.  
+           }
+           {
+             destruct H3.
+             {
+               unfold simpleBound10 in *.
+               subst.
+               simpl in *.
+               decompose [and] H1.
+               revert H9 Heqo Heqo0.
+               apply plusResultValidityProof.  
+             }
+             {
+               intuition.
+             }
+           }
+         }
+       }
+  }
+  {
+     simpl in *.    
+       eapply In_cross_In in H0.
+       forward_reason.
+       simpl in *.
+       destruct H3.
+       {
+         subst.
+         simpl in *.
+         decompose [and] H1.
+         revert H9 Heqo Heqo0.
+         apply minusResultValidityProof.  
+       }
+       {
+         destruct H3.
+         {
+           subst.
+           simpl in *.
+           decompose [and] H1.
+           revert H9 Heqo Heqo0.
+           apply minusResultValidityProof.  
+         }
+         {
+           intuition.  
+         }
+       }
+  }
+  {
+    simpl in *.    
+       eapply In_cross_In in H0.
+       forward_reason.
+       simpl in *.
+       destruct H3.
+
+       {
+         subst.
+         simpl in *.
+         decompose [and] H1.
+         revert H10 Heqo Heqo0.
+         apply multResultValidityProof.  
+       }
+       {
+         destruct H3.
+         {
+           subst.
+           simpl in *.
+           decompose [and] H1.
+           revert H10 Heqo Heqo0.
+           apply multResultValidityProof.  
+         }
+         {
+            destruct H3.
+       {
+         subst.
+         simpl in *.
+         decompose [and] H1.
+         revert H10 Heqo Heqo0.
+         apply multResultValidityProof.  
+       }
+       {
+         destruct H3.
+         {
+           subst.
+           simpl in *.
+           decompose [and] H1.
+           revert H10 Heqo Heqo0.
+           apply multResultValidityProof.  
+         }  
+         { intuition. }
+         }
+}          
+}         
+}
+       }
 
 Qed.
