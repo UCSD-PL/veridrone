@@ -1,0 +1,147 @@
+Two possibilities :
+lb1 + lb2 > floatMin
+x1 + x2 > floatMin 
+1	  	   easily solvable
+
+
+2) lb1 + lb2 < floatMin 
+   ub1 + ub2 > floatMin -> (0, (ub1 + ub2 )*(1+e))
+   x1 + x2 > floatMin   
+
+   relative_error -> (x1 + x1)*(1-e) <= round (x1 + x2) <= (x1 + x2 )*(1+e) 
+   from relative_error, and floatMax we can get Bplus x1 x2 = round (x1 + x2)
+   
+   Premise lb1 + lb2 > 0
+   lb1 + lb2 < floatMin 
+   x1 + x2 > floatMin
+   (x1 + x2)*(1-e) <= round (x1 + x2) <= (x1 + x2 )*(1+e) (this is relative_error, using the fact that x1 + x2 > floatMin)
+   Bplus x1 x2 = round (x1 + x2) (using floatMax and relative_error)
+   lb1 <= x1 <= ub1
+   lb2 <= x2 <= ub2	
+   Proved.		    
+
+
+	
+2) negative case 
+   ub1 + ub2 < 0 
+   x1 + x2 < -floatMin
+   round (x1 + x2) = - round (some rnd function) (- (x1 + x2))
+   lb1 <= x1 <= ub1
+   lb2 <= x2 <= ub2
+   (ub1 + ub2 > 0 - floatMin)%R
+   (lb1 + lb2 <= 0 - floatMin)%R   
+   relative_error ->  round (x1 + x2) <= (x1 + x2 )*(1+e)
+   Bplus x1 + x2 = round x1 + x2 (from relative_error and floatMax)
+ 
+
+3) lb1 + lb2 < floatMin 
+   ub1 + ub2 > floatMin -> (0, (ub1 + ub2)*(1+e))
+   x1 + x2 < floatMin
+      
+
+Premise lb1 + lb2 > 0
+	lb1 + lb2 < floatMin
+	x1 + x2 < floatMin    
+	ex <= fexp ex
+	bpow (ex-1) <= x1+x2 <= bpow (ex)
+	ex < custom_emin
+	Bplus x1 x2 = round (x1 x2) (since x1 + x2 < floatMin , x1 + x2 < floatMax)
+	round (x1 + x2) = bpow ex   or round (x1 + x2) = 0 or (bpow (ex - 1) <= round (x1+x2) <= bpow exx)%R. 
+	lb1 <= x1 <= ub1
+	lb2 <= x2 <= ub2
+	ub1 + ub2 > floatMin.	       						
+
+	bpow (ex-1) = (ub1 + ub2 ) 
+		
+	bpow ex <= bpow(ex -1) * (1 +  bpow custom_emin) 
+				
+	0 <= bpow ex <= (ub1 + ub2 )*(1+e)
+  
+
+3) negative case  -> ((lb1 + lb2)*(1+e), 0)
+   (ub1 + ub2 > 0 - floatMin)%R	
+   (lb1 + lb2 <= 0 - floatMin)%R   
+   lb1 <= x1 <= ub1
+   lb2 <= x2 <= ub2
+   (x1 + x2 > 0 - floatMin)%R
+   bpow (ex-1) <= -(x1+x2) <= bpow (ex)      
+   ex < custom_emin
+   Bplus x1 x2 = round (x1 x2) (since x1 + x2 > - floatMin , x1 + x2 > -floatMax)
+   round -(x1 + x2) = bpow ex or round -(x1 + x2) = 0 or (bpow (ex-1) <= round -(x1+ x2) <= bpow ex)
+   	
+
+4) lb1 + lb2 < floatMin 
+   ub1 + ub2 < floatMin -> (0, floatMin)
+   x1 + x2 < floatMin
+        
+
+Premise
+	lb1 + lb2 > 0
+	lb1 + lb2 < floatMin
+	ub1 + ub2 < floatMin    
+	ex <= fexp ex
+	bpow (ex-1) <= x1+x2 <= bpow (ex)
+	ex < custom_emin
+	Bplus x1 x2 = round (x1 x2) (since x1 + x2 < floatMin , x1 + x2 < floatMax)
+	round (x1 + x2) = bpow ex  or round (x1 + x2) = 0 or (bpow (ex - 1) <= round (x1+x2) <= bpow ex)%R
+	lb1 <= x1 <= ub1
+	lb2 <= x2 <= ub2
+	ub1 + ub2 > floatMin.	       						
+	
+   	provable 
+			            
+	
+
+
+
+
+
+		    
+To Prove : 0 <= round (x1 + x2) <= (ub1 + ub2)*(1+e)
+   	      	   
+
+Premise lb1 + lb2 > 0
+	lb1 + lb2 < floatMin 
+	x1 + x2 < floatMin 
+	(
+	    	
+	
+
+
+		
+ 
+
+Premise  lb1 + lb2 < floatMin
+	 x1 + x2 > floatMin 
+	 round (x1 + x2) = 
+
+To Prove : 0 <Bplus x1 x2 < floatMin
+     	  	   ex <= fexp ex
+		   (x1 + x2 < floatMin -> x1 + x2 < floatMax) -> Bplus x1 x2 = round (x1 + x2)
+To Prove 0 < round (x1 + x2) < floatMin 	     
+Premise      x1 + x2 < floatMin
+	     x1 + x2 > 0 
+	     round (x1 + x2) = bpow ex , where ex < custom_emin
+	     
+	     		   
+
+1) lb1 + lb2 > floatMin  -> (lb1 + lb2) * (1- e) ,  (ub1 + ub2) * (1+e)
+
+2) lb1 + lb2 < floatMin   ub1 + ub2 > floatMin  ->  ((lb1 + lb2) * (1- e) ,  (ub1 + ub2) * (1+e))
+
+       	Two possibilities : 
+
+	1) x1 + x2 > floatMin 
+	      	              can use relative error proof -
+			      lb1 <= x1 <= ub1
+			      lb2 <= x2 <= ub2
+			      rounded (x1 + x2) =  bplus x1 x2
+			      (x1 - x2)*(1-e) < rounded (x1 + x2) < (x1 + x2)*(1+e)
+			      			      
+
+			      ((lb1 + lb2) * (1- e) ,  (ub1 + ub2) * (1+e))
+			      (floatMin, ub1+ub2 *(1+e))	   
+
+	2) x1 + x2 < floatMin 
+	      	     	      
+
