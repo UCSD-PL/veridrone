@@ -2514,7 +2514,7 @@ Proof.
 Qed.
 
 Lemma varmap_check_contradiction :
-  forall (ivs : list (Var * Var)) (v : Var) (fe : fexpr)
+  forall (ivs : list (Var * Var)) (fe : fexpr)
          (sf : statef) (ss : Syntax.state),
     varmap_check_fexpr ivs fe ->
     vmodels ivs ss sf ->
@@ -2641,172 +2641,235 @@ Proof.
       { reflexivity. }
 Qed.
 
+Lemma vmodels_must_exist :
+  forall (ivs : list (Var * Var)),
+    var_spec_valid' ivs ->
+    forall x v,
+      In (x, v) ivs ->
+      forall s x0,
+      vmodels ivs x0 s ->
+      exists y, (s v = Some y)%type.
+Proof.
+  induction ivs.
+  - intros. simpl in *. contradiction.
+  - intros. simpl in *. destruct a.
+    fwd.
+    destruct H0.
+    + inversion H0; subst; clear H0.
+      unfold realify_state in H1.
+      consider (s v); intros; try congruence.
+      eexists; reflexivity.
+    + eapply IHivs; eauto.
+Qed.
+
+Lemma vmodels_correspond :
+  forall ivs,
+    var_spec_valid' ivs ->
+    forall x v,
+      In (x, v) ivs ->
+      forall ss sf,
+        vmodels ivs ss sf ->
+        forall f,
+          sf v = Some f ->
+          (F2OR f = Some (ss x))%type.
+Proof.
+  induction ivs.
+  - simpl. intros. contradiction.
+  - simpl. intros.
+    destruct a. fwd.
+    destruct H0.
+    + inversion H0; subst; clear H0.
+      unfold realify_state in H1.
+      consider (sf v); intros; try congruence.
+    + eapply IHivs; eauto.
+Qed.        
+
+Lemma HoareA_ex_or :
+  forall ivs (P1 P2 Q : _ -> Prop) c,
+    HoareA_ex ivs ivs P1 c Q ->
+    HoareA_ex ivs ivs P2 c Q ->
+    HoareA_ex ivs ivs (fun st => P1 st \/ P2 st)%type c Q.
+Proof.
+  intros.
+  unfold HoareA_ex, Hoare_, Hoare in *.
+  intros. fwd.
+  destruct H2.
+  { clear H0.
+    specialize (H s).
+    destruct H.
+    - eexists; eauto.
+    - split; auto. }
+  { clear H.
+    specialize (H0 s).
+    destruct H0.
+    - eexists; eauto.
+    - split; auto. }
+Qed.
+
+Lemma HoareA_ex_False :
+  forall ivs (P : _ -> Prop) c,
+    HoareA_ex ivs ivs (fun _ => False) c P.
+Proof.
+  intros.
+  unfold HoareA_ex, Hoare_, Hoare.
+  intros. fwd. contradiction.
+Qed.
+Check AnyOf.
+
+Lemma HoareA_conseq :
+  forall (P P' Q Q' : Syntax.state -> Prop) (c : fcmd) (ivs ovs : list (Var * Var)),
+    (forall st : Syntax.state, P st -> P' st) ->
+    (forall st : Syntax.state, Q' st -> Q st) -> 
+    HoareA_ex ivs ovs P' c Q' ->
+    HoareA_ex ivs ovs P c Q.
+Proof.
+  intros.
+  unfold HoareA_ex in *. eapply Hoare__conseq; eauto.
+  - intros. fwd. eexists. split; eauto.
+  - intros. simpl in H2. fwd. eexists.
+    split; eauto.
+Qed.
+
+(* auxiliary functions for HoareA ITE rule *)
+Definition maybe_lt0 (sbts : list singleBoundTerm) : (Syntax.state -> Prop) :=
+  fun ss =>
+    AnyOf (List.map
+             (fun sbt =>
+                (eval_term (lb sbt) ss ss <  0)%R /\
+                (Semantics.eval_formula (premise sbt) (traceFromState ss))) sbts)%type.
+
+Definition maybe_ge0 (sbts : list singleBoundTerm) : (Syntax.state -> Prop) :=
+  fun ss =>
+    AnyOf (List.map
+             (fun sbt =>
+                (eval_term (ub sbt) ss ss >= 0)%R /\
+                (Semantics.eval_formula (premise sbt) (traceFromState ss))) sbts)%type.
+
+
+Lemma or_distrib_imp :
+  forall A B C : Prop,
+    (A \/ B -> C) <->
+    (A -> C) /\ (B -> C).
+Proof.
+  tauto.
+Qed.
+
+Lemma and_distrib_or :
+  forall A B C : Prop,
+    A /\ (B \/ C) <->
+    (A /\ B) \/ (A /\ C).
+Proof.
+  tauto.
+Qed.
+
 Lemma HoareA_ex_ite :
-  forall ex ivs (P Q : _ -> Prop) (*v v'*) c1 c2,
+  forall ex ivs (P Q1 Q2: _ -> Prop) c1 c2,
     var_spec_valid' ivs ->
     varmap_check_fexpr ivs ex ->
-    Forall (fun sbt =>
-              (HoareA_ex ivs ivs (fun ss => (eval_term (lb sbt) ss ss <  0)%R /\ P ss) c1 Q) /\
-              (HoareA_ex ivs ivs (fun ss => (eval_term (ub sbt) ss ss >= 0)%R /\ P ss) c2 Q))%type
-           (bound_fexpr ex ivs) ->
+    HoareA_ex ivs ivs Q1 c1 P ->
+    HoareA_ex ivs ivs Q2 c2 P ->
     HoareA_ex ivs ivs
-              P
-              (FIte ex c1 c2)
-              Q.
+    (fun ss => let bs := bound_fexpr ex ivs in
+               (maybe_lt0 bs ss -> Q1 ss) /\
+               (maybe_ge0 bs ss -> Q2 ss) /\
+               (AnyOf (List.map (fun sbt => fst (denote_singleBoundTermNew ss sbt)) bs)))%type
+    (FIte ex c1 c2)
+    P.
 Proof.
-  induction ex.
-  { intros. unfold bound_fexpr in H1. simpl in *. fwd.
-    inversion H1; subst; clear H1. fwd.
-    unfold HoareA_ex, Hoare_, Hoare in *.
-    simpl in *. intros. fwd. clear H5.
-    specialize (H1 s). specialize (H2 s).
-    consider (Fcore_Raux.Rcompare (x0 (vtrans_flt2tla ivs v)) 0); intros.
-    { apply Fcore_Raux.Rcompare_Eq_inv in H5. apply Req_ge in H5.
-      destruct H2.
-      - exists x0. eauto.
-      - fwd. split.
-        + exists x1. eapply FEIteF; eauto.
-          {
-           
-              vmodels ivs ss sf ->
-
-
- SearchAbout vmodels.
-
-
-    (*
-    split; [|split].
-    { consider (Fcore_Raux.Rcompare (x0 (vtrans_flt2tla ivs v)) 0); intros.
-      - apply Fcore_Raux.Rcompare_Eq_inv in H5. apply Req_ge in H5.
-        destruct H2.
-        + exists x0. split; auto.
-        + fwd. exists x1. admit. 
-      - apply Fcore_Raux.Rcompare_Lt_inv in H5.
-        destruct H1.
-        + exists x0. split; auto.
-        + fwd. exists x1. admit.
-      - apply Fcore_Raux.Rcompare_Gt_inv in H5.
-        assert (x0 (vtrans_flt2tla ivs v) >= 0)%R by (clear -H5; psatz R).
-        destruct H2.
-        + exists x0. split; auto.
-        + fwd. exists x1. admit. }
-    { intro. inversion H5; subst; clear H5.
-      - replace (vtrans_flt2tla ivs v) with x in H1; [|admit].
-        destruct H1. 
-        + eexists. split; [|split]; eauto.
-          unfold float_lt in H12. simpl in H12.
-          simpl in H10. admit.
-        + fwd; contradiction.
-      - destruct H2. 
-        + eexists. split; [|split]; eauto.
-          unfold float_ge in H12. simpl in H12.
-          simpl in H10. admit.
-        + fwd; contradiction. 
-      - simpl in H8. admit. }
-    { intros.
-      consider (Fcore_Raux.Rcompare (x0 (vtrans_flt2tla ivs v)) 0); intros.
-      - apply Fcore_Raux.Rcompare_Eq_inv in H6. apply Req_ge in H6.
-        destruct H2.
-        + exists x0. split; auto.
-        + fwd. apply H8. 
-          inversion H5; subst; clear H5.
-          * unfold float_lt in H15. simpl in H15.
-            admit.
-          * assumption.
-      - admit. (*samey*)
-      - admit. } }
-    { intros.
-      unfold bound_fexpr in H1. simpl in H1. inversion H1; subst; clear H1. clear H5.
-      fwd.
-      simpl in *.
-      unfold HoareA_ex, Hoare_, Hoare in *. fwd.
-      consider (Fcore_Raux.Rcompare (Fappli_IEEE.B2R custom_prec custom_emax f) 0); intros.
-      - apply Fcore_Raux.Rcompare_Eq_inv in H3. apply Req_ge in H3. clear H1. edestruct H2.
-        + fwd. exists x. eauto.
-        + fwd. split; [|split].
-          * exists x. eapply FEIteF; eauto. simpl. reflexivity.
-          * intro. inversion H8; subst; clear H8; try contradiction.
-            { admit. }
-            { inversion H11. }
-          * intros. apply H6. admit.
-      - split.
-        *)
-}
-    }
-
-        
-        
- unfold float_lt in H12. simpl in H12.
-        
-        destruct
-          * simpl.
-
-    
-    split.
-    -
-
-    consider (Fcore_Raux.Rcompare (ss (vtrans_flt2tla ivs v)) 0).
-    - intros. apply Fcore_Raux.Rcompare_Eq_inv in H3.
-      generalize H3. intro H3'.
-      apply Req_ge in H3.
-      apply H2 in H3. clear H1 H2 H5.
-      unfold HoareA_ex, Hoare_, Hoare in *. intros. fwd.
-      specialize (H3 s).
-      destruct H3; [eexists; split; eauto|]. fwd.      
-      split; [|split].
-      + eexists. eapply FEIteF; eauto. simpl. Focus 2. unfold float_ge, fzero. simpl. rewrite <- H3'. 
-admit.
-      + fwd. intro. inversion H6; subst; clear H6; try contradiction.
-        * admit. (* unfold float_lt in H13. simpl in H13. simpl in H11. *)
-        * simpl in H9. admit. (*eexists. fwd. eapply FEIteF.
-          simpl. (* lemma about var trans and lookup. *) admit. *)
-      + intros. fwd. apply H6. inversion H5; subst; clear H5.
-        * 
-      red. r
-      SearchAbout ((_ = _) -> (_ >= _))%R.
-  red. red. red. intros.
-  fwd.
-  split; [|split].
-  { induction ex.
-    - simpl in H0. fwd. unfold bound_fexpr in H1. simpl in H1.
-      inversion H1; subst; clear H1.
-      fwd. simpl in *.
-simpl in H1. eexists. econstructor.
-      simpl. unfold vmodels, omodels in H2.
-      induction ivs.
-      + simpl in *; contradiction.
-      + destruct a. fwd.
-        
-      SearchAbout vmodels.
-}
-  {}
-  {}
-
-  induction ex.
-  - simpl; intros. fwd. destruct H1; try contradiction.
-    fwd.
-    consider ( (ss (vtrans_flt2tla ivs v) < 0)).
-    + red. red. red. intros.
-      
-
-
- Print HoareA_ex.
-
-    +
   intros.
-  
+  generalize (bound_fexpr_sound ivs ex _ eq_refl H H0).
+  induction 1.
+  { simpl. eapply HoareA_conseq.
+    3: eapply HoareA_ex_False.
+    simpl. tauto.
+    exact (fun _ x => x). }
+  { simpl. eapply HoareA_conseq.
+    2: exact (fun _ x => x).
+    unfold maybe_lt0. unfold maybe_ge0.
+    simpl. intros.
+    repeat rewrite or_distrib_imp in H5.
+    repeat rewrite and_distrib_or in H5.
+    eapply H5.
+    eapply HoareA_conseq.
+    2: exact (fun _ x => x).
+    2: eapply HoareA_ex_or.
+    3: eapply IHForall.
+    simpl.
+    intros.
+    destruct H5.
+    { fwd.
+      left. exact (conj H5 (conj H6 H7)). }
+    { right. tauto. }
+    clear IHForall H4.
+    do 3 red.
+    intros. fwd.
+    generalize (varmap_check_contradiction ivs ex s x0 H0 H4); intro Hvmcc.
+    consider (fexprD ex s); intros; try congruence.
+    clear Hvmcc.
+    do 3 red in H1, H2.
+    specialize (H1 s). specialize (H2 s).
 
-(*
-(fun ss =>
-                 AnyOf (List.map
-                          (fun sbt =>
-                             (* NB the bounds on 0 are just 0 *)
-                             (* "ex is maybe < 0" *)
-                             ((eval_term (lb sbt) ss ss <  0)%R -> fwp c1 P ivs ss) /\
-                             (* "ex is maybe >= 0" *)
-                             ((eval_term (ub sbt) ss ss >= 0)%R -> fwp c2 P ivs ss))
-                          (bound_fexpr ex ivs)))%type
-*)
+    Lemma float_lt_ge_trichotomy :
+      forall f f', (float_lt f f' \/ float_ge f f').
+    Proof.
+      intros. unfold float_lt, float_ge.
+      lra.
+    Qed.
+
+    destruct (float_lt_ge_trichotomy f fzero).
+    { destruct H1.
+      { eexists; split; eauto. eapply H5.
+        specialize (H3 _ _ _ H8 H4 H7).
+        forward_reason.
+        unfold traceFromState in *; simpl in *.
+        rewrite H1 in *; inv_all; subst.
+        split; auto.
+        destruct f; simpl in H3; try congruence.
+        - unfold float_lt in H9. simpl in H9. lra.
+        - inversion H3; subst; clear H3.
+          unfold float_lt in H9. simpl in H9. lra. }
+      forward_reason. split.
+      { eexists; eapply FEIteT; eauto. }
+      split.
+      { intro. inversion H12; clear H12; subst; eauto; try congruence.
+        rewrite H8 in H17. inv_all. subst.
+
+        Lemma float_lt_ge_trichotomy_contra :
+          forall f f', float_lt f f' /\ float_ge f f' -> False.
+        Proof.
+          intros. unfold float_lt, float_ge in H. lra.
+        Qed.
+ 
+        unfold float_ge in H19. unfold float_lt in H9.
+        lra. }
+      intros.
+      inversion H12; clear H12; subst; eauto.
+      rewrite H8 in *. inv_all; subst. 
+      exfalso. eapply float_lt_ge_trichotomy_contra; eauto. }
+    { destruct H2.
+      { eexists; split; eauto. apply H6.
+        specialize (H3 _ _ _ H8 H4 H7).
+        fwd.
+        unfold traceFromState in *; simpl in *.
+        rewrite H2 in *; inv_all; subst.
+        split; auto.
+        destruct f; simpl in H3; try congruence.
+        - inversion H3; subst; clear H3.
+          lra.
+        - inversion H3; subst; clear H3. 
+          unfold float_ge in H9. simpl in H9.
+          lra. }
+      { fwd.
+        split.
+        { eexists; eapply FEIteF; eauto. }
+        split.
+        { intro. inversion H12; subst; clear H12; eauto; try congruence.
+          rewrite H8 in H17. inversion H17; subst; clear H17.
+          eapply float_lt_ge_trichotomy_contra; eauto. }
+        intros. inversion H12; subst; clear H12; auto.
+        rewrite H8 in H17. inversion H17; subst; clear H17.
+        exfalso; eapply float_lt_ge_trichotomy_contra; eauto. } } }
+Qed.
 
 
 (* Weakest-precondition calcluation function for fcmd language *)
@@ -2826,7 +2889,7 @@ Fixpoint fwp (c : fcmd) (P : Syntax.state -> Prop) (ivs : list (Var * Var)) : Sy
                             (bound_fexpr e ivs)))%type
   | FFail => fun s => False
   | FHavoc v => fun s => False
-  | FIte ex c1 c2 => (fun ss =>
+  (*| FIte ex c1 c2 => (fun ss =>
                         AnyOf (List.map
                                    (fun sbt =>
                                       (* NB the bounds on 0 are just 0 *)
@@ -2834,7 +2897,12 @@ Fixpoint fwp (c : fcmd) (P : Syntax.state -> Prop) (ivs : list (Var * Var)) : Sy
                                       ((eval_term (lb sbt) ss ss <  0)%R -> fwp c1 P ivs ss) /\
                                       (* "ex is maybe >= 0" *)
                                       ((eval_term (ub sbt) ss ss >= 0)%R -> fwp c2 P ivs ss))
-                                   (bound_fexpr ex ivs)))%type
+                                   (bound_fexpr ex ivs)))%type*)
+  | FIte ex c1 c2 => (fun ss =>
+                        let bs := bound_fexpr ex ivs in
+                        (maybe_lt0 bs ss -> fwp c1 P ivs ss) /\
+                        (maybe_ge0 bs ss -> fwp c2 P ivs ss) /\
+                        (AnyOf (List.map (fun sbt => fst (denote_singleBoundTermNew ss sbt)) bs)))%type
   (*| FIte ex c1 c2 => (fun ss =>
                         (fexprD ex s = Some fzero /\ fwp c1 P s) \/
                         (exists (f : source.float), f <> fzero /\
@@ -2853,7 +2921,7 @@ Lemma fwp_correct :
               P.
 Proof.
   intros c.
-  induction c; intros.
+  induction c; intros; eauto using HoareA_ex_False.
   { simpl. eapply Hoare__seq.
     - eapply IHc1. 
       + assumption.
@@ -2863,14 +2931,8 @@ Proof.
       + simpl in H0; fwd; assumption. }
   { eapply Hoare__skip. }
   { eapply HoareA_ex_asn; simpl in H0; fwd; assumption. }
-  { (* wp implemented as false here; could perhaps be weaker *)
-    simpl. repeat red. intros.
-    fwd. contradiction. }
-  { (* wp implemented as false here; could perhaps be weaker *)
-    simpl. repeat red. intros.
-    fwd. contradiction. }
-  { simpl. repeat red. intros.
-    fwd. contradiction. }
+  { simpl in *. forward_reason.
+    simpl. eapply HoareA_ex_ite; eauto. }
 Qed.
 
 Definition simple_prog : fcmd :=
@@ -2889,18 +2951,6 @@ Definition simple_vmap : list (Var * Var) :=
   Proof: prog is refinement of (x > 0 -> x' > 0) *)
 
 Check Hoare__conseq.
-
-Lemma HoareA_conseq :
-  forall (P P' Q Q' : Syntax.state -> Prop) (c : fcmd) (ivs ovs : list (Var * Var)),
-    (forall st : Syntax.state, P st -> P' st) ->
-    (forall st : Syntax.state, Q' st -> Q st) -> HoareA_ex ivs ovs P' c Q' -> HoareA_ex ivs ovs P c Q.
-Proof.
-  intros.
-  unfold HoareA_ex in *. eapply Hoare__conseq; eauto.
-  - intros. fwd. eexists. split; eauto.
-  - intros. simpl in H2. fwd. eexists.
-    split; eauto.
-Qed.
 
 
 
