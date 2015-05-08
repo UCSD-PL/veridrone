@@ -918,17 +918,6 @@ Section embedding2.
   End Hoare.
 End embedding2.
 
-(* Language syntax (for new language with eval "stepping" to option state) *)
-(*
-Inductive ocmd :=
-| OSeq (_ _ : cmd)
-| OSkip
-| OAsn (_ : nat) (_ : cexpr)
-| OIte (_ : cexpr) (_ _ : cmd)
-| OHavoc (_ : nat)
-| OFail.
-*)
-
 (* Language (operational) semantics (for new language) - no loops still *)
 Inductive oeval : state -> cmd -> option state -> Prop :=
 | OESkip : forall s, oeval s Skip (Some s)
@@ -1393,21 +1382,36 @@ Inductive fexpr :=
 | FVar : Var -> fexpr
 | FConst : source.float -> fexpr
 | FPlus : fexpr -> fexpr -> fexpr
-. (* TODO do we need FNone? *)
+| FMinus : fexpr -> fexpr -> fexpr
+| FMult : fexpr -> fexpr -> fexpr
+(*| FDiv : fexpr -> fexpr -> fexpr*)
+.
+(* TODO - other ops? *)
 
 Definition fplus : source.float -> source.float -> source.float :=
   Fappli_IEEE.Bplus custom_prec custom_emax custom_precGt0
                     custom_precLtEmax custom_nan Fappli_IEEE.mode_NE.
 
+Definition fminus : source.float -> source.float -> source.float :=
+  Fappli_IEEE.Bminus custom_prec custom_emax custom_precGt0
+                     custom_precLtEmax custom_nan Fappli_IEEE.mode_NE.
+
+Definition fmult : source.float -> source.float -> source.float :=
+  Fappli_IEEE.Bmult custom_prec custom_emax custom_precGt0
+                    custom_precLtEmax custom_nan Fappli_IEEE.mode_NE.
+
+Definition fdiv : source.float -> source.float -> source.float :=
+  Fappli_IEEE.Bdiv custom_prec custom_emax custom_precGt0
+                   custom_precLtEmax custom_nan Fappli_IEEE.mode_NE.
+
 Fixpoint fexprD (fx : fexpr) (sf : statef) : option source.float :=
   match fx with
-    | FVar s        => sf s
-    | FConst f      => Some f
-    | FPlus fx1 fx2 =>
-      match fexprD fx1 sf, fexprD fx2 sf with
-        | Some f1, Some f2 => Some (fplus f1 f2)
-        | _, _             => None
-      end
+    | FVar s         => sf s
+    | FConst f       => Some f
+    | FPlus fx1 fx2  => lift2 fplus  (fexprD fx1 sf) (fexprD fx2 sf)
+    | FMinus fx1 fx2 => lift2 fminus (fexprD fx1 sf) (fexprD fx2 sf)
+    | FMult fx1 fx2  => lift2 fmult  (fexprD fx1 sf) (fexprD fx2 sf)
+    (*| FDiv fx1 fx2   => lift2 fdiv   (fexprD fx1 sf) (fexprD fx2 sf)*)
   end.
 
 Inductive fcmd : Type :=
@@ -1418,8 +1422,6 @@ Inductive fcmd : Type :=
 | FHavoc : Var -> fcmd
 | FFail  : fcmd
 .
-
-Print update.
 
 Definition fupdate {T : Type} (s : Var -> T) (v : Var) (val : T) : Var -> T :=
   fun x =>
@@ -1759,35 +1761,6 @@ Proof.
       apply Hfafa with (x := (v,v0)) in H.
       + congruence.
 Abort.
-(*      + constructor; reflexivity. }
-Qed.*)
-
-(*
-Lemma feval_emptying :
-  forall (c : fcmd) (sf : statef) (s' : option statef),
-    feval sf c s' ->
-    feval (fun _ => None) c s' \/ feval (fun _ => None) c None.
-Proof.
-  intro c. induction c.
-  { intros.
-    inversion H; subst; simpl; clear H.
-    - apply IHc1 in H3. apply IHc2 in H5.
-      destruct H3; destruct H5.
-      + left. eapply FESeqS.
-        * eauto.
-        *
-*)
-(*
-  intro c. induction c; intros; simpl.
-  { inversion H; subst; simpl; clear H.
-    -  apply IHc2 in H5. eapply FESeqS.
-
-    - inversion H3; subst; simpl; clear H3.
-      + apply FESeqS with (s' := (fun _ => None)).
-        * constructor.
-        * apply IHc2 in H5. auto.
-      + eapply FESeqS.
-*)
 
 (* A couple of useful definitions for the correctness
    sub-lemmas that follow *)
@@ -1802,100 +1775,6 @@ Proof.
   intros. unfold sf_subset_present.
   intros. auto.
 Qed.
-
-(* general form of a fact I need about crashing
-   behavior and empty variable environments
-   (want to prove that if a program crashes in any
-    state it will crash in the empty state) *)
-Lemma feval_crash_subset :
-  forall (c : fcmd) (sf sf' : statef),
-    feval sf  c None ->
-    sf_subset_present sf' sf ->
-    feval sf' c None.
-Proof.
-  intro c.
-  induction c.
-  { intros.
-    inversion H; subst; clear H.
-    - eapply FESeqS. eapply IHc2 in H6.
-Abort.
-
-Lemma feval_empty_crash :
-  forall (c : fcmd) (sf : statef),
-    feval sf c None ->
-    feval (fun _ => None) c None.
-Proof.
-  intro c. induction c.
-  { intros.
-    inversion H; subst; clear H.
-    - apply IHc2 in H5.
-      econstructor 2.
-Abort.
-
-(*
-(* I worry about the provability of this... *)
-Lemma omodels_crash :
-    forall (c : fcmd) (ivs : list (Var * Var)) (sf : statef)
-           (ss : Syntax.state),
-      ispec_valid ivs ->
-      omodels Var statef
-              (fun (st : statef) (v : Var) => realify_state st v)
-              ivs ss sf ->
-      feval sf c None ->
-      reval (syn_state_to_stater ivs ss) c None.
-Proof.
-  intros c ivs. generalize dependent c.
-  induction ivs.
-  - intros. simpl in *. unfold reval.
-    exists (fun _ => None). split.
-    + unfold stater_statef. intro. auto.
-    + left.
-      split; try reflexivity.
-
-(* idea: c _can_ crash on an input,
-               so it will crash on the "all-None" input *)
-
-      admit.
-  - intros. simpl. destruct a.
-    simpl in H. forward_reason.
-    generalize Forall_forall; intro Hfafa.
-    apply Hfafa with (x := (v,v0)) in H.
-    + congruence.
-    + Abort. (*constructor. reflexivity.
-Qed.*)
-*)
-
-(*
-  intros.
-  unfold reval.
-  exists sf. split.
-  - unfold stater_statef. intros.
-    consider (sf x); intros.
-    + consider (syn_state_to_stater ivs ss x); intros.
-      * unfold syn_state_to_stater in H3.
-
-
-  intro c. induction c.
-  - intros. forward_reason.
-    inversion H1; subst; clear H1.
-    + unfold reval. exists
-
-specialize (IHc2 ivs sf ss H H0 H7).
-*)
-  (*
-  intros c ivs. generalize dependent c.
-  induction ivs.
-  - intros.
-    simpl. unfold reval. exists sf.
-    simpl in *.
-    split.
-    + simpl in H. unfold stater_statef.
-      intro x.
-      destruct (sf x).
-   *)
-
-(* We need more lemmas for the other admits in the main theorem,
-   but I worry that not all of them are true.*)
 
 (* We must prove that "abstract" evaluation (over reals)
    refines "concrete" evaluation (over floats) *)
@@ -2173,12 +2052,17 @@ Proof.
 *)
 
 (* Calculating bounds for expressions *)
+
 Fixpoint fexpr_to_NowTerm (fx : fexpr) (ivs : list (Var * Var)) : NowTerm :=
   match fx with
     | FVar v   => VarNowN (vtrans_flt2tla ivs v)
     | FConst f => FloatN f
     | FPlus fx1 fx2 =>
       PlusN (fexpr_to_NowTerm fx1 ivs) (fexpr_to_NowTerm fx2 ivs)
+    | FMinus fx1 fx2 =>
+      MinusN (fexpr_to_NowTerm fx1 ivs) (fexpr_to_NowTerm fx2 ivs)
+    | FMult fx1 fx2 =>
+      MultN (fexpr_to_NowTerm fx1 ivs) (fexpr_to_NowTerm fx2 ivs)
   end.
 
 Definition bound_fexpr (fx : fexpr) (ivs : list (Var * Var)) : list singleBoundTerm :=
@@ -2279,14 +2163,16 @@ Check bound_proof'.
 Print boundDef'.
 
 (* Our correctness lemma for bound_fexpr *)
-Check fexprD.
-
 Fixpoint varmap_check_fexpr (ivs : list (Var * Var)) (e : fexpr) : Prop :=
   match e with
-    | FVar v      => exists lv, In (lv, v) ivs
-    | FConst _    => True
-    | FPlus e1 e2 => varmap_check_fexpr ivs e1 /\
-                     varmap_check_fexpr ivs e2
+    | FVar v       => exists lv, In (lv, v) ivs
+    | FConst _     => True
+    | FPlus e1 e2  => varmap_check_fexpr ivs e1 /\
+                      varmap_check_fexpr ivs e2
+    | FMinus e1 e2 => varmap_check_fexpr ivs e1 /\
+                      varmap_check_fexpr ivs e2
+    | FMult e1 e2  => varmap_check_fexpr ivs e1 /\
+                      varmap_check_fexpr ivs e2
   end%type.  
 
 (* Another lemma relating the behaviors of necessary primitives *)
@@ -2343,7 +2229,14 @@ Lemma fexpr_NowTerm_related_eval :
     eval_NowTerm (statef_to_fstate ivs st')
                  (fexpr_to_NowTerm fx ivs) = Some f. 
 Proof.
-  induction fx; eauto.
+  induction fx; eauto;
+  try (intros; simpl; simpl in *; fwd;
+    unfold lift2 in *;
+    consider (fexprD fx1 st'); intros; try congruence;
+    consider (fexprD fx2 st'); intros; try congruence;
+    erewrite IHfx1; eauto;
+    erewrite IHfx2; eauto). (* take care of plus, minus *)
+
   - simpl. intros. fwd.
     rewrite <- H3.
     eapply related_vmodels_lookup; eauto.
@@ -2362,11 +2255,6 @@ Proof.
           consider (st' v1); intros.
           + apply related_vmodels; auto. 
           + auto. }
-  - intros. simpl. simpl in H2, H3. fwd.
-    consider (fexprD fx1 st'); intros; try congruence.
-    consider (fexprD fx2 st'); intros; try congruence.
-    erewrite IHfx1; eauto.
-    erewrite IHfx2; eauto.
 Qed.
 
 
@@ -2522,7 +2410,15 @@ Lemma varmap_check_contradiction :
     False.
 Proof.
   intros.
-  induction fe.
+  induction fe;
+    (* dispatch recursive cases *)
+    try (solve [
+             simpl in *; unfold lift2 in *; 
+             inversion H1; subst; clear H1;
+             destruct (fexprD fe1 sf); try congruence;
+             destruct (fexprD fe2 sf); try congruence;
+             fwd;
+             try (solve [apply IHfe1; eauto] ); try (solve [apply IHfe2; eauto]) ] ).
   - induction ivs.
     + intros. simpl in *. fwd. assumption.
     + intros. simpl in *. fwd. destruct a. fwd.
@@ -2531,17 +2427,6 @@ Proof.
         unfold realify_state in H0.
         rewrite H1 in H0. congruence. }
       { eauto. } 
-  - inversion H1.
-  - inversion H1; subst; clear H1.
-    destruct (fexprD fe1 sf).
-    + destruct (fexprD fe2 sf).
-      * inversion H3.
-      * apply IHfe2; try reflexivity.
-        inversion H. assumption.
-    + destruct (fexprD fe2 sf).
-      * apply IHfe1; try reflexivity.
-        inversion H. assumption.
-      * inversion H. auto. 
 Qed.
 
 (* Significant correctness lemma for HoareA/Abstractor as a whole *)
@@ -2762,6 +2647,19 @@ Proof.
   tauto.
 Qed.
 
+Lemma float_lt_ge_trichotomy :
+  forall f f', (float_lt f f' \/ float_ge f f').
+Proof.
+  intros. unfold float_lt, float_ge.
+  lra.
+Qed.
+
+Lemma float_lt_ge_trichotomy_contra :
+  forall f f', float_lt f f' /\ float_ge f f' -> False.
+Proof.
+  intros. unfold float_lt, float_ge in H. lra.
+Qed.
+
 Lemma HoareA_ex_ite :
   forall ex ivs (P Q1 Q2: _ -> Prop) c1 c2,
     var_spec_valid' ivs ->
@@ -2808,14 +2706,6 @@ Proof.
     clear Hvmcc.
     do 3 red in H1, H2.
     specialize (H1 s). specialize (H2 s).
-
-    Lemma float_lt_ge_trichotomy :
-      forall f f', (float_lt f f' \/ float_ge f f').
-    Proof.
-      intros. unfold float_lt, float_ge.
-      lra.
-    Qed.
-
     destruct (float_lt_ge_trichotomy f fzero).
     { destruct H1.
       { eexists; split; eauto. eapply H5.
@@ -2833,13 +2723,6 @@ Proof.
       split.
       { intro. inversion H12; clear H12; subst; eauto; try congruence.
         rewrite H8 in H17. inv_all. subst.
-
-        Lemma float_lt_ge_trichotomy_contra :
-          forall f f', float_lt f f' /\ float_ge f f' -> False.
-        Proof.
-          intros. unfold float_lt, float_ge in H. lra.
-        Qed.
- 
         unfold float_ge in H19. unfold float_lt in H9.
         lra. }
       intros.
@@ -2952,8 +2835,7 @@ Definition simple_vmap : list (Var * Var) :=
 
 Check Hoare__conseq.
 
-
-
+(*
 Fact embed_ex_test :
   |- oembed_fcmd simple_vmap simple_vmap simple_prog -->
      ("x" > 0 --> "x"! > 0).
@@ -2992,6 +2874,27 @@ Qed.
       
   SearchAbout (_ --> _).
   red. intros.
+*)
+
+Locate B2R.
+
+Print nat_to_float.
+
+(* tlaexamples/onedimaccctrl ? *)
+
+(* firstderivshimctrl.v *)
+
+(* (a * d + vmax <= ub /\ a! = a) \/ (a! <= 0) *)
+
+Print fcmd.
+Print fexpr.
+
+Definition velshim : fcmd :=
+  FIte (a * d - ub)
+
+(* TODO make and prove equivalent a transparent version of nat_to_float/B2R/BofZ. *)
+
+Print compcert.flocq.Appli.Fappli_IEEE.B2R.
 
 Fact fwp_test :
   forall (st : Syntax.state),
