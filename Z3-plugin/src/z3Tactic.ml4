@@ -330,7 +330,7 @@ struct
 		   (pr_list sep print_r_assert) stmts
 
   let ptrn_success = Str.regexp "^unsat\n(\([^)]*\))"
-  let ptrn_failure = Str.regexp "^sat\n(\([^)]*\))"
+  let ptrn_failure = Str.regexp "^sat\n\([^)]*\)\n\(model(.+)^\)"
   let ptrn_split = Str.regexp " "
 
   let ptrn_def = Str.regexp "(define-fun x\([0-9]+\) () Real[ \n\r\t]+\([0-9\.]+\))"
@@ -508,6 +508,7 @@ struct
 	 debug (fun _ ->
 		let _ = Format.fprintf Format.str_formatter "%a" (pr_smt2 "\n") (tbl,hyps) in
 		let msg = Format.flush_str_formatter () in
+		let _ = Format.eprintf "%a" (pr_smt2 "\n") (tbl, hyps) in
 		Pp.msg_debug (Pp.str msg))
        in
        match runZ3 tbl hyps with
