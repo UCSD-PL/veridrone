@@ -3,6 +3,7 @@
 -R ../coq-ext-lib/theories ExtLib
 -I ../compile
 -I ../Charge/Charge!/bin
+-R ../ChargeTactics ChargeTactics
 -R . Examples
 System.v
 FirstDerivShimCtrl.v
