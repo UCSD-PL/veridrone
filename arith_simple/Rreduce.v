@@ -144,6 +144,13 @@ Section denote.
     | Opaque v => (Opaque v, One)
     end.
 
+  Lemma mult_both_eq : forall a b c : R,
+      (c <> 0 ->
+       a * c = b * c ->
+       a = b)%R.
+  Proof. intros. psatz R. Qed.
+
+
   Theorem simplify_sound : forall r n d,
       simplify r = (n,d) ->
       Rexpr_well_formed r ->
@@ -171,7 +178,8 @@ Section denote.
                destruct (lcm_factor X Y) as [ [ ? ? ] ? ] ;
                let Hx := fresh in
                intro Hx ;
-                 destruct (Hx _ _ _ eq_refl) ; [ tauto | tauto | tauto | tauto | clear Hx ]
+               destruct (Hx _ _ _ eq_refl) ;
+               [ tauto | tauto | tauto | tauto | clear Hx ]
            | |- context [ simplify_hd ?X ] =>
              let Hx := fresh in
              destruct (Hsimplify_hd_sound X) as [ Hx ? ] ;
@@ -183,11 +191,6 @@ Section denote.
     { simpl in *.
       rewrite H19; clear H19.
       rewrite H; clear H.
-      Lemma mult_both_eq : forall a b c : R,
-          (c <> 0 ->
-          a * c = b * c ->
-          a = b)%R.
-      Proof. intros. psatz R. Qed.
       eapply mult_both_eq. eapply H14.
       rewrite RIneq.Rmult_plus_distr_r.
       repeat rewrite Raxioms.Rmult_assoc.
