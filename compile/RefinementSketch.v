@@ -2889,13 +2889,44 @@ Print nat_to_float.
 Print fcmd.
 Print fexpr.
 
+
 Definition velshim : fcmd :=
-  FIte (a * d - ub)
+  FIte (FMinus (FVar "ub") (FPlus (FMult (FVar "a") (FVar "d")) (FVar "vmax")))
+       (FAsn "a" (FVar "a"))
+       (FAsn "a" (FConst fzero)).
+
+Definition velshim_ivs : list (Var * Var) :=
+  [("ub", "ub"); ("a", "a"); ("d", "d"); ("vmax", "vmax")].
+
+Definition proportional_controller : fcmd :=
+  FAsn "a" (FMult (FVar "c") (FMinus (FVar "goal") (FVar "x"))).
+
+Definition proportional_controller_ivs : list (Var * Var) :=
+  [("a", "a"); ("c", "c"); ("x", "x"); ("goal", "goal")].
 
 (* TODO make and prove equivalent a transparent version of nat_to_float/B2R/BofZ. *)
 
-Print compcert.flocq.Appli.Fappli_IEEE.B2R.
+Print fwp.
+(*
+Fact fwp_propcontrol : False.
+  pose (fun P => fwp proportional_controller P proportional_controller_ivs).
+  Opaque AnyOf.
+  cbv beta iota delta [fwp proportional_controller] in P.
+  simpl in P.
+  unfold Semantics.eval_comp in P.
+Abort.
 
+Fact fwp_velshim : False.
+  pose (fun P => fwp velshim P velshim_ivs).
+Opaque AnyOf. 
+cbv beta iota delta [ fwp velshim ] in P.
+unfold Semantics.eval_comp in P.
+simpl in P.
+unfold maybe_ge0, maybe_lt0 in P.
+simpl eval_term in P.
+Abort.
+*)
+(*
 Fact fwp_test :
   forall (st : Syntax.state),
     (st "x" = 1%R)%type ->
@@ -2945,5 +2976,5 @@ Proof.
   SearchAbout bounds_to_formula.
   
 Abort.
-(* TODO: Prove that predicates produced by fwp have SEMR property
-   Also prove assignment Hoare rule *)
+*)
+(* TODO: Prove that predicates produced by fwp have SEMR property? *)
