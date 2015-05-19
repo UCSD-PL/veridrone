@@ -5,6 +5,7 @@ Require Import Coq.Classes.Morphisms.
 Require Import TLA.TLA.
 Require Import TLA.ProofRules.
 Require Import TLA.ArithFacts.
+Require Import TLA.Automation.
 Import LibNotations.
 Require Import Coq.Lists.ListSet.
 
@@ -132,7 +133,7 @@ Qed.
 
 Existing Instance Proper_SysSafe.
 
-Ltac tlaRevert := first [ apply landAdj | apply lrevert ].
+(*Ltac tlaRevert := first [ apply landAdj | apply lrevert ]. *)
 
 Lemma discr_indX : forall P A IndInv,
     is_st_formula IndInv ->
@@ -160,6 +161,8 @@ Proof.
   intros P I H tr HP.
   apply (H tr HP 0).
 Qed.
+
+Require Import ChargeTactics.Lemmas.
 
 Ltac decompose_hyps :=
   repeat rewrite land_lor_distr_R;
@@ -494,7 +497,7 @@ Proof.
     + tlaAssert ([]A); [rewrite Ha; tlaAssume | tlaIntro ].
       tlaAssert (SysD_or_stuck (Sys dvars cvars Init Prog w WC d));
         [ | tlaIntro ].
-      { unfold SysSafe in Hsafe. charge_apply Hsafe. charge_tauto. }
+      { unfold SysSafe in Hsafe. charge_apply Hsafe. charge_split; try charge_tauto. }
       apply discr_indX with
       (A:=Next_or_stuck dvars cvars Prog w WC d //\\
                TimeBound d //\\ next (TimeBound d) //\\ A).

@@ -56,17 +56,35 @@ Ltac charge_apply H :=
     end
   end.
 
+Ltac charge_simple_split :=
+  match goal with
+  | |- _ |-- _ //\\ _ => charge_split
+  end.
+
+Ltac charge_left :=
+  match goal with
+  | |- _ |-- _ \\// _ => apply lorR1
+  end.
+
+Ltac charge_right :=
+  match goal with
+  | |- _ |-- _ \\// _ => apply lorR2
+  end.
+
 Ltac charge_tauto :=
-  repeat charge_split ;
+  repeat charge_simple_split ;
   solve [ charge_assumption
         | charge_trivial
-        | charge_intro; repeat charge_intro; charge_tauto
-        | charge_split; solve [ charge_tauto ]
         | match goal with
           | H : _ |-- _ |- _ =>
             charge_apply H ; charge_tauto
           end
-        | charge_use ; charge_tauto ].
+        | charge_intro; repeat charge_intro; charge_tauto
+        | charge_left ; solve [ charge_tauto ]
+        | charge_right ; solve [ charge_tauto ]
+        | charge_split; solve [ charge_tauto ]
+        | charge_use ; charge_tauto
+        | charge_split ; solve [ charge_tauto ] ].
 
 
 Ltac charge_fwd :=
