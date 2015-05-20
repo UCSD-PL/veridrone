@@ -57,6 +57,46 @@ Section parametric.
   Proof.
     induction n; intro s; firstorder.
   Qed.
+
+  Global Instance Reflexive_stream_eq (r : A -> A -> Prop) (Refl : Reflexive r)
+    : Reflexive (stream_eq r).
+  Proof.
+    red. cofix CIH.
+    intro. constructor. reflexivity. eapply CIH.
+  Qed.
+
+  Global Instance Symmetric_stream_eq (r : A -> A -> Prop) (Sym : Symmetric r)
+  : Symmetric (stream_eq r).
+  Proof.
+    red. cofix CIH.
+    intros. eapply stream_eq_eta in H. destruct H.
+    constructor.
+    { symmetry. tauto. }
+    { eapply CIH. eapply H0. }
+  Qed.
+
+  Global Instance Transitive_stream_eq (r : A -> A -> Prop) (Trans : Transitive r)
+    : Transitive (stream_eq r).
+  Proof.
+    red. cofix CIH.
+    intros.
+    eapply stream_eq_eta in H.
+    eapply stream_eq_eta in H0.
+    destruct H; destruct H0.
+    constructor.
+    { etransitivity; eassumption. }
+    { eapply CIH; eassumption. }
+  Qed.
+
+  Lemma Proper_nth_suf_stream_eq (r : A -> A -> Prop)
+    : Proper (eq ==> stream_eq r ==> stream_eq r) (nth_suf).
+  Proof.
+    red. red. intros; subst. red.
+    induction y; simpl; eauto.
+    intros. eapply IHy.
+    eapply stream_eq_eta in H. tauto.
+  Qed.
+
 End parametric.
 
 Section xxx.
@@ -71,8 +111,10 @@ End xxx.
 
 Section xxx2.
   Context {T U : Type}.
+  Context {rT : T -> T -> Prop}.
+  Context {rU : U -> U -> Prop}.
 
-  Global Instance Proper_stream_map rT rU
+  Global Instance Proper_stream_map
   : Proper ((rT ==> rU) ==> stream_eq rT ==> stream_eq rU) (@stream_map T U).
   Proof.
     red. red. red. unfold respectful.
@@ -86,6 +128,13 @@ Section xxx2.
     { eapply Hfg. eapply H. }
     { eapply CIH. eapply H0. }
   Qed.
+
+  Lemma stream_map_tl : forall (f : T -> U) (s : stream T),
+      stream_eq eq (tl (stream_map f s)) (stream_map f (tl s)).
+  Proof.
+    intros. destruct s; reflexivity.
+  Qed.
+
 
 End xxx2.
 

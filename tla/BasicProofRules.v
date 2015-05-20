@@ -25,7 +25,10 @@ Proof.
   red. red. intros. subst.
   red.
   induction y; simpl; intros; try tauto.
-  { admit. }
+  { eapply Stream.stream_eq_eta in H.
+    rewrite Stream.stream_eq_eta in H.
+    destruct H as [ ? [ ? ? ] ].
+    rewrite H. rewrite H0. reflexivity. }
   { rewrite IHy1; eauto.
     rewrite IHy2; eauto.
     reflexivity. }
@@ -44,22 +47,18 @@ Proof.
     eapply Stream.stream_eq_eta in H.
     destruct H.
     constructor; simpl; auto.
-    admit. }
+    reflexivity. }
   { eapply forall_iff. intros.
-    admit. }
-  { admit. }
-  { admit. }
-  { admit. }
-Qed.
-
-Lemma stream_map_tl : forall {T U} (f : T -> U) (s : Stream.stream T),
-    Stream.stream_eq eq (Stream.tl (Stream.stream_map f s)) (Stream.stream_map f (Stream.tl s)).
-Proof.
-  intros T U f.
-  cofix CIH.
-  intros. eapply Stream.Cons_eq.
-  { destruct s. reflexivity. }
-  { clear CIH. admit. }
+    eapply IHy.
+    eapply Stream.Proper_nth_suf_stream_eq; eauto. }
+  { eapply exists_iff; intros.
+    eapply IHy.
+    eapply Stream.Proper_nth_suf_stream_eq; eauto. }
+  { do 2 rewrite Stream.stream_eq_eta in H.
+    destruct H as [ ? [ ? ? ] ].
+    rewrite H. rewrite H0. reflexivity. }
+  { eapply IHy. eapply Stream.Proper_stream_map; eauto.
+    red. intros. subst. reflexivity. }
 Qed.
 
 (* First, a few functions for expressing
