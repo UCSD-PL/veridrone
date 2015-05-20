@@ -30,7 +30,7 @@ Definition Next (dvars cvars : list Var)
   let steps := w \\// d
   in      steps
      \\// (Enabled d -->> lfalse)
-     \\// ("t" > 0 -->> Enabled w -->> lfalse)
+     \\// (Enabled w -->> lfalse)
      \\// Unchanged ("t"::dvars ++ cvars)%list.
 
 Definition Next_or_stuck (dvars cvars : list Var)
@@ -672,6 +672,14 @@ Proof.
         apply List.in_app_or in H. intuition. }
 Qed.
 
+
+
+Require Import Coq.Sorting.Permutation.
+Instance Proper_World : Proper (@Permutation _ ==> @Permutation _ ==> lequiv) World.
+Proof.
+Admitted.
+
+
 Theorem ComposeComm (a b : SysRec) :
   SysD (SysCompose a b) |-- SysD (SysCompose b a).
 Proof.
@@ -710,6 +718,18 @@ Proof.
       + unfold all_in. intros. apply List.in_or_app.
         apply List.in_app_or in H. intuition.
     - apply lorR2. apply lorR2. apply lorR1. charge_intros.
+      rewrite Permutation_app_comm. rewrite (Permutation_app_comm (world a)).
+      rewrite (landC (WConstraint a)). charge_tauto.
+    - apply lorR2. apply lorR2. apply lorR2.
+      charge_split; try charge_assumption.
+      rewrite Unchanged_weaken; [ charge_assumption | ].
+      unfold all_in. intros. apply List.in_or_app.
+      apply List.in_app_or in H. intuition.
+      * left. apply List.in_or_app.
+        apply List.in_app_or in H0. tauto.
+      * right. apply List.in_or_app.
+        apply List.in_app_or in H0. tauto. }
+(*
       rewrite <- uncurry. charge_use. tlaSplit.
       { charge_tauto. }
       { tlaRevert. apply forget_prem. charge_intros.
@@ -730,6 +750,7 @@ Proof.
           apply List.in_app_or in H0. tauto.
         * right. apply List.in_or_app.
           apply List.in_app_or in H0. tauto. }
+*)
 Qed.
 
 Axiom Proper_SysCompose : Proper (SysRec_equiv ==> SysRec_equiv ==> SysRec_equiv) SysCompose.
@@ -752,4 +773,42 @@ Proof.
     + rewrite ComposeComm; rewrite ComposeRefine.
       charge_tauto. rewrite SysCompose_Comm. assumption.
     + charge_tauto.
+Qed.
+
+Lemma always_impl_distr : forall Q R,
+    [] (Q -->> R) |-- [] Q -->> [] R.
+Proof.
+  intros.
+  charge_intro.
+  rewrite Always_and.
+  tlaRevert.
+  eapply always_imp.
+  charge_tauto.
+Qed.
+
+Ltac charge_exfalso :=
+  etransitivity; [ | eapply lfalseL ].
+
+Theorem SysSafe_rule
+: forall P S
+    (Hprog : P |-- [] Enabled (Discr S.(cvars) S.(Prog) S.(maxTime)))
+    (Hcont : P |-- [] (Enabled (World S.(dvars) S.(world) //\\ S.(WConstraint)))),
+    P |-- SysSafe S.
+Proof.
+  unfold SysSafe.
+  intros.
+  unfold SysD, SysD_or_stuck, sysD, sysD_or_stuck.
+  charge_intro.
+  charge_split.
+  - charge_tauto.
+  - rewrite <- landA. tlaRevert.
+    tlaAssert (P); [ charge_assumption | rewrite Hprog at 2 ].
+    tlaAssert (P); [ charge_assumption | rewrite Hcont at 2 ].
+    repeat rewrite <- always_impl_distr.
+    apply always_tauto.
+    unfold Next, Next_or_stuck.
+    charge_intros. charge_split; [ | charge_tauto ].
+    decompose_hyps; try charge_tauto.
+    { charge_exfalso. charge_tauto. }
+    { charge_exfalso. charge_tauto. }
 Qed.
