@@ -556,6 +556,9 @@ Proof.
     apply H0. eapply IHF1; eauto.
   - destruct H1. exists x. eapply H; eauto.
   - intros. eapply H; eauto.
+  - eapply IHF; eauto.
+    destruct tr1; destruct tr2. simpl in H1.
+    simpl. destruct H1. reflexivity.
 Qed.
 
 Lemma st_formula_varsagree : forall xs s,

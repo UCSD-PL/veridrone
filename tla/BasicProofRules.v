@@ -1,3 +1,4 @@
+Require Import Coq.Classes.Morphisms.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.Lib.
@@ -6,6 +7,60 @@ Require Import TLA.Automation.
 (* Various proof rules for TLA in general *)
 
 Open Scope HP_scope.
+
+Lemma exists_iff : forall {T} (P Q: T -> Prop),
+    (forall x, P x <-> Q x) ->
+    ((exists x, P x) <-> (exists x, Q x)).
+Proof.
+  split; destruct 1; eexists; apply H; eauto.
+Qed.
+Lemma forall_iff : forall {T} (P Q: T -> Prop),
+    (forall x, P x <-> Q x) ->
+    ((forall x, P x) <-> (forall x, Q x)).
+Proof. split; intuition; firstorder. Qed.
+
+Theorem Proper_eval_formula
+: Proper (eq ==> Stream.stream_eq eq ==> iff) eval_formula.
+Proof.
+  red. red. intros. subst.
+  red.
+  induction y; simpl; intros; try tauto.
+  { admit. }
+  { rewrite IHy1; eauto.
+    rewrite IHy2; eauto.
+    reflexivity. }
+  { rewrite IHy1; eauto.
+    rewrite IHy2; eauto.
+    reflexivity. }
+  { rewrite IHy1; eauto.
+    rewrite IHy2; eauto.
+    reflexivity. }
+  { eapply exists_iff; intros.
+    eauto. }
+  { eapply forall_iff; intros.
+    eauto. }
+  { eapply exists_iff; intros.
+    eapply IHy.
+    eapply Stream.stream_eq_eta in H.
+    destruct H.
+    constructor; simpl; auto.
+    admit. }
+  { eapply forall_iff. intros.
+    admit. }
+  { admit. }
+  { admit. }
+  { admit. }
+Qed.
+
+Lemma stream_map_tl : forall {T U} (f : T -> U) (s : Stream.stream T),
+    Stream.stream_eq eq (Stream.tl (Stream.stream_map f s)) (Stream.stream_map f (Stream.tl s)).
+Proof.
+  intros T U f.
+  cofix CIH.
+  intros. eapply Stream.Cons_eq.
+  { destruct s. reflexivity. }
+  { clear CIH. admit. }
+Qed.
 
 (* First, a few functions for expressing
    the proof rules *)
@@ -44,6 +99,7 @@ Fixpoint next (F:Formula) :=
     | Always F => Always (next F)
     | Eventually F => Eventually (next F)
     | Embed P => Embed (fun _ en => P en en)
+    | Rename s P => Rename s (next P)
   end.
 
 (* Returns true iff the Term has no ! *)
@@ -84,6 +140,7 @@ Fixpoint is_st_formula (F:Formula) : Prop :=
     | Syntax.Forall _ f =>
       forall x, is_st_formula (f x)
     | PropF _ => True
+    | Rename _ x => is_st_formula x
     | _ => False
   end.
 
@@ -105,12 +162,11 @@ Fixpoint is_st_formula_b (F:Formula) : bool :=
                         (is_st_formula_b F2)
     | Imp F1 F2 => andb (is_st_formula_b F1)
                         (is_st_formula_b F2)
+    | Rename _ x => is_st_formula_b x
     | _ => false
   end.
 
 (* Now a few helper lemmas *)
-
-
 Lemma next_term_tl : forall t s1 s2 s3,
   is_st_term t = true ->
   eval_term (next_term t) s1 s2 =
@@ -128,15 +184,21 @@ Lemma next_formula_tl : forall F tr,
   (eval_formula (next F) tr <->
    eval_formula F (Stream.tl tr)).
 Proof.
-  intros F tr Hst; induction F; simpl in *;
+  induction F; simpl in *; intros ;
   try tauto.
   - unfold eval_comp in *. simpl in *.
     rewrite <- next_term_tl with (s1:=Stream.hd tr) (t:=t).
     rewrite <- next_term_tl with (s1:=Stream.hd tr) (t:=t0).
     intuition. intuition. intuition.
-  - split; intro He; destruct He as [x ?];
-    exists x; apply H; auto.
-  - split; intros; apply H; auto.
+  - rewrite IHF1; try rewrite IHF2; tauto.
+  - rewrite IHF1; try rewrite IHF2; tauto.
+  - rewrite IHF1; try rewrite IHF2; tauto.
+  - eapply exists_iff.
+    intros; eapply H; eauto.
+  - eapply forall_iff; eauto.
+  - rewrite IHF; eauto.
+    eapply Proper_eval_formula. reflexivity.
+    eapply stream_map_tl.
 Qed.
 
 (* And finally the proof rules *)
