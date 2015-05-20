@@ -4,6 +4,7 @@ Require Import TLA.TLA.
 Import LibNotations.
 Require Import TLA.DifferentialInduction.
 Require Import TLA.ContinuousProofRules.
+Require Import TLA.BasicProofRules.
 Require Import TLA.ArithFacts.
 Require Import Examples.System.
 Require Import Examples.SecondDerivUtil.
@@ -136,6 +137,13 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
       solve_linear.
   Qed.
 
+  Lemma SysSafe_ctrl : forall P, P |-- SysSafe SpecR.
+  Proof.
+    intros.
+    apply SysSafe_rule; apply always_tauto.
+    enable_ex; repeat eexists; solve_linear.
+  Qed.
+
   Theorem ctrl_safe :
     []"Vmax" >= "v" //\\ []"Ymax" >= "y" |-- Spec -->> []Safe.
   Proof.
@@ -146,6 +154,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     with (IndInv:=IndInv) (A:="Vmax" >= "v" //\\ "Ymax" >= "y").
     - tlaIntuition.
     - unfold Spec, SpecR. tlaAssume.
+    - apply SysSafe_ctrl.
     - charge_apply ind_inv_init. charge_tauto.
     - tlaIntuition.
     - charge_apply inv_safe. charge_tauto.

@@ -97,6 +97,9 @@ Section parametric.
     eapply stream_eq_eta in H. tauto.
   Qed.
 
+  CoFixpoint forever (v : A) : stream :=
+    Cons v (forever v).
+
 End parametric.
 
 Section xxx.

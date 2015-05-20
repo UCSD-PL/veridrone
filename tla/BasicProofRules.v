@@ -3,6 +3,7 @@ Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.Lib.
 Require Import TLA.Automation.
+Require Import Rdefinitions.
 
 (* Various proof rules for TLA in general *)
 
@@ -197,7 +198,7 @@ Proof.
   - eapply forall_iff; eauto.
   - rewrite IHF; eauto.
     eapply Proper_eval_formula. reflexivity.
-    eapply stream_map_tl.
+    eapply Stream.stream_map_tl.
 Qed.
 
 (* And finally the proof rules *)
@@ -408,7 +409,6 @@ Proof.
   apply (H tr HP 0).
 Qed.
 
-
 (** Existential quantification **)
 Lemma exists_entails : forall T F1 F2,
   (forall x, F1 x |-- F2 x) ->
@@ -416,4 +416,32 @@ Lemma exists_entails : forall T F1 F2,
 Proof.
   tlaIntuition.  destruct H0.
   exists x. intuition.
+Qed.
+
+(* Enabled *)
+Lemma Enabled_action : forall P,
+    (forall st, exists st',
+          eval_formula P (Stream.Cons st (Stream.forever st'))) ->
+    |-- Enabled P.
+Proof.
+  breakAbstraction; intros.
+  specialize (H (Stream.hd tr)). destruct H.
+  exists (Stream.forever x). auto.
+Qed.
+
+Lemma ex_state : forall (v : Var) (P : state -> Prop),
+    (exists st,
+        (exists val, P
+          (fun v' => if String.string_dec v v'
+                     then val else st v'))) ->
+      exists st, P st.
+Proof.
+  intros. destruct H. destruct H. eauto.
+Qed.
+
+Lemma ex_state_any : forall (P : state -> Prop),
+    (forall st, P st) ->
+    exists st, P st.
+Proof.
+  intros. exists (fun _ => 0%R). eauto.
 Qed.

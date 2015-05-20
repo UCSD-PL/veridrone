@@ -11,6 +11,26 @@ Require Import TLA.Automation.
 
 (* Some useful tactics for our examples. *)
 
+Ltac enable_ex :=
+  eapply Enabled_action; auto; simpl; intros;
+  repeat match goal with
+         | |- context [ ?X ] =>
+           match type of X with
+           | Var => idtac
+           | String.string => idtac
+           end ;
+             try match goal with
+                 | X := _ |- _ => unfold X
+                 end;
+             eapply (@ex_state X) ; simpl ;
+             match goal with
+             | |- exists x (y : _), (@?F x) => fail 1
+             | |- _ => idtac
+             end
+         end;
+  try (eapply ex_state_any ;
+       let st := fresh in intro st ; clear st).
+
 Lemma reason_action : forall P Q,
     (forall a b tr,
         eval_formula

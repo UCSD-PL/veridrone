@@ -8,6 +8,7 @@ Require Import Examples.SensorWithError.
 Require Import SensorWithDelayRange.
 Require Import Examples.SensorWithDelayRangeSndOrder.
 Require Import Examples.SecondDerivShimCtrl.
+Require Import ChargeTactics.Lemmas.
 
 Open Scope HP_scope.
 Open Scope string_scope.
@@ -32,42 +33,7 @@ Module ShimCtrl := SecondDerivShimCtrl(ShimParams).
 
 Module DelayParams <: SensorWithDelayRangeSndOrderParams.
 
-  Definition x := "y".
-  Definition Xmax := "Ymax_pre".
-  Definition Xmax_post := "Ymax".
-  Definition xd1 := "v".
-  Definition xd2 := "a".
-  Definition xd1max := "Vmax".
-  Definition X := "Y".
-  Definition Xd1 := "V".
-  Definition T := "T".
   Parameter d : R.
-
-  Let w_all := ["t" '  ::= -- (1), x '  ::= xd1,
-                xd1 ' ::= xd2, Xmax_post '  ::= 0,
-                xd2 '  ::= 0, X ' ::= 0, Xd1 ' ::= 0,
-                T ' ::= 0].
-  Definition get_deriv_Xmax_post :
-    get_deriv Xmax_post w_all = Some (NatT 0) :=
-    eq_refl _.
-  Definition get_deriv_xd2 :
-    get_deriv xd2 w_all = Some (NatT 0) :=
-    eq_refl _.
-  Definition get_deriv_x :
-    get_deriv x w_all = Some (VarNowT xd1) :=
-    eq_refl _.
-  Definition get_deriv_xd1 :
-    get_deriv xd1 w_all = Some (VarNowT xd2) :=
-    eq_refl _.
-  Definition get_deriv_Xd1 :
-    get_deriv Xd1 w_all = Some (NatT 0) :=
-    eq_refl _.
-  Definition get_deriv_X :
-    get_deriv X w_all = Some (NatT 0) :=
-    eq_refl _.
-  Definition get_deriv_T :
-    get_deriv T w_all = Some (NatT 0) :=
-    eq_refl _.
 
   Parameter amin : R.
   Parameter amin_lt_0 : (amin < 0)%R.
@@ -79,27 +45,30 @@ End DelayParams.
 Module DelayCompensator :=
   SensorWithDelayRangeSndOrder(DelayParams).
 
+Require Import Coq.Lists.List.
+
 Definition CtrlSenseErrorSysR err :=
   SysCompose
-    (SensorWithError.SpecR "v" "Vmax" "Vmin" err
-                           ShimCtrl.w ShimParams.d)
+    (Rename (("x","v":Term)::("Xmax","Vmax":Term)::("Xmin","Vmin":Term)::nil)
+            (SensorWithError.SpecR err ShimCtrl.w ShimParams.d))
     (SysCompose
-       (SensorWithError.SpecR "y" "Ymax" "Ymin" err
-                              ShimCtrl.w ShimParams.d)
+       (SensorWithError.SpecR err ShimCtrl.w ShimParams.d)
        ShimCtrl.SpecR).
 
 Definition CtrlSenseErrorSys err :=
   SysD (CtrlSenseErrorSysR err).
 
 Theorem ctrl_sense_error_safe : forall err,
-  |-- CtrlSenseErrorSys err -->> []"y" <= ShimParams.ub.
+  |-- CtrlSenseErrorSys err -->> []"x" <= ShimParams.ub.
 Proof.
   intros err.
   apply imp_trans with
-  (F2:=[]((SensorWithError.SenseSafe "v" "Vmax" "Vmin") //\\
-          (SensorWithError.SenseSafe "y" "Ymax" "Ymin") //\\
+  (F2:=[](SensorWithError.SenseSafe //\\
+          SensorWithError.SenseSafe //\\
           "y" <= ShimParams.ub)).
   - apply Compose.
+    + apply SysSafe_rule; apply always_tauto.
+      enable_ex; repeat eexists; solve_linear.
     + tlaIntro. apply SensorWithError.sense_safe; reflexivity.
     + apply Compose.
       * tlaIntro. tlaRevert. apply forget_prem.

@@ -11,55 +11,32 @@ Open Scope string_scope.
 
 Section SensorWithDelay.
 
-  Variable x : Var.
-  Variables Xmax Xmin : Var.
-  Variables Xmax_post Xmin_post : Var.
-  Variable xderiv : Var.
   Variable d : R.
-  (** Clean this up? Maybe **)
-  Let w_all := ["t" '  ::= -- (1), x '  ::= xderiv,
-                Xmax_post '  ::= 0, Xmin_post '  ::= 0,
-                xderiv '  ::= 0].
-  Hypothesis get_deriv_Xmax_post :
-    get_deriv Xmax_post w_all = Some (NatT 0).
-  Hypothesis get_deriv_Xmin_post :
-    get_deriv Xmin_post w_all = Some (NatT 0).
-  Hypothesis get_deriv_xderiv :
-    get_deriv xderiv w_all = Some (NatT 0).
-  Hypothesis get_deriv_x :
-    get_deriv x w_all = Some (VarNowT xderiv).
-
-  Ltac rewrite_deriv_hyps :=
-    breakAbstraction; unfold w_all in *;
-    repeat first [ rewrite get_deriv_Xmax_post |
-                   rewrite get_deriv_Xmin_post |
-                   rewrite get_deriv_xderiv |
-                   rewrite get_deriv_x ].
 
   Definition Sense : Formula :=
-         (xderiv! >= 0 //\\ Xmax_post! = Xmax + xderiv!*d
-          //\\ Xmin_post! = Xmin)
-    \\// (xderiv! < 0 //\\ Xmax_post! = Xmax
-         //\\ Xmin_post! = Xmin + xderiv!*d).
+         ("v"! >= 0 //\\ "Xmax_post"! = "Xmax" + "v"!*d
+          //\\ "Xmin_post"! = "Xmin")
+    \\// ("v"! < 0 //\\ "Xmax_post"! = "Xmax"
+         //\\ "Xmin_post"! = "Xmin" + "v"!*d).
 
   Definition SenseSafeInd : Formula :=
-         (xderiv >= 0 -->> (Xmax_post >= x + xderiv*"t"
-                            //\\ Xmin_post <= x))
-    //\\ (xderiv < 0 -->> (Xmax_post >= x
-                           //\\ Xmin_post <= x + xderiv*"t")).
+         ("v" >= 0 -->> ("Xmax_post" >= "x" + "v"*"t"
+                            //\\ "Xmin_post" <= "x"))
+    //\\ ("v" < 0 -->> ("Xmax_post" >= "x"
+                           //\\ "Xmin_post" <= "x" + "v"*"t")).
 
   Definition I := SenseSafeInd.
 
   Definition SenseSafe : Formula :=
-    Xmin_post <= x <= Xmax_post.
+    "Xmin_post" <= "x" <= "Xmax_post".
 
   Variable WC : Formula.
 
-  Definition w := (DiffEqC x xderiv::nil)%list.
+  Definition w : list DiffEq := ["x"' ::= "v"].
 
   Definition SpecR : SysRec :=
-    {| dvars := (Xmax_post::Xmin_post::xderiv::nil)%list;
-       cvars := (x::nil)%list;
+    {| dvars := ("Xmax_post"::"Xmin_post"::"v"::nil)%list;
+       cvars := ("x"::nil)%list;
        Init := I;
        Prog := Sense;
        world := w;
@@ -68,13 +45,21 @@ Section SensorWithDelay.
 
   Definition Spec := SysD SpecR.
 
+  Lemma SysSafe_sense : forall P, P |-- SysSafe SpecR.
+  Proof.
+    intros.
+    apply SysSafe_rule; apply always_tauto.
+    enable_ex; repeat eexists; solve_linear.
+  Qed.
+
   Theorem sense_safe :
-    [](Xmin <= x <= Xmax) //\\ Spec |-- []SenseSafe.
+    []("Xmin" <= "x" <= "Xmax") //\\ Spec |-- []SenseSafe.
   Proof.
     intro.
     eapply Sys_by_induction with (IndInv := SenseSafeInd).
     - tlaIntuition.
     - unfold Spec, SpecR. tlaAssume.
+    - apply SysSafe_sense.
     - tlaAssume.
     - charge_assumption.
     - solve_nonlinear.
@@ -82,7 +67,7 @@ Section SensorWithDelay.
     - unfold World. eapply diff_ind with (Hyps:=ltrue);
         try solve [tlaIntuition | tlaAssume ];
         repeat tlaSplit;
-        try solve [ rewrite_deriv_hyps; solve_linear |
+        try solve [ solve_linear |
                     tlaIntro; eapply unchanged_continuous;
                       [ tlaAssume | solve_linear ] ].
     - solve_linear; solve_nonlinear.
