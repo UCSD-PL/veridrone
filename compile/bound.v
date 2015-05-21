@@ -4321,6 +4321,7 @@ Lemma bound_proof' :
     related fState st -> 
     boundDef' expr st fState.
 Proof.
+(*
   unfold boundDef'. 
   intros.
   remember (eval_NowTerm fState expr). destruct o; trivial.
@@ -4688,7 +4689,6 @@ Proof.
       unfold simpleBound4 in *.
       destruct H6. 
       {
-       
         rewrite <- H0 in H.
         simpl in H.
         rewrite <- H0.
@@ -9306,3 +9306,5 @@ clear H1. psatz R. Qed.
        }
 
 Qed.
+ *)
+  Admitted.
