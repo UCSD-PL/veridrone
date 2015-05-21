@@ -14,16 +14,19 @@ Local Open Scope string_scope.
 
 
 (* A simple example of refinement - first, a TLA formula refining another TLA formula *)
+
 Definition program : Formula :=
-  "x" = 0 /\ [] ("x"! = "x").
+  ("x" = 0 //\\ [] ("x"! = "x"))%HP.
+Print Graph.
 
 Lemma program_fact :
-  |- (program --> [] "x" = 0).
+  |-- (program -->> [] "x" = 0).
 Proof.
 eapply inv_discr_ind.
 - simpl; tauto.
 - simpl; unfold eval_comp; simpl.
-  intros. inversion H.
+  unfold tlaEntails.
+  intros. simpl. intros. destruct H0.
   rewrite H1. auto.
 Qed.
 
@@ -180,26 +183,24 @@ Definition prog2 : state -> state :=
 
 (* Showing that we can prove a simple refinement fact *)
 Lemma prog2_refines_prog :
-  |- embed_coq prog2 --> ("x"! = "x").
+  |-- embed_coq prog2 -->> ("x"! = "x").
 Proof.
   unfold embedStep, embed_coq.
   simpl.
-  intros.
-  unfold eval_comp.
-  simpl.
-  specialize (H (Semantics.hd tr)).
-  specialize (H (conj eq_refl I)).
-  destruct H.
-  destruct H.
+  intros. unfold tlaEntails.
+  simpl. intros.
+  specialize (H0 (Stream.hd tr)).
+  specialize (H0 (conj eq_refl I)).
   destruct H0.
-  unfold prog2, id in H; simpl in H.
-  inversion H0.
-  subst. auto.
+  destruct H0.
+  destruct H1.
+  unfold prog2, id in H0; simpl in H0.
+  subst. inversion H1. auto.
 Qed.
 
 (* Example of proving an invariant for prog2 *)
 Lemma prog2_fact :
-  |- ("x" = 0 /\ [] (embed_coq prog2)) --> [] "x" = 0.
+  |-- ("x" = 0 //\\ [] (embed_coq prog2)) -->> [] "x" = 0.
 Proof.
   eapply imp_trans.
   Focus 2.
@@ -236,34 +237,33 @@ Definition coq_prog3 (st : state) : state :=
       st v.
 
 Definition init_prog3 : Formula :=
-  "x" = 0 \/ "x" = 1.
+  "x" = 0 \\// "x" = 1.
 
 (* TLA version of the same program *)
 Definition tla_prog3 : Formula :=
-  init_prog3 /\
-  [] (("x" = 0 --> "x"! = 1) /\
-      ("x" = 1 --> "x"! = 0)).
+  init_prog3 //\\
+  [] (("x" = 0 -->> "x"! = 1) //\\
+      ("x" = 1 -->> "x"! = 0)).
 
 (* When all you have is a hammer... *)
 Require Import micromega.Psatz.
+Require Import ExtLib.Tactics.
 
 (* Correctness of our TLA program for prog3 *)
 Lemma prog3_tla_fact :
-  |- (tla_prog3 --> [] init_prog3).
+  |-- (tla_prog3 -->> [] init_prog3).
 Proof.
 apply inv_discr_ind.
 - simpl. tauto.
-- simpl. unfold eval_comp. simpl.
+- simpl. unfold tlaEntails. simpl.
   intros.
-  destruct H.
-  destruct H.
+  forward_reason.
+  destruct H0.
   + right.
     simpl.
-    destruct H0.
-    * intuition.
+    auto.
   + left.
-    destruct H0.
-    intuition.
+    auto.
 Qed.
 
 Lemma fun_eq_fact :
@@ -277,24 +277,23 @@ Qed.
 (* Under this definition of embed, we can indeed prove that coq_prog3
    refines the corresponding TLA program *)
 Lemma prog3_refines_prog :
-  |- embed_coq coq_prog3 -->
-     ("x" = 0 --> "x"! = 1) /\
-     ("x" = 1 --> "x"! = 0).
+  |-- embed_coq coq_prog3 -->>
+     ("x" = 0 -->> "x"! = 1) //\\
+     ("x" = 1 -->> "x"! = 0).
 Proof.
   unfold embed_coq, embedStep.
-  simpl. intros.
-  unfold eval_comp. simpl.
-  specialize (H _ (conj eq_refl I)).
-  destruct H as [ ? [ ? ?  ] ].
-  unfold coq_prog3 in H.
-  apply fun_eq_fact with (a := "x") in H.
-  simpl in H.
-  destruct H0. clear H1. inversion H0. clear H0.
-  rewrite H2 in *.
-  destruct (my_req_dec (Semantics.hd tr "x") 0).
-  - rewrite e. rewrite H. split; intuition.
-  - rewrite H in *. split; auto.
-    intro. congruence.
+  simpl. unfold tlaEntails. intros.
+  unfold Semantics.eval_formula.
+  unfold eval_comp. simpl. intros.
+  specialize (H0 _ (conj eq_refl I)).
+  forward_reason.
+  unfold coq_prog3 in H0.
+  apply fun_eq_fact with (a := "x") in H0.
+  simpl in H0.
+  inversion H1; subst; clear H1.
+  destruct (my_req_dec (Stream.hd tr "x") 0).
+  - rewrite e. split; intuition. rewrite H0 in H4. assumption.
+  - split; intros; rewrite H0 in H4; congruence.
 Qed.
 
 Require Import FunctionalExtensionality.
@@ -375,23 +374,23 @@ Definition embed_cmd : cmd -> Syntax.Formula :=
 Definition cmd1 : cmd :=
   Asn 0 (CVar 0).
 
-Require Import ExtLib.Tactics.
+
 
 (* Simple refinement proof for an embedded imperative program *)
 Lemma cmd1_refines_prog :
-  |- embed_cmd cmd1 --> ("x"! = "x").
+  |-- embed_cmd cmd1 -->> ("x"! = "x").
 Proof.
-  unfold embed_cmd, embedStep. simpl.
-  intros. unfold eval_comp. simpl.
-  specialize (H (fun v => if v ?[eq] 0 then Some (Semantics.hd tr "x") else None)).
-  simpl in H.
-  specialize (H (conj eq_refl I)).
+  unfold embed_cmd, embedStep. simpl. unfold tlaEntails.
+  intros. unfold eval_comp. simpl. intros.
+  specialize (H0 (fun v => if v ?[eq] 0 then Some (Stream.hd tr "x") else None)).
+  simpl in H0.
+  specialize (H0 (conj eq_refl I)).
   forward_reason.
-  inversion H; clear H; subst.
-  simpl in H6. inversion H6; clear H6.
-  rewrite H2.
-  unfold update in H0. simpl in H0.
-  inversion H0; clear H0.
+  inversion H0; clear H0; subst.
+  simpl in H7. inversion H7; clear H7.
+  rewrite H3.
+  unfold update in H1. simpl in H1.
+  inversion H1; clear H1.
   reflexivity.
 Qed.
 
@@ -404,34 +403,32 @@ Definition cmd3 : cmd :=
  * We are able to prove that cmd3 refines its corresponding TLA program, which is good.
  *)
 Lemma cmd3_refines_prog3 :
-  |- embed_cmd cmd3 -->
-               (("x" = 0 --> "x"! = 1) /\
-                ("x" = 1 --> "x"! = 0)).
+  |-- embed_cmd cmd3 -->>
+               (("x" = 0 -->> "x"! = 1) //\\
+                ("x" = 1 -->> "x"! = 0)).
 Proof.
-  unfold embed_cmd, embedStep. simpl.
-  intros.
-  unfold eval_comp. simpl.
-  specialize (H (fun v => if v ?[eq] 0 then Some (Semantics.hd tr "x") else None)).
-  simpl in H. destruct H.
+  unfold embed_cmd, embedStep. simpl. unfold tlaEntails.
+  intros. simpl. intros.
+  specialize (H0 (fun v => if v ?[eq] 0 then Some (Stream.hd tr "x") else None)). 
+  simpl in H0. destruct H0.
   - intuition.
   - forward_reason.
-    unfold cmd3 in H.
-    inversion H; subst; clear H.
-    + simpl in H7.
+    unfold cmd3 in H0.
+    inversion H0; subst; clear H0.
+    + simpl in *.
       inversion H8; subst; clear H8.
-      simpl in H5. inversion H5; subst; clear H5.
+      simpl in H9. inversion H9; subst; clear H9.
       inversion H7; subst; clear H7.
-      unfold update in H0. simpl in H0.
+      unfold update in H1. simpl in H1.
       split.
-      * inversion H0. auto.
+      * inversion H1. auto.
       * intro. congruence.
-    + simpl in H6. inversion H6; subst; clear H6.
+    + simpl in *. inversion H10; subst; clear H10.
       split.
       * intro. congruence.
-      * inversion H9; subst; clear H9.
-        intro. unfold update in H0. simpl in H0.
-        inversion H0; subst; clear H0.
-        simpl in H5. inversion H5; subst; clear H5.
+      * inversion H6; subst; clear H6.
+        intro. unfold update in H1. simpl in H1.
+        inversion H1; subst; clear H1.
         reflexivity.
 Qed.
 
@@ -445,18 +442,17 @@ Qed.
    treated as refinements of TLA formulas.
  *)
 Lemma fail_refines_prog2 :
-  |- embed_cmd Fail -->
-                (("x" = 0 --> "x"! = 1) /\
-                 ("x" = 1 --> "x"! = 0)).
+  |-- embed_cmd Fail -->>
+                (("x" = 0 -->> "x"! = 1) //\\
+                 ("x" = 1 -->> "x"! = 0)).
 Proof.
-  unfold embed_cmd, embedStep.
+  unfold embed_cmd, embedStep. simpl. unfold tlaEntails.
   simpl. intros.
-  unfold eval_comp; simpl.
-  specialize (H (fun v => if v ?[eq] 0 then Some (Semantics.hd tr "x") else None)).
-  simpl in H.
-  destruct H.
+  specialize (H0 (fun v => if v ?[eq] 0 then Some (Stream.hd tr "x") else None)).
+  simpl in H0.
+  destruct H0.
   - tauto.
-  - destruct H. inversion H.
+  - destruct H0. inversion H0.
 Qed.
 
 (* Having seen that embedStep is not quite what we want, we next turn to embedStep_full,
@@ -479,18 +475,17 @@ Definition embed_cmd' : cmd -> Syntax.Formula :=
    We do not want this to be provable.
  *)
 Lemma fail_refines_prog2' :
-  |- embed_cmd' Fail -->
-                (("x" = 0 --> "x"! = 1) /\
-                 ("x" = 1 --> "x"! = 0)).
+  |-- embed_cmd' Fail -->>
+                (("x" = 0 -->> "x"! = 1) //\\
+                 ("x" = 1 -->> "x"! = 0)).
 Proof.
-  unfold embed_cmd', embedStep_full.
+  unfold embed_cmd', embedStep_full. simpl. unfold tlaEntails.
   simpl. intros.
-  unfold eval_comp; simpl.
-  specialize (H (fun v => if v ?[eq] 0 then Some (Semantics.hd tr "x") else None)).
-  simpl in H.
-  destruct H.
+  specialize (H0 (fun v => if v ?[eq] 0 then Some (Stream.hd tr "x") else None)).
+  simpl in H0.
+  destruct H0.
   - tauto.
-  - destruct H. inversion H.
+  - destruct H0. inversion H0.
 Qed.
 
 (* Finally, we define an embedding that uses embedStep_noex.
@@ -514,12 +509,12 @@ Definition embed_cmd'' : cmd -> Syntax.Formula :=
 (* Using embedStep_noex, we find that Fail can't be proven to refine things.
    That's good. *)
 Lemma fail_refines_prog2'' :
-  |- embed_cmd'' Fail -->
-                (("x" = 0 --> "x"! = 1) /\
-                 ("x" = 1 --> "x"! = 0)).
+  |-- embed_cmd'' Fail -->>
+                (("x" = 0 -->> "x"! = 1) //\\
+                 ("x" = 1 -->> "x"! = 0)).
 Proof.
   unfold embedStep_noex, embed_cmd''.
-  simpl; intros.
+  simpl; intros. unfold tlaEntails.
   unfold eval_comp; simpl.
   Abort.
 
@@ -539,16 +534,15 @@ Qed.
    refine a TLA program (of which it actually is a refinement)
    This is another promising sanity-check for this notion of embedding. *)
 Lemma cmd1_refines_prog'' :
-  |- embed_cmd'' cmd1 --> ("x"! = "x").
+  |-- embed_cmd'' cmd1 -->> ("x"! = "x").
 Proof.
-  unfold embed_cmd'', embedStep_noex.
+  unfold embed_cmd'', embedStep_noex. simpl. unfold tlaEntails.
   simpl; intros.
-  unfold eval_comp; simpl.
-  specialize (H (fun v => if v ?[eq] 0 then Some (Semantics.hd tr "x") else None)).
-  simpl in H.
-  specialize (H (conj eq_refl I)).
-  specialize (H (fun v => if v ?[eq] 0 then Some (Semantics.hd tr "x") else None)).
-  simpl in H.
+  specialize (H0 (fun v => if v ?[eq] 0 then Some (Stream.hd tr "x") else None)).
+  simpl in H0.
+  specialize (H0 (conj eq_refl I)).
+  specialize (H0 (fun v => if v ?[eq] 0 then Some (Stream.hd tr "x") else None)).
+  simpl in H0.
   match goal with
     | [H: ?P -> _ |- _] =>
       cut P; [let x := fresh in intro x; specialize (H x) | clear H]
@@ -571,16 +565,15 @@ Qed.
 
    This is bad and shows that embedStep_noex is not sufficient for our purposes either. *)
 Lemma havoc_refines_prog'' :
-  |- embed_cmd'' (Havoc 0) --> ("x"! = "x").
+  |-- embed_cmd'' (Havoc 0) -->> ("x"! = "x").
 Proof.
-  unfold embed_cmd'', embedStep_noex.
+  unfold embed_cmd'', embedStep_noex. simpl. unfold tlaEntails.
   simpl; intros.
-  unfold eval_comp; simpl.
-  specialize (H (fun v => if v ?[eq] 0 then Some (Semantics.hd tr "x") else None)).
-  simpl in H.
-  specialize (H (conj eq_refl I)).
-  specialize (H (fun v => if v ?[eq] 0 then Some (Semantics.hd tr "x") else None)).
-  simpl in H.
+  specialize (H0 (fun v => if v ?[eq] 0 then Some (Stream.hd tr "x") else None)).
+  simpl in H0.
+  specialize (H0 (conj eq_refl I)).
+  specialize (H0 (fun v => if v ?[eq] 0 then Some (Stream.hd tr "x") else None)).
+  simpl in H0.
   match goal with
     | [H: ?P -> _ |- _] =>
       cut P; [let x := fresh in intro x; specialize (H x) | clear H]
@@ -629,43 +622,40 @@ Definition embed_cmd''' : cmd -> Syntax.Formula :=
 (* Under embedStep_maybenot we cannot prove embedded Fail refines valid programs,
    as desired *)
 Lemma fail_refines_prog2''' :
-  |- embed_cmd''' Fail -->
+  |-- embed_cmd''' Fail -->>
                 ("x"! = "x").
 Proof.
   intros.
-  simpl. intros.
-  unfold eval_comp. simpl.
-  destruct H. destruct H. destruct H.
+  simpl. unfold tlaEntails. simpl. intros.
+  destruct H0. destruct H0.
 Abort.
 
 (* We can also prove valid refinements *)
 Lemma cmd1_refines_prog''' :
-  |- embed_cmd''' cmd1 --> ("x"! = "x").
+  |-- embed_cmd''' cmd1 -->> ("x"! = "x").
 Proof.
-  unfold embed_cmd''', embedStep_maybenot.
+  unfold embed_cmd''', embedStep_maybenot. simpl. red. simpl.
   simpl; intros.
-  unfold eval_comp; simpl.
   forward_reason.
-  destruct H0.
-  - exfalso. apply H0. eexists. constructor. simpl. eauto.
-  - forward_reason. inversion H0. subst. clear H0.
-    simpl in H8. unfold update in H2. simpl in H2.
+  destruct H1.
+  - exfalso. apply H1. eexists. constructor. simpl. eauto.
+  - forward_reason. inversion H1. subst. clear H1.
+    simpl in H9. unfold update in H3. simpl in H3.
     congruence.
 Qed.
 
 (* And, we cannot prove that nondeterministic programs
    refine deterministic ones *)
 Lemma havoc_refines_prog''' :
-  |- embed_cmd''' (Havoc 0) --> ("x"! = "x").
+  |-- embed_cmd''' (Havoc 0) -->> ("x"! = "x").
 Proof.
-  unfold embed_cmd''', embedStep_maybenot.
+  unfold embed_cmd''', embedStep_maybenot. simpl. unfold tlaEntails.
   simpl; intros.
-  red; simpl.
   forward_reason.
-  destruct H0.
-  - exfalso. apply H0. eexists. econstructor.
-  - forward_reason. inversion H0. subst. clear H0.
-    unfold update in H2. simpl in H2.
+  destruct H1.
+  - exfalso. apply H1. eexists. econstructor.
+  - forward_reason. inversion H1. subst. clear H1.
+    unfold update in H3. simpl in H3.
 Abort.
 
 Print cmd.
@@ -678,28 +668,27 @@ Definition prog_havoc_crash : cmd :=
    (prog_havoc_crash) is a refinement of a program that is fully deterministic.
    We want this not to be provable. *)
 Lemma havoc_crash_refines_prog''' :
-  |- embed_cmd''' prog_havoc_crash --> ("x"! = "x").
+  |-- embed_cmd''' prog_havoc_crash -->> ("x"! = "x").
 Proof.
-  unfold embed_cmd''', embedStep_maybenot.
+  unfold embed_cmd''', embedStep_maybenot. simpl. unfold tlaEntails.
   simpl; intros.
-  red; simpl.
   forward_reason.
-  destruct H0.
-  - exfalso. apply H0. eexists. econstructor.
+  destruct H1.
+  - exfalso. apply H1. eexists. econstructor.
     constructor. eapply EIteFalse.
     simpl. unfold update. simpl. reflexivity.
     instantiate (1:=1%R). clear. intro. psatz R.
     constructor.
   - forward_reason.
-    inversion H0; subst; simpl; clear H0.
-    inversion H9; subst; simpl; clear H9.
-    + inversion H11.
-    + inversion H7; subst; simpl; clear H7.
-      inversion H12; subst; simpl; clear H12.
-      simpl in H8. unfold update in H8. simpl in H8.
-      inversion H8; subst; simpl; clear H8.
-      unfold update in H2; simpl in H2.
-      rewrite <- H in H2. inversion H2.
+    inversion H1; subst; simpl; clear H1.
+    inversion H10; subst; simpl; clear H10.
+    + inversion H12.
+    + inversion H8; subst; simpl; clear H8.
+      inversion H13; subst; simpl; clear H13.
+      simpl in H9. unfold update in H9. simpl in H9.
+      inversion H9; subst; simpl; clear H9.
+      unfold update in H3; simpl in H3.
+      rewrite <- H0 in H3. inversion H3.
       reflexivity.
 Qed.
 
@@ -713,30 +702,27 @@ Definition embed_cmd_4 : cmd -> Syntax.Formula :=
 (* Under embedStep_allpost we cannot prove embedded Fail refines valid programs,
    as desired *)
 Lemma fail_refines_prog2_4 :
-  |- embed_cmd_4 Fail -->
+  |-- embed_cmd_4 Fail -->>
                 ("x"! = "x").
 Proof.
   intros.
-  simpl. intros.
-  unfold eval_comp. simpl.
-  destruct H. destruct H. destruct H.
+  simpl. unfold tlaEntails. simpl; intros.
+  forward_reason.
 Abort.
 
 (* We can also prove valid refinements *)
 Lemma cmd1_refines_prog2_4 :
-  |- embed_cmd_4 cmd1 --> ("x"! = "x").
+  |-- embed_cmd_4 cmd1 -->> ("x"! = "x").
 Proof.
-  unfold embed_cmd_4, embedStep_allpost.
+  unfold embed_cmd_4, embedStep_allpost. simpl. unfold tlaEntails.
   simpl; intros.
-  unfold eval_comp; simpl.
   forward_reason.
-  Print EAsn.
-  specialize (H0 (update x 0 (Some (Semantics.hd tr "x")))).
-  unfold cmd1 in H0.
-  assert (eval x (Asn 0 (CVar 0)) (update x 0 (Some (Semantics.hd tr "x")))).
+  specialize (H1 (update x 0 (Some (Stream.hd tr "x")))).
+  unfold cmd1 in H1.
+  assert (eval x (Asn 0 (CVar 0)) (update x 0 (Some (Stream.hd tr "x")))).
   - apply EAsn. simpl. symmetry. assumption.
-  - apply H0 in H2.
-    forward_reason. unfold update in H2. simpl in H2.
+  - apply H1 in H3.
+    forward_reason. unfold update in H3. simpl in H3.
     congruence.
 Qed.
 
@@ -744,11 +730,11 @@ Qed.
 (* However, we _can_ prove that nondeterministic programs refine deterministic ones
    So that rules out this definition *)
 Lemma havoc_refines_prog2_4 :
-  |- embed_cmd_4 (Havoc 0) --> ("x"! = "x").
+  |-- embed_cmd_4 (Havoc 0) -->> ("x"! = "x").
 Proof.
-  unfold embed_cmd_4, embedStep_allpost.
+  unfold embed_cmd_4, embedStep_allpost. simpl. unfold tlaEntails.
+  intros tr HNOPE.
   simpl; intros.
-  red; simpl.
   forward_reason.
   edestruct H0.
   econstructor.
@@ -757,11 +743,11 @@ Proof.
 Qed.
 
 Lemma havoc_crash_refines_prog2_4 :
-  |- embed_cmd_4 prog_havoc_crash --> ("x"! = "x").
+  |-- embed_cmd_4 prog_havoc_crash -->> ("x"! = "x").
 Proof.
-  unfold embed_cmd_4, embedStep_allpost.
+  unfold embed_cmd_4, embedStep_allpost. simpl. unfold tlaEntails.
+  intros tr HNOPE.
   simpl; intros.
-  red; simpl.
   forward_reason.
   unfold prog_havoc_crash in H0.
   edestruct H0.
@@ -777,11 +763,11 @@ Definition embed_cmd_5 : cmd -> Syntax.Formula :=
 (* Under embedStep_allpost_maybenot we cannot prove embedded Fail refines valid programs,
    as desired *)
 Lemma fail_refines_prog2_5 :
-  |- embed_cmd_5 Fail -->
+  |-- embed_cmd_5 Fail -->>
                 ("x"! = "x").
 Proof.
+  simpl. unfold tlaEntails. simpl. intros tr HNOPE.
   intros.
-  simpl. intros.
   unfold eval_comp. simpl.
   forward_reason.
   destruct H0.
@@ -789,11 +775,10 @@ Abort.
 
 (* However, we are unable to prove valid refinements *)
 Lemma cmd1_refines_prog2_5 :
-  |- embed_cmd_5 cmd1 --> ("x"! = "x").
+  |-- embed_cmd_5 cmd1 -->> ("x"! = "x").
 Proof.
-  unfold embed_cmd_5, embedStep_allpost_maybenot.
+  unfold embed_cmd_5, embedStep_allpost_maybenot. simpl. unfold tlaEntails. intros tr HNOPE.
   simpl; intros.
-  unfold eval_comp; simpl.
   forward_reason.
   destruct H0.
   - unfold cmd1 in H0. exfalso. apply H0.
@@ -968,23 +953,21 @@ Definition oembed_cmd : _ -> _ -> cmd -> Syntax.Formula :=
 (* We cannot prove Fail is a refinement of a deterministic,
    nonfailing program. Good. *)
 Lemma fail_refines_prog2_6 :
-  |- oembed_cmd [("x",0)] [("x",0)] Fail -->
+  |-- oembed_cmd [("x",0)] [("x",0)] Fail -->>
                 ("x"! = "x").
 Proof.
-  unfold oembed_cmd, oembedStep_maybenot.
-  simpl; intros.
-  unfold eval_comp; simpl.
+  simpl. unfold tlaEntails. simpl. intros tr HNOPE.
+  intros.
   forward_reason.
   destruct H0.
 Abort.
 
 (* A valid refinement, which is ineed provable. Good. *)
 Lemma cmd1_refines_prog2_6 :
-  |- oembed_cmd [("x",0)] [("x",0)] cmd1 --> ("x"! = "x").
+  |-- oembed_cmd [("x",0)] [("x",0)] cmd1 -->> ("x"! = "x").
 Proof.
-  unfold oembed_cmd, oembedStep_maybenot.
+  simpl. unfold tlaEntails. simpl. intros tr HNOPE.
   simpl; intros.
-  unfold eval_comp; simpl.
   forward_reason.
   destruct H0.
   - exfalso. apply H0. eexists. constructor.
@@ -997,9 +980,9 @@ Qed.
 (* Nondeterministic refinements should not be provable.
    They are not. Good. *)
 Lemma havoc_refines_prog2_6 :
-  |- oembed_cmd [("x",0)] [("x",0)] (Havoc 0) --> ("x"! = "x").
+  |-- oembed_cmd [("x",0)] [("x",0)] (Havoc 0) -->> ("x"! = "x").
 Proof.
-  unfold oembed_cmd, oembedStep_maybenot.
+  simpl. unfold tlaEntails. intros tr HNOPE.
   simpl; intros.
   unfold eval_comp; simpl.
   forward_reason.
@@ -1015,9 +998,9 @@ Abort.
    Unfortunately, we are still able to prove refinements with
    these that we should not be able to ... *)
 Lemma havoc_crash_refines_prog2_6 :
-  |- oembed_cmd [("x",0)] [("x",0)] prog_havoc_crash --> ("x"! = "x").
+  |-- oembed_cmd [("x",0)] [("x",0)] prog_havoc_crash -->> ("x"! = "x").
 Proof.
-  unfold oembed_cmd, oembedStep_maybenot.
+  simpl. unfold tlaEntails. intros tr HNOPE.
   simpl; intros.
   unfold eval_comp; simpl.
   forward_reason.
@@ -1051,9 +1034,9 @@ Definition oembed_cmd' : _ -> _ -> cmd -> Syntax.Formula :=
 (* With this formulation we are still able to prove
    this simple valid refinement *)
 Lemma cmd1_refines_prog2_7 :
-  |- oembed_cmd' [("x",0)] [("x",0)] cmd1 --> ("x"! = "x").
+  |-- oembed_cmd' [("x",0)] [("x",0)] cmd1 -->> ("x"! = "x").
 Proof.
-  unfold oembed_cmd', oembedStep_maybenone.
+  simpl. unfold tlaEntails. simpl. intros tr HNOPE.
   simpl; intros.
   unfold eval_comp; simpl.
   forward_reason.
@@ -1069,9 +1052,10 @@ Qed.
 (* We are still unable to prove this invalid refinement
    (a crashing program cannot be shown to refine a non-crashing one) *)
 Lemma fail_refines_prog2_7 :
-  |- oembed_cmd' [("x",0)] [("x",0)] Fail -->
+  |-- oembed_cmd' [("x",0)] [("x",0)] Fail -->>
                 ("x"! = "x").
 Proof.
+  simpl. unfold tlaEntails. intros tr HNOPE.
   unfold oembed_cmd', oembedStep_maybenone.
   simpl; intros.
   unfold eval_comp; simpl.
@@ -1083,9 +1067,9 @@ Abort.
 (* We also still cannot prove that a nondeterministic program
    refines a deterministic one *)
 Lemma havoc_refines_prog2_7 :
-  |- oembed_cmd' [("x",0)] [("x",0)] (Havoc 0) --> ("x"! = "x").
+  |-- oembed_cmd' [("x",0)] [("x",0)] (Havoc 0) -->> ("x"! = "x").
 Proof.
-  unfold oembed_cmd', oembedStep_maybenone.
+  simpl. unfold tlaEntails. simpl. intros tr HNOPE.
   simpl; intros.
   unfold eval_comp; simpl.
   forward_reason.
@@ -1099,8 +1083,9 @@ Abort.
 (* Let's see if we can deal with the "havoc-crash" case.
    Indeed, this appears to be unprovable, as desired. *)
 Lemma havoc_crash_refines_prog2_7 :
-  |- oembed_cmd' [("x",0)] [("x",0)] prog_havoc_crash --> ("x"! = "x").
+  |-- oembed_cmd' [("x",0)] [("x",0)] prog_havoc_crash -->> ("x"! = "x").
 Proof.
+  simpl. unfold tlaEntails. simpl. intros tr HNOPE.
   unfold oembed_cmd', oembedStep_maybenone.
   simpl; intros.
   unfold eval_comp; simpl.
@@ -1120,9 +1105,9 @@ Definition prog_inc : cmd :=
 (* As an additional test, let's see if we can prove a refinement
    that should be true about a nondeterministic program *)
 Lemma good_nondet_refines_7 :
-  |- oembed_cmd' [("x",0)] [("x",0)] prog_inc --> ("x"! > "x").
+  |-- oembed_cmd' [("x",0)] [("x",0)] prog_inc -->> ("x"! > "x").
 Proof.
-  unfold oembed_cmd', oembedStep_maybenone.
+  simpl. unfold tlaEntails. simpl. intros tr HNOPE.
   simpl; intros.
   unfold eval_comp; simpl.
   forward_reason.
@@ -1347,14 +1332,14 @@ Definition embed_coq_rel : _ -> _ -> (state -> option state -> Prop) -> Syntax.F
 Lemma hoare_embed :
   forall P c Q vs1 vs2,
     CHoare P c Q ->
-    (|- oembed_cmd' vs1 vs2 c -->
+    (|-- oembed_cmd' vs1 vs2 c -->>
                     embed_coq_rel vs1 vs2
                     (fun x y => P x ->
                                 (exists y', y = Some y' /\ Q y'))%type).
 Proof.
+  simpl. intros. unfold tlaEntails. simpl. intros tr HNOPE.
   intros.
-  red; simpl.
-  intros. forward_reason.
+  forward_reason.
   exists x.
   split; auto.
   destruct H1.
@@ -1718,7 +1703,7 @@ Fixpoint ispec_valid (ivs : list (Var * Var)) : Prop :=
   match ivs with
     | nil              => True
     | (lv, rv) :: ivs' =>
-      (Forall (fun v' => let '(_, rv') := v' in rv' <> rv) ivs' /\
+      (List.Forall (fun v' => let '(_, rv') := v' in rv' <> rv) ivs' /\
        ispec_valid ivs')%type
   end.
 
@@ -1730,7 +1715,7 @@ Fixpoint ospec_valid (ovs : list (Var * Var)) : Prop :=
   match ovs with
     | nil => True
     | (lv, rv) :: ovs' =>
-      (Forall (fun v' => let '(lv', _) := v' in lv' <> lv) ovs' /\
+      (List.Forall (fun v' => let '(lv', _) := v' in lv' <> lv) ovs' /\
        ospec_valid ovs')%type
   end.
 
@@ -1788,7 +1773,7 @@ Qed.
 Lemma fcmd_rembed_refined_fembed :
   forall (c : fcmd) (ivs ovs : list (Var * Var)),
     var_spec_valid ivs ovs ->
-    (|- (oembed_fcmd ivs ovs c) --> (oembed_fcmdr ivs ovs c)).
+    (|-- (oembed_fcmd ivs ovs c) -->> (oembed_fcmdr ivs ovs c)).
 Proof.
 (*  intros. simpl. intros.
   fwd.
@@ -1882,27 +1867,28 @@ Lemma HoareA_all_embed :
   forall P c Q vs1 vs2,
     HoareA_all vs1 vs2 P c Q ->
     SEMR vs1 P ->
-    (|- oembed_fcmd vs1 vs2 c -->
+    (|-- oembed_fcmd vs1 vs2 c -->>
                     Embed (fun st st' => P st -> Q st')).
 Proof.
-  unfold HoareA_all, Hoare. simpl; intros.
-  forward_reason.
-  destruct (H x); clear H.
+  unfold HoareA_all, Hoare_, Hoare. simpl; intros.
+  unfold tlaEntails. intros tr HNOPE.
+  simpl. intros. forward_reason. 
+  destruct (H x).
   { intros. eapply H0. 2: eassumption. 2: eassumption. eassumption. }
   { forward_reason. destruct H3.
     { exfalso; auto. }
     { forward_reason.
-      eapply H5 in H3; eauto. } }
+      specialize (H6 _ H3). eauto. } }
 Qed.
 
 Lemma HoareA_embed_ex :
   forall P c Q vs1 vs2,
     HoareA_ex vs1 vs2 P c Q ->
     forall (HsemrQ : SEMR vs2 Q),
-    (|- oembed_fcmd vs1 vs2 c -->
+    (|-- oembed_fcmd vs1 vs2 c -->>
                     Embed (fun st st' => P st -> Q st')).
 Proof.
-  unfold HoareA_ex, Hoare_. simpl; intros.
+  simpl. intros. unfold tlaEntails. simpl. intros tr HNOPE. intros.
   forward_reason.
   destruct (H x); clear H.
   { eexists; eauto. }
