@@ -1,6 +1,5 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
-Import LibNotations.
 Require Import TLA.DifferentialInduction.
 Require Import TLA.ContinuousProofRules.
 Require Import TLA.BasicProofRules.
@@ -32,7 +31,8 @@ Section SensorWithDelay.
 
   Variable WC : Formula.
 
-  Definition w : list DiffEq := ["x"' ::= "v"].
+  Definition w : Evolution :=
+    fun st' => st' "x" = "v".
 
   Definition SpecR : SysRec :=
     {| dvars := ("Xmax_post"::"Xmin_post"::"v"::nil)%list;
@@ -59,17 +59,27 @@ Section SensorWithDelay.
     eapply Sys_by_induction with (IndInv := SenseSafeInd).
     - tlaIntuition.
     - unfold Spec, SpecR. tlaAssume.
+    - tlaIntuition.
     - apply SysSafe_sense.
     - tlaAssume.
     - charge_assumption.
     - solve_nonlinear.
     - red. solve_nonlinear.
     - unfold World. eapply diff_ind with (Hyps:=ltrue);
-        try solve [tlaIntuition | tlaAssume ];
-        repeat tlaSplit;
-        try solve [ solve_linear |
-                    tlaIntro; eapply unchanged_continuous;
-                      [ tlaAssume | solve_linear ] ].
+        try solve [tlaIntuition | tlaAssume ].
+      simpl deriv_formula. restoreAbstraction.
+      charge_intros; repeat charge_split;
+      charge_intros.
+      { eapply zero_deriv with (x:="v").
+        - charge_tauto.
+        - tlaIntuition.
+        - solve_linear. }
+      { solve_nonlinear. }
+      { eapply zero_deriv with (x:="v").
+        - charge_tauto.
+        - tlaIntuition.
+        - solve_linear. }
+      { solve_nonlinear. }
     - solve_linear; solve_nonlinear.
   Qed.
 

@@ -216,8 +216,8 @@ Proof.
         specialize (H1 H). clear H.
         eapply diff_ind with (Hyps:=TRUE);
         try solve [tlaIntuition].
-        { apply H1. }
         { unfold World. tlaAssume. }
+        { apply H1. }
         { solve_linear. }
       * solve_linear.
       * solve_linear.
@@ -494,9 +494,9 @@ Ltac sys_apply_with_weaken H :=
 
 Theorem Sys_by_induction :
   forall P A dvars cvars Init Prog Inv IndInv w WC (d:R),
-  (forall st', is_st_formula (w st')) ->
   is_st_formula IndInv ->
   P |-- SysD (Sys dvars cvars Init Prog w WC d) ->
+  (forall st', is_st_formula (w st')) ->
   forall Hsafe : P |-- SysSafe (Sys dvars cvars Init Prog w WC d),
   P //\\ Init |-- IndInv ->
   P |-- [] A ->
@@ -508,8 +508,8 @@ Theorem Sys_by_induction :
           //\\ Discr cvars Prog d |-- next IndInv ->
   P |-- [] Inv.
 Proof.
-  intros P A dvars cvars Init Prog Inv IndInv w WC d Hstw
-         Hst Hsys Hsafe Hinit Ha Hinv InvUnder Hw Hdiscr.
+  intros P A dvars cvars Init Prog Inv IndInv w WC d
+         Hst Hsys Hstw Hsafe Hinit Ha Hinv InvUnder Hw Hdiscr.
   tlaAssert ([]TimeBound d).
   - change d with (maxTime {|
                dvars := dvars;

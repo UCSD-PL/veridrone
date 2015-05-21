@@ -1,7 +1,6 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 Require Import TLA.TLA.
-Import LibNotations.
 Require Import TLA.DifferentialInduction.
 Require Import TLA.ContinuousProofRules.
 Require Import TLA.BasicProofRules.
@@ -34,8 +33,9 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
   Import SdistUtil.
 
   (* The continuous dynamics of the system *)
-  Definition w : list DiffEq :=
-    ["y"' ::= "v", "v"' ::= "a"].
+  Definition w : Evolution :=
+    fun st' =>
+      st' "y" = "v" //\\ st' "v" = "a".
 
   Definition Ctrl : Formula :=
          (Max "A" 0 (fun mx => "Ymax" + tdist "Vmax" mx d +
@@ -154,6 +154,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     with (IndInv:=IndInv) (A:="Vmax" >= "v" //\\ "Ymax" >= "y").
     - tlaIntuition.
     - unfold Spec, SpecR. tlaAssume.
+    - tlaIntuition.
     - apply SysSafe_ctrl.
     - charge_apply ind_inv_init. charge_tauto.
     - tlaIntuition.
@@ -175,14 +176,15 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
         eapply diff_ind with (Hyps:=TRUE);
           try solve [ tlaIntuition |
                          unfold World; tlaAssume |
-                         solve_linear ]. }
+                         solve_linear ]. solve_nonlinear.
+        solve_nonlinear. }
       { match goal with
           |- _ |-- ?GG => eapply diff_ind
                           with (Hyps:=TRUE)
                                  (G:=unnext GG)
         end; try solve [ tlaIntuition |
                          unfold World; tlaAssume |
-                         solve_linear ]. }
+                         solve_linear ]. solve_nonlinear. }
       { match goal with
           |- _ |-- ?GG => eapply diff_ind
                           with (Hyps:=TRUE)
@@ -195,15 +197,24 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
           solve_linear; rewrite_next_st; solve_linear;
           specialize (H5 x); solve_linear.
         - simpl deriv_formula. restoreAbstraction.
-          repeat charge_split.
-          + tlaIntro; eapply unchanged_continuous;
-            [ tlaAssume | 
-            solve_linear; rewrite_next_st; solve_linear ].
-          + charge_intros. solve_linear.
-          + tlaIntro; eapply unchanged_continuous;
-            [ tlaAssume | 
-            solve_linear; rewrite_next_st; solve_linear ].
-          + charge_intros. solve_linear. }
+          charge_intros; repeat charge_split;
+          charge_intros.
+          { eapply zero_deriv with (x:="a");
+            [ charge_tauto | tlaIntuition | ].
+            eapply zero_deriv with (x:="V");
+              [ charge_tauto | tlaIntuition | ].
+            solve_linear; rewrite_next_st;
+            solve_linear. }
+          { solve_linear. rewrite H1. rewrite H4. rewrite H7.
+            solve_linear. }
+          { eapply zero_deriv with (x:="a");
+            [ charge_tauto | tlaIntuition | ].
+            eapply zero_deriv with (x:="V");
+              [ charge_tauto | tlaIntuition | ].
+            solve_linear; rewrite_next_st;
+            solve_linear. }
+          { solve_linear. rewrite H1. rewrite H4. rewrite H7.
+            solve_linear. } }
       { match goal with
           |- _ |-- ?GG => eapply diff_ind
                           with (Hyps:=TRUE)
@@ -211,8 +222,8 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
         end; try solve [ tlaIntuition |
                          unfold World; tlaAssume |
                          solve_linear ]. }
-      { eapply unchanged_continuous;
-        [ unfold World; charge_assumption | ].
+      { unfold World. eapply zero_deriv with (x:="T");
+            [ charge_tauto | tlaIntuition | ].
         solve_linear. }
     - repeat charge_split.
       { solve_linear; rewrite_next_st; R_simplify; solve_linear. }

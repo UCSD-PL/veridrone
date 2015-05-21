@@ -512,11 +512,11 @@ Qed.
 
 (* Differential induction proof rule plus soundness
    proof. *)
-Lemma diff_ind : forall Hyps G cp F
-  (Hcp : forall st, is_st_formula (cp st)),
+Lemma diff_ind : forall Hyps G cp F,
   is_st_formula G ->
   is_st_formula Hyps ->
   (F |-- Continuous cp) ->
+  (forall st, is_st_formula (cp st)) ->
   ((Hyps //\\ Continuous cp) |-- next Hyps) ->
   (F |-- G) ->
   (F |-- Hyps) ->
@@ -526,7 +526,7 @@ Proof.
   Opaque Continuous.
   intros Hyps G; generalize dependent Hyps;
   induction G;
-    intros Hyps cp F Hcp HstG HstH Hcont Hhyps Hbase HhypsF Hind;
+    intros Hyps cp F HstG HstH Hcont Hcp Hhyps Hbase HhypsF Hind;
     simpl in *; unfold tlaEntails in *; simpl in *; intros; trivial;
     try solve [ pose proof (Hcont tr) as Hcont2;
                 eapply Continuous_deriv_exists in Hcont2; auto;

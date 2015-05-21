@@ -33,13 +33,13 @@ Open Scope HP_scope.
         with derivative 0 *)
 
 Lemma zero_deriv : forall G cp F x,
-  |-- Forall st : state, cp st -->> st x = R0 ->
   (F |-- Continuous cp) ->
+  |-- Forall st : state, cp st -->> st x = R0 ->
   (F //\\ x! = x |-- G) ->
   (F |-- G).
 Proof.
   breakAbstraction.
-  intros G cp F x Hin Hcont Hsuf tr HF.
+  intros G cp F x Hcont Hin Hsuf tr HF.
   apply Hsuf; split; auto.
   specialize (Hcont tr HF).
   destruct Hcont as [r [f [Hr [Hsol [Hstart Hend]]]]].

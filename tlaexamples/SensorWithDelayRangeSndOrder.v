@@ -1,7 +1,6 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 Require Import TLA.TLA.
-Import LibNotations.
 Require Import TLA.DifferentialInduction.
 Require Import TLA.ContinuousProofRules.
 Require Import TLA.BasicProofRules.
@@ -62,7 +61,8 @@ Module SensorWithDelayRangeSndOrder
     "x" <= "Xmax_post".
 
   Definition w :=
-    ["x"'  ::= "v", "v"' ::= "a" ].
+    fun st' =>
+      st' "x" = "v" //\\ st' "v" = "a" .
 
   Definition SpecR : SysRec :=
     {| dvars := ("Xmax_post"::"a"::"X"::"V"::"T"::nil)%list;
@@ -118,6 +118,7 @@ Module SensorWithDelayRangeSndOrder
            (A:="v" <= "Vmax" //\\ "x" <= "Xmax").
     - tlaIntuition.
     - unfold Spec, SpecR. tlaAssume.
+    - tlaIntuition.
     - apply SysSafe_sense.
     - tlaAssume.
     - charge_tauto.
@@ -159,12 +160,14 @@ Module SensorWithDelayRangeSndOrder
                                  (G:=unnext GG)
         end; try solve_diff_ind_goals.
         eapply diff_ind with (Hyps:=TRUE);
-          try solve_diff_ind_goals. }
+          try solve_diff_ind_goals; solve_nonlinear.
+        solve_nonlinear. }
       { match goal with
           |- _ |-- ?GG => eapply diff_ind
                           with (Hyps:=TRUE) (G:=unnext GG)
         end;
-        try solve_diff_ind_goals. }
+        try solve_diff_ind_goals.
+        solve_nonlinear. }
       { tlaIntro. eapply diff_ind with (Hyps:=ltrue);
                   try solve_diff_ind_goals.
         - unfold SenseSafeInd;
@@ -173,42 +176,77 @@ Module SensorWithDelayRangeSndOrder
           specialize (H7 x); solve_linear.
         - simpl deriv_formula. restoreAbstraction.
           simpl. restoreAbstraction.
-          repeat charge_split.
-          + tlaIntro; eapply unchanged_continuous;
-            [ tlaAssume | 
-            solve_linear; rewrite_next_st; solve_linear ].
-          + charge_intros. repeat charge_split.
-            * charge_intros; eapply unchanged_continuous;
-              [ tlaAssume |
-                solve_linear; rewrite_next_st; solve_linear ].
-            * charge_intros.
-              repeat charge_split;
-                try solve [ charge_intros;
-                            eapply unchanged_continuous;
-                            [ tlaAssume |
-                              solve_linear; rewrite_next_st;
-                              solve_linear ] |
-                            solve_linear ].
-            * charge_intros;
-              eapply unchanged_continuous;
-              [ tlaAssume |
+          charge_intros; repeat charge_split;
+          charge_intros.
+          + solve_linear.
+          + repeat charge_split.
+            * charge_intros. eapply zero_deriv with (x:="a").
+              { charge_tauto. }
+              { tlaIntuition. }
+              { solve_linear. }
+            * charge_intros; repeat charge_split;
+              charge_intros.
+              { eapply zero_deriv with (x:="a");
+                [ charge_tauto | tlaIntuition | ].
+                eapply zero_deriv with (x:="X");
+                [ charge_tauto | tlaIntuition | ].
+                eapply zero_deriv with (x:="V");
+                [ charge_tauto | tlaIntuition | ].
+                eapply zero_deriv with (x:="T");
+                [ charge_tauto | tlaIntuition | ].
                 solve_linear; rewrite_next_st;
-                solve_linear ].
-            * charge_intros.
-              repeat charge_split;
-                try solve [ charge_intros;
-                            eapply unchanged_continuous;
-                            [ tlaAssume |
-                              solve_linear; rewrite_next_st;
-                              solve_linear ] |
-                            solve_linear ]. }
+                solve_linear. }
+              { solve_nonlinear. }
+              { eapply zero_deriv with (x:="a");
+                [ charge_tauto | tlaIntuition | ].
+                eapply zero_deriv with (x:="X");
+                [ charge_tauto | tlaIntuition | ].
+                eapply zero_deriv with (x:="V");
+                [ charge_tauto | tlaIntuition | ].
+                eapply zero_deriv with (x:="T");
+                [ charge_tauto | tlaIntuition | ].
+                solve_linear; rewrite_next_st;
+                solve_linear. }
+              { solve_nonlinear. }
+            * charge_intros; repeat charge_split;
+              charge_intros.
+              { eapply zero_deriv with (x:="a");
+                [ charge_tauto | tlaIntuition | ].
+                solve_linear. }
+              { eapply zero_deriv with (x:="a");
+                [ charge_tauto | tlaIntuition | ].
+                solve_linear. }
+            * charge_intros; repeat charge_split;
+              charge_intros.
+              { eapply zero_deriv with (x:="a");
+                [ charge_tauto | tlaIntuition | ].
+                eapply zero_deriv with (x:="X");
+                [ charge_tauto | tlaIntuition | ].
+                eapply zero_deriv with (x:="V");
+                [ charge_tauto | tlaIntuition | ].
+                eapply zero_deriv with (x:="T");
+                [ charge_tauto | tlaIntuition | ].
+                solve_linear; rewrite_next_st;
+                solve_linear. }
+              { solve_nonlinear. }
+              { eapply zero_deriv with (x:="a");
+                [ charge_tauto | tlaIntuition | ].
+                eapply zero_deriv with (x:="X");
+                [ charge_tauto | tlaIntuition | ].
+                eapply zero_deriv with (x:="V");
+                [ charge_tauto | tlaIntuition | ].
+                eapply zero_deriv with (x:="T");
+                [ charge_tauto | tlaIntuition | ].
+                solve_linear; rewrite_next_st;
+                solve_linear. }
+              { solve_nonlinear. } }
       { match goal with
           |- _ |-- ?GG => eapply diff_ind
                           with (Hyps:=TRUE)
                                  (G:=unnext GG)
         end; try solve_diff_ind_goals. }
-      { eapply unchanged_continuous;
-        [ unfold World; charge_assumption | ].
+      { eapply zero_deriv with (x:="T");
+        [ charge_tauto | tlaIntuition | ].
         solve_linear. }
     - repeat charge_split.
       { solve_linear; rewrite_next_st; R_simplify; solve_linear. }

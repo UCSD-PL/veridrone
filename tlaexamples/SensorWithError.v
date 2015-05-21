@@ -17,7 +17,8 @@ Section SensorWithError.
 
   Definition I : Formula := SenseSafe.
 
-  Variable w : list DiffEq.
+  Variable w : Evolution.
+  Hypothesis w_st : forall st', is_st_formula (w st').
   Variable d : R.
 
   Definition SpecR : SysRec :=
@@ -45,6 +46,7 @@ Section SensorWithError.
       with (IndInv := SenseSafe) (A := ltrue).
     + tlaIntuition.
     + unfold Spec, SpecR. tlaAssume.
+    + tlaIntuition.
     + apply SysSafe_sense.
     + tlaAssume.
     + eapply BasicProofRules.always_tauto. charge_tauto.
