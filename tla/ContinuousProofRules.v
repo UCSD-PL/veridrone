@@ -41,41 +41,35 @@ Proof.
   breakAbstraction.
   intros G cp F x Hin Hcont Hsuf tr HF.
   apply Hsuf; split; auto.
-  specialize (rewrite Hcont.
-  simpl in *. intros.
-    unfold tlaEntails in *. intros. apply Hsuf.
-    split. auto. specialize (Hcont tr H0).
-    destruct Hcont as [r [f Hf] ]. simpl in Hf.
-    decompose [and] Hf.
-    unfold eval_comp in *. simpl in *.
-    destruct a. simpl in *. inversion H.
-    subst x. subst t. unfold is_solution in *.
-    unfold solves_diffeqs in *.
-    destruct H3 as [H10]. specialize (H3 v 0).
-    simpl in *. unfold eval_comp; simpl.
-    rewrite H2. rewrite H4.
-    rewrite (null_derivative_loc (fun t => f t v) R0 r).
+  specialize (Hcont tr HF).
+  destruct Hcont as [r [f [Hr [Hsol [Hstart Hend]]]]].
+  rewrite <- Hend. rewrite <- Hstart.
+  unfold is_solution, solves_diffeqs in Hsol.
+  destruct Hsol as [pf Hsol].
+  assert (forall x0 : R,
+          (0 < x0 < r)%R -> derivable_pt (fun t : R => f t x) x0)
+    as pf2.
+  { intros. apply (pf x). }
+  { rewrite (null_derivative_loc (fun t => f t x) R0 r);
     auto.
-    * intros. unfold derivable in H10.
-      apply derivable_continuous_pt.
-      apply H10.
-    * unfold derive in H2. firstorder.
-      apply H3. auto. left; auto. psatzl R.
-    * intuition. 
-  + apply IHcp with (x:=x).
-    apply H.
-    simpl in *. unfold tlaEntails in *. simpl in *.
-    intros. specialize (Hcont tr H0).
-    destruct Hcont as [r [f Hf]]. decompose [and] Hf.
-    exists r. exists f. intuition.
-    unfold is_solution in *.
-    destruct H9.
-    unfold solves_diffeqs in *.
-    simpl in *.
-    exists x0. intros. apply H9; auto.
-    apply Hsuf.
-Qed.
+  - intros. unfold derivable in pf.
+    apply derivable_continuous_pt.
+    apply pf.
+  - unfold derive in Hsol. intros.
+    assert (0 <= x0 <= r)%R as Hx0 by psatzl R.
+    specialize (Hsol _ Hx0).
+    specialize (Hin (Stream.forever (f x0)) I
+               (fun x1 : Var =>
+                  derive_pt (fun t : R => f t x1) x0 (pf x1 x0))).
+    rewrite <- Hin; auto.
+    instantiate (1:=pf2).
+    apply Ranalysis4.pr_nu_var. auto.
+  - intuition. }
+Qed.    
 
+(* The shallow embedding of differential equations breaks
+   the rest of this file. *)
+(*
 Definition var_eqb (s1 s2:Var) : bool :=
   proj1_sig (Sumbool.bool_of_sumbool
                (String.string_dec s1 s2)).
@@ -96,7 +90,7 @@ Definition diffeq_eqb (x:Var) (n:nat) (d:DiffEq) : bool :=
           | _ => false
         end).
 
-Fixpoint term_unchanged (t:Term) (eqs:list DiffEq) : bool :=
+Fixpoint term_unchanged (t:Term) (eqs:state->Formula) : bool :=
   match t with
     | VarNowT x =>
       List.existsb (diffeq_eqb x 0) eqs
@@ -361,5 +355,6 @@ Proof.
   pose proof (unchanged_continuous_aux eqs).
   charge_tauto.
 Qed.
+*)
 
 Close Scope HP_scope.

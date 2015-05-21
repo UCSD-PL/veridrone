@@ -45,11 +45,14 @@ Fixpoint AVarsAgree (xs:list Var) (st:state) : Formula :=
   end.
 
 (* A type representing a differential equation.
-   (DiffEqC x t) represents (x' = t). *)
+   (DiffEqC x t) represents (x' = t).
+   We now have a more general type for
+   differential equations, but we use this and
+   a coercion to maintain compatibility. *)
+(*
 Inductive DiffEq :=
 | DiffEqC : Var -> Term -> DiffEq.
 
-(* Gets the variable of the differential equation. *)
 Definition get_var (d:DiffEq) :=
   match d with
     | DiffEqC x _ => x
@@ -60,12 +63,16 @@ Definition get_term (d:DiffEq) :=
   match d with
     | DiffEqC _ t => t
   end.
+*)
+
+(* Our shallow encoding of continuous evolutions. *)
+Definition Evolution := state->Formula.
 
 (* Expresses the property that a differentiable formula
    is a solution to a list of differential equations
    in the range 0 to r. *)
 Definition solves_diffeqs (f : R -> state)
-           (cp : state->Formula) (r : R)
+           (cp : Evolution) (r : R)
            (is_derivable : forall x, derivable (fun t => f t x)) :=
     forall z, (R0 <= z <= r)%R ->
               eval_formula (cp (fun x => derive (fun t => f t x) (is_derivable x) z))
@@ -74,7 +81,7 @@ Definition solves_diffeqs (f : R -> state)
 (* Prop expressing that f is a solution to diffeqs in
    [0,r]. *)
 Definition is_solution (f : R -> state)
-           (cp:state->Formula) (r : R) :=
+           (cp:Evolution) (r : R) :=
   exists is_derivable,
     (* f is a solution to diffeqs *)
     solves_diffeqs f cp r is_derivable.
@@ -82,12 +89,22 @@ Definition is_solution (f : R -> state)
 (* Action formula expressing that a transition
    is consistent with the system of differential
    equations represented by cp. *)
-Definition Continuous (cp:state->Formula) : Formula :=
+Definition Continuous (cp:Evolution) : Formula :=
   Exists r : R,
   Exists f : R -> state,
          (r > 0)
     //\\ (PropF (is_solution f cp r))
     //\\ (Embed (fun st st' => f R0 = st /\ f r = st')).
+
+(* Some notation *)
+(* In a module to avoid conflicts. *)
+(*
+Module LibNotations.
+Notation "x ' ::= t" := (DiffEqC x t) (at level 60) : HP_scope.
+Notation "[ x1 , .. , xn ]" := (cons x1 .. (cons xn nil) .. )
+    (at level 60) : HP_scope.
+End LibNotations.
+*)
 
 Close Scope string_scope.
 Close Scope HP_scope.

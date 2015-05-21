@@ -116,6 +116,7 @@ Open Scope HP_scope.
 
 (* I'm not sure what the following three
    tactics do *)
+(*
 Ltac find_zeros eqs :=
   match eqs with
     | nil => constr:(@nil Var)
@@ -126,7 +127,9 @@ Ltac find_zeros eqs :=
       let rest := find_zeros eqs in
       rest
   end.
+*)
 
+(*
 Ltac extract_unchanged eqs :=
   let xs := find_zeros eqs in
   let rec aux l :=
@@ -137,6 +140,7 @@ Ltac extract_unchanged eqs :=
                         try (aux l)
       end in
   aux xs.
+*)
 
 Ltac get_var_inv F x :=
   match F with
@@ -200,17 +204,17 @@ Ltac prove_inductive :=
   match goal with
     | [ |- context [Continuous ?deqs] ] =>
       match goal with
-        | [ |- (|-- _ -->> (?HH -->> ?GG))] =>
+(*        | [ |- (|-- _ -->> (?HH -->> ?GG))] =>
           abstract (apply diff_ind_imp
                     with (eqs:=deqs) (H:=unnext HH)
                                      (G:=unnext GG);
                     solve [reflexivity |
                            simpl; intuition;
-                           solve_linear])
-        | [ |- _ ] =>
+                           solve_linear])*)
+(*        | [ |- _ ] =>
           abstract
             (apply unchanged_continuous with (eqs:=deqs);
-             solve_linear)
+             solve_linear)*)
         | [ |- (|-- _ -->> ?GG) ] =>
           abstract (eapply diff_ind
                     with (cp:=deqs) (G:=unnext GG)

@@ -102,7 +102,7 @@ Fixpoint deriv_comp_op (op:CompOp) : CompOp :=
    described in deriv_term or because I couldn't figure
    out what the derivative should be. It is always
    sound to return FALSE because this is unprovable. *)
-Fixpoint deriv_formula (P:state->Formula) (F:Formula) (st:state)
+Fixpoint deriv_formula (P:Evolution) (F:Formula) (st:state)
   : Formula :=
   match F with
     | TRUE => TRUE

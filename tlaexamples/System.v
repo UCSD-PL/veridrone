@@ -6,24 +6,29 @@ Require Import TLA.TLA.
 Require Import TLA.ProofRules.
 Require Import TLA.ArithFacts.
 Require Import TLA.Automation.
-Import LibNotations.
 Require Import Coq.Lists.ListSet.
 
 Open Scope HP_scope.
 Open Scope string_scope.
 
+Definition mkEvolution (dvars : list Var)
+           (world : Evolution) : Evolution :=
+  (fun st' => st' "t" = --1 //\\
+                          world st' //\\
+                          (List.fold_right
+                             (fun x a => st' x = 0 //\\ a)
+                             TRUE dvars)).
+
 Definition World (dvars : list Var)
-           (world : list DiffEq) : Formula :=
-  Continuous (("t"'::=--1)::world ++
-                          (List.map
-                             (fun x => x ' ::= 0) dvars))%list.
+           (world : Evolution) : Formula :=
+  Continuous (mkEvolution dvars world).
 
 Definition Discr (cvars : list Var)
            (Prog : Formula) (d : R) : Formula :=
   Prog //\\ "t"! <= d //\\ Unchanged cvars.
 
 Definition Next (dvars cvars : list Var)
-           (Prog: Formula) (world : list DiffEq)
+           (Prog: Formula) (world : Evolution)
            (WConstraint : Formula) (d : R) :=
   let w := (World dvars world //\\ WConstraint) in
   let d := Discr cvars Prog d in
@@ -34,7 +39,7 @@ Definition Next (dvars cvars : list Var)
      \\// Unchanged ("t"::dvars ++ cvars)%list.
 
 Definition Next_or_stuck (dvars cvars : list Var)
-           (Prog: Formula) (world : list DiffEq)
+           (Prog: Formula) (world : Evolution)
            (WConstraint : Formula) (d : R) :=
   let w := (World dvars world //\\ WConstraint) in
   let d := Discr cvars Prog d in
@@ -43,13 +48,13 @@ Definition Next_or_stuck (dvars cvars : list Var)
      \\// Unchanged ("t"::dvars ++ cvars)%list.
 
 Definition sysD (dvars cvars : list Var)
-           (Init Prog: Formula) (world : list DiffEq)
+           (Init Prog: Formula) (world : Evolution)
            (WConstraint : Formula) (d : R) : Formula :=
   ("t" <= d //\\ Init) //\\
      [](Next dvars cvars Prog world WConstraint d //\\ 0 <= "t").
 
 Definition sysD_or_stuck (dvars cvars : list Var)
-           (Init Prog: Formula) (world : list DiffEq)
+           (Init Prog: Formula) (world : Evolution)
            (WConstraint : Formula) (d : R) : Formula :=
   ("t" <= d //\\ Init) //\\
      [](Next_or_stuck dvars cvars Prog world WConstraint d //\\ 0 <= "t").
@@ -61,7 +66,7 @@ Record SysRec
 ; cvars : list Var
 ; Init : Formula
 ; Prog : Formula
-; world : list DiffEq
+; world : Evolution
 ; WConstraint : Formula
 ; maxTime : R }.
 
@@ -81,7 +86,7 @@ Definition SysCompose (a b : SysRec) : SysRec :=
  ; cvars := a.(cvars) ++ b.(cvars)
  ; Init  := a.(Init) //\\ b.(Init)
  ; Prog  := a.(Prog) //\\ b.(Prog)
- ; world := a.(world) ++ b.(world)
+ ; world := fun st' => a.(world) st' //\\ b.(world) st'
  ; WConstraint := a.(WConstraint) //\\ b.(WConstraint)
  ; maxTime := Rmin a.(maxTime) b.(maxTime)
  |}.
@@ -94,7 +99,7 @@ Definition SysRec_equiv (a b : SysRec) : Prop :=
   a.(cvars) = b.(cvars) /\
   (a.(Init) -|- b.(Init)) /\
   (a.(Prog) -|- b.(Prog)) /\
-  (a.(world) = b.(world)) /\
+  (forall st', (a.(world) st' -|- b.(world) st')) /\
   (a.(WConstraint) -|- b.(WConstraint)) /\
   a.(maxTime) = b.(maxTime).
 
@@ -125,10 +130,12 @@ Lemma Proper_SysSafe :
   Proper (SysRec_equiv ==> lequiv) SysSafe.
 Proof.
   red. red. unfold SysSafe. intros. red in H.
-  unfold SysD, SysD_or_stuck, sysD, sysD_or_stuck, Next, Next_or_stuck.
+  unfold SysD, SysD_or_stuck, sysD, sysD_or_stuck, Next,
+  Next_or_stuck, World, Continuous.
   decompose [and] H. destruct H0. destruct H2. rewrite H1.
-  unfold Discr. rewrite H3. rewrite H4. rewrite H5. rewrite H7.
-  reflexivity.
+  unfold Discr. rewrite H3. rewrite H5. rewrite H7.
+  admit. (* This one is very annoying. *)
+(*  reflexivity.*)
 Qed.
 
 Existing Instance Proper_SysSafe.
@@ -171,7 +178,17 @@ Ltac decompose_hyps :=
 
 Definition TimeBound d : Formula := 0 <= "t" <= d.
 
+Lemma mkEvolution_st_formula :
+  forall w dvars,
+    (forall st : state, is_st_formula (w st)) ->
+    forall st : state, is_st_formula (mkEvolution dvars w st).
+Proof.
+  simpl. intros. intuition. clear H.
+  induction dvars0; simpl; auto.
+Qed.
+
 Lemma Sys_bound_t : forall P (a : SysRec),
+    (forall st, is_st_formula (a.(world) st)) ->
     forall Hsafe : P |-- SysSafe a,
     P |-- SysD a ->
     P |-- []TimeBound a.(maxTime).
@@ -180,20 +197,26 @@ Proof.
   unfold SysSafe in *.
   assert (P |-- SysD_or_stuck a).
   { charge_apply Hsafe. charge_split. reflexivity. assumption. }
-  clear - H0. rename H0 into H.
+  clear - H1 H. rename H1 into H0.
   unfold SysD in *.
   rewrite <- Always_and with (P:=0 <= "t") (Q:="t" <= a.(maxTime)).
   tlaSplit.
-  - rewrite H. unfold SysD_or_stuck, sysD_or_stuck. rewrite <- Always_and. tlaAssume.
+  - rewrite H0. unfold SysD_or_stuck, sysD_or_stuck, sysD.
+    rewrite <- Always_and. tlaAssume.
   - apply discr_indX
     with (A:=Next_or_stuck a.(dvars) a.(cvars) a.(Prog) a.(world)
                   a.(WConstraint) a.(maxTime)).
     + tlaIntuition.
-    + rewrite H. unfold SysD_or_stuck,sysD_or_stuck,Next_or_stuck. rewrite <- Always_and. tlaAssume.
-    + rewrite H. unfold sysD. tlaAssume.
+    + rewrite H0.
+      unfold SysD_or_stuck,sysD_or_stuck,Next_or_stuck,sysD,Next.
+      rewrite <- Always_and. tlaAssume.
+    + rewrite H0. unfold sysD. tlaAssume.
     + unfold Next_or_stuck. decompose_hyps.
-      * eapply diff_ind with (Hyps:=TRUE);
+      * pose proof (mkEvolution_st_formula a.(world) a.(dvars)).
+        specialize (H1 H). clear H.
+        eapply diff_ind with (Hyps:=TRUE);
         try solve [tlaIntuition].
+        { apply H1. }
         { unfold World. tlaAssume. }
         { solve_linear. }
       * solve_linear.
@@ -321,7 +344,7 @@ Qed.
 
 Lemma World_weaken : forall dvars dvars' w w',
     all_in dvars dvars' ->
-    all_in w w' ->
+    (forall st', w' st' |-- w st') ->
     World dvars' w' |-- World dvars w.
 Proof.
   intros. unfold World, Continuous.
@@ -336,6 +359,8 @@ Proof.
            destruct H as [pf Hcont]; exists pf
     end.
     unfold solves_diffeqs in *; intros.
+    admit.
+(*
     erewrite Hcont; eauto.
     simpl in *; intuition. right.
     apply List.in_or_app.
@@ -380,6 +405,7 @@ Proof.
                                  dvars')).
       * tlaIntuition.
       * repeat apply all_in_map; auto.
+*)
 Qed.
 
 Lemma Unchanged_In : forall ls l,
@@ -423,7 +449,7 @@ Theorem Sys_weaken : forall dvars dvars' cvars cvars'
   all_in cvars cvars' ->
   I' |-- I ->
   P' |-- P ->
-  all_in w w' ->
+  (forall st', w' st' |-- w st') ->
   WC' |-- WC ->
   (d >= d')%R ->
   SysD (Sys dvars' cvars' I' P' w' WC' d') |--
@@ -468,6 +494,7 @@ Ltac sys_apply_with_weaken H :=
 
 Theorem Sys_by_induction :
   forall P A dvars cvars Init Prog Inv IndInv w WC (d:R),
+  (forall st', is_st_formula (w st')) ->
   is_st_formula IndInv ->
   P |-- SysD (Sys dvars cvars Init Prog w WC d) ->
   forall Hsafe : P |-- SysSafe (Sys dvars cvars Init Prog w WC d),
@@ -481,7 +508,7 @@ Theorem Sys_by_induction :
           //\\ Discr cvars Prog d |-- next IndInv ->
   P |-- [] Inv.
 Proof.
-  intros P A dvars cvars Init Prog Inv IndInv w WC d
+  intros P A dvars cvars Init Prog Inv IndInv w WC d Hstw
          Hst Hsys Hsafe Hinit Ha Hinv InvUnder Hw Hdiscr.
   tlaAssert ([]TimeBound d).
   - change d with (maxTime {|
@@ -492,7 +519,8 @@ Proof.
                world := w;
                WConstraint := WC;
                maxTime := d |}).
-    eapply Sys_bound_t; [ assumption | rewrite Hsys; tlaAssume ].
+    eapply Sys_bound_t;
+      [ assumption | assumption | rewrite Hsys; tlaAssume ].
   - tlaIntro. tlaAssert ([]IndInv).
     + tlaAssert ([]A); [rewrite Ha; tlaAssume | tlaIntro ].
       tlaAssert (SysD_or_stuck (Sys dvars cvars Init Prog w WC d));
@@ -653,8 +681,7 @@ Proof.
       + charge_tauto.
       + unfold all_in. intros.
         apply List.in_or_app. intuition.
-      + unfold all_in. intros.
-        apply List.in_or_app. intuition.
+      + intros. charge_tauto.
     - apply lorR1. apply lorR2.
       unfold Discr. repeat charge_split; try charge_tauto.
       + tlaAssert (Rmin (maxTime a) (maxTime b) <= maxTime a);
@@ -671,14 +698,6 @@ Proof.
       + unfold all_in. intros. apply List.in_or_app.
         apply List.in_app_or in H. intuition. }
 Qed.
-
-
-
-Require Import Coq.Sorting.Permutation.
-Instance Proper_World : Proper (@Permutation _ ==> @Permutation _ ==> lequiv) World.
-Proof.
-Admitted.
-
 
 Theorem ComposeComm (a b : SysRec) :
   SysD (SysCompose a b) |-- SysD (SysCompose b a).
@@ -699,8 +718,7 @@ Proof.
       + charge_tauto.
       + unfold all_in. intros. apply List.in_or_app.
         apply List.in_app_or in H. tauto.
-      + unfold all_in. intros. apply List.in_or_app.
-        apply List.in_app_or in H. tauto.
+      + tlaIntuition.
     - apply lorR1. apply lorR2.
       unfold Discr. repeat charge_split; try charge_tauto.
       + solve_linear. rewrite Rmin_comm. auto.
