@@ -34,16 +34,6 @@ Open Scope HP_scope.
    The following functions are used to implement
    deriv_formula. *)
 
-(* Takes a var x and list of differential equations
-   and returns Some t if (x' := t) is in the list of
-   differential equations. Returns None otherwise. *)
-Definition get_deriv (x:Var) (eqs:list DiffEq)
-  : option Term :=
-  option_map get_term
-    (List.find (fun p : DiffEq => let (y, t) := p in
-          proj1_sig (Sumbool.bool_of_sumbool
-                       (String.string_dec x y))) eqs).
-
 (* option map on two inputs *)
 Definition option_map2 {A B C} (f:A->B->C) 
   (a:option A) (b:option B) : option C :=
@@ -51,6 +41,10 @@ Definition option_map2 {A B C} (f:A->B->C)
     | Some a, Some b => Some (f a b)
     | _, _ => None
   end.
+
+Definition lift2 {A B C D} (f:A->B->C)
+  : (D->A)->(D->B)->(D->C) :=
+  fun a b c => f (a c) (b c).
 
 (* Tries to take the derivative of a term and substitute
    in the right hand side of differential equations. If
@@ -61,32 +55,31 @@ Definition option_map2 {A B C} (f:A->B->C)
    because in our specification of continuous transitions
    the evolution of variables with no differential equations
    is unspecified. *)
-Fixpoint deriv_term (t:Term) (eqs:list DiffEq)
-  : option Term :=
+Fixpoint deriv_term (t:Term) : option (state->Term) :=
   match t with
   | VarNowT x =>
-    get_deriv x eqs
+    Some (fun st => RealT (st x))
   | VarNextT _ => None
-  | NatT _ => Some (RealT R0)
-  | RealT _ => Some (RealT R0)
+  | NatT _ => Some (fun _ => RealT R0)
+  | RealT _ => Some (fun _ => RealT R0)
   | PlusT t1 t2 =>
-     option_map2 PlusT (deriv_term t1 eqs) (deriv_term t2 eqs)
+     option_map2 (lift2 PlusT) (deriv_term t1) (deriv_term t2)
   | MinusT t1 t2 =>
-     option_map2 MinusT (deriv_term t1 eqs) (deriv_term t2 eqs)
+     option_map2 (lift2 MinusT) (deriv_term t1) (deriv_term t2)
   | MultT t1 t2 =>
-     option_map2 PlusT
-                 (option_map (fun t => MultT t t2)
-                             (deriv_term t1 eqs))
-                 (option_map (MultT t1) (deriv_term t2 eqs))
+     option_map2 (lift2 PlusT)
+                 (option_map (fun t st => MultT (t st) t2)
+                             (deriv_term t1))
+                 (option_map (fun t st => MultT t1 (t st)) (deriv_term t2))
   | InvT _ => None
   | CosT t =>
-    option_map2 MultT
-                (Some --sin(t))
-                (deriv_term t eqs)
+    option_map2 (lift2 MultT)
+                (Some (fun _ => --sin(t)))
+                (deriv_term t)
   | SinT t =>
-    option_map2 MultT
-                (Some cos(t))
-                (deriv_term t eqs)
+    option_map2 (lift2 MultT)
+                (Some (fun _ => cos(t)))
+                (deriv_term t)
   end.
 
 (* Takes the "derivative" of a comparison operator.
@@ -109,21 +102,22 @@ Fixpoint deriv_comp_op (op:CompOp) : CompOp :=
    described in deriv_term or because I couldn't figure
    out what the derivative should be. It is always
    sound to return FALSE because this is unprovable. *)
-Fixpoint deriv_formula (F:Formula) (eqs:list DiffEq) :=
+Fixpoint deriv_formula (P:state->Formula) (F:Formula) (st:state)
+  : Formula :=
   match F with
     | TRUE => TRUE
     | FALSE => FALSE
     | Comp t1 t2 op =>
-      match deriv_term t1 eqs, deriv_term t2 eqs with
+      match deriv_term t1, deriv_term t2 with
         | Some t1, Some t2 =>
-          Comp t1 t2 (deriv_comp_op op)
+          Comp (t1 st) (t2 st) (deriv_comp_op op)
         | _, _ => FALSE
       end
     | And F1 F2 =>
-      (deriv_formula F1 eqs) //\\ (deriv_formula F2 eqs)
+      (deriv_formula P F1 st) //\\ (deriv_formula P F2 st)
     | Imp F1 F2 =>
-      (Continuous eqs -->> ((F1 -->> next F1) //\\ (next F1 -->> F1)))
-      //\\ (F1 -->> (deriv_formula F2 eqs))
+      (Continuous P -->> ((F1 -->> next F1) //\\ (next F1 -->> F1)))
+      //\\ (F1 -->> (deriv_formula P F2 st))
     | _ => FALSE
   end.
 
@@ -131,66 +125,27 @@ Fixpoint deriv_formula (F:Formula) (eqs:list DiffEq) :=
    to prove the differential induction (diff_ind) rule.
    Perhaps some day someone will clean these up. *)
 
-Lemma get_deriv_in : forall x eqs t,
-  get_deriv x eqs = Some t ->
-  List.In (DiffEqC x t) eqs.
-Proof.
-  intros x eqs t Hderiv.
-  induction eqs.
-    - unfold get_deriv in *. simpl in *. discriminate.
-    - unfold get_deriv in *. simpl in *. destruct a.
-      destruct (String.string_dec x v) eqn:?; simpl in *;
-        intuition congruence.
-Qed.
-
-Lemma get_deriv_not_in : forall x eqs,
-  get_deriv x eqs = None ->
-  ~exists t, List.In (DiffEqC x t) eqs.
-Proof.
-  intros x eqs Hderiv.
-  induction eqs.
-    - intro H. destruct H. auto.
-    - intro H. destruct H. simpl in *.
-      destruct H.
-      + subst a. unfold get_deriv in *. simpl in *.
-        destruct (String.string_dec x x); simpl in *;
-        intuition discriminate.
-      + unfold get_deriv in *. simpl in *. destruct a.
-        destruct (String.string_dec x v); simpl in *.
-        * discriminate.
-        * intuition. eauto.
-Qed.
-
 (* This lemma says that our notation of syntatic
    derivatives for terms agrees with the actual
    definition of a derivative. *)
-Lemma term_deriv : forall (f : R -> state) (e e' : Term)
-  (r : R) (eqs : list DiffEq) is_derivable s,
+
+Lemma term_deriv : forall (f : R -> state) e e'
+  (r : R) eqs is_derivable s,
   solves_diffeqs f eqs r is_derivable ->
-  deriv_term e eqs = Some e' ->
+  deriv_term e = Some e' ->
   exists pf,
-  forall z,
-    (R0 <= z <= r)%R ->
-      eq (derive (fun t => eval_term e (f t) s)
-             (*(term_is_derivable f e s is_derivable)*) pf z)
-         (eval_term e' (f z) s).
+    forall z,
+      (R0 <= z <= r)%R ->
+      let f' := (fun t x => derive (fun t => f t x) (is_derivable x) t) in
+      eq (derive (fun t => eval_term e (f t) s) pf z)
+         (eval_term (e' (f' z)) (f z) s).
 Proof.
   intros.
-(*  apply (derive_pt_D_in
-           (fun t : R => eval_term e (f t) s)
-           (fun t : R => eval_term e' (f t) s)).*)
   generalize dependent e'.
   induction e; intros; simpl in *.
-    - destruct (get_deriv v eqs) eqn:?.
-      + unfold solves_diffeqs in *.
-        unfold derive in *.
-        exists (is_derivable v). intros.
-        specialize (H v t s (get_deriv_in _ _ _ Heqo) z H1).
-(*        apply (derive_pt_D_in
-                 (fun t0 : R => f t0 v)
-                 (fun t0 : R => eval_term t (f t0) s)) in H.*)
-        inversion H0; subst e'; eauto.
-      + discriminate.
+    - inversion H0; clear H0; subst.
+      simpl. exists (is_derivable v).
+      auto.
     - inversion H0.
     - inversion H0; subst e'.
       unfold eval_term, derive.
@@ -200,8 +155,8 @@ Proof.
       unfold eval_term, derive.
       exists (derivable_pt_const r0). intros.
       eapply derive_pt_const.
-    - destruct (deriv_term e1 eqs);
-      destruct (deriv_term e2 eqs);
+    - destruct (deriv_term e1);
+      destruct (deriv_term e2);
       simpl in *; try discriminate. inversion H0; subst e'.
       specialize (IHe1 t (Logic.eq_refl _)).
       specialize (IHe2 t0 (Logic.eq_refl _)).
@@ -214,8 +169,8 @@ Proof.
         as Hderiv.
       unfold derive, plus_fct in *. rewrite Hderiv.
       simpl. rewrite IHe1; auto; rewrite IHe2; auto.
-    - destruct (deriv_term e1 eqs);
-      destruct (deriv_term e2 eqs);
+    - destruct (deriv_term e1);
+      destruct (deriv_term e2);
       simpl in *; try discriminate. inversion H0; subst e'.
       specialize (IHe1 t (Logic.eq_refl _)).
       specialize (IHe2 t0 (Logic.eq_refl _)).
@@ -228,8 +183,8 @@ Proof.
         as Hderiv.
       unfold derive, minus_fct in *. rewrite Hderiv.
       simpl. rewrite IHe1; auto; rewrite IHe2; auto.
-    - destruct (deriv_term e1 eqs);
-      destruct (deriv_term e2 eqs);
+    - destruct (deriv_term e1);
+      destruct (deriv_term e2);
       simpl in *; try discriminate. inversion H0; subst e'.
       specialize (IHe1 t (Logic.eq_refl _)).
       specialize (IHe2 t0 (Logic.eq_refl _)).
@@ -243,7 +198,7 @@ Proof.
       unfold derive, mult_fct in *. rewrite Hderiv.
       simpl. rewrite IHe1; auto; rewrite IHe2; auto.
     - discriminate.
-    - destruct (deriv_term e eqs);
+    - destruct (deriv_term e);
       simpl in *; try discriminate. inversion H0; subst e'.
       specialize (IHe t (Logic.eq_refl _)).
       destruct IHe as [pf IHe].
@@ -259,7 +214,7 @@ Proof.
       unfold derive, comp in *. rewrite Hderiv.
       simpl. rewrite IHe; auto; rewrite derive_pt_cos;
       rewrite RIneq.Rminus_0_l; auto.
-    - destruct (deriv_term e eqs);
+    - destruct (deriv_term e);
       simpl in *; try discriminate. inversion H0; subst e'.
       specialize (IHe t (Logic.eq_refl _)).
       destruct IHe as [pf IHe].
@@ -358,94 +313,6 @@ Ltac deriv_ineq :=
 
 Ltac solve_ineq := psatzl R.
 
-(* States correctness of VarsAgree *)
-Lemma deriv_trace_now : forall f eqs t t' tr s,
-  eval_formula (VarsAgree (List.map get_var eqs) (f R0)) tr ->
-  deriv_term t eqs = Some t' ->
-  eval_term t (Stream.hd tr) s = eval_term t (f R0) s.
-Proof.
-  induction t; simpl; intros; auto.
-  - induction eqs.
-    + unfold get_deriv in *.
-      simpl in *. discriminate.
-    + unfold get_deriv in *. simpl in *.
-      destruct H. destruct a.
-      destruct (String.string_dec v v0); simpl in *.
-      * subst v0; unfold eval_comp in *; simpl in *; auto.
-      * apply IHeqs; auto.
-  - destruct (deriv_term t1 eqs) eqn:?;
-             destruct (deriv_term t2 eqs) eqn:?;
-             try discriminate.
-    unfold eval_term in *; simpl in *;
-      erewrite IHt1; eauto;
-      erewrite IHt2; eauto.
-  - destruct (deriv_term t1 eqs) eqn:?;
-             destruct (deriv_term t2 eqs) eqn:?;
-             try discriminate.
-    unfold eval_term in *; simpl in *;
-    erewrite IHt1; eauto;
-    erewrite IHt2; eauto.
-  - destruct (deriv_term t1 eqs) eqn:?;
-             destruct (deriv_term t2 eqs) eqn:?;
-             try discriminate.
-    unfold eval_term in *; simpl in *;
-    erewrite IHt1; eauto;
-    erewrite IHt2; eauto.
-  - discriminate.
-  - destruct (deriv_term t eqs) eqn:?;
-             try discriminate.
-    unfold eval_term in *; simpl in *;
-    erewrite IHt; eauto.
-  - destruct (deriv_term t eqs) eqn:?;
-             try discriminate.
-    unfold eval_term in *; simpl in *;
-    erewrite IHt; eauto.
-Qed.
-
-(* States correctness of AVarsAgree *)
-Lemma deriv_trace_next : forall f eqs (r:R) t t' tr s,
-  eval_formula (AVarsAgree (List.map get_var eqs) (f r)) tr ->
-  deriv_term t eqs = Some t' ->
-  eval_term t (Stream.hd (Stream.tl tr)) s = eval_term t (f r) s.
-Proof.
-  induction t; simpl; intros; auto.
-  - induction eqs.
-    + unfold get_deriv in *.
-      simpl in *. discriminate.
-    + unfold get_deriv in *. simpl in *.
-      destruct H. destruct a.
-      destruct (String.string_dec v v0); simpl in *.
-      * subst v0; unfold eval_comp in *; simpl in *; auto.
-      * apply IHeqs; auto.
-  - destruct (deriv_term t1 eqs) eqn:?;
-             destruct (deriv_term t2 eqs) eqn:?;
-             try discriminate.
-    unfold eval_term in *; simpl in *;
-    erewrite IHt1; eauto;
-    erewrite IHt2; eauto.
-  - destruct (deriv_term t1 eqs) eqn:?;
-             destruct (deriv_term t2 eqs) eqn:?;
-             try discriminate.
-    unfold eval_term in *; simpl in *;
-    erewrite IHt1; eauto;
-    erewrite IHt2; eauto.
-  - destruct (deriv_term t1 eqs) eqn:?;
-             destruct (deriv_term t2 eqs) eqn:?;
-             try discriminate.
-    unfold eval_term in *; simpl in *;
-    erewrite IHt1; eauto;
-    erewrite IHt2; eauto.
-  - discriminate.
-  - destruct (deriv_term t eqs) eqn:?;
-             try discriminate.
-    unfold eval_term in *; simpl in *;
-    erewrite IHt; eauto.
-  - destruct (deriv_term t eqs) eqn:?;
-             try discriminate.
-    unfold eval_term in *; simpl in *;
-    erewrite IHt; eauto.
-Qed.
-
 Lemma eval_next_term : forall t s1 s2 s3,
   is_st_term t = true ->
   eval_term (next_term t) s1 s2 =
@@ -458,24 +325,24 @@ Proof.
        erewrite IHt2; eauto).
 Qed.
 
-Lemma deriv_st_term : forall t t' eqs,
-  deriv_term t eqs = Some t' ->
+Lemma deriv_st_term : forall t t',
+  deriv_term t = Some t' ->
   is_st_term t = true.
 Proof.
   induction t; simpl; auto;
   intros; try discriminate;
   try (unfold option_map2 in *;
         simpl in *;
-        destruct (deriv_term t1 eqs) eqn:?;
-                 destruct (deriv_term t2 eqs) eqn:?;
+        destruct (deriv_term t1) eqn:?;
+                 destruct (deriv_term t2) eqn:?;
                  try discriminate;
        apply andb_true_intro;
        split; try eapply IHt1;
        try eapply IHt2; eauto).
-  - destruct (deriv_term t eqs) eqn:?;
+  - destruct (deriv_term t) eqn:?;
              try discriminate;
     eapply IHt; eauto.
-  - destruct (deriv_term t eqs) eqn:?;
+  - destruct (deriv_term t) eqn:?;
              try discriminate;
     eapply IHt; eauto.
 Qed.
@@ -489,31 +356,34 @@ Proof.
   unfold is_solution in *.
   destruct Hsol as [pf Hsol].
   exists pf. unfold solves_diffeqs in *.
-  intros x d s Hin z Hz.
+  intros x d.
   apply Hsol; auto.
   psatzl R.
 Qed.
 
+Definition derive_stateF (f : R -> state) (is_derivable : forall x, derivable (fun t => f t x))
+: R -> state :=
+  fun t v => derive (fun t => f t v) (is_derivable v) t.
+
 Lemma deriv_neg : forall f t1 t2 t1' t2' r eqs is_derivable s,
   solves_diffeqs f eqs r is_derivable ->
-  deriv_term t1 eqs = Some t1' ->
-  deriv_term t2 eqs = Some t2' ->
-  (forall st,
-     (R0 <= eval_term t1' st s -
-      eval_term t2' st s)%R) ->
+  deriv_term t1 = Some t1' ->
+  deriv_term t2 = Some t2' ->
   forall t,
     (R0 <= t <= r)%R ->
     exists pf,
-    (R0 <=
+      let f' := derive_stateF f is_derivable in
+      (forall st,
+          (0 <= eval_term (t1' (f' t)) st s - eval_term (t2' (f' t)) st s)%R) ->
+      (R0 <=
     derive_pt
       (fun z : R => eval_term t1 (f z) s -
                     eval_term t2 (f z) s)
       t pf)%R.
 Proof.
   intros f t1 t2 t1' t2' r diffeqs is_derivable s Hsol
-         Ht1 Ht2 Hineq t Ht.
-  specialize (Hineq (f t)).
-  pose proof (term_deriv f (t1-t2) (t1'-t2') r diffeqs
+         Ht1 Ht2 t Ht.
+  pose proof (term_deriv f (t1-t2) (fun st' => t1' st' - t2' st') r diffeqs
                          is_derivable s Hsol) as Hderiv.
   simpl in *. rewrite Ht1 in *. rewrite Ht2 in *. simpl in *.
   specialize (Hderiv (Logic.eq_refl _)).
@@ -561,54 +431,39 @@ Proof.
     simpl. destruct H1. reflexivity.
 Qed.
 
-Lemma st_formula_varsagree : forall xs s,
-  is_st_formula (VarsAgree xs s).
-Proof.
-  induction xs; simpl; auto.
-Qed.
-
-Lemma avarsagree_next : forall xs s1 s2 tr,
-  eval_formula (AVarsAgree xs s2)
-               (Stream.Cons s1 (Stream.Cons s2 tr)).
-Proof.
-  induction xs; intros; simpl in *; auto;
-  unfold eval_comp; auto.
-Qed.
-
 (* Main helper lemma for diff_ind. Basically
    establishes the base case for diff_ind. The
    proof of this lemma is a complete mess. *)
-Lemma eval_comp_ind : forall Hyps eqs
-                             t1 t2 t1' t2' op,
-  deriv_term t1 eqs = Some t1' ->
-  deriv_term t2 eqs = Some t2' ->
+Lemma eval_comp_ind : forall Hyps Pdiff
+                             t1 t2 t1' t2' op
+  (Hpdiff:forall st, is_st_formula (Pdiff st)),
+  deriv_term t1 = Some t1' ->
+  deriv_term t2 = Some t2' ->
   is_st_formula Hyps ->
-  (|-- (Hyps //\\ Continuous eqs) -->> next Hyps) ->
-  (|-- Hyps -->> (Comp t1' t2' (deriv_comp_op op))) ->
+  (|-- (Hyps //\\ Continuous Pdiff) -->> next Hyps) ->
+  (|-- Hyps -->> (Forall x, Pdiff x -->> Comp (t1' x) (t2' x) (deriv_comp_op op))) ->
   (|-- (Comp t1 t2 op //\\ Hyps //\\
-       Continuous eqs) -->>
-                       Comp (next_term t1)
-                       (next_term t2) op).
+             Continuous Pdiff) -->>
+       Comp (next_term t1) (next_term t2) op).
 Proof.
-  intros Hyps eqs t1 t2 t1' t2' op Ht1 Ht2 Hst Hhyps Hind.
+  intros Hyps eqs t1 t2 t1' t2' op Hpdiff Ht1 Ht2 Hst Hhyps Hind.
   breakAbstraction; unfold eval_comp in *; simpl in *.
   intros tr XX H; clear XX; destruct H as [Hbase [HhypsI Hcont] ].
 
   destruct Hcont as [r [f Hcont] ];
     destruct Hcont as [Hr [Hsol [? ?] ] ].
-  do 2 erewrite deriv_trace_now with (tr:=tr) in Hbase; eauto.
-  pose proof (deriv_st_term _ _ _ Ht1).
-  pose proof (deriv_st_term _ _ _ Ht2).
+  pose proof (deriv_st_term _ _ Ht1).
+  pose proof (deriv_st_term _ _ Ht2).
   repeat rewrite eval_next_term with (s3:=Stream.hd (Stream.tl tr)); auto.
-  repeat erewrite deriv_trace_next with (tr:=tr) by eauto.
   unfold is_solution in *. destruct Hsol as [pf Hsol].
-  simpl in *.
-  pose proof (term_deriv f (t1 - t2) (t1' - t2')
+  pose proof (term_deriv f (t1 - t2) (fun st' => t1' st' - t2' st')
                          r eqs pf (Stream.hd (Stream.tl tr)) Hsol)
     as Hterm1.
-  pose proof (term_deriv f (t2 - t1) (t2' - t1')
+  pose proof (term_deriv f (t2 - t1) (fun st' => t2' st' - t1' st')
                          r eqs pf (Stream.hd (Stream.tl tr)) Hsol)
     as Hterm2.
+  rewrite <- H in *.
+  rewrite <- H0 in *.
   simpl in *; rewrite Ht1 in Hterm1;
   rewrite Ht1 in Hterm2; rewrite Ht2 in Hterm1;
   rewrite Ht2 in Hterm2; simpl in *.
@@ -630,46 +485,67 @@ Proof.
   try specialize (Hind Hhyps); try solve_ineq;
   try (split;
         [ eapply st_formula_hd; eauto |
-          exists t; exists f; repeat split; try solve_ineq;
+          exists t; exists f; repeat split; try solve_ineq; auto;
           solve [apply is_solution_sub with (r2:=r);
-                  try solve_ineq; unfold is_solution; eauto |
-                 apply st_formula_hd with (tr1:=tr); auto;
-                 apply st_formula_varsagree |
-                 apply avarsagree_next]
-      ]).
+                  try solve_ineq; unfold is_solution; eauto]
+      ]);
+  specialize (Hind (fun x : Var => derive_pt (fun t0 : R => f t0 x) t (pf x t)));
+  unfold solves_diffeqs in *; rewrite H0;
+  assert (0 <= t <= r)%R as Ht by solve_ineq;
+  specialize (Hsol t Ht);
+  eapply st_formula_hd in Hsol; try apply Hind in Hsol;
+  try solve_ineq; auto.
+Qed.
+
+Lemma Continuous_deriv_exists :
+  forall Pdiff tr,
+    (forall st, is_st_formula (Pdiff st)) ->
+    eval_formula (Continuous Pdiff) tr ->
+    exists st, eval_formula (Pdiff st) tr.
+Proof.
+  breakAbstraction. intros. destruct H0 as [r [f H0]].
+  unfold is_solution, solves_diffeqs in *.
+  destruct H0 as [? [ [? ?] [? ?] ] ]. eexists.
+  eapply st_formula_hd with (tr1:=Stream.forever (f R0)); eauto.
+  apply H1; solve_ineq.
 Qed.
 
 (* Differential induction proof rule plus soundness
    proof. *)
-Lemma diff_ind : forall Hyps G cp F,
+Lemma diff_ind : forall Hyps G cp F
+  (Hcp : forall st, is_st_formula (cp st)),
   is_st_formula G ->
   is_st_formula Hyps ->
   (F |-- Continuous cp) ->
   ((Hyps //\\ Continuous cp) |-- next Hyps) ->
   (F |-- G) ->
   (F |-- Hyps) ->
-  (Hyps |-- deriv_formula G cp) ->
+  (Hyps |-- Forall st, cp st -->> deriv_formula cp G st) ->
   (F |-- next G).
 Proof.
   Opaque Continuous.
   intros Hyps G; generalize dependent Hyps;
   induction G;
-    intros Hyps cp F HstG HstH Hcont Hhyps Hbase HhypsF Hind;
-  simpl in *; unfold tlaEntails in *; simpl in *; intros; eauto;
-  try discriminate; try solve [exfalso; eapply Hind; eauto].
+    intros Hyps cp F Hcp HstG HstH Hcont Hhyps Hbase HhypsF Hind;
+    simpl in *; unfold tlaEntails in *; simpl in *; intros; trivial;
+    try solve [ pose proof (Hcont tr) as Hcont2;
+                eapply Continuous_deriv_exists in Hcont2; auto;
+                destruct Hcont2 as [st Hcont2]; exfalso;
+                eapply Hind; eauto ].
   - destruct HstG as [HstG1 HstG2].
-    destruct (deriv_term t cp) eqn:?;
-             destruct (deriv_term t0 cp) eqn:?;
-    try solve [simpl in *; exfalso; eapply Hind; eauto].
-    simpl in *. pose proof (Hcont tr H).
-    destruct H0 as [r [f Hf] ]. simpl in *.
-    decompose [and] Hf.
+    pose proof (HhypsF _ H) as HhypsF2. pose proof Hcont as Hcont2.
+    pose proof (Hind _ HhypsF2). eapply Continuous_deriv_exists in Hcont2; eauto.
+    destruct (deriv_term t) eqn:?;
+             destruct (deriv_term t0) eqn:?;
+    try solve [destruct Hcont2; exfalso; eapply Hind; eauto].
     pose proof (eval_comp_ind Hyps cp t t0
-                              t1 t2 c Heqo Heqo0 HstH) as Hcomp.
-    apply Hcomp; simpl in *; unfold tlaEntails; simpl in *; auto.
-    repeat split; intuition.
-    + apply HhypsF; auto.
-    + apply Hcont; auto.
+                              t1 t2 c Hcp Heqo Heqo0 HstH) as Hcomp.
+    apply Hcomp.
+    { breakAbstraction. intros. eauto. }
+    { breakAbstraction. intros. eauto. }
+    { breakAbstraction. auto. }
+    { fold eval_formula. repeat split; eauto.
+      try eapply Hbase; eauto. }
   - split.
     + eapply IHG1; eauto.
       * intuition.
@@ -681,9 +557,13 @@ Proof.
       * apply Hind; auto.
   - eapply IHG2 with (Hyps:=Hyps //\\ G1) (F:=F //\\ G1); eauto;
     simpl; intuition.
-    + apply Hind; auto.
-    + apply Hind; auto.
-    + apply Hind; auto.
+    + pose proof H5 as Hcont2;
+      eapply Continuous_deriv_exists in Hcont2; destruct Hcont2;
+      auto; specialize (Hind tr0 H3 _ H4); apply Hind; auto.
+    + specialize (Hind tr0 H4); apply Hind; auto.
+    + specialize (HhypsF _ H). pose proof (Hcont _ H) as Hcont2.
+      eapply Continuous_deriv_exists in Hcont2; destruct Hcont2 as [st Hcont2].
+      specialize (Hind _ HhypsF _ Hcont2). apply Hind; auto. auto.
 Qed.
 
 Close Scope HP_scope.

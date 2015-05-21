@@ -33,15 +33,16 @@ Open Scope HP_scope.
         with derivative 0 *)
 
 Lemma zero_deriv : forall G cp F x,
-  List.In (DiffEqC x 0) cp ->
+  |-- Forall st : state, cp st -->> st x = R0 ->
   (F |-- Continuous cp) ->
   (F //\\ x! = x |-- G) ->
   (F |-- G).
 Proof.
-induction cp.  intros F x Hin Hcont Hsuf.
-- simpl in *. contradiction.
-- intros F x Hin Hcont Hsuf. simpl in Hin. destruct Hin.
-  + simpl in *. intros.
+  breakAbstraction.
+  intros G cp F x Hin Hcont Hsuf tr HF.
+  apply Hsuf; split; auto.
+  specialize (rewrite Hcont.
+  simpl in *. intros.
     unfold tlaEntails in *. intros. apply Hsuf.
     split. auto. specialize (Hcont tr H0).
     destruct Hcont as [r [f Hf] ]. simpl in Hf.

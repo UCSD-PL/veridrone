@@ -65,41 +65,29 @@ Definition get_term (d:DiffEq) :=
    is a solution to a list of differential equations
    in the range 0 to r. *)
 Definition solves_diffeqs (f : R -> state)
-           (diffeqs : list DiffEq) (r : R)
+           (cp : state->Formula) (r : R)
            (is_derivable : forall x, derivable (fun t => f t x)) :=
-  forall x d st,
-    List.In (DiffEqC x d) diffeqs ->
     forall z, (R0 <= z <= r)%R ->
-              derive (fun t => f t x) (is_derivable x) z =
-              eval_term d (f z) st.
+              eval_formula (cp (fun x => derive (fun t => f t x) (is_derivable x) z))
+                           (Stream.forever (f z)).
 
 (* Prop expressing that f is a solution to diffeqs in
    [0,r]. *)
 Definition is_solution (f : R -> state)
-           (diffeqs : list DiffEq) (r : R) :=
+           (cp:state->Formula) (r : R) :=
   exists is_derivable,
     (* f is a solution to diffeqs *)
-    solves_diffeqs f diffeqs r is_derivable.
+    solves_diffeqs f cp r is_derivable.
 
 (* Action formula expressing that a transition
    is consistent with the system of differential
    equations represented by cp. *)
-Definition Continuous (cp:list DiffEq) : Formula :=
-  let xs := List.map get_var cp in
+Definition Continuous (cp:state->Formula) : Formula :=
   Exists r : R,
   Exists f : R -> state,
          (r > 0)
     //\\ (PropF (is_solution f cp r))
-    //\\ (VarsAgree xs (f R0))
-    //\\ (AVarsAgree xs (f r)).
+    //\\ (Embed (fun st st' => f R0 = st /\ f r = st')).
 
 Close Scope string_scope.
 Close Scope HP_scope.
-
-(* Some notation *)
-(* In a module to avoid conflicts. *)
-Module LibNotations.
-Notation "x ' ::= t" := (DiffEqC x t) (at level 60) : HP_scope.
-Notation "[ x1 , .. , xn ]" := (cons x1 .. (cons xn nil) .. )
-    (at level 60) : HP_scope.
-End LibNotations.
