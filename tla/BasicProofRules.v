@@ -537,7 +537,7 @@ Fixpoint rename_formula (m : RenameMap) (F:Formula) :=
     | Syntax.Exists _ f => Exists x, rename_formula m (f x)
     | Syntax.Forall _ f => Forall x, rename_formula m (f x)
     | PropF P => PropF P
-    | Enabled F => Enabled (rename_formula m F)
+    | Enabled F => Rename m (Enabled F)
     | Always F => Always (rename_formula m F)
     | Eventually F => Eventually (rename_formula m F)
     | Embed P => Rename m (Embed P)
@@ -695,20 +695,6 @@ Proof.
     exists n. rewrite Stream.stream_map_nth_suf; auto. }
 Qed.
 
-(*
-Lemma Rename_enabled : forall m F,
-  Rename m (Enabled F) -|-
-  Enabled (Rename m F).
-Proof.
-  intros; split; breakAbstraction; intros.
-  - destruct tr. simpl in *. destruct H as [tr' H]. exists tr'.
-    
-    destruct tr. simpl. unfold Stream.stream_map.
-    simpl. auto. simpl in *. auto.
-auto.
-Qed.
-*)
-
 Lemma Rename_ok : forall m F,
   List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
   rename_formula m F -|- Rename m F.
@@ -748,7 +734,7 @@ Proof.
       breakAbstraction. intros. auto.
     + specialize (H x H0). destruct H. revert H H1.
       breakAbstraction. intros. auto.
-  - admit.
+  - simpl rename_formula. auto.
   - rewrite Rename_always. simpl rename_formula.
     split; tlaRevert; apply always_imp; rewrite IHF;
     auto; charge_tauto.
