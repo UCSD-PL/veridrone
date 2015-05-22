@@ -633,6 +633,33 @@ Proof.
     + erewrite find_term_next_None_ok; auto.
 Qed.
 
+Lemma Rename_true : forall m,
+  Rename m TRUE -|- TRUE.
+Proof.
+  intros; split; breakAbstraction; auto.
+Qed.
+
+Lemma Rename_false : forall m,
+  Rename m FALSE -|- FALSE.
+Proof.
+  intros; split; breakAbstraction; auto.
+Qed.
+
+
+Lemma Rename_comp : forall m t1 t2 op,
+  List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
+  Rename m (Comp t1 t2 op) -|-
+  rename_formula m (Comp t1 t2 op).
+Proof.
+  split; breakAbstraction; intros.
+    + unfold eval_comp in *.
+      repeat (rewrite Rename_term_ok; auto).
+      destruct tr as [st1 [st2 tr]]. auto.
+    + unfold eval_comp in *.
+      repeat (rewrite Rename_term_ok in H0; auto).
+      destruct tr as [st1 [st2 tr]]. auto.
+Qed.
+
 Lemma Rename_and : forall m F1 F2,
   Rename m (F1 //\\ F2) -|-
   Rename m F1 //\\ Rename m F2.
@@ -700,15 +727,9 @@ Lemma Rename_ok : forall m F,
   rename_formula m F -|- Rename m F.
 Proof.
   induction F; intros.
-  - split; breakAbstraction; auto.
-  - split; breakAbstraction; auto.
-  - split; breakAbstraction; intros.
-    + unfold eval_comp in *.
-      repeat (rewrite Rename_term_ok in H0; auto).
-      destruct tr as [st1 [st2 tr]]. auto.
-    + unfold eval_comp in *.
-      repeat (rewrite Rename_term_ok; auto).
-      destruct tr as [st1 [st2 tr]]. auto.
+  - apply Rename_true with (m:=m).
+  - apply Rename_false with (m:=m).
+  - rewrite Rename_comp; auto.
   - rewrite Rename_and. simpl rename_formula.
     restoreAbstraction. rewrite IHF1; auto.
     rewrite IHF2; auto.
@@ -744,3 +765,16 @@ Proof.
   - simpl rename_formula. split; charge_tauto.
   - simpl rename_formula. split; charge_tauto.
 Qed.
+
+Ltac Rename_rewrite :=
+  repeat first [ rewrite Rename_true |
+                 rewrite Rename_false |
+                 rewrite Rename_comp |
+                 rewrite Rename_and |
+                 rewrite Rename_or |
+                 rewrite Rename_impl |
+                 rewrite Rename_prop |
+                 rewrite Rename_exists |
+                 rewrite Rename_forall |
+                 rewrite Rename_always |
+                 rewrite Rename_eventually ].

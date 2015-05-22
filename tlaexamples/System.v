@@ -788,3 +788,21 @@ Proof.
     decompose_hyps; try charge_tauto.
     { charge_exfalso. charge_tauto. }
 Qed.
+
+Theorem SysRename_sound : forall s m,
+  List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
+  Rename m (Enabled s.(Prog)) -|- Enabled (Rename m s.(Prog)) ->
+  Rename m (SysD s) -|- SysD (SysRename m s).
+Proof.
+  intros. destruct s. unfold SysD, sysD, Next, World. simpl.
+  restoreAbstraction. Rename_rewrite; auto.
+  split.
+  - repeat charge_split.
+    + admit. (* This is not true. *)
+    + charge_tauto.
+    + tlaRevert. apply forget_prem.
+      apply always_imp. charge_intros.
+      decompose_hyps.
+      * 
+      repeat charge_split.
+      * 
