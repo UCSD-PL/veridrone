@@ -1,0 +1,5 @@
+-R temporallanguage TempLang
+-R seqlang SeqLang
+-R tla TLA
+-R tlaexamples Examples
+-R Fiat/src ADTSynthesis
