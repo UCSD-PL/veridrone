@@ -85,7 +85,7 @@ Definition SysRename (m : list (Var * Term)) (s : SysRec)
   {| Init := Rename m s.(Init)
    ; Prog := Rename m s.(Prog)
    ; world := fun st' => Rename m (s.(world) st')
-   ; unch := 
+   ; unch := List.map (rename_term m) s.(unch)
    ; maxTime := s.(maxTime)
   |}.
 
@@ -93,12 +93,10 @@ Definition SysSafe (a : SysRec) : Formula :=
   SysD a -->> SysD_or_stuck a.
 
 Definition SysRec_equiv (a b : SysRec) : Prop :=
-  a.(dvars) = b.(dvars) /\
-  a.(cvars) = b.(cvars) /\
+  a.(unch) = b.(unch) /\
   (a.(Init) -|- b.(Init)) /\
   (a.(Prog) -|- b.(Prog)) /\
   (forall st', (a.(world) st' -|- b.(world) st')) /\
-  (a.(WConstraint) -|- b.(WConstraint)) /\
   a.(maxTime) = b.(maxTime).
 
 Lemma Proper_Enabled :
@@ -130,8 +128,7 @@ Proof.
   red. red. unfold SysSafe. intros. red in H.
   unfold SysD, SysD_or_stuck, sysD, sysD_or_stuck, Next,
   Next_or_stuck, World, Continuous.
-  decompose [and] H. destruct H0. destruct H2. rewrite H1.
-  unfold Discr. rewrite H3. rewrite H5. rewrite H7.
+  decompose [and] H. destruct H0. destruct H2. 
   admit. (* This one is very annoying. *)
 (*  reflexivity.*)
 Qed.
@@ -177,12 +174,11 @@ Ltac decompose_hyps :=
 Definition TimeBound d : Formula := 0 <= "t" <= d.
 
 Lemma mkEvolution_st_formula :
-  forall w dvars,
+  forall w,
     (forall st : state, is_st_formula (w st)) ->
-    forall st : state, is_st_formula (mkEvolution dvars w st).
+    forall st : state, is_st_formula (mkEvolution w st).
 Proof.
-  simpl. intros. intuition. clear H.
-  induction dvars0; simpl; auto.
+  simpl. intros. intuition.
 Qed.
 
 Lemma Sys_bound_t : forall P (a : SysRec),
@@ -202,15 +198,15 @@ Proof.
   - rewrite H0. unfold SysD_or_stuck, sysD_or_stuck, sysD.
     rewrite <- Always_and. tlaAssume.
   - apply discr_indX
-    with (A:=Next_or_stuck a.(dvars) a.(cvars) a.(Prog) a.(world)
-                  a.(WConstraint) a.(maxTime)).
+    with (A:=Next_or_stuck a.(Prog) a.(world)
+                  a.(unch) a.(maxTime)).
     + tlaIntuition.
     + rewrite H0.
       unfold SysD_or_stuck,sysD_or_stuck,Next_or_stuck,sysD,Next.
       rewrite <- Always_and. tlaAssume.
     + rewrite H0. unfold sysD. tlaAssume.
     + unfold Next_or_stuck. decompose_hyps.
-      * pose proof (mkEvolution_st_formula a.(world) a.(dvars)).
+      * pose proof (mkEvolution_st_formula a.(world)).
         specialize (H1 H). clear H.
         eapply diff_ind with (Hyps:=TRUE);
         try solve [tlaIntuition].
@@ -221,8 +217,9 @@ Proof.
       * solve_linear.
 Qed.
 
-Definition InvariantUnder (vars : list Var) (F : Formula) : Prop :=
-  F //\\ Unchanged vars |-- next F.
+Definition InvariantUnder (unch : list Term)
+           (F : Formula) : Prop :=
+  F //\\ UnchangedT unch |-- next F.
 
 Definition all_in {T} (l1 l2 : list T) :=
   forall x, List.In x l1 -> List.In x l2.
@@ -340,10 +337,9 @@ Proof.
   exists x0. intuition.
 Qed.
 
-Lemma World_weaken : forall dvars dvars' w w',
-    all_in dvars dvars' ->
+Lemma World_weaken : forall w w',
     (forall st', w' st' |-- w st') ->
-    World dvars' w' |-- World dvars w.
+    World w' |-- World w.
 Proof.
   intros. unfold World, Continuous.
   repeat (apply exists_entails; intros).
@@ -417,6 +413,17 @@ Proof.
     { rewrite IHls; eauto. charge_tauto. } }
 Qed.
 
+Lemma UnchangedT_In : forall ls l,
+    List.In l ls ->
+    UnchangedT ls |-- next_term l = l.
+Proof.
+  induction ls; simpl.
+  { inversion 1. }
+  { intros. destruct H; restoreAbstraction.
+    { subst. charge_tauto. }
+    { rewrite IHls; eauto. charge_tauto. } }
+Qed.
+
 Lemma Unchanged_weaken : forall vars' vars,
     all_in vars' vars ->
     Unchanged vars |-- Unchanged vars'.
@@ -430,35 +437,44 @@ Proof.
     { eapply IHvars'. red. intros. eapply H. right. assumption. } }
 Qed.
 
-Lemma Discr_weaken : forall cvars cvars' P P' d d',
-    all_in cvars cvars' ->
-    P' |-- P ->
-    (d >= d')%R ->
-    Discr cvars' P' d' |-- Discr cvars P d.
+Lemma UnchangedT_weaken : forall unch' unch,
+    all_in unch' unch ->
+    UnchangedT unch |-- UnchangedT unch'.
 Proof.
-  unfold Discr. intros.
-  rewrite Unchanged_weaken; eauto. solve_linear.
+  induction unch'.
+  { intros. tlaIntuition. }
+  { intros. red in H.
+    simpl. restoreAbstraction.
+    tlaSplit.
+    { apply UnchangedT_In. apply H. left. reflexivity. }
+    { eapply IHunch'. red. intros. eapply H. right. assumption. } }
 Qed.
 
-Theorem Sys_weaken : forall dvars dvars' cvars cvars'
-                            I I' P P' w w' WC WC' d d',
-  forall Hsafe : |-- SysSafe (Sys dvars' cvars' I' P' w' WC' d'),
-  all_in dvars dvars' ->
-  all_in cvars cvars' ->
+Lemma Discr_weaken : forall P P' d d',
+    P' |-- P ->
+    (d >= d')%R ->
+    Discr P' d' |-- Discr P d.
+Proof.
+  unfold Discr. intros. rewrite H. solve_linear.
+Qed.
+
+Theorem Sys_weaken : forall I I' P P' w w' unch unch' d d',
+  forall Hsafe : |-- SysSafe (Sys I' P' w' unch' d'),
   I' |-- I ->
   P' |-- P ->
   (forall st', w' st' |-- w st') ->
-  WC' |-- WC ->
+  all_in unch unch' ->
   (d >= d')%R ->
-  SysD (Sys dvars' cvars' I' P' w' WC' d') |--
-  SysD (Sys dvars cvars I P w WC d).
+  SysD (Sys I' P' w' unch' d') |--
+  SysD (Sys I P w unch d).
 Proof.
-  do 15 intro.
-  intros Hdvars Hcvars HI HP Hw HWC Hd.
+  do 11 intro.
+  intros HI HP Hw Hunch Hd.
   unfold SysSafe in Hsafe. apply landAdj in Hsafe.
   rewrite landtrueL in Hsafe.
   rewrite Hsafe.
-  unfold SysD, sysD, Init, Next, SysD_or_stuck, sysD_or_stuck, Next_or_stuck;
+  unfold SysD, sysD, Init, Next, SysD_or_stuck,
+  sysD_or_stuck, Next_or_stuck;
     simpl.
   restoreAbstraction.
   apply lrevert.
@@ -473,14 +489,8 @@ Proof.
     tlaIntro. unfold Next.
     erewrite Discr_weaken at 1 by eauto.
     erewrite World_weaken at 1 by eauto.
-    rewrite HWC at 1.
-    erewrite Unchanged_weaken.
-    decompose_hyps; charge_tauto.
-    revert Hdvars Hcvars.
-    clear.
-    unfold all_in. intros. specialize (Hdvars x).
-    specialize (Hcvars x).
-    revert H. simpl. repeat rewrite List.in_app_iff. intuition. }
+    erewrite UnchangedT_weaken at 1 by eauto.
+    decompose_hyps; charge_tauto. }
 Qed.
 
 Ltac sys_apply_with_weaken H :=
@@ -491,41 +501,40 @@ Ltac sys_apply_with_weaken H :=
             | reflexivity ].
 
 Theorem Sys_by_induction :
-  forall P A dvars cvars Init Prog Inv IndInv w WC (d:R),
+  forall P A Init Prog Inv IndInv w unch (d:R),
   is_st_formula IndInv ->
-  P |-- SysD (Sys dvars cvars Init Prog w WC d) ->
+  P |-- SysD (Sys Init Prog w unch d) ->
   (forall st', is_st_formula (w st')) ->
-  forall Hsafe : P |-- SysSafe (Sys dvars cvars Init Prog w WC d),
+  forall Hsafe : P |-- SysSafe (Sys Init Prog w unch d),
   P //\\ Init |-- IndInv ->
   P |-- [] A ->
   A //\\ IndInv //\\ TimeBound d |-- Inv ->
-  InvariantUnder ("t"::dvars ++ cvars)%list IndInv ->
+  InvariantUnder (("t":Term)::unch)%list IndInv ->
   A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
-    //\\ World dvars w //\\ WC |-- next IndInv ->
+    //\\ World w |-- next IndInv ->
   A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
-          //\\ Discr cvars Prog d |-- next IndInv ->
+          //\\ Discr Prog d |-- next IndInv ->
   P |-- [] Inv.
 Proof.
-  intros P A dvars cvars Init Prog Inv IndInv w WC d
+  intros P A Init Prog Inv IndInv w unch d
          Hst Hsys Hstw Hsafe Hinit Ha Hinv InvUnder Hw Hdiscr.
   tlaAssert ([]TimeBound d).
   - change d with (maxTime {|
-               dvars := dvars;
-               cvars := cvars;
                Init := Init;
                Prog := Prog;
                world := w;
-               WConstraint := WC;
+               unch := unch;
                maxTime := d |}).
     eapply Sys_bound_t;
       [ assumption | assumption | rewrite Hsys; tlaAssume ].
   - tlaIntro. tlaAssert ([]IndInv).
     + tlaAssert ([]A); [rewrite Ha; tlaAssume | tlaIntro ].
-      tlaAssert (SysD_or_stuck (Sys dvars cvars Init Prog w WC d));
+      tlaAssert (SysD_or_stuck (Sys Init Prog w unch d));
         [ | tlaIntro ].
-      { unfold SysSafe in Hsafe. charge_apply Hsafe. charge_split; try charge_tauto. }
+      { unfold SysSafe in Hsafe. charge_apply Hsafe.
+        charge_split; try charge_tauto. }
       apply discr_indX with
-      (A:=Next_or_stuck dvars cvars Prog w WC d //\\
+      (A:=Next_or_stuck Prog w unch d //\\
                TimeBound d //\\ next (TimeBound d) //\\ A).
         { assumption. }
         { unfold SysD_or_stuck, sysD_or_stuck, Next_or_stuck. simpl.
@@ -674,27 +683,20 @@ Proof.
     tlaRevert. apply always_imp.
     charge_intros. decompose_hyps.
     - apply lorR1. apply lorR1.
-      charge_split; try charge_tauto.
-      rewrite (World_weaken (dvars a)).
+      rewrite World_weaken.
       + charge_tauto.
-      + unfold all_in. intros.
-        apply List.in_or_app. intuition.
       + intros. charge_tauto.
     - apply lorR1. apply lorR2.
       unfold Discr. repeat charge_split; try charge_tauto.
       + tlaAssert (Rmin (maxTime a) (maxTime b) <= maxTime a);
         [ solve_linear; apply Rmin_l | tlaIntro ].
         solve_linear.
-      + rewrite Unchanged_weaken.
-        * charge_tauto.
-        * unfold all_in. intros.
-          apply List.in_or_app. intuition.
     - apply lorR2. apply lorR2.
       charge_split; try charge_tauto.
-      rewrite (Unchanged_weaken (dvars a ++ cvars a)).
+      rewrite UnchangedT_weaken.
       + charge_tauto.
       + unfold all_in. intros. apply List.in_or_app.
-        apply List.in_app_or in H. intuition. }
+        tauto. }
 Qed.
 
 Theorem ComposeComm (a b : SysRec) :
@@ -711,59 +713,21 @@ Proof.
     tlaRevert. apply always_imp.
     charge_intros. decompose_hyps.
     - apply lorR1. apply lorR1.
-      charge_split; try charge_tauto.
-      rewrite (World_weaken ((dvars b) ++ (dvars a))).
+      rewrite World_weaken.
       + charge_tauto.
-      + unfold all_in. intros. apply List.in_or_app.
-        apply List.in_app_or in H. tauto.
       + tlaIntuition.
     - apply lorR1. apply lorR2.
       unfold Discr. repeat charge_split; try charge_tauto.
       + solve_linear. rewrite Rmin_comm. auto.
-      + rewrite Unchanged_weaken.
-        * charge_tauto.
-        * unfold all_in. intros.
-          apply List.in_or_app. apply List.in_app_or in H.
-          tauto.
     - apply lorR2. apply lorR1. charge_intros. unfold Discr.
       charge_use. tlaRevert. apply forget_prem. charge_intros.
       apply Enabled_imp. rewrite Rmin_comm.
       repeat charge_split; try charge_tauto.
-      rewrite Unchanged_weaken.
-      + charge_tauto.
-      + unfold all_in. intros. apply List.in_or_app.
-        apply List.in_app_or in H. intuition.
     - apply lorR2. apply lorR2.
       charge_split; try charge_assumption.
-      rewrite Unchanged_weaken; [ charge_assumption | ].
+      rewrite UnchangedT_weaken; [ charge_assumption | ].
       unfold all_in. intros. apply List.in_or_app.
-      apply List.in_app_or in H. intuition.
-      * left. apply List.in_or_app.
-        apply List.in_app_or in H0. tauto.
-      * right. apply List.in_or_app.
-        apply List.in_app_or in H0. tauto. }
-(*
-      rewrite <- uncurry. charge_use. tlaSplit.
-      { charge_tauto. }
-      { tlaRevert. apply forget_prem. charge_intros.
-        apply Enabled_imp. repeat charge_split; try charge_tauto.
-        rewrite World_weaken.
-        + charge_tauto.
-        + unfold all_in. intros. apply List.in_or_app.
-          apply List.in_app_or in H. intuition.
-        + unfold all_in. intros. apply List.in_or_app.
-          apply List.in_app_or in H. intuition. }
-    - apply lorR2. apply lorR2. apply lorR2.
-      charge_split; try charge_tauto.
-      rewrite Unchanged_weaken.
-      + charge_tauto.
-      + unfold all_in. intros. apply List.in_or_app.
-        apply List.in_app_or in H. intuition.
-        * left. apply List.in_or_app.
-          apply List.in_app_or in H0. tauto.
-        * right. apply List.in_or_app.
-          apply List.in_app_or in H0. tauto. }
-*)
+      apply List.in_app_or in H. intuition. }
 Qed.
 
 Axiom Proper_SysCompose : Proper (SysRec_equiv ==> SysRec_equiv ==> SysRec_equiv) SysCompose.
@@ -804,7 +768,7 @@ Ltac charge_exfalso :=
 
 Theorem SysSafe_rule
 : forall P S
-    (Hprog : P |-- [] Enabled (Discr S.(cvars) S.(Prog) S.(maxTime)))
+    (Hprog : P |-- [] Enabled (Discr S.(Prog) S.(maxTime)))
 (*    (Hcont : P |-- [] (Enabled (World S.(dvars) S.(world) //\\ S.(WConstraint)))) *),
     P |-- SysSafe S.
 Proof.
