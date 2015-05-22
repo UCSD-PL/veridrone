@@ -1,7 +1,6 @@
 Require Import Coq.Classes.Morphisms.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
-Require Import TLA.Lib.
 Require Import TLA.Automation.
 Require Import Rdefinitions.
 
@@ -20,7 +19,7 @@ Lemma forall_iff : forall {T} (P Q: T -> Prop),
     ((forall x, P x) <-> (forall x, Q x)).
 Proof. split; intuition; firstorder. Qed.
 
-Theorem Proper_eval_formula
+Global Instance Proper_eval_formula
 : Proper (eq ==> Stream.stream_eq eq ==> iff) eval_formula.
 Proof.
   red. red. intros. subst.
@@ -166,6 +165,46 @@ Fixpoint is_st_formula_b (F:Formula) : bool :=
     | _ => false
   end.
 
+Lemma st_term_hd : forall t s1 s2 s3,
+  is_st_term t = true ->
+  eval_term t s1 s2 =
+  eval_term t s1 s3.
+Proof.
+  induction t; intros s1 s2 s3 Hst;
+  simpl in *; auto; try discriminate;
+  try (try apply andb_prop in Hst; simpl;
+       try erewrite IHt1; intuition).
+Qed.
+
+Lemma st_formula_hd : forall F tr1 tr2,
+  is_st_formula F ->
+  eval_formula F tr1 ->
+  Stream.hd tr1 = Stream.hd tr2 ->
+  eval_formula F tr2.
+Proof.
+  induction F; intros; simpl in *; auto;
+  try tauto; try discriminate.
+  - unfold eval_comp in *. simpl in *.
+    rewrite st_term_hd with (t:=t) (s3:=Stream.hd (Stream.tl tr1));
+      intuition.
+    rewrite st_term_hd with (t:=t0) (s3:=Stream.hd (Stream.tl tr1));
+      intuition.
+    rewrite <- H1; auto.
+  - split; try eapply IHF1; try eapply IHF2;
+    intuition; eauto.
+  - destruct H0;
+    [ left; eapply IHF1 |
+      right; eapply IHF2 ];
+    intuition; eauto.
+  - intros. eapply IHF2; eauto; intuition.
+    apply H0. eapply IHF1; eauto.
+  - destruct H1. exists x. eapply H; eauto.
+  - intros. eapply H; eauto.
+  - eapply IHF; eauto.
+    destruct tr1; destruct tr2. simpl in H1.
+    simpl. destruct H1. reflexivity.
+Qed.
+
 (* Now a few helper lemmas *)
 Lemma next_term_tl : forall t s1 s2 s3,
   is_st_term t = true ->
@@ -269,6 +308,13 @@ Lemma always_imp : forall F1 F2,
   (|-- F1 -->> F2) ->
   (C |-- []F1 -->> []F2).
 Proof. tlaIntuition. Qed.
+
+Lemma eventually_imp : forall F1 F2,
+  (|-- F1 -->> F2) ->
+  (C |-- <>F1 -->> <>F2).
+Proof.
+  tlaIntuition. destruct H1. exists x. auto.
+Qed.
 
 Lemma always_and_left : forall F1 F2 F3,
   (C |-- [](F1 //\\ F2) -->> F3) ->
@@ -444,4 +490,271 @@ Lemma ex_state_any : forall (P : state -> Prop),
     exists st, P st.
 Proof.
   intros. exists (fun _ => 0%R). eauto.
+Qed.
+
+Definition find_term (m : RenameMap) (x : Var) : option Term :=
+  option_map
+    (@snd _ Term)
+    (List.find (fun p =>
+                  if String.string_dec x (fst p)
+                  then true else false) m).
+
+(* Some renaming functions and proof rules. *)
+Fixpoint rename_term (m : RenameMap) (t:Term) :=
+  match t with
+    | NatT n => NatT n
+    | RealT r => RealT r
+    | VarNowT x =>
+      match find_term m x with
+      | Some t => t
+      | None => VarNowT x
+      end
+    | VarNextT x =>
+      match find_term m x with
+      | Some t => next_term t
+      | None => VarNextT x
+      end
+    | PlusT t1 t2 => PlusT (rename_term m t1)
+                           (rename_term m t2)
+    | MinusT t1 t2 => MinusT (rename_term m t1)
+                             (rename_term m t2)
+    | MultT t1 t2 => MultT (rename_term m t1)
+                           (rename_term m t2)
+    | InvT t => InvT (rename_term m t)
+    | CosT t => CosT (rename_term m t)
+    | SinT t => SinT (rename_term m t)
+  end.
+
+Fixpoint rename_formula (m : RenameMap) (F:Formula) :=
+  match F with
+    | TRUE => ltrue
+    | FALSE => lfalse
+    | Comp t1 t2 op => Comp (rename_term m t1)
+                            (rename_term m t2) op
+    | And F1 F2 => rename_formula m F1 //\\ rename_formula m F2
+    | Or F1 F2 => rename_formula m F1 \\// rename_formula m F2
+    | Imp F1 F2 => rename_formula m F1 -->> rename_formula m F2
+    | Syntax.Exists _ f => Exists x, rename_formula m (f x)
+    | Syntax.Forall _ f => Forall x, rename_formula m (f x)
+    | PropF P => PropF P
+    | Enabled F => Enabled (rename_formula m F)
+    | Always F => Always (rename_formula m F)
+    | Eventually F => Eventually (rename_formula m F)
+    | Embed P => Rename m (Embed P)
+    | Rename s P => Rename m (Rename s P)
+  end.
+
+Lemma find_term_now_Some_ok : forall m x t st1 st2,
+  List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
+  find_term m x = Some t ->
+  eval_term t st1 st2 =
+  subst m st1 x.
+Proof.
+  induction m; unfold find_term; simpl.
+  - discriminate.
+  - intros. destruct a. simpl in *.
+    match goal with
+    |- context [ String.string_dec ?e1 ?e2 ] =>
+    destruct (String.string_dec e1 e2)
+    end.
+    + subst. simpl in *.
+      apply List.Forall_inv in H. simpl in *.
+      inversion H0. subst.
+      apply st_term_hd. auto.
+    + apply IHm; auto. inversion H. auto.
+Qed.
+
+
+Lemma find_term_now_None_ok : forall m x st1 st2,
+  find_term m x = None ->
+  eval_term (VarNowT x) st1 st2 =
+  subst m st1 x.
+Proof.
+  induction m; unfold find_term; simpl.
+  - auto.
+  - intros. destruct a. simpl in *.
+    match goal with
+    |- context [ String.string_dec ?e1 ?e2 ] =>
+    destruct (String.string_dec e1 e2)
+    end.
+    + simpl in *. discriminate.
+    + apply IHm; auto.
+Qed.
+
+Lemma find_term_next_Some_ok : forall m x t st1 st2,
+  List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
+  find_term m x = Some t ->
+  eval_term (next_term t) st1 st2 =
+  subst m st2 x.
+Proof.
+  induction m; unfold find_term; simpl.
+  - discriminate.
+  - intros. destruct a. simpl in *.
+    match goal with
+    |- context [ String.string_dec ?e1 ?e2 ] =>
+    destruct (String.string_dec e1 e2)
+    end.
+    + subst. simpl in *.
+      apply List.Forall_inv in H. simpl in *.
+      inversion H0. subst.
+      apply next_term_tl. auto.
+    + apply IHm; auto. inversion H. auto.
+Qed.
+
+Lemma find_term_next_None_ok : forall m x st1 st2,
+  find_term m x = None ->
+  eval_term (VarNextT x) st1 st2 =
+  subst m st2 x.
+Proof.
+  induction m; unfold find_term; simpl.
+  - auto.
+  - intros. destruct a. simpl in *.
+    match goal with
+    |- context [ String.string_dec ?e1 ?e2 ] =>
+    destruct (String.string_dec e1 e2)
+    end.
+    + simpl in *. discriminate.
+    + apply IHm; auto.
+Qed.
+
+Lemma Rename_term_ok : forall m t st1 st2,
+  List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
+  eval_term (rename_term m t) st1 st2 =
+  eval_term t (subst m st1) (subst m st2).
+Proof.
+  induction t; simpl; intros; auto;
+  try solve [rewrite IHt1; auto; rewrite IHt2; auto |
+             rewrite IHt; auto ].
+  - destruct (find_term m v) eqn:?.
+    + erewrite find_term_now_Some_ok; auto.
+    + erewrite find_term_now_None_ok; auto.
+  - destruct (find_term m v) eqn:?.
+    + erewrite find_term_next_Some_ok; auto.
+    + erewrite find_term_next_None_ok; auto.
+Qed.
+
+Lemma Rename_and : forall m F1 F2,
+  Rename m (F1 //\\ F2) -|-
+  Rename m F1 //\\ Rename m F2.
+Proof.
+  intros; split; breakAbstraction; auto.
+Qed.
+
+Lemma Rename_or : forall m F1 F2,
+  Rename m (F1 \\// F2) -|-
+  Rename m F1 \\// Rename m F2.
+Proof.
+  intros; split; breakAbstraction; auto.
+Qed.
+
+Lemma Rename_impl : forall m F1 F2,
+  Rename m (F1 -->> F2) -|-
+  Rename m F1 -->> Rename m F2.
+Proof.
+  intros; split; breakAbstraction; auto.
+Qed.
+
+Lemma Rename_prop : forall m P,
+  Rename m (PropF P) -|- PropF P.
+Proof.
+  intros; split; breakAbstraction; auto.
+Qed.
+
+Lemma Rename_exists : forall T m f,
+  Rename m (Syntax.Exists T f) -|-
+  Syntax.Exists T (fun x => Rename m (f x)).
+Proof.
+  intros; split; breakAbstraction; auto.
+Qed.
+
+Lemma Rename_forall : forall T m f,
+  Rename m (Syntax.Forall T f) -|-
+  Syntax.Forall T (fun x => Rename m (f x)).
+Proof.
+  intros; split; breakAbstraction; auto.
+Qed.
+
+Lemma Rename_always : forall m F,
+  Rename m (Always F) -|-
+  Always (Rename m F).
+Proof.
+  intros; split; breakAbstraction; intros.
+  { specialize (H n).
+    rewrite Stream.stream_map_nth_suf in H; auto. }
+  { rewrite Stream.stream_map_nth_suf; auto. }
+Qed.
+
+Lemma Rename_eventually : forall m F,
+  Rename m (Eventually F) -|-
+  Eventually (Rename m F).
+Proof.
+  intros; split; breakAbstraction; intros.
+  { destruct H as [n H].
+    rewrite Stream.stream_map_nth_suf in H; eauto. }
+  { destruct H as [n H].
+    exists n. rewrite Stream.stream_map_nth_suf; auto. }
+Qed.
+
+(*
+Lemma Rename_enabled : forall m F,
+  Rename m (Enabled F) -|-
+  Enabled (Rename m F).
+Proof.
+  intros; split; breakAbstraction; intros.
+  - destruct tr. simpl in *. destruct H as [tr' H]. exists tr'.
+    
+    destruct tr. simpl. unfold Stream.stream_map.
+    simpl. auto. simpl in *. auto.
+auto.
+Qed.
+*)
+
+Lemma Rename_ok : forall m F,
+  List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
+  rename_formula m F -|- Rename m F.
+Proof.
+  induction F; intros.
+  - split; breakAbstraction; auto.
+  - split; breakAbstraction; auto.
+  - split; breakAbstraction; intros.
+    + unfold eval_comp in *.
+      repeat (rewrite Rename_term_ok in H0; auto).
+      destruct tr as [st1 [st2 tr]]. auto.
+    + unfold eval_comp in *.
+      repeat (rewrite Rename_term_ok; auto).
+      destruct tr as [st1 [st2 tr]]. auto.
+  - rewrite Rename_and. simpl rename_formula.
+    restoreAbstraction. rewrite IHF1; auto.
+    rewrite IHF2; auto.
+  - rewrite Rename_or. simpl rename_formula.
+    restoreAbstraction. rewrite IHF1; auto.
+    rewrite IHF2; auto.
+  - rewrite Rename_impl. simpl rename_formula.
+    restoreAbstraction. rewrite IHF1; auto.
+    rewrite IHF2; auto.
+  - rewrite Rename_prop. simpl rename_formula.
+    split; charge_tauto.
+  - rewrite Rename_exists. simpl rename_formula.
+    split; breakAbstraction; intros.
+    + destruct H1. specialize (H x H0). destruct H.
+      revert H0 H1. breakAbstraction. intros. exists x. 
+      auto.
+    + destruct H1. specialize (H x H0). destruct H.
+      revert H0 H1. breakAbstraction. intros. exists x. 
+      auto.
+  - rewrite Rename_forall. simpl rename_formula.
+    split; breakAbstraction; intros.
+    + specialize (H x H0). destruct H. revert H H1.
+      breakAbstraction. intros. auto.
+    + specialize (H x H0). destruct H. revert H H1.
+      breakAbstraction. intros. auto.
+  - admit.
+  - rewrite Rename_always. simpl rename_formula.
+    split; tlaRevert; apply always_imp; rewrite IHF;
+    auto; charge_tauto.
+  - rewrite Rename_eventually. simpl rename_formula.
+    split; tlaRevert; apply eventually_imp; rewrite IHF;
+    auto; charge_tauto.
+  - simpl rename_formula. split; charge_tauto.
+  - simpl rename_formula. split; charge_tauto.
 Qed.

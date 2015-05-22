@@ -31,6 +31,10 @@ Inductive CompOp :=
 | Le : CompOp
 | Eq : CompOp.
 
+(* Map from variable to term. Essentially
+   a refinement mapping from TLA. *)
+Definition RenameMap := list (Var * Term).
+
 (* Temporal formulas *)
 Inductive Formula :=
 | TRUE : Formula
@@ -46,7 +50,7 @@ Inductive Formula :=
 | Always : Formula -> Formula
 | Eventually : Formula -> Formula
 | Embed : (state -> state -> Prop) -> Formula
-| Rename : list (Var * Term) -> Formula -> Formula.
+| Rename : RenameMap -> Formula -> Formula.
 
 (************************************************)
 (* Some notation for the logic.                 *)

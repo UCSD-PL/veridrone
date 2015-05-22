@@ -1,5 +1,6 @@
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
+Require Import TLA.BasicProofRules.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Ranalysis1.
 Require Import Coq.Reals.RIneq.
@@ -17,6 +18,13 @@ Fixpoint Unchanged (xs:list Var) : Formula :=
     | nil => TRUE
     | cons x xs =>
       (x! = x) //\\ (Unchanged xs)
+  end.
+
+Fixpoint UnchangedT (xs:list Term) : Formula :=
+  match xs with
+    | nil => TRUE
+    | cons x xs =>
+      (next_term x = x) //\\ (UnchangedT xs)
   end.
 
 (* Formula taking the maximum of two terms. *)

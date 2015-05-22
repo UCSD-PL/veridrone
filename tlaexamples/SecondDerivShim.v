@@ -1,6 +1,5 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
-Import LibNotations.
 Require Import TLA.BasicProofRules.
 Require Import TLA.DifferentialInduction.
 Require Import Examples.System.

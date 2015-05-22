@@ -11,85 +11,83 @@ Require Import Coq.Lists.ListSet.
 Open Scope HP_scope.
 Open Scope string_scope.
 
-Definition mkEvolution (dvars : list Var)
-           (world : Evolution) : Evolution :=
-  (fun st' => st' "t" = --1 //\\
-                          world st' //\\
-                          (List.fold_right
-                             (fun x a => st' x = 0 //\\ a)
-                             TRUE dvars)).
+(* Convenience functions to say that all variables in a list
+   have derivative 0. *)
+Definition AllConstant (vars : list Var) : Evolution :=
+  fun st' => List.fold_right
+               (fun x a => st' x = 0 //\\ a)
+               TRUE vars.
 
-Definition World (dvars : list Var)
-           (world : Evolution) : Formula :=
-  Continuous (mkEvolution dvars world).
+(* Adds time derivative to an Evolution. *)
+Definition mkEvolution (world : Evolution) : Evolution :=
+  fun st' => st' "t" = --1 //\\  world st'.
 
-Definition Discr (cvars : list Var)
-           (Prog : Formula) (d : R) : Formula :=
-  Prog //\\ "t"! <= d //\\ Unchanged cvars.
+Definition World (world : Evolution) : Formula :=
+  Continuous (mkEvolution world).
 
-Definition Next (dvars cvars : list Var)
-           (Prog: Formula) (world : Evolution)
-           (WConstraint : Formula) (d : R) :=
-  let w := (World dvars world //\\ WConstraint) in
-  let d := Discr cvars Prog d in
+Definition Discr (Prog : Formula) (d : R) : Formula :=
+  Prog //\\ "t"! <= d.
+
+Definition Next (Prog: Formula) (world : Evolution)
+           (unch:list Term) (d : R) :=
+  let w := World world in
+  let d := Discr Prog d in
   let steps := w \\// d
   in      steps
      \\// (Enabled d -->> lfalse)
 (*     \\// (Enabled w -->> lfalse) *)
-     \\// Unchanged ("t"::dvars ++ cvars)%list.
+     \\// UnchangedT (("t":Term)::unch)%list.
 
-Definition Next_or_stuck (dvars cvars : list Var)
-           (Prog: Formula) (world : Evolution)
-           (WConstraint : Formula) (d : R) :=
-  let w := (World dvars world //\\ WConstraint) in
-  let d := Discr cvars Prog d in
+Definition Next_or_stuck (Prog: Formula) (world : Evolution)
+           (unch:list Term) (d : R) :=
+  let w := World world in
+  let d := Discr Prog d in
   let steps := w \\// d
   in      steps
-     \\// Unchanged ("t"::dvars ++ cvars)%list.
+     \\// UnchangedT (("t":Term)::unch)%list.
 
-Definition sysD (dvars cvars : list Var)
-           (Init Prog: Formula) (world : Evolution)
-           (WConstraint : Formula) (d : R) : Formula :=
+Definition sysD (Init Prog: Formula) (world : Evolution)
+           (unch : list Term) (d : R) : Formula :=
   ("t" <= d //\\ Init) //\\
-     [](Next dvars cvars Prog world WConstraint d //\\ 0 <= "t").
+     [](Next Prog world unch d //\\ 0 <= "t").
 
-Definition sysD_or_stuck (dvars cvars : list Var)
-           (Init Prog: Formula) (world : Evolution)
-           (WConstraint : Formula) (d : R) : Formula :=
+Definition sysD_or_stuck (Init Prog: Formula) (world : Evolution)
+           (unch : list Term) (d : R) : Formula :=
   ("t" <= d //\\ Init) //\\
-     [](Next_or_stuck dvars cvars Prog world WConstraint d //\\ 0 <= "t").
-
+     [](Next_or_stuck Prog world unch d //\\ 0 <= "t").
 
 Record SysRec
 : Type := Sys
-{ dvars : list Var
-; cvars : list Var
-; Init : Formula
+{ Init : Formula
 ; Prog : Formula
 ; world : Evolution
-; WConstraint : Formula
+; unch : list Term
 ; maxTime : R }.
 
 Definition SysD (s : SysRec)
 : Formula :=
-  sysD s.(dvars) s.(cvars) s.(Init) s.(Prog) s.(world)
-       s.(WConstraint) s.(maxTime).
+  sysD s.(Init) s.(Prog) s.(world) s.(unch) s.(maxTime).
 
 Definition SysD_or_stuck (s : SysRec)
 : Formula :=
-  sysD_or_stuck s.(dvars) s.(cvars) s.(Init) s.(Prog) s.(world)
-       s.(WConstraint) s.(maxTime).
-
+  sysD_or_stuck s.(Init) s.(Prog) s.(world) s.(unch) s.(maxTime).
 
 Definition SysCompose (a b : SysRec) : SysRec :=
-{| dvars := a.(dvars) ++ b.(dvars)
- ; cvars := a.(cvars) ++ b.(cvars)
- ; Init  := a.(Init) //\\ b.(Init)
+{| Init  := a.(Init) //\\ b.(Init)
  ; Prog  := a.(Prog) //\\ b.(Prog)
  ; world := fun st' => a.(world) st' //\\ b.(world) st'
- ; WConstraint := a.(WConstraint) //\\ b.(WConstraint)
+ ; unch := a.(unch) ++ b.(unch)
  ; maxTime := Rmin a.(maxTime) b.(maxTime)
  |}.
+
+Definition SysRename (m : list (Var * Term)) (s : SysRec)
+  : SysRec :=
+  {| Init := Rename m s.(Init)
+   ; Prog := Rename m s.(Prog)
+   ; world := fun st' => Rename m (s.(world) st')
+   ; unch := 
+   ; maxTime := s.(maxTime)
+  |}.
 
 Definition SysSafe (a : SysRec) : Formula :=
   SysD a -->> SysD_or_stuck a.

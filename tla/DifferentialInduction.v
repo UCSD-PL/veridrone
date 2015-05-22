@@ -391,46 +391,6 @@ Proof.
   unfold derive in *. rewrite Hderiv; auto.
 Qed.
 
-Lemma st_term_hd : forall t s1 s2 s3,
-  is_st_term t = true ->
-  eval_term t s1 s2 =
-  eval_term t s1 s3.
-Proof.
-  induction t; intros s1 s2 s3 Hst;
-  simpl in *; auto; try discriminate;
-  try (try apply andb_prop in Hst; simpl;
-       try erewrite IHt1; intuition).
-Qed.
-
-Lemma st_formula_hd : forall F tr1 tr2,
-  is_st_formula F ->
-  eval_formula F tr1 ->
-  Stream.hd tr1 = Stream.hd tr2 ->
-  eval_formula F tr2.
-Proof.
-  induction F; intros; simpl in *; auto;
-  try tauto; try discriminate.
-  - unfold eval_comp in *. simpl in *.
-    rewrite st_term_hd with (t:=t) (s3:=Stream.hd (Stream.tl tr1));
-      intuition.
-    rewrite st_term_hd with (t:=t0) (s3:=Stream.hd (Stream.tl tr1));
-      intuition.
-    rewrite <- H1; auto.
-  - split; try eapply IHF1; try eapply IHF2;
-    intuition; eauto.
-  - destruct H0;
-    [ left; eapply IHF1 |
-      right; eapply IHF2 ];
-    intuition; eauto.
-  - intros. eapply IHF2; eauto; intuition.
-    apply H0. eapply IHF1; eauto.
-  - destruct H1. exists x. eapply H; eauto.
-  - intros. eapply H; eauto.
-  - eapply IHF; eauto.
-    destruct tr1; destruct tr2. simpl in H1.
-    simpl. destruct H1. reflexivity.
-Qed.
-
 (* Main helper lemma for diff_ind. Basically
    establishes the base case for diff_ind. The
    proof of this lemma is a complete mess. *)

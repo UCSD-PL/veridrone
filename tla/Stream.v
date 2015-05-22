@@ -1,4 +1,5 @@
 Require Import Coq.Classes.Morphisms.
+Require Import Coq.Setoids.Setoid.
 
 (* A behavior of TLA is an infinite stream
    of states. *)
@@ -110,6 +111,18 @@ Section xxx.
     match s with
     | Cons s ss => Cons (f s) (stream_map ss)
     end.
+
+  Lemma stream_map_nth_suf : forall n s r,
+    Reflexive r ->
+    stream_eq r (nth_suf n (stream_map s))
+              (stream_map (nth_suf n s)).
+  Proof.
+    induction n; intros.
+    - reflexivity.
+    - destruct s. simpl in *.
+      specialize (IHn s r H). auto.
+  Qed.
+
 End xxx.
 
 Section xxx2.
