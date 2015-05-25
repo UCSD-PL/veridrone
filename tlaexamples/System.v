@@ -122,18 +122,568 @@ Existing Instance Proper_Always.
 
 Existing Instance Proper_Enabled.
 
+ Lemma worldImp : forall x y x0 x1, (forall st' : state, world x st' -|- world y st') -> (is_solution x1 (mkEvolution (world x)) x0 <-> is_solution x1 (mkEvolution (world y)) x0).
+      intros.
+      unfold mkEvolution in *.
+      split.
+      {
+        intros.
+        unfold is_solution,solves_diffeqs in *.
+        destruct H0.
+        exists x2.
+        intros.
+        specialize (H0 z H1).
+        simpl in *.
+        decompose [and] H0.
+        split.
+        { intuition. }
+        {  
+          specialize (H (fun x3 : Var =>
+             Ranalysis1.derive (fun t : R => x1 t x3) (x2 x3) z)).
+          destruct H.
+          simpl in *.
+          unfold tlaEntails in *.
+          specialize (H (Stream.forever (x1 z)) H3).
+          intuition.
+        }
+      }
+      {
+        intros.
+        unfold is_solution,solves_diffeqs in *.
+        destruct H0.
+        exists x2.
+        intros.
+        specialize (H0 z H1).
+        simpl in *.
+        decompose [and] H0.
+        split.
+        { intuition. }
+        {  
+          specialize (H (fun x3 : Var =>
+             Ranalysis1.derive (fun t : R => x1 t x3) (x2 x3) z)).
+          destruct H.
+          simpl in *.
+          unfold tlaEntails in *.
+          specialize (H4 (Stream.forever (x1 z)) H3).
+          intuition.
+        }
+      }
+    Qed.
+ 
+   Lemma simplImp : forall x y (tr:  Stream.stream (String.string -> R)) n, (Prog x -|- Prog y) -> (maxTime x = maxTime y) ->
+                                                                                         ( (exists tr' : Stream.stream state,
+                                                                                               eval_formula (Prog y) (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\ (Stream.hd tr' "t" <= maxTime y)%R) <-> 
+                                                                                           (exists tr' : Stream.stream state,
+                                                                                               eval_formula (Prog x) (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\ (Stream.hd tr' "t" <= maxTime x)%R)).
+                Proof.
+                  intros.
+                  destruct H.
+                  simpl in H,H1.
+                  unfold tlaEntails in H,H1.
+                  split.
+                  {
+                    intros.
+                    destruct H2.
+                    exists x0.
+                    decompose [and] H2.
+                    specialize (H1 (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) x0) H3).
+                    split.
+                    {
+                      intuition.
+                    }
+                    {
+                      rewrite H0.
+                      intuition.
+                    }
+                  }
+                  {
+                    intros.
+                    {
+                      destruct H2.
+                      {
+                        exists x0.
+                        decompose [and] H2.
+                        specialize (H (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) x0) H3).
+                        split.
+                        {
+                          intuition.
+                        }
+                        {
+                          rewrite <-H0.
+                          intuition.
+                        }
+                      }
+                    }
+                  }
+                Qed.
+    Lemma assist2 : forall x y tr, 
+        (unch x = unch y /\
+         (Init x -|- Init y) /\
+         (Prog x -|- Prog y) /\
+         (forall st' : state, world x st' -|- world y st') /\
+         maxTime x = maxTime y) -> (
+(((Stream.hd tr "t" <= maxTime x)%R /\ eval_formula (Init x) tr) /\
+       (forall n : nat,
+        (((exists (x0 : R) (x1 : R -> state),
+             (x0 > 0)%R /\
+             is_solution x1 (mkEvolution (world x)) x0 /\
+             x1 0%R = Stream.hd (Stream.nth_suf n tr) /\
+             x1 x0 = Stream.hd (Stream.tl (Stream.nth_suf n tr))) \/
+          eval_formula (Prog x) (Stream.nth_suf n tr) /\
+          (Stream.hd (Stream.tl (Stream.nth_suf n tr)) "t" <= maxTime x)%R) \/
+         ((exists tr' : Stream.stream state,
+             eval_formula (Prog x)
+               (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\
+             (Stream.hd tr' "t" <= maxTime x)%R) -> False) \/
+         Stream.hd (Stream.tl (Stream.nth_suf n tr)) "t" =
+         Stream.hd (Stream.nth_suf n tr) "t" /\
+         eval_formula (UnchangedT (unch x)) (Stream.nth_suf n tr)) /\
+        (0 <= Stream.hd (Stream.nth_suf n tr) "t")%R)) ->
+          
+          ((Stream.hd tr "t" <= maxTime y)%R /\ eval_formula (Init y) tr) /\
+       (forall n : nat,
+        (((exists (x0 : R) (x1 : R -> state),
+             (x0 > 0)%R /\
+             is_solution x1 (mkEvolution (world y)) x0 /\
+             x1 0%R = Stream.hd (Stream.nth_suf n tr) /\
+             x1 x0 = Stream.hd (Stream.tl (Stream.nth_suf n tr))) \/
+          eval_formula (Prog y) (Stream.nth_suf n tr) /\
+          (Stream.hd (Stream.tl (Stream.nth_suf n tr)) "t" <= maxTime y)%R) \/
+         ((exists tr' : Stream.stream state,
+             eval_formula (Prog y)
+               (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\
+             (Stream.hd tr' "t" <= maxTime y)%R) -> False) \/
+         Stream.hd (Stream.tl (Stream.nth_suf n tr)) "t" =
+         Stream.hd (Stream.nth_suf n tr) "t" /\
+         eval_formula (UnchangedT (unch y)) (Stream.nth_suf n tr)) /\
+        (0 <= Stream.hd (Stream.nth_suf n tr) "t")%R))   .
+    Proof.
+      intros.
+      decompose [and] H.
+      decompose [and] H0.
+      split.
+      {
+        split.
+        rewrite <- H6.
+        intuition.
+        destruct H3.
+        simpl in *.
+        unfold tlaEntails in *.
+        specialize (H3 tr H9).
+        intuition.
+      }
+      {
+        intros.
+        split.
+        {
+          specialize (H7 n).
+          decompose [and] H7.
+          destruct H5.
+          {
+            constructor 1.
+            destruct H5.
+            {
+              constructor 1.
+              destruct H5.
+              destruct H5.
+              exists x0. 
+              exists x1.
+              decompose [and] H5.
+              split.
+              {
+                intuition.
+              }
+              {
+                split.
+                {
+                  pose proof worldImp.
+                  specialize (H14 x y x0 x1 H4).
+                  destruct H14.
+                  specialize (H14 H13).
+                  intuition.
+                }
+                {
+                  split.
+                  {
+                    intuition.
+                  }
+                  {
+                    intuition.
+                  }
+                }
+              }
+            }
+            {
+              constructor 2.
+              decompose [and] H5.
+              split.
+              {
+                destruct H2.
+                simpl in H2,H13.
+                unfold tlaEntails in H2,H3.
+                specialize (H2 (Stream.nth_suf n tr) H11).
+                intuition.
+              }
+              {
+                rewrite <- H6. 
+                intuition.
+              }
+            }
+          }
+          {
+            constructor 2.
+            destruct H5.
+            {
+              constructor 1.
+              {
+               
+                intros.
+                Lemma imp2 : forall x y,( x <-> y) -> (y -> False) -> (x -> False).
+                  intuition.
+                Qed.
+                pose proof imp2.
+                pose proof simplImp.
+                specialize (H13 x y tr n H2 H6).
+                SearchAbout ((_ <-> _) -> (_<->_)).
+                
+                specialize (H12  
+                              (exists tr' : Stream.stream state,   eval_formula (Prog y) (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\ (Stream.hd tr' "t" <= maxTime y)%R)  (exists tr' : Stream.stream state, eval_formula (Prog x) (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\ (Stream.hd tr' "t" <= maxTime x)%R) H13 H5 H11).
+                intuition.
+              }
+            }
+            {
+              constructor 2.
+              rewrite <- H1.
+              intuition.
+            }
+          }
+        }
+        {
+          specialize (H7 n).
+          decompose [and] H7.
+          intuition.
+        }
+      }
+    Qed.
+     Lemma imp : forall x y,( x <-> y) -> (x -> False) -> (y -> False).
+                  intuition.
+                Qed.
+              
+    Lemma assist : forall x y tr, 
+        (unch x = unch y /\
+         (Init x -|- Init y) /\
+         (Prog x -|- Prog y) /\
+         (forall st' : state, world x st' -|- world y st') /\
+         maxTime x = maxTime y) -> (((Stream.hd tr "t" <= maxTime y)%R /\ eval_formula (Init y) tr) /\
+       (forall n : nat,
+        (((exists (x0 : R) (x1 : R -> state),
+             (x0 > 0)%R /\
+             is_solution x1 (mkEvolution (world y)) x0 /\
+             x1 0%R = Stream.hd (Stream.nth_suf n tr) /\
+             x1 x0 = Stream.hd (Stream.tl (Stream.nth_suf n tr))) \/
+          eval_formula (Prog y) (Stream.nth_suf n tr) /\
+          (Stream.hd (Stream.tl (Stream.nth_suf n tr)) "t" <= maxTime y)%R) \/
+         ((exists tr' : Stream.stream state,
+             eval_formula (Prog y)
+               (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\
+             (Stream.hd tr' "t" <= maxTime y)%R) -> False) \/
+         Stream.hd (Stream.tl (Stream.nth_suf n tr)) "t" =
+         Stream.hd (Stream.nth_suf n tr) "t" /\
+         eval_formula (UnchangedT (unch y)) (Stream.nth_suf n tr)) /\
+        (0 <= Stream.hd (Stream.nth_suf n tr) "t")%R) -> ((Stream.hd tr "t" <= maxTime x)%R /\ eval_formula (Init x) tr) /\
+       (forall n : nat,
+        (((exists (x0 : R) (x1 : R -> state),
+             (x0 > 0)%R /\
+             is_solution x1 (mkEvolution (world x)) x0 /\
+             x1 0%R = Stream.hd (Stream.nth_suf n tr) /\
+             x1 x0 = Stream.hd (Stream.tl (Stream.nth_suf n tr))) \/
+          eval_formula (Prog x) (Stream.nth_suf n tr) /\
+          (Stream.hd (Stream.tl (Stream.nth_suf n tr)) "t" <= maxTime x)%R) \/
+         ((exists tr' : Stream.stream state,
+             eval_formula (Prog x)
+               (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\
+             (Stream.hd tr' "t" <= maxTime x)%R) -> False) \/
+         Stream.hd (Stream.tl (Stream.nth_suf n tr)) "t" =
+         Stream.hd (Stream.nth_suf n tr) "t" /\
+         eval_formula (UnchangedT (unch x)) (Stream.nth_suf n tr)) /\
+        (0 <= Stream.hd (Stream.nth_suf n tr) "t")%R)) .
+    Proof.
+      intros.
+      decompose [and] H.
+      decompose [and] H0.
+      split.
+      {
+        split.
+        rewrite H6.
+        intuition.
+        destruct H3.
+        simpl in *.
+        unfold tlaEntails in *.
+        specialize (H5 tr H9).
+        intuition.
+      }
+      {
+        intros.
+        split.
+        {
+          specialize (H7 n).
+          decompose [and] H7.
+          destruct H5.
+          {
+            constructor 1.
+            destruct H5.
+            {
+              constructor 1.
+              destruct H5.
+              destruct H5.
+              exists x0. 
+              exists x1.
+              decompose [and] H5.
+              split.
+              {
+                intuition.
+              }
+              {
+                split.
+                {
+                  pose proof worldImp.
+                  specialize (H14 x y x0 x1 H4).
+                  destruct H14.
+                  specialize (H16 H13).
+                  intuition.
+                }
+                {
+                  split.
+                  {
+                    intuition.
+                  }
+                  {
+                    intuition.
+                  }
+                }
+              }
+            }
+            {
+              constructor 2.
+              decompose [and] H5.
+              split.
+              {
+                destruct H2.
+                simpl in H2,H13.
+                unfold tlaEntails in H2,H3.
+                specialize (H13 (Stream.nth_suf n tr) H11).
+                intuition.
+              }
+              {
+                rewrite H6. 
+                intuition.
+              }
+            }
+          }
+          {
+            constructor 2.
+            destruct H5.
+            {
+              constructor 1.
+              {
+               
+                intros.
+                pose proof imp.
+                pose proof simplImp.
+                specialize (H13 x y tr n H2 H6).
+                SearchAbout ((_ <-> _) -> (_<->_)).
+                specialize (H12  
+                              (exists tr' : Stream.stream state,   eval_formula (Prog y) (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\ (Stream.hd tr' "t" <= maxTime y)%R)  (exists tr' : Stream.stream state, eval_formula (Prog x) (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\ (Stream.hd tr' "t" <= maxTime x)%R) H13 H5 H11).
+                intuition.
+              }
+            }
+            {
+              constructor 2.
+              rewrite H1.
+              intuition.
+            }
+          }
+        }
+        {
+          specialize (H7 n).
+          decompose [and] H7.
+          intuition.
+        }
+      }
+    Qed.
+
+
 Lemma Proper_SysSafe :
   Proper (SysRec_equiv ==> lequiv) SysSafe.
 Proof.
   red. red. unfold SysSafe. intros. red in H.
   unfold SysD, SysD_or_stuck, sysD, sysD_or_stuck, Next,
   Next_or_stuck, World, Continuous.
-  decompose [and] H. destruct H0. destruct H2. 
-  admit. (* This one is very annoying. *)
-(*  reflexivity.*)
-Qed.
+  decompose [and] H. destruct H1. destruct H2. 
+  
+  (* 
+  unfold Prog in *.
+  simpl in H1.
+  inversion H1.
+  simpl in H0,H2.
+  unfold tlaEntails in H0,H2.*)
+  
+  split.
+  {
+    breakAbstraction.
+    intros. 
+    intros.
+    intros.
+    pose proof assist.
+    specialize (H9 x y tr H H8).
+    specialize (H7 H9).
+    revert H7.      
+    intros.
+    decompose [and] H7.
+    {
+      split.
+      {
+        intuition.
+      }
+      {
+        intros.
+        specialize (H11 n).
+        decompose [and] H11.
+        split.
+        {
+          destruct H10.
+          {
+            constructor 1.
+            destruct H10.
+            {
+              constructor 1.
+              destruct H10.
+              destruct H10.
+              exists x0.
+              exists x1.
+              decompose [and] H10. 
+              split.
+              {
+                intuition.
+              }
+              {
+                split.
+                {
+                  pose proof worldImp.
+                  specialize (H18 x y x0 x1 H3).
+                  destruct H18.
+                  specialize (H18 H17).
+                  intuition.
+                }
+                {
+                  split.
+                  {
+                    intuition.
+                  }
+                  {
+                    intuition.
+                  }
+                }
+              }
+            }
+            {
+              constructor 2.
+              rewrite <- H5.
+              intuition.
+            }
+          }
+          {
+            constructor 2.
+            {
+              rewrite <- H0.
+              intuition.
+            }
+          }
+        }
+        {
+          intuition.
+        }
+      }
+    }
+  }
+  {
+    breakAbstraction.
+    intros.
+    pose proof assist2.
+    specialize (H9 x y tr H H8).
+    specialize (H7 H9).
+    revert H7.      
+    intros.
+    decompose [and] H7.
+    {
+      split.
+      {
+        intuition.
+      }
+      {
+        intros.
+        specialize (H11 n).
+        decompose [and] H11.
+        split.
+        {
+          destruct H10.
+          {
+            constructor 1.
+            destruct H10.
+            {
+              constructor 1.
+              destruct H10.
+              destruct H10.
+              exists x0.
+              exists x1.
+              decompose [and] H10. 
+              split.
+              {
+                intuition.
+              }
+              {
+                split.
+                {
+                  pose proof worldImp.
+                  specialize (H18 x y x0 x1 H3).
+                  destruct H18.
+                  specialize (H20 H17).
+                  intuition.
+                }
+                {
+                  split.
+                  {
+                    intuition.
+                  }
+                  {
+                    intuition.
+                  }
+                }
+              }
+            }
+            {
+              constructor 2.
+              rewrite  H5.
+              intuition.
+            }
+          }
+          {
+            constructor 2.
+            {
+              rewrite H0.
+              intuition.
+            }
+          }
+        }
+        {
+          intuition.
+        }
+      }
+    }
+  }
+  Qed.
 
-Existing Instance Proper_SysSafe.
+Existing Instance Proper_Safe.
 
 (*Ltac tlaRevert := first [ apply landAdj | apply lrevert ]. *)
 
@@ -342,14 +892,14 @@ Lemma World_weaken : forall w w',
     World w' |-- World w.
 Proof.
   intros.
+  unfold World,Continuous.
   Print World.
   Print Continuous.
-  Print mkEvolution.
-  unfold World.
-  unfold Continuous.
+  Print is_solution.
+  Print solves_diffeqs.
   repeat (apply exists_entails; intros).
   repeat charge_split; try solve [tlaAssume].
-  - breakAbstraction; unfold is_solution; intros;
+  breakAbstraction; unfold is_solution; intros;
     intuition.
     match goal with
     | [ H : context[solves_diffeqs] |- _ ]
@@ -369,7 +919,6 @@ Proof.
       intuition.
     }
     Qed.
-    admit.
 (*
     erewrite Hcont; eauto.
     simpl in *; intuition. right.
