@@ -341,7 +341,12 @@ Lemma World_weaken : forall w w',
     (forall st', w' st' |-- w st') ->
     World w' |-- World w.
 Proof.
-  intros. unfold World, Continuous.
+  intros.
+  Print World.
+  Print Continuous.
+  Print mkEvolution.
+  unfold World.
+  unfold Continuous.
   repeat (apply exists_entails; intros).
   repeat charge_split; try solve [tlaAssume].
   - breakAbstraction; unfold is_solution; intros;
@@ -353,6 +358,17 @@ Proof.
            destruct H as [pf Hcont]; exists pf
     end.
     unfold solves_diffeqs in *; intros.
+    specialize (Hcont z H0).
+    unfold mkEvolution in *.
+    simpl in *.
+    decompose [and] Hcont.
+    split.
+    { intuition. }
+    { specialize (H (fun x1 : Var =>
+             Ranalysis1.derive (fun t : R => x0 t x1) (pf x1) z) (Stream.forever (x0 z))).
+      intuition.
+    }
+    Qed.
     admit.
 (*
     erewrite Hcont; eauto.
