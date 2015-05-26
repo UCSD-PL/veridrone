@@ -19,9 +19,12 @@ Inductive Term :=
 | PlusT : Term -> Term -> Term
 | MinusT : Term -> Term -> Term
 | MultT : Term -> Term -> Term
-| InvT : Term -> Term
+| InvT : Term -> Term 
 | CosT : Term -> Term
-| SinT : Term -> Term.
+| SinT : Term -> Term
+| SqrtT : Term -> Term 
+| ArctanT : Term -> Term 
+.
 
 (* Comparison operations *)
 Inductive CompOp :=

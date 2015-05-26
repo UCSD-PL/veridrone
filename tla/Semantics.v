@@ -5,6 +5,9 @@ Require Import Coq.Reals.Ranalysis1.
 Require Export TLA.Syntax.
 Require Import TLA.Stream.
 Require Export Charge.Logics.ILogic.
+Require Import Coq.Reals.R_sqrt.
+Require Import Coq.Reals.Ratan.
+
 
 (* The semantics of our restricted TLA *)
 
@@ -29,6 +32,8 @@ Fixpoint eval_term (t:Term) (s1 s2:state) : R :=
        / (eval_term t s1 s2)
      | CosT t => cos (eval_term t s1 s2)
      | SinT t => sin (eval_term t s1 s2)
+     | SqrtT t => sqrt (eval_term t s1 s2)
+     | ArctanT t => atan (eval_term t s1 s2)
    end)%R.
 
 (* Semantics of comparison operators *)

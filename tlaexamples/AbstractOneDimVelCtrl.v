@@ -28,7 +28,7 @@ Module AbstractOneDimCtrl (Import Params : CtrlParameters).
                  "t"' ::= 1,
                  "H"' ::= 0,
                  "T"' ::= 0]).
-
+Open Scope HP_scope.
   Definition Read : Formula :=
     "T"! = "t" /\ "H"! = "h".
 

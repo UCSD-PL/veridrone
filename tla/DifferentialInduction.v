@@ -8,7 +8,7 @@ Require Import TLA.Semantics.
 Require Import TLA.Lib.
 Require Import TLA.BasicProofRules.
 Require Import TLA.Automation.
-
+Require Import Coq.Reals.R_sqrt.
 Open Scope HP_scope.
 
 (* This file contains the statement and soundness
@@ -35,7 +35,7 @@ Open Scope HP_scope.
    deriv_formula. *)
 
 (* option map on two inputs *)
-Definition option_map2 {A B C} (f:A->B->C) 
+Definition option_map2 {A B C} (f:A->B->C)
   (a:option A) (b:option B) : option C :=
   match a, b with
     | Some a, Some b => Some (f a b)
@@ -55,7 +55,8 @@ Definition lift2 {A B C D} (f:A->B->C)
    because in our specification of continuous transitions
    the evolution of variables with no differential equations
    is unspecified. *)
-Fixpoint deriv_term (t:Term) : option (state->Term) :=
+Fixpoint deriv_term (t:Term)
+: option (state -> Term) :=
   match t with
   | VarNowT x =>
     Some (fun st => RealT (st x))
@@ -80,6 +81,14 @@ Fixpoint deriv_term (t:Term) : option (state->Term) :=
     option_map2 (lift2 MultT)
                 (Some (fun _ => cos(t)))
                 (deriv_term t)
+  | SqrtT t => None (*
+    option_map2 (lift2 MultT)
+                (Some (fun _ => MultT (InvT (RealT 2)) (InvT (SqrtT t))))
+                (deriv_term t) *)
+  | ArctanT t => None (*
+    option_map (fun f x => InvT (f x))
+               (Some (fun _ => PlusT (RealT R1) (MultT t t)))
+*)
   end.
 
 (* Takes the "derivative" of a comparison operator.
@@ -229,6 +238,8 @@ Proof.
         as Hderiv.
       unfold derive, comp in *. rewrite Hderiv.
       simpl. rewrite IHe; auto. rewrite derive_pt_sin. auto.
+    - (** TODO: derivative of sqrt **) inversion H0.
+    - (** TODO: derivative of arctan **) inversion H0.
 Qed.
 
 (* Here are a few tactics for proving our main

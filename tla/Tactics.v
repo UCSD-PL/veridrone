@@ -19,7 +19,7 @@ Fixpoint get_next_vars_term (t : Term) : list Var :=
   | PlusT a b | MinusT a b | MultT a b =>
                              get_next_vars_term a ++
                              get_next_vars_term b
-  | InvT a | CosT a | SinT a => get_next_vars_term a
+  | InvT a | CosT a | SinT a | SqrtT a | ArctanT a => get_next_vars_term a
   end.
 
 Fixpoint get_next_vars_formula (f : Formula) : list Var :=
@@ -235,6 +235,8 @@ Fixpoint unnext_term (t:Term) : Term :=
     | InvT t => InvT (unnext_term t)
     | CosT t => CosT (unnext_term t)
     | SinT t => SinT (unnext_term t)
+    | SqrtT t => SqrtT (unnext_term t)
+    | ArctanT t => ArctanT (unnext_term t)
   end.
 
 (* Removes ! from variables in a Formula *)

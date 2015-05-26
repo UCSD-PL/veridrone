@@ -30,6 +30,9 @@ Section HeightCtrl.
                  "TC"' ::= 0,
                  "TR"' ::= 0]).
 
+Print Continuous.
+  
+
   Definition Ctrl : Formula :=
        ("H" < 0  /\ "v"! = 1)
     \/ ("H" >= 0 /\ "v"! = --1).

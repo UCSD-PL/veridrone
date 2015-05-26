@@ -186,7 +186,6 @@ Definition Ind1:Formula := ("t" <= (8%R)).
 Lemma ind_inv_init : |- Init1 --> Ind1.
 simpl  in *. intros. Check hd. unfold eval_comp in *.
 simpl in *. decompose [and] H.
-z3 solve.
 Require Import Coq.micromega.Psatz.
 psatz R.
 
