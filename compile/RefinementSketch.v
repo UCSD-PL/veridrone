@@ -50,7 +50,6 @@ Section embedding.
 
   (** The standard evaluation relation for the language **)
   Variable eval : state -> ast -> state -> Prop.
-
   (** In the TLA state, the variable is represented as the returned real **)
   Variable asReal : state -> var -> option R.
 
@@ -807,7 +806,6 @@ Section embedding2.
 
   (** The standard evaluation relation for the language **)
   Variable eval : state -> ast -> option state -> Prop.
-
   (** In the TLA state, the variable is represented as the returned real **)
   Variable asReal : state -> var -> option R.
 
