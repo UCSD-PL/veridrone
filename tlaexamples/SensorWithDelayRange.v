@@ -32,15 +32,16 @@ Section SensorWithDelay.
   Variable WC : Formula.
 
   Definition w : Evolution :=
-    fun st' => st' "x" = "v".
+    fun st' => st' "x" = "v" //\\
+               AllConstant ("v"::"Xmin_post"::"Xmax_post"::nil)%list st'.
 
   Definition SpecR : SysRec :=
-    {| dvars := ("Xmax_post"::"Xmin_post"::"v"::nil)%list;
-       cvars := ("x"::nil)%list;
-       Init := I;
-       Prog := Sense;
+    {| Init := I;
+       Prog := Sense //\\ Unchanged ("x"::nil)%list;
        world := w;
-       WConstraint := WC;
+       unch := (("Xmax_post":Term)::("Xmin_post":Term)::
+                ("v":Term)::("x":Term)::
+                ("Xmin":Term)::("Xmax":Term)::nil)%list;
        maxTime := d |}.
 
   Definition Spec := SysD SpecR.

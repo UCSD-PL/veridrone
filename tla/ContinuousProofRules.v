@@ -65,7 +65,25 @@ Proof.
     instantiate (1:=pf2).
     apply Ranalysis4.pr_nu_var. auto.
   - intuition. }
-Qed.    
+Qed.
+
+Lemma Continuous_st_formula : forall w F,
+  (forall st', is_st_formula (w st')) ->
+  is_st_formula F ->
+  |-- Forall st', w st' -->> F ->
+  Continuous w |-- next F.
+Proof.
+  breakAbstraction. intros.
+  destruct H2 as [r [f ?]].
+  intuition.
+  unfold is_solution, solves_diffeqs in *.
+  apply next_formula_tl; auto.
+  destruct H2. specialize (H2 r).
+  assert (0 <= r <= r)%R by psatzl R.
+  intuition.
+  eapply H1; eauto.
+  eapply st_formula_hd; eauto.
+Qed.
 
 (* The shallow embedding of differential equations breaks
    the rest of this file. *)

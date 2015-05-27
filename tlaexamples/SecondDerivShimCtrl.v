@@ -35,7 +35,8 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
   (* The continuous dynamics of the system *)
   Definition w : Evolution :=
     fun st' =>
-      st' "y" = "v" //\\ st' "v" = "a".
+      st' "y" = "v" //\\ st' "v" = "a" //\\
+      AllConstant ("a"::"Y"::"V"::"T"::nil)%list st'.
 
   Definition Ctrl : Formula :=
          (Max "A" 0 (fun mx => "Ymax" + tdist "Vmax" mx d +
@@ -65,12 +66,11 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     0 <= "t" <= d.
 
   Definition SpecR : SysRec :=
-    {| dvars := ("a"::"Y"::"V"::"T"::nil)%list;
-       cvars := ("v"::"y"::nil)%list;
-       Init := I;
-       Prog := Ctrl //\\ History;
+    {| Init := I;
+       Prog := Ctrl //\\ History //\\ Unchanged ("v"::"y"::nil)%list;
        world := w;
-       WConstraint := WC;
+       unch := (("a":Term)::("Y":Term)::("V":Term)::
+                ("T":Term)::("v":Term)::("y":Term)::nil)%list;
        maxTime := d |}.
 
   Definition Spec := SysD SpecR.
@@ -205,7 +205,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
               [ charge_tauto | tlaIntuition | ].
             solve_linear; rewrite_next_st;
             solve_linear. }
-          { solve_linear. rewrite H1. rewrite H4. rewrite H7.
+          { solve_linear. rewrite H6. rewrite H4. rewrite H7.
             solve_linear. }
           { eapply zero_deriv with (x:="a");
             [ charge_tauto | tlaIntuition | ].
@@ -213,7 +213,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
               [ charge_tauto | tlaIntuition | ].
             solve_linear; rewrite_next_st;
             solve_linear. }
-          { solve_linear. rewrite H1. rewrite H4. rewrite H7.
+          { solve_linear. rewrite H6. rewrite H4. rewrite H7.
             solve_linear. } }
       { match goal with
           |- _ |-- ?GG => eapply diff_ind
@@ -313,17 +313,17 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
                 { pose proof (sdist_tdist_tdist "v" x).
                   breakAbstraction. unfold eval_comp in *;
                                     simpl in *.
-                  specialize (H19 (Stream.Cons pre
+                  specialize (H15 (Stream.Cons pre
                                                (Stream.Cons
                                                   post tr))).
                   intuition. simpl in *. eapply Rle_trans; eauto.
                   pose proof (sdist_incr "v" ("V" + "a"*tdiff)).
                   breakAbstraction. unfold eval_comp in *;
                                     simpl in *.
-                  specialize (H19 (Stream.Cons pre
+                  specialize (H15 (Stream.Cons pre
                                                (Stream.Cons
                                                   post tr))).
-                  intuition. simpl in *. apply H19;
+                  intuition. simpl in *. apply H15;
                                          solve_nonlinear. }
             + tlaAssert ("v" >= 0 \\// "v" <= 0);
               [ solve_linear | tlaIntro ].
@@ -348,17 +348,17 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
                 { pose proof (sdist_tdist "v" x).
                   breakAbstraction. unfold eval_comp in *;
                                     simpl in *.
-                  specialize (H17 (Stream.Cons pre
+                  specialize (H13 (Stream.Cons pre
                                                (Stream.Cons
                                                   post tr))).
                   intuition. simpl in *. eapply Rle_trans; eauto.
                   pose proof (sdist_incr "v" ("V" + "a"*tdiff)).
                   breakAbstraction. unfold eval_comp in *;
                                     simpl in *.
-                  specialize (H17 (Stream.Cons pre
+                  specialize (H13 (Stream.Cons pre
                                                (Stream.Cons
                                                   post tr))).
-                  intuition. simpl in *. apply H17;
+                  intuition. simpl in *. apply H13;
                                          solve_nonlinear. } }
             { tlaAssert ("y" <= ub).
               - rewrite <- inv_safe. charge_tauto.

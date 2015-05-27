@@ -61,16 +61,16 @@ Module SensorWithDelayRangeSndOrder
     "x" <= "Xmax_post".
 
   Definition w :=
-    fun st' =>
-      st' "x" = "v" //\\ st' "v" = "a" .
+    fun st' : state =>
+      st' "x" = "v" //\\ st' "v" = "a" //\\
+      AllConstant ("Xmax_post"::"a"::"X"::"V"::"T"::nil)%list st'.
 
   Definition SpecR : SysRec :=
-    {| dvars := ("Xmax_post"::"a"::"X"::"V"::"T"::nil)%list;
-       cvars := ("x"::"v"::nil)%list;
-       Init := I;
-       Prog := Sense //\\ History;
+    {| Init := I;
+       Prog := Sense //\\ History //\\ Unchanged ("x"::"v"::nil)%list;
        world := w;
-       WConstraint := WC;
+       unch := (("Xmax_post":Term)::("a":Term)::("X":Term)::
+                ("V":Term)::("T":Term)::("x":Term)::("v":Term)::nil)%list;
        maxTime := d |}.
 
   Definition Spec := SysD SpecR.
@@ -268,26 +268,26 @@ Module SensorWithDelayRangeSndOrder
                      => try rewrite H in *; clear H
                    end.
             apply Rplus_le_compat; solve_linear.
-            clear - r H H1 H4 H2. 
+            clear - r H0 H1 H4 H2. 
             destruct H1.
             { repeat rewrite <- Rmult_assoc in *.
               rewrite Rmult_1_r in *.
               rewrite <- Rmult_plus_distr_r in *.
               assert (0 < d)%R by solve_linear.
               solve_nonlinear. }
-            { rewrite <- H0. solve_linear. }
+            { rewrite <- H. solve_linear. }
           * assert (pre "Vmax" * d +
                     / 2 * post "a" * (d * (d * 1)) >= 0)%R
               by solve_linear. intuition.
             rewrite H16. apply Rplus_le_compat; solve_linear.
-            clear - H H14 H1 H4 H2.
+            clear - H H0 H14 H1 H4 H2.
             destruct H1.
             { repeat rewrite <- Rmult_assoc in *.
               rewrite Rmult_1_r in *.
               rewrite <- Rmult_plus_distr_r in *.
               assert (0 < d)%R by solve_linear.
               solve_nonlinear. }
-            { rewrite <- H0. solve_linear. }
+            { rewrite <- H1. solve_linear. }
         - reason_action_tac. intuition; try solve [solve_linear].
           repeat match goal with
                  | [ H : eq (post _) _ |- _ ]
