@@ -683,7 +683,7 @@ Proof.
   }
   Qed.
 
-Existing Instance Proper_Safe.
+Existing Instance Proper_SysSafe.
 
 (*Ltac tlaRevert := first [ apply landAdj | apply lrevert ]. *)
 
@@ -893,10 +893,6 @@ Lemma World_weaken : forall w w',
 Proof.
   intros.
   unfold World,Continuous.
-  Print World.
-  Print Continuous.
-  Print is_solution.
-  Print solves_diffeqs.
   repeat (apply exists_entails; intros).
   repeat charge_split; try solve [tlaAssume].
   breakAbstraction; unfold is_solution; intros;
@@ -965,7 +961,6 @@ Proof.
       * tlaIntuition.
       * repeat apply all_in_map; auto.
 *)
-Qed.
 
 Lemma Unchanged_In : forall ls l,
     List.In l ls ->
