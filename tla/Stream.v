@@ -125,6 +125,16 @@ Section xxx.
 
 End xxx.
 
+Lemma stream_map_id : forall T (s:stream T) r,
+  Reflexive r ->
+  stream_eq r (stream_map (fun x => x) s) s.
+Proof.
+  cofix. intros. destruct s.
+  constructor.
+  - simpl. auto.
+  - simpl. apply stream_map_id. auto.
+Qed.
+
 Section xxx2.
   Context {T U : Type}.
   Context {rT : T -> T -> Prop}.
@@ -145,13 +155,29 @@ Section xxx2.
     { eapply CIH. eapply H0. }
   Qed.
 
-  Lemma stream_map_tl : forall (f : T -> U) (s : stream T),
-      stream_eq eq (tl (stream_map f s)) (stream_map f (tl s)).
+  Lemma stream_map_tl : forall (f : T -> U) (s : stream T) r,
+      Equivalence r ->
+      stream_eq r (tl (stream_map f s)) (stream_map f (tl s)).
   Proof.
     intros. destruct s; reflexivity.
   Qed.
 
-
 End xxx2.
+
+Lemma tl_forever : forall T (x:T) r,
+  Equivalence r ->
+  stream_eq r (tl (forever x)) (forever x).
+Proof. reflexivity. Qed.
+
+Lemma stream_map_forever : forall T x (f:T->T) r,
+  Equivalence r ->
+  stream_eq r (stream_map f (forever x))
+            (forever (f x)).
+Proof.
+  intros. cofix.
+  constructor.
+  - reflexivity.
+  - auto.
+Qed.
 
 Arguments Cons {_} _ _.

@@ -237,7 +237,7 @@ Proof.
   - eapply forall_iff; eauto.
   - rewrite IHF; eauto.
     eapply Proper_eval_formula. reflexivity.
-    eapply Stream.stream_map_tl.
+    eapply Stream.stream_map_tl. apply eq_equivalence.
 Qed.
 
 (* And finally the proof rules *)
