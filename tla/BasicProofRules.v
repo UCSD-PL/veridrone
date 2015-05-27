@@ -778,3 +778,11 @@ Ltac Rename_rewrite :=
                  rewrite Rename_forall |
                  rewrite Rename_always |
                  rewrite Rename_eventually ].
+
+Lemma Proper_Rename m :
+  Proper (lentails ==> lentails) (Rename m).
+Proof.
+  red. red. breakAbstraction. intuition.
+Qed.
+
+Existing Instance Proper_Rename.
