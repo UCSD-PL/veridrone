@@ -344,7 +344,6 @@ Existing Instance Proper_Enabled.
                 pose proof imp2.
                 pose proof simplImp.
                 specialize (H13 x y tr n H2 H6).
-                SearchAbout ((_ <-> _) -> (_<->_)).
                 
                 specialize (H12  
                               (exists tr' : Stream.stream state,   eval_formula (Prog y) (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\ (Stream.hd tr' "t" <= maxTime y)%R)  (exists tr' : Stream.stream state, eval_formula (Prog x) (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\ (Stream.hd tr' "t" <= maxTime x)%R) H13 H5 H11).
@@ -491,7 +490,6 @@ Existing Instance Proper_Enabled.
                 pose proof imp.
                 pose proof simplImp.
                 specialize (H13 x y tr n H2 H6).
-                SearchAbout ((_ <-> _) -> (_<->_)).
                 specialize (H12  
                               (exists tr' : Stream.stream state,   eval_formula (Prog y) (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\ (Stream.hd tr' "t" <= maxTime y)%R)  (exists tr' : Stream.stream state, eval_formula (Prog x) (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\ (Stream.hd tr' "t" <= maxTime x)%R) H13 H5 H11).
                 intuition.
@@ -1348,9 +1346,6 @@ Proof.
     decompose_hyps; try charge_tauto.
     { charge_exfalso. charge_tauto. }
 Qed.
-Check term_deriv.
-SearchAbout Ranalysis1.derivable.
-Print derive_stateF.
 
 Definition VarRenameMap (m : list (Var * Var)) : RenameMap :=
   List.map (fun p => (fst p, VarNowT (snd p))) m.
