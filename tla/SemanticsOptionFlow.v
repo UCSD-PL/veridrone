@@ -13,7 +13,7 @@ Definition flow := R -> state.
 Record evolve :=
 { time : R;
   fl : flow }.
-Definition trace := stream (state * option evolve).
+Definition trace := stream (state * evolve).
 
 (* Semantics of real valued terms *)
 Fixpoint eval_term (t:Term) (s1 s2:state) : R :=
@@ -66,12 +66,11 @@ Fixpoint subst_flow (s : list (Var * Term)) (f : flow) : flow :=
   end.
 
 Definition subst (s : list (Var * Term))
-           (stf : state * option evolve)
-  : state * option evolve :=
+           (stf : state * evolve)
+  : state * evolve :=
   (subst_state s (fst stf),
-   option_map (fun ev => {| time := ev.(time);
-                            fl := subst_flow s ev.(fl) |})
-              (snd stf)).
+   {| time := (snd stf).(time);
+      fl := subst_flow s (snd stf).(fl) |}).
 
 (* Semantics of temporal formulas *)
 Fixpoint eval_formula (F:Formula) (tr:trace) :=
@@ -89,7 +88,7 @@ Fixpoint eval_formula (F:Formula) (tr:trace) :=
     | PropF P => P
     | Continuous w =>
       match hd tr with
-      | (st1, Some (Build_evolve r f)) =>
+      | (st1, Build_evolve r f) =>
         (r > 0)%R /\
         f 0%R = st1 /\
         f r = fst (hd (tl tr)) /\
@@ -98,8 +97,9 @@ Fixpoint eval_formula (F:Formula) (tr:trace) :=
                   eval_formula
                     (w (fun x => derive (fun t => f t x)
                                         (is_derivable x) z))
-                    (Stream.forever (f z,None))
-      | _ => False
+                    (Stream.forever ((f z),
+                                     {| time := R0;
+                                        fl := fun _ _ => R0 |}))
       end
     | Syntax.Exists _ F => exists x, eval_formula (F x) tr
     | Syntax.Forall _ F => forall x, eval_formula (F x) tr
