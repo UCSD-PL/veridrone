@@ -38,6 +38,7 @@ Proof.
   { rewrite IHy1; eauto.
     rewrite IHy2; eauto.
     reflexivity. }
+  { admit. }
   { eapply exists_iff; intros.
     eauto. }
   { eapply forall_iff; intros.
@@ -94,6 +95,7 @@ Fixpoint next (F:Formula) :=
     | Syntax.Exists _ f => Exists x, next (f x)
     | Syntax.Forall _ f => Forall x, next (f x)
     | PropF P => PropF P
+    | Continuous w => Continuous (fun st' => next (w st'))
     | Enabled F => Enabled (next F)
     | Always F => Always (next F)
     | Eventually F => Eventually (next F)
@@ -179,15 +181,17 @@ Qed.
 Lemma st_formula_hd : forall F tr1 tr2,
   is_st_formula F ->
   eval_formula F tr1 ->
-  Stream.hd tr1 = Stream.hd tr2 ->
+  fst (Stream.hd tr1) = fst (Stream.hd tr2) ->
   eval_formula F tr2.
 Proof.
   induction F; intros; simpl in *; auto;
   try tauto; try discriminate.
   - unfold eval_comp in *. simpl in *.
-    rewrite st_term_hd with (t:=t) (s3:=Stream.hd (Stream.tl tr1));
+    rewrite st_term_hd
+    with (t:=t) (s3:=fst (Stream.hd (Stream.tl tr1)));
       intuition.
-    rewrite st_term_hd with (t:=t0) (s3:=Stream.hd (Stream.tl tr1));
+    rewrite st_term_hd
+    with (t:=t0) (s3:=fst (Stream.hd (Stream.tl tr1)));
       intuition.
     rewrite <- H1; auto.
   - split; try eapply IHF1; try eapply IHF2;
@@ -226,8 +230,8 @@ Proof.
   induction F; simpl in *; intros ;
   try tauto.
   - unfold eval_comp in *. simpl in *.
-    rewrite <- next_term_tl with (s1:=Stream.hd tr) (t:=t).
-    rewrite <- next_term_tl with (s1:=Stream.hd tr) (t:=t0).
+    rewrite <- next_term_tl with (s1:=fst (Stream.hd tr)) (t:=t).
+    rewrite <- next_term_tl with (s1:=fst (Stream.hd tr)) (t:=t0).
     intuition. intuition. intuition.
   - rewrite IHF1; try rewrite IHF2; tauto.
   - rewrite IHF1; try rewrite IHF2; tauto.
@@ -537,6 +541,7 @@ Fixpoint rename_formula (m : RenameMap) (F:Formula) :=
     | Syntax.Exists _ f => Exists x, rename_formula m (f x)
     | Syntax.Forall _ f => Forall x, rename_formula m (f x)
     | PropF P => PropF P
+    | Continuous w => Rename m (Continuous w)
     | Enabled F => Rename m (Enabled F)
     | Always F => Always (rename_formula m F)
     | Eventually F => Eventually (rename_formula m F)
@@ -548,7 +553,7 @@ Lemma find_term_now_Some_ok : forall m x t st1 st2,
   List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
   find_term m x = Some t ->
   eval_term t st1 st2 =
-  subst m st1 x.
+  subst_state m st1 x.
 Proof.
   induction m; unfold find_term; simpl.
   - discriminate.
@@ -568,7 +573,7 @@ Qed.
 Lemma find_term_now_None_ok : forall m x st1 st2,
   find_term m x = None ->
   eval_term (VarNowT x) st1 st2 =
-  subst m st1 x.
+  subst_state m st1 x.
 Proof.
   induction m; unfold find_term; simpl.
   - auto.
@@ -585,7 +590,7 @@ Lemma find_term_next_Some_ok : forall m x t st1 st2,
   List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
   find_term m x = Some t ->
   eval_term (next_term t) st1 st2 =
-  subst m st2 x.
+  subst_state m st2 x.
 Proof.
   induction m; unfold find_term; simpl.
   - discriminate.
@@ -604,7 +609,7 @@ Qed.
 Lemma find_term_next_None_ok : forall m x st1 st2,
   find_term m x = None ->
   eval_term (VarNextT x) st1 st2 =
-  subst m st2 x.
+  subst_state m st2 x.
 Proof.
   induction m; unfold find_term; simpl.
   - auto.
@@ -620,7 +625,7 @@ Qed.
 Lemma Rename_term_ok : forall m t st1 st2,
   List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
   eval_term (rename_term m t) st1 st2 =
-  eval_term t (subst m st1) (subst m st2).
+  eval_term t (subst_state m st1) (subst_state m st2).
 Proof.
   induction t; simpl; intros; auto;
   try solve [rewrite IHt1; auto; rewrite IHt2; auto |
@@ -741,6 +746,7 @@ Proof.
     rewrite IHF2; auto.
   - rewrite Rename_prop. simpl rename_formula.
     split; charge_tauto.
+  - split; charge_tauto.
   - rewrite Rename_exists. simpl rename_formula.
     split; breakAbstraction; intros.
     + destruct H1. specialize (H x H0). destruct H.

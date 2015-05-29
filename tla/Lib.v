@@ -74,6 +74,7 @@ Definition get_term (d:DiffEq) :=
 *)
 
 (* Our shallow encoding of continuous evolutions. *)
+(*
 Definition Evolution := state->Formula.
 
 (* Expresses the property that a differentiable formula
@@ -103,6 +104,7 @@ Definition Continuous (cp:Evolution) : Formula :=
          (r > 0)
     //\\ (PropF (is_solution f cp r))
     //\\ (Embed (fun st st' => f R0 = st /\ f r = st')).
+*)
 
 (* Some notation *)
 (* In a module to avoid conflicts. *)
