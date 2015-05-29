@@ -44,6 +44,7 @@ Inductive Formula :=
 | Or : Formula -> Formula -> Formula
 | Imp : Formula -> Formula -> Formula
 | PropF : Prop -> Formula
+| Continuous : (state->Formula) -> Formula
 | Exists : forall T, (T -> Formula) -> Formula
 | Forall : forall T, (T -> Formula) -> Formula
 | Enabled : Formula -> Formula
