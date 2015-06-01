@@ -479,6 +479,14 @@ Proof.
   exists (Stream.forever x). auto.
 Qed.
 
+Lemma ex_state_flow_any : forall (P : (state * flow) -> Prop),
+  (forall f, exists st, P (st, f)) ->
+  exists stf, P stf.
+Proof.
+  intros. specialize (H (fun _ _ => R0)).
+  destruct H. eauto.
+Qed.
+
 Lemma ex_state : forall (v : Var) (P : state -> Prop),
     (exists st,
         (exists val, P

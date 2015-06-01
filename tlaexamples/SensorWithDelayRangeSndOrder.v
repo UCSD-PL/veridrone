@@ -79,7 +79,8 @@ Module SensorWithDelayRangeSndOrder
   Proof.
     intros.
     apply SysSafe_rule; apply always_tauto.
-    enable_ex. exists d. exists d. exists (st "v").
+    enable_ex_st. destruct st as [st ?].
+    exists d. exists d. exists (st "v").
     exists (st "v"). exists (st "x").
     exists (st "Xmax" + Rbasic_fun.Rmax (st "Vmax" * d) 0)%R.
     exists (st "x"). exists R0. solve_linear. left.
@@ -123,6 +124,7 @@ Module SensorWithDelayRangeSndOrder
     - tlaAssume.
     - charge_tauto.
     - reason_action_tac. intuition.
+      destruct pre as [pre ?].
       specialize (H4 (pre "T" - pre "t")%R).
       intuition.
       repeat match type of H7 with
@@ -255,7 +257,9 @@ Module SensorWithDelayRangeSndOrder
         decompose_hyps; repeat tlaIntro;
         charge_split; fold BasicProofRules.next;
         try solve [solve_linear].
-        - reason_action_tac. intuition; try solve [solve_linear].
+        - reason_action_tac. destruct pre as [pre ?].
+          destruct post as [post ?]. simpl in *.
+          intuition; try solve [solve_linear].
           repeat match goal with
                  | [ H : eq (post _) _ |- _ ]
                    => try rewrite H in *; clear H
@@ -288,7 +292,9 @@ Module SensorWithDelayRangeSndOrder
               assert (0 < d)%R by solve_linear.
               solve_nonlinear. }
             { rewrite <- H1. solve_linear. }
-        - reason_action_tac. intuition; try solve [solve_linear].
+        - reason_action_tac. destruct pre as [pre ?].
+          destruct post as [post ?]. simpl in *.
+          intuition; try solve [solve_linear].
           repeat match goal with
                  | [ H : eq (post _) _ |- _ ]
                    => try rewrite H in *; clear H

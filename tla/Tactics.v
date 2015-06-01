@@ -11,8 +11,9 @@ Require Import TLA.Automation.
 
 (* Some useful tactics for our examples. *)
 
-Ltac enable_ex :=
-  eapply Enabled_action; auto; simpl; intros;
+Ltac enable_ex_st :=
+  eapply Enabled_action; intros; eapply ex_state_flow_any;
+  auto; simpl; intros;
   repeat match goal with
          | |- context [ ?X ] =>
            match type of X with
@@ -100,7 +101,7 @@ Ltac z3_quick :=
    state into hypothesis and goals. *)
 Ltac rewrite_next_st :=
   repeat match goal with
-           | [ H : eq (Stream.hd (Stream.tl _) _)  _ |- _ ]
+           | [ H : eq (fst (Stream.hd (Stream.tl _)) _)  _ |- _ ]
              => rewrite H in *
          end.
 

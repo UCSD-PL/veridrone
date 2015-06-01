@@ -48,35 +48,44 @@ Require Import Coq.Lists.List.
 
 Definition CtrlSenseErrorSysR err :=
   SysCompose
-    (Rename (("x","v":Term)::("Xmax","Vmax":Term)::("Xmin","Vmin":Term)::nil)
-            (SensorWithError.SpecR err ShimCtrl.w ShimParams.d))
+    (SysRename (VarRenameMap (("x","v")::("Xmax","Vmax")::("Xmin","Vmin")::nil))
+            (SensorWithError.SpecR err ShimParams.d))
     (SysCompose
-       (SensorWithError.SpecR err ShimCtrl.w ShimParams.d)
+       (SensorWithError.SpecR err ShimParams.d)
        ShimCtrl.SpecR).
 
 Definition CtrlSenseErrorSys err :=
   SysD (CtrlSenseErrorSysR err).
 
 Theorem ctrl_sense_error_safe : forall err,
-  |-- CtrlSenseErrorSys err -->> []"x" <= ShimParams.ub.
+  |-- CtrlSenseErrorSys err -->> []"y" <= ShimParams.ub.
 Proof.
-  intros err.
+  intro err.
   apply imp_trans with
-  (F2:=[](SensorWithError.SenseSafe //\\
+  (F2:=[](Rename (("x","v":Term)::("Xmax","Vmax":Term)::("Xmin","Vmin":Term)::nil)
+                 SensorWithError.SenseSafe //\\
           SensorWithError.SenseSafe //\\
           "y" <= ShimParams.ub)).
   - apply Compose.
     + apply SysSafe_rule; apply always_tauto.
-      enable_ex; repeat eexists; solve_linear.
-    + tlaIntro. apply SensorWithError.sense_safe; reflexivity.
+      enable_ex_st; repeat eexists; solve_linear.
+    + tlaIntro. rewrite <- Rename_always.
+      rewrite <- (SensorWithError.sense_safe err ShimParams.d).
+      rewrite <- SysRename_sound.
+      * charge_tauto.
+      * unfold NotRenamed. simpl. intuition congruence.
+      * admit.
     + apply Compose.
+      * apply SysSafe_rule; apply always_tauto.
+        enable_ex_st; repeat eexists; solve_linear.
       * tlaIntro. tlaRevert. apply forget_prem.
         tlaIntro. apply SensorWithError.sense_safe; reflexivity.
       * tlaIntro. pose proof ShimCtrl.ctrl_safe.
         unfold ShimCtrl.Safe in *. charge_apply H.
         unfold ShimCtrl.Spec. unfold SensorWithError.SenseSafe.
+        Rename_rewrite; try solve [intuition]. simpl rename_formula.
         repeat rewrite <- Always_and.
-        repeat charge_split; try charge_assumption;
+        repeat charge_split; try charge_assumption.
         solve_linear.
   - apply always_imp. charge_tauto.
 Qed.

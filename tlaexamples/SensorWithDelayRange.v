@@ -31,7 +31,7 @@ Section SensorWithDelay.
 
   Variable WC : Formula.
 
-  Definition w : Evolution :=
+  Definition w : state->Formula :=
     fun st' => st' "x" = "v" //\\
                AllConstant ("v"::"Xmin_post"::"Xmax_post"::nil)%list st'.
 
@@ -50,7 +50,7 @@ Section SensorWithDelay.
   Proof.
     intros.
     apply SysSafe_rule; apply always_tauto.
-    enable_ex; repeat eexists; solve_linear.
+    enable_ex_st; repeat eexists; solve_linear.
   Qed.
 
   Theorem sense_safe :

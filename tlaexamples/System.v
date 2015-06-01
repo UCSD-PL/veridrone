@@ -13,22 +13,22 @@ Open Scope string_scope.
 
 (* Convenience functions to say that all variables in a list
    have derivative 0. *)
-Definition AllConstant (vars : list Var) : Evolution :=
+Definition AllConstant (vars : list Var) : state->Formula :=
   fun st' => List.fold_right
                (fun x a => st' x = 0 //\\ a)
                TRUE vars.
 
 (* Adds time derivative to an Evolution. *)
-Definition mkEvolution (world : Evolution) : Evolution :=
+Definition mkEvolution (world : state->Formula) : state->Formula :=
   fun st' => st' "t" = --1 //\\  world st'.
 
-Definition World (world : Evolution) : Formula :=
+Definition World (world : state->Formula) : Formula :=
   Continuous (mkEvolution world).
 
 Definition Discr (Prog : Formula) (d : R) : Formula :=
   Prog //\\ "t"! <= d.
 
-Definition Next (Prog: Formula) (world : Evolution)
+Definition Next (Prog: Formula) (world : state->Formula)
            (unch:list Term) (d : R) :=
   let w := World world in
   let d := Discr Prog d in
@@ -38,7 +38,7 @@ Definition Next (Prog: Formula) (world : Evolution)
 (*     \\// (Enabled w -->> lfalse) *)
      \\// UnchangedT (("t":Term)::unch)%list.
 
-Definition Next_or_stuck (Prog: Formula) (world : Evolution)
+Definition Next_or_stuck (Prog: Formula) (world : state->Formula)
            (unch:list Term) (d : R) :=
   let w := World world in
   let d := Discr Prog d in
@@ -46,12 +46,12 @@ Definition Next_or_stuck (Prog: Formula) (world : Evolution)
   in      steps
      \\// UnchangedT (("t":Term)::unch)%list.
 
-Definition sysD (Init Prog: Formula) (world : Evolution)
+Definition sysD (Init Prog: Formula) (world : state->Formula)
            (unch : list Term) (d : R) : Formula :=
   ("t" <= d //\\ Init) //\\
      [](Next Prog world unch d //\\ 0 <= "t").
 
-Definition sysD_or_stuck (Init Prog: Formula) (world : Evolution)
+Definition sysD_or_stuck (Init Prog: Formula) (world : state->Formula)
            (unch : list Term) (d : R) : Formula :=
   ("t" <= d //\\ Init) //\\
      [](Next_or_stuck Prog world unch d //\\ 0 <= "t").
@@ -60,7 +60,7 @@ Record SysRec
 : Type := Sys
 { Init : Formula
 ; Prog : Formula
-; world : Evolution
+; world : state->Formula
 ; unch : list Term
 ; maxTime : R }.
 
@@ -84,7 +84,7 @@ Definition SysRename (m : list (Var * Term)) (s : SysRec)
   : SysRec :=
   {| Init := Rename m s.(Init)
    ; Prog := Rename m s.(Prog)
-   ; world := fun st' => Rename m (s.(world) (subst m st'))
+   ; world := fun st' => Rename m (s.(world) (subst_state m st'))
    ; unch := List.map (rename_term m) s.(unch)
    ; maxTime := s.(maxTime)
   |}.
@@ -122,7 +122,10 @@ Existing Instance Proper_Always.
 
 Existing Instance Proper_Enabled.
 
- Lemma worldImp : forall x y x0 x1, (forall st' : state, world x st' -|- world y st') -> (is_solution x1 (mkEvolution (world x)) x0 <-> is_solution x1 (mkEvolution (world y)) x0).
+ Lemma worldImp : forall x y x0 x1,
+    (forall st' : state, world x st' -|- world y st') ->
+    (is_solution eval_formula x1 (mkEvolution (world x)) x0 <->
+     is_solution eval_formula x1 (mkEvolution (world y)) x0).
       intros.
       unfold mkEvolution in *.
       split.
@@ -143,7 +146,7 @@ Existing Instance Proper_Enabled.
           destruct H.
           simpl in *.
           unfold tlaEntails in *.
-          specialize (H (Stream.forever (x1 z)) H3).
+          specialize (H (Stream.forever (x1 z, fun _ _ => R0)) H3).
           intuition.
         }
       }
@@ -164,12 +167,12 @@ Existing Instance Proper_Enabled.
           destruct H.
           simpl in *.
           unfold tlaEntails in *.
-          specialize (H4 (Stream.forever (x1 z)) H3).
+          specialize (H4 (Stream.forever (x1 z, fun _ _ => R0)) H3).
           intuition.
         }
       }
     Qed.
- 
+(* 
    Lemma simplImp : forall x y (tr:  Stream.stream (String.string -> R)) n, (Prog x -|- Prog y) -> (maxTime x = maxTime y) ->
                                                                                          ( (exists tr' : Stream.stream state,
                                                                                                eval_formula (Prog y) (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\ (Stream.hd tr' "t" <= maxTime y)%R) <-> 
@@ -509,16 +512,18 @@ Existing Instance Proper_Enabled.
         }
       }
     Qed.
-
+*)
 
 Lemma Proper_SysSafe :
   Proper (SysRec_equiv ==> lequiv) SysSafe.
 Proof.
+Admitted.
+(*
   red. red. unfold SysSafe. intros. red in H.
   unfold SysD, SysD_or_stuck, sysD, sysD_or_stuck, Next,
   Next_or_stuck, World, Continuous.
   decompose [and] H. destruct H1. destruct H2. 
-  
+
   (* 
   unfold Prog in *.
   simpl in H1.
@@ -680,6 +685,7 @@ Proof.
     }
   }
   Qed.
+*)
 
 Existing Instance Proper_SysSafe.
 
@@ -890,11 +896,14 @@ Lemma World_weaken : forall w w',
     World w' |-- World w.
 Proof.
   intros.
-  unfold World,Continuous.
+  unfold World.
   repeat (apply exists_entails; intros).
   repeat charge_split; try solve [tlaAssume].
   breakAbstraction; unfold is_solution; intros;
     intuition.
+  destruct tr as [[st1 f] ?]. simpl in *.
+  destruct H0 as [r [Hr [Hstart [Hend Hsol]]]].
+  exists r. intuition.
     match goal with
     | [ H : context[solves_diffeqs] |- _ ]
         => let pf := fresh "pf" in
@@ -909,7 +918,7 @@ Proof.
     split.
     { intuition. }
     { specialize (H (fun x1 : Var =>
-             Ranalysis1.derive (fun t : R => x0 t x1) (pf x1) z) (Stream.forever (x0 z))).
+             Ranalysis1.derive (fun t : R => f t x1) (pf x1) z) (Stream.forever (f z, fun _ _ => R0))).
       intuition.
     }
     Qed.
@@ -1375,7 +1384,7 @@ Lemma VarRenameMap_derivable : forall f m,
         Ranalysis1.derivable (fun t => f t x)) ->
     forall x,
       Ranalysis1.derivable
-        (fun t => subst (VarRenameMap m) (f t) x).
+        (fun t => subst_state (VarRenameMap m) (f t) x).
 Proof.
   intros.
   induction m.
@@ -1406,12 +1415,13 @@ Qed.
 
 Lemma subst_VarRenameMap_derive_distr :
   forall m f z pf1 pf2,
-    subst (VarRenameMap m)
+    subst_state (VarRenameMap m)
           (fun x =>
              Ranalysis1.derive (fun t : R => f t x) (pf1 x) z) =
     fun x =>
       Ranalysis1.derive (fun t : R =>
-                           subst (VarRenameMap m) (f t) x) (pf2 x)
+                           subst_state (VarRenameMap m) (f t) x)
+                        (pf2 x)
                         z.
 Proof.
   intros. apply functional_extensionality.
@@ -1426,7 +1436,7 @@ Proof.
 Qed.
 
 Lemma subst_st_distr : forall m st,
-  subst m st = (fun x => subst m st x).
+  subst_state m st = (fun x => subst_state m st x).
 Proof. auto. Qed.
 
 (*
@@ -1495,11 +1505,36 @@ Qed.
 
 Lemma Rename_continuous : forall (m' : list (Var * Var)) w,
   let m := VarRenameMap m' in
-  (exists m_inv, (forall st, subst m (subst (VarRenameMap m_inv) st) = st) /\
-                 (forall st, subst (VarRenameMap m_inv) (subst m st) = st)) ->
   Rename m (Continuous w) -|-
-  Continuous (fun st' => Rename m (w (subst m st'))).
+  Continuous (fun st' => Rename m (w (subst_state m st'))).
 Proof.
+Admitted.
+(*
+  split; breakAbstraction; intros.
+  - destruct tr as [[st1 f] ?]. simpl in *.
+    destruct H as [r [Hr [Hstart [Hend Hsol]]]].
+    exists r.
+    intuition.
+    + clear Hstart Hend. unfold is_solution, solves_diffeqs in *.
+      destruct Hsol as [pf Hsol].
+      exists (VarRenameMap_derivable _ _ pf).
+      intros. erewrite subst_VarRenameMap_derive_distr.
+      simpl. rewrite Stream.stream_map_forever; [ | apply eq_equivalence].
+      rewrite Hm_inv1. specialize (Hsol z H).
+      match goal with
+      | [ _ : eval_formula ?F1 _ |- eval_formula ?F2 _ ]
+          => assert (F1 = F2)
+      end.
+      * f_equal. apply functional_extensionality. intros.
+        apply Ranalysis4.pr_nu_var. apply functional_extensionality.
+        intros. simpl. rewrite Hm_inv1. auto.
+      * rewrite <- H0. auto.
+    + rewrite Hstart. destruct tr. simpl.
+      rewrite Hm_inv2. auto.
+    + rewrite Hend. destruct tr as [? [? ?]]. simpl.
+      rewrite Hm_inv2. auto.
+
+
   split; breakAbstraction; intros.
   - destruct H0 as [r [f [Hr [Hsol [Hstart Hend]]]]].
     destruct H as [m_inv [Hm_inv1 Hm_inv2]].
@@ -1564,6 +1599,7 @@ end.
   rewrite Hm_inv1. auto. }
 { rewrite <- H0. auto. }
 Qed.
+*)
 
 (*
 Lemma Rename_continuous : forall m m' w,
@@ -1645,7 +1681,7 @@ Qed.
 
 Lemma NotRenamed_subst : forall m x,
   NotRenamed m x ->
-  forall st, subst m st x = st x.
+  forall st, subst_state m st x = st x.
 Proof.
   induction m.
   - auto.
@@ -1672,8 +1708,6 @@ Qed.
 
 Theorem SysRename_sound : forall s m',
   let m := VarRenameMap m' in
-  (exists m_inv, (forall st, subst m (subst (VarRenameMap m_inv) st) = st) /\
-                 (forall st, subst (VarRenameMap m_inv) (subst m st) = st)) ->
   NotRenamed m "t" ->
   Rename m (Enabled (Discr s.(Prog) s.(maxTime))) -|-
   Enabled (Rename m (Discr s.(Prog) s.(maxTime))) ->
@@ -1682,7 +1716,7 @@ Proof.
   intros. destruct s. unfold SysD, sysD, Next, World, Discr in *. simpl in *.
   restoreAbstraction. Rename_rewrite; auto; try apply VarRenameMap_is_st_term.
   unfold m in *. rewrite Rename_continuous; auto.
-  rewrite H1. Rename_rewrite; auto; try apply VarRenameMap_is_st_term.
+  rewrite H0. Rename_rewrite; auto; try apply VarRenameMap_is_st_term.
   rewrite Rename_UnchangedT.
   repeat match goal with
          |- context [ rename_formula ?m ?e ]
