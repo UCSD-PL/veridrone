@@ -52,15 +52,8 @@ Fixpoint subst_state (s : list (Var * Term)) : state -> state :=
                    subst_state s st v'
   end.
 
-Fixpoint subst_flow (s : list (Var * Term)) (f : flow) : flow :=
-  match s with
-  | nil => f
-  | (v,e) :: s =>
-    fun t v' => if String.string_dec v' v then
-                  eval_term e (f t) (f t)
-                else
-                  subst_flow s f t v'
-  end.
+Definition subst_flow (s : list (Var * Term)) (f : flow) : flow :=
+  fun t => subst_state s (f t).
 
 Definition subst (s : list (Var * Term))
            (stf : state * flow)
