@@ -23,8 +23,6 @@ Module Type SecondDerivShimParams <: SdistParams.
   Parameter amin : R.
   Parameter amin_lt_0 : (amin < 0)%R.
 
-  Parameter WC : Formula.
-
 End SecondDerivShimParams.
 
 Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
@@ -99,7 +97,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     solve_linear; specialize (H x);
     solve_linear.
   Qed.
-  
+
   (* A proof that the inductive safety condition
      Inv implies the safety contition
      we actually care about, Safe. *)
@@ -114,7 +112,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
            | H : _ /\ _ |- _ => destruct H
            end.
     specialize (H7 (fst (Stream.hd tr) "T" - fst (Stream.hd tr) "t"))%R.
-    destruct (Rle_dec R0 
+    destruct (Rle_dec R0
                       (fst (Stream.hd tr) "V"+
                        fst (Stream.hd tr) "a"*
                        (fst (Stream.hd tr) "T" - fst (Stream.hd tr) "t"))%R);
