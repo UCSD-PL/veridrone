@@ -212,301 +212,117 @@ Proof.
     }
   }
 Qed.
-                
+
+Lemma lequiv_limpl : forall {L} (LL : ILogicOps L) {LLO : ILogic L} (P Q R S : L),
+    (P -|- R) ->
+    (Q -|- S) ->
+    (P -->> Q -|- R -->> S).
+Proof.
+  intros. rewrite H. rewrite H0. reflexivity.
+Qed.
+
+Lemma Proper_Continuous_entails
+  : Proper ((pointwise_relation _ lentails) ==> lentails) Continuous.
+Proof.
+  do 5 red.
+  simpl. destruct tr; simpl.
+  destruct p.
+  destruct 1.
+  exists x0. intuition.
+  unfold is_solution in *. destruct H4. exists x1.
+  unfold solves_diffeqs in *.
+  intros.
+  specialize (H3 _ H4).
+  eapply H. assumption.
+Qed.
+
+
+Lemma Proper_Continuous_equiv
+  : Proper ((pointwise_relation _ lequiv) ==> lequiv) Continuous.
+Proof.
+  red. red. intros.
+Admitted.
+Existing Instance Proper_Continuous_entails.
+Existing Instance Proper_Continuous_equiv.
+
+Lemma Proper_mkEvolution : Proper (pointwise_relation _ lequiv ==> pointwise_relation _ lequiv) mkEvolution.
+Proof.
+  red. red. red. intros. unfold mkEvolution.
+  rewrite H. reflexivity.
+Qed.
+Existing Instance Proper_mkEvolution.
+
+Lemma Proper_World : Proper (pointwise_relation _ lequiv ==> lequiv) World.
+Proof.
+  red. red. intros. unfold World.
+  rewrite H. reflexivity.
+Qed.
+Existing Instance Proper_World.
+
+Lemma Proper_Discr : Proper (lequiv ==> eq ==> lequiv) Discr.
+Proof.
+  red. red. red. intros. unfold Discr.
+  subst. rewrite H. reflexivity.
+Qed.
+Existing Instance Proper_Discr.
+
+Lemma Proper_Next : Proper (lequiv ==> (pointwise_relation _ lequiv) ==> eq ==> eq ==> lequiv) Next.
+Proof.
+  red. red. red. red. red. intros.
+  subst. unfold Next.
+  rewrite H0.
+  rewrite H. reflexivity.
+Qed.
+Existing Instance Proper_Next.
+
+
+Lemma Proper_SysD : Proper (SysRec_equiv ==> lequiv) SysD.
+Proof.
+  red. red. intros.
+  unfold SysD. red in H.
+  destruct H as [ ? [ ? [ ? [ ? ? ] ] ] ].
+  rewrite H3. clear H3.
+  rewrite H; clear H.
+  unfold sysD.
+  rewrite H0; clear H0.
+  rewrite H1.
+  change (forall st' : state, world x st' -|- world y st')
+    with (pointwise_relation _ lequiv (world x) (world y)) in H2.
+  rewrite H2. reflexivity.
+Qed.
+Existing Instance Proper_SysD.
+
+Lemma Proper_Next_or_stuck : Proper (lequiv ==> (pointwise_relation _ lequiv) ==> eq ==> eq ==> lequiv) Next_or_stuck.
+Proof. Admitted.
+Existing Instance Proper_Next_or_stuck.
+
+
+Lemma Proper_SysD_or_stuck : Proper (SysRec_equiv ==> lequiv) SysD_or_stuck.
+Proof.
+  red. red. intros.
+  unfold SysD_or_stuck.
+  unfold sysD_or_stuck.
+  destruct H as [ ? [ ? [ ? [ ? ? ] ] ] ].
+  rewrite H; clear H.
+  rewrite H0; clear H0.
+  rewrite H3; clear H3.
+  rewrite H1; clear H1.
+  change (forall st' : state, world x st' -|- world y st')
+    with (pointwise_relation _ lequiv (world x) (world y)) in H2.
+  rewrite H2; clear H2.
+  reflexivity.
+Qed.
+Existing Instance Proper_SysD_or_stuck.
 
 Lemma Proper_SysSafe :
   Proper (SysRec_equiv ==> lequiv) SysSafe.
 Proof.
-
-  red. red. unfold SysSafe. intros. red in H.
-  unfold SysD, SysD_or_stuck, sysD, sysD_or_stuck, Next,
-  Next_or_stuck, World.
-  decompose [and] H.
-  rewrite H5.
-  rewrite H0.
-  inversion H2.
-  simpl in H4,H6.
-  unfold tlaEntails in H4,H6.
-  split.
-  {
-    breakAbstraction.
-    intros.
-    lapply H7.
-    intros.
-    decompose [and] H9.
-    split.
-    {
-      split.
-      {  auto. }
-      { apply H4. auto. }
-    } 
-    {
-      intros.
-      split.
-      {
-        specialize (H11 n).
-        decompose [and] H11.
-        destruct H10.
-        {
-          constructor.
-          destruct H10.
-          {
-            constructor.
-            destruct (Stream.hd (Stream.nth_suf n tr)).
-            destruct H10.
-            exists x0.
-            decompose [and] H10.
-            repeat split.
-            { auto. }
-            { auto. }
-            { auto. }
-           
-            eapply is_solution_imp with (x:=x); auto.        
-    
-          }
-          {
-            constructor 2.
-            apply prog_imp in H10; auto.
-          }
-        }
-        {
-          constructor 2.
-          auto.
-        }
-      }
-      { 
-        specialize (H11 n).
-        decompose [and] H11.
-        auto.
-      }
-    }
-    {
-      decompose [and] H8.
-      split.
-      {
-        split. 
-        { auto. }
-        { apply H6. auto. }
-      }
-      {  intros. 
-         specialize (H10 n).
-         decompose [and] H10.
-         split.
-         {
-           destruct H9.
-           {
-             constructor.
-             destruct (Stream.hd (Stream.nth_suf n tr)).
-             destruct H9.
-             {
-               constructor.
-               destruct H9.
-               exists x0.
-               decompose [and] H9.
-               repeat split.
-               { auto. }
-               { auto. }
-               { auto. }
-               { eapply is_solution_imp with (x:=y).
-                 Lemma imp_iff : forall x y, (forall st' : state, world x st' -|- world y st') -> ( forall st' : state, world y st' -|- world x st').
-                   intros.
-                   split; apply H.
-                 Qed.
-                 intros.
-                 eapply imp_iff in H3.
-                 eauto.
-                 auto.
-               }
-             }
-             {
-               constructor 2.
-               apply prog_imp; auto.
-             }
-           }
-           {
-             constructor 2.
-             {
-               Lemma progAndUnchangedImp : forall x y tr n, (Prog x -|- Prog y) -> (unch x = unch y) -> ( ((exists tr' : Stream.stream (state * flow),
-           eval_formula (Prog y)
-             (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\
-           (fst (Stream.hd tr') "t" <= maxTime y)%R) -> False) \/
-       fst (Stream.hd (Stream.tl (Stream.nth_suf n tr))) "t" =
-       fst (Stream.hd (Stream.nth_suf n tr)) "t" /\
-       eval_formula (UnchangedT (unch y)) (Stream.nth_suf n tr) <->  ((exists tr' : Stream.stream (state * flow),
-       eval_formula (Prog x)
-         (Stream.Cons (Stream.hd (Stream.nth_suf n tr)) tr') /\
-       (fst (Stream.hd tr') "t" <= maxTime y)%R) -> False) \/
-   fst (Stream.hd (Stream.tl (Stream.nth_suf n tr))) "t" =
-   fst (Stream.hd (Stream.nth_suf n tr)) "t" /\
-   eval_formula (UnchangedT (unch y)) (Stream.nth_suf n tr)).
-               Proof.
-                 intros.
-                 split.
-                 {
-                   intros.
-                   destruct H1.
-                   {
-                     constructor 1.
-                     {
-                       intros.
-                       inversion H.
-                       simpl in *.
-                       unfold tlaEntails in *.
-                       destruct H2.
-                       destruct H1.
-                       exists x0.
-                       decompose [and] H2.
-                       split; auto.
-                     }
-                   }
-                   
-                   {
-                     auto.
-                   }
-                 }
-                 {
-                   intros.
-                   destruct H1.
-                   {
-                     constructor 1.
-                     {
-                       intros.
-                       inversion H.
-                       simpl in *.
-                       unfold tlaEntails in *.
-                       destruct H2.
-                       destruct H1.
-                       exists x0.
-                       decompose [and] H2.
-                       split; auto.
-                     }
-                   }
-                   
-                   {
-                     auto.
-                   }
-                 }
-                 Qed.
-               apply progAndUnchangedImp; auto.
-             }
-           }
-         }
-         { auto. }
-      }
-    }
-}
-{
-   {
-    breakAbstraction.
-    intros.
-    lapply H7.
-    intros.
-    decompose [and] H9.
-    split.
-    {
-      split.
-      {  auto. }
-      { apply H6. auto. }
-    } 
-    {
-      intros.
-      split.
-      {
-        specialize (H11 n).
-        decompose [and] H11.
-        destruct H10.
-        {
-          constructor.
-          destruct H10.
-          {
-            constructor.
-            destruct (Stream.hd (Stream.nth_suf n tr)).
-            destruct H10.
-            exists x0.
-            decompose [and] H10.
-            repeat split.
-            { auto. }
-            { auto. }
-            { auto. }           
-            eapply is_solution_imp with (x:=y).
-            apply imp_iff.
-            auto.       
-            auto.
-          }
-          
-          {
-            constructor 2.
-            apply prog_imp; auto.
-          }
-        }
-        {
-          constructor 2.
-          auto.
-        }
-      }
-      { 
-        specialize (H11 n).
-        decompose [and] H11.
-        auto.
-      }
-    }
-    {
-      decompose [and] H8.
-      split.
-      {
-        split. 
-        { auto. }
-        { apply H4. auto. }
-      }
-      {  intros. 
-         specialize (H10 n).
-         decompose [and] H10.
-         split.
-         {
-           destruct H9.
-           {
-             constructor.
-             destruct (Stream.hd (Stream.nth_suf n tr)).
-             destruct H9.
-             {
-               constructor.
-               destruct H9.
-               exists x0.
-               decompose [and] H9.
-               repeat split.
-               { auto. }
-               { auto. }
-               { auto. }
-               { eapply is_solution_imp with (x:=x).
-                 intros.
-                 auto.
-                 auto.
-               }
-             }
-             {
-               constructor 2.
-               apply prog_imp with (x:=x); auto.
-             }
-           }
-           {
-             constructor 2.
-             {             
-               pose proof progAndUnchangedImp.
-               apply progAndUnchangedImp with (x:=x);
-               auto.
-             }
-           }
-         }
-         { auto. }
-      }
-    }
-   }
-}
+  red. red. unfold SysSafe.
+  intros.
+  eapply lequiv_limpl; eauto with typeclass_instances.
+  { eapply Proper_SysD. eassumption. }
+  { apply Proper_SysD_or_stuck. assumption. }
 Qed.
-
-
-
-
 Existing Instance Proper_SysSafe.
 
 (*Ltac tlaRevert := first [ apply landAdj | apply lrevert ]. *)
@@ -1489,20 +1305,45 @@ Proof.
     rewrite Rename_next_term. reflexivity. }
 Qed.
 
-Lemma Proper_Continuous
-  : Proper ((pointwise_relation _ lentails) ==> lentails) Continuous.
+Lemma stream_map_cons : forall T U r (f : T -> U) x y,
+    Reflexive r ->
+    Stream.stream_eq r (Stream.stream_map f (Stream.Cons x y))
+                     (Stream.Cons (f x) (Stream.stream_map f y)).
 Proof.
-  do 5 red.
-  simpl. destruct tr; simpl.
-  destruct p.
-  destruct 1.
-  exists x0. intuition.
-  unfold is_solution in *. destruct H4. exists x1.
-  unfold solves_diffeqs in *.
   intros.
-  specialize (H3 _ H4).
-  eapply H. assumption.
+  eapply Stream.stream_eq_eta. simpl. split; reflexivity.
 Qed.
+
+Lemma Rename_Enabled
+: forall P m,
+    Enabled (Rename m P) |-- Rename m (Enabled P).
+Proof.
+  Opaque Stream.stream_map.
+  breakAbstraction. intros.
+  destruct H.
+  simpl.
+  destruct tr. simpl in H.
+  eapply Proper_eval_formula in H. 2: reflexivity.
+  2: symmetry. 2: eapply stream_map_cons. 2: eauto.
+  eauto.
+Qed.
+
+Lemma Rename_Enabled'
+: forall P m,
+    Rename m (Enabled P) |-- Enabled (Rename m P).
+Proof.
+  Opaque Stream.stream_map.
+  breakAbstraction. intros.
+  destruct H.
+  simpl.
+  destruct tr. simpl in H.
+  simpl.
+  Transparent Stream.stream_map. simpl in H.
+  Opaque Stream.stream_map.
+  (* only if m is invertible *)
+Abort.
+
+
 
 Theorem SysRename_sound
 : forall s m'
