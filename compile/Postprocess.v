@@ -12,6 +12,13 @@ Require Import RelDec.
 Require Import Coq.Reals.Rbase.
 Require Import Z3.Tactic.
 Require Import Abstractor.
+Require Import TLA.Automation.
+
+Lemma Z3Test : forall (a : R), (a + 1 = 3)%R%type -> ((a + 2 = 3)%R /\ ((1+1)%R=2%R)%R)%type.
+Proof.
+  intros.
+  (*z3 solve.*)
+  Abort.
 
 (* Implementation of postprocessing automation for the Abstractor,
    using the Z3 plugin to simplify the terms produced by the abstractor *)
@@ -28,64 +35,175 @@ Definition velshim_ivs : list (Var * Var) :=
 
 (* proportional controller *)
 
+Print FMinus.
+
+(* c is constant and goal is 0 *)
 Definition proportional_controller : fcmd :=
-  FAsn "a" (FMult (FVar "c") (FMinus (FVar "goal") (FVar "x"))).
+  FAsn "a" (FMinus (FConst fzero) (FVar "x")).
 
 Definition proportional_controller_ivs : list (Var * Var) :=
-  [("a", "a"); ("c", "c"); ("x", "x"); ("goal", "goal")].
+  [("a", "a"); ("x", "x")].
+
+(* "Pushing" Embed through connectives *)
+Lemma lequiv_formula_iff :
+  forall (P Q : Formula),
+    (forall tr, eval_formula P tr <-> eval_formula Q tr) <->
+    (P -|- Q).
+Proof.
+  intros.
+  split.
+  - intros. split; breakAbstraction; intros; apply H; assumption.
+  - intros. unfold lequiv in H. destruct H.
+    breakAbstraction.
+    split; intros; [apply H | apply H0]; assumption.
+Qed.
+
+Ltac shatterAbstraction :=
+  try apply lequiv_formula_iff; unfold lequiv in *; breakAbstraction.  
+
+Lemma embed_push_TRUE :
+  Embed (fun _ _ => True) -|- TRUE.
+Proof.
+  shatterAbstraction. tauto.
+Qed.
+
+Lemma embed_push_FALSE :
+  Embed (fun _ _ => False) -|- FALSE.
+Proof.
+  shatterAbstraction. tauto.
+Qed.
+
+Lemma embed_push_And :
+  forall (P1 P2 : _ -> _ -> Prop),
+    Embed (fun x y => P1 x y /\ P2 x y) -|- Embed P1 //\\ Embed P2.
+Proof.
+  shatterAbstraction. tauto.
+Qed.
+
+Lemma embed_push_Or :
+  forall (P1 P2 : _ -> _ -> Prop),
+    Embed (fun x y => P1 x y \/ P2 x y) -|- Embed P1 \\// Embed P2.
+Proof.
+  shatterAbstraction. tauto.
+Qed.
+
+Lemma embed_push_Imp :
+  forall (P1 P2 : _ -> _ -> Prop),
+    Embed (fun x y => P1 x y -> P2 x y) -|- Embed P1 -->> Embed P2.
+Proof.
+  shatterAbstraction. tauto.
+Qed.
+
+Lemma embed_push_Exists :
+  forall (T : Type) (P : T -> state -> state -> Prop),
+    Embed (fun x y => exists (t : T), (P t x y)) -|- Syntax.Exists T (fun (t : T) => Embed (P t)).
+Proof.
+  shatterAbstraction. tauto.
+Qed.
+
+Lemma embed_push_Forall :
+  forall (T : Type) (P : T -> state -> state -> Prop),
+    Embed (fun x y => forall (t : T), (P t x y)) -|- Syntax.Forall T (fun (t : T) => Embed (P t)).
+Proof.
+  shatterAbstraction. tauto.
+Qed.
 
 (* Useful lemmas *)
 Lemma AnyOf_singleton :
-  forall (P : Prop), AnyOf [P] -> P.
+  forall (P : Prop), AnyOf [P] -|- P.
 Proof.
-  intros. inversion H.
-  - auto.
-  - inversion H0.
+  shatterAbstraction. tauto.
 Qed.
 
 Lemma AnyOf_weaken :
   forall (P : Prop) (Ps : list Prop),
-    AnyOf Ps -> AnyOf (P :: Ps).
+    AnyOf Ps |-- AnyOf (P :: Ps).
 Proof.
-  intros.
-  simpl. right. auto.
+  shatterAbstraction. tauto.
 Qed.
-    
+
+Lemma and_True_snip1 :
+  forall (P : Prop),
+    True //\\ P -|- P.
+Proof.
+  shatterAbstraction. tauto.
+Qed.
+
+Lemma and_True_snip2 :
+  forall (P : Prop),
+    P //\\ True -|- P.
+Proof.
+  shatterAbstraction. tauto.
+Qed.
+
+Lemma or_False_snip1 :
+  forall (P : Prop),
+    P \\// False -|- P.
+Proof.
+  shatterAbstraction. tauto.
+Qed.
+
+Lemma or_False_snip2 :
+  forall (P : Prop),
+    False \\// P -|- P.
+Proof.
+  shatterAbstraction. tauto.
+Qed.
 
 (* sample abstractor outputs *)
 Section fwp.
   Parameter st : state.
-  Parameter precond : state -> Prop.
-  Fact fwp_propcontrol : forall (P : (fwp proportional_controller precond proportional_controller_ivs st)), False.
-        Opaque AnyOf.
-        intros.
-        cbv beta iota delta [fwp proportional_controller] in P.
-        simpl in P.
-        unfold Semantics.eval_comp in P.
+  Parameter postcond : state -> Prop.
+  
+  (* discrete invariant: controller never changes x *)
+  (*Fact fwp_propcontrol : forall (P : (fwp proportional_controller postcond proportional_controller_ivs st)), False.*)
+  Fact fwp_propcontrol : (fwp proportional_controller postcond proportional_controller_ivs st).
+  Proof.
+    intros.
+    cbv beta iota delta [fwp proportional_controller].
+    simpl.
+    Print bound.isVarValid.
+    unfold Semantics.eval_comp.
+    simpl.
 
-        (* TODO may need to bolt on continuation support *)
-        Unset Ltac Debug.
-        Ltac abstractor_cleanup P :=
-          let rec cleanup P :=
-              match P with
-              | AnyOf ?P1 :: nil => apply AnyOf_singleton in P; admit
-              | AnyOf ?PS => cleanup_list PS
-              | ?P1 \/ ?P2 => abstractor_cleanup P1; abstractor_cleanup P2
-              | _ => idtac
-              end
-              with cleanup_list ls :=
-                match ls with
-                | ?P :: ?PS => cleanup P; cleanup_list PS
-                | nil => idtac
-                end
-                in
-                  let t := type of P in
-                  cleanup t.
+    (* TODO may need to bolt on continuation support *)
+    Unset Ltac Debug.
+    Ltac abstractor_cleanup P :=
+      let rec cleanup P :=
+          match P with
+          | AnyOf ?P1 :: nil => apply AnyOf_singleton in P; abstractor_cleanup P
+          | AnyOf ?PS => cleanup_list PS
+          | ?P1 \/ ?P2 => abstractor_cleanup P1; abstractor_cleanup P2
+          | True /\ ?P1 => apply and_True_snip1 in P; abstractor_cleanup P
+          | _ => idtac
+    end
+    with cleanup_list ls :=
+      match ls with
+      | ?P :: ?PS => cleanup P; cleanup_list PS
+      | nil => idtac
+      end
+      in
+        let t := type of P in
+        cleanup t.
 
-        abstractor_cleanup P.
+    (* use entailment |-- and -|-
+       also want to convert (state -> Prop) to Formula by distributing embed.
+       test on "just increment x" controller, where safety is x > 0 
+       prove bi entailment of result formula *)
 
-        
-              Unset Ltac Debug.
+    Ltac abstractor_cleanup_goal :=
+      match goal with
+      | |- ?P => abstractor_cleanup P
+      end.
+
+    match goal with
+    | |- _ \/ _ => idtac
+    end.
+
+    abstractor_cleanup_goal.
+
+    
+    Unset Ltac Debug.
 
               Lemma silly_AnyOf :
                 AnyOf (True :: nil) -> False.
