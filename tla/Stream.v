@@ -135,6 +135,16 @@ Proof.
   - simpl. apply stream_map_id. auto.
 Qed.
 
+Lemma stream_map_cons : forall T U r (f : T -> U) x y,
+    Reflexive r ->
+    stream_eq r (stream_map f (Cons x y))
+              (Cons (f x) (stream_map f y)).
+Proof.
+  intros.
+  eapply stream_eq_eta. simpl. split; reflexivity.
+Qed.
+
+
 Section xxx2.
   Context {T U : Type}.
   Context {rT : T -> T -> Prop}.

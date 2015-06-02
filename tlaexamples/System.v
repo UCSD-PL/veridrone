@@ -99,119 +99,11 @@ Definition SysRec_equiv (a b : SysRec) : Prop :=
   (forall st', (a.(world) st' -|- b.(world) st')) /\
   a.(maxTime) = b.(maxTime).
 
-Lemma Proper_Enabled :
-  Proper (lequiv ==> lequiv) Enabled.
-Proof.
-  red. red. unfold lequiv, lentails. simpl.
-  unfold tlaEntails. simpl. intros. split.
-  { intros. destruct H0. exists x0. intuition. }
-  { intros. destruct H0. exists x0. intuition. }
-Qed.
-
-Lemma Proper_Always :
-  Proper (lequiv ==> lequiv) Always.
-Proof.
-  red. red. unfold lequiv, lentails. simpl.
-  intuition. restoreAbstraction. tlaRevert. apply always_imp.
-  charge_tauto.
-  restoreAbstraction. tlaRevert.
-  apply always_imp. charge_tauto.
-Qed.
-
-Existing Instance Proper_Always.
-
-Existing Instance Proper_Enabled.
-
-Lemma worldImp : forall x y x0 x1,
-    (forall st' : state, world x st' -|- world y st') ->
-    (is_solution eval_formula x1 (mkEvolution (world x)) x0 <->
-     is_solution eval_formula x1 (mkEvolution (world y)) x0).
-Proof.
-  intros.
-  unfold mkEvolution in *.
-  split.
-  {
-    intros.
-    unfold is_solution,solves_diffeqs in *.
-    destruct H0.
-    exists x2.
-    intros.
-    specialize (H0 z H1).
-    simpl in *.
-    decompose [and] H0.
-    split.
-    { intuition. }
-    {  
-      specialize (H (fun x3 : Var =>
-                       Ranalysis1.derive (fun t : R => x1 t x3) (x2 x3) z)).
-      destruct H.
-      simpl in *.
-      unfold tlaEntails in *.
-      specialize (H (Stream.forever (x1 z, fun _ _ => R0)) H3).
-      intuition.
-    }
-  }
-  {
-    intros.
-    unfold is_solution,solves_diffeqs in *.
-    destruct H0.
-    exists x2.
-    intros.
-    specialize (H0 z H1).
-    simpl in *.
-    decompose [and] H0.
-    split.
-    { intuition. }
-    {  
-      specialize (H (fun x3 : Var =>
-                       Ranalysis1.derive (fun t : R => x1 t x3) (x2 x3) z)).
-      destruct H.
-      simpl in *.
-      unfold tlaEntails in *.
-      specialize (H4 (Stream.forever (x1 z, fun _ _ => R0)) H3).
-      intuition.
-    }
-  }
-Qed.
-
-Lemma prog_imp : forall tr x y n,(Prog x -|- Prog y) -> (eval_formula (Prog y) (Stream.nth_suf n tr) /\
-                                                         (fst (Stream.hd (Stream.tl (Stream.nth_suf n tr))) "t" <= maxTime y)%R <->  eval_formula (Prog x) (Stream.nth_suf n tr) /\
-                                                                                                                                     (fst (Stream.hd (Stream.tl (Stream.nth_suf n tr))) "t" <= maxTime y)%R ).
-  intros.
-  inversion H.
-  simpl in *.
-  unfold tlaEntails in *.
-  split; intros; decompose [and] H2; split; auto.
-Qed.
-
-Lemma is_solution_imp : forall x0 x y f, (forall st' : state, world x st' -|- world y st') -> is_solution eval_formula f (mkEvolution (world x)) x0 -> is_solution eval_formula f (mkEvolution (world y)) x0.
-Proof.
-  { unfold mkEvolution in *.
-    unfold is_solution in *.
-    intros.
-    destruct H0.
-    exists x1.
-    unfold solves_diffeqs in *.
-    intros.
-    specialize (H0 z H1).
-    simpl in *.
-    decompose [and] H0.
-    split.
-    {
-      decompose [and] H0.
-      auto.
-    }
-    {
-      remember ((fun x2 : Var => Ranalysis1.derive (fun t : R => f t x2) (x1 x2) z)).
-      specialize (H r).
-      inversion H.
-      simpl in *.
-      unfold tlaEntails in *.
-      apply H4.
-      auto.
-    }
-  }
-Qed.
+Ltac morphism_intro :=
+  repeat (intros; match goal with
+                  | |- Proper (_ ==> _)%signature _ => red
+                  | |- (_ ==> _)%signature _ _ => red
+                  end; intros).
 
 Lemma lequiv_limpl : forall {L} (LL : ILogicOps L) {LLO : ILogic L} (P Q R S : L),
     (P -|- R) ->
@@ -220,30 +112,6 @@ Lemma lequiv_limpl : forall {L} (LL : ILogicOps L) {LLO : ILogic L} (P Q R S : L
 Proof.
   intros. rewrite H. rewrite H0. reflexivity.
 Qed.
-
-Lemma Proper_Continuous_entails
-  : Proper ((pointwise_relation _ lentails) ==> lentails) Continuous.
-Proof.
-  do 5 red.
-  simpl. destruct tr; simpl.
-  destruct p.
-  destruct 1.
-  exists x0. intuition.
-  unfold is_solution in *. destruct H4. exists x1.
-  unfold solves_diffeqs in *.
-  intros.
-  specialize (H3 _ H4).
-  eapply H. assumption.
-Qed.
-
-
-Lemma Proper_Continuous_equiv
-  : Proper ((pointwise_relation _ lequiv) ==> lequiv) Continuous.
-Proof.
-  red. red. intros.
-Admitted.
-Existing Instance Proper_Continuous_entails.
-Existing Instance Proper_Continuous_equiv.
 
 Lemma Proper_mkEvolution : Proper (pointwise_relation _ lequiv ==> pointwise_relation _ lequiv) mkEvolution.
 Proof.
@@ -293,7 +161,11 @@ Qed.
 Existing Instance Proper_SysD.
 
 Lemma Proper_Next_or_stuck : Proper (lequiv ==> (pointwise_relation _ lequiv) ==> eq ==> eq ==> lequiv) Next_or_stuck.
-Proof. Admitted.
+Proof.
+  morphism_intro. unfold Next_or_stuck.
+  subst.
+  rewrite H0. rewrite H. reflexivity.
+Qed.
 Existing Instance Proper_Next_or_stuck.
 
 
@@ -317,11 +189,8 @@ Existing Instance Proper_SysD_or_stuck.
 Lemma Proper_SysSafe :
   Proper (SysRec_equiv ==> lequiv) SysSafe.
 Proof.
-  red. red. unfold SysSafe.
-  intros.
-  eapply lequiv_limpl; eauto with typeclass_instances.
-  { eapply Proper_SysD. eassumption. }
-  { apply Proper_SysD_or_stuck. assumption. }
+  red. red. intros. unfold SysSafe.
+  rewrite H. reflexivity.
 Qed.
 Existing Instance Proper_SysSafe.
 
@@ -992,9 +861,6 @@ Proof.
     { charge_exfalso. charge_tauto. }
 Qed.
 
-Definition VarRenameMap (m : list (Var * Var)) : RenameMap :=
-  List.map (fun p => (fst p, VarNowT (snd p))) m.
-
 (*
 Lemma VarRenameMap_rw : forall m st x,
   subst (VarRenameMap m) st x =
@@ -1015,21 +881,6 @@ Proof.
 Qed.
 *)
 
-Lemma VarRenameMap_derivable : forall f m,
-    (forall x,
-        Ranalysis1.derivable (fun t => f t x)) ->
-    forall x,
-      Ranalysis1.derivable
-        (fun t => subst_state (VarRenameMap m) (f t) x).
-Proof.
-  intros.
-  induction m.
-  - simpl. auto.
-  - simpl. destruct a. simpl.
-    destruct (String.string_dec x v).
-    + subst. apply H.
-    + auto.
-Qed.
 
 Require Import Coq.Logic.FunctionalExtensionality.
 
@@ -1049,31 +900,10 @@ Proof.
   intros. destruct (String.string_dec x y); try congruence.
 Qed.
 
-Lemma subst_VarRenameMap_derive_distr :
-  forall m f z pf1 pf2,
-    subst_state (VarRenameMap m)
-          (fun x =>
-             Ranalysis1.derive (fun t : R => f t x) (pf1 x) z) =
-    fun x =>
-      Ranalysis1.derive (fun t : R =>
-                           subst_state (VarRenameMap m) (f t) x)
-                        (pf2 x)
-                        z.
-Proof.
-  intros. apply functional_extensionality.
-  intros. generalize (pf2 x). clear pf2.
-  induction m; intros.
-  - simpl. apply Ranalysis4.pr_nu_var. auto.
-  - destruct a. simpl in *.
-    destruct (String.string_dec x v).
-    + subst. apply Ranalysis4.pr_nu_var.
-      auto.
-    + erewrite IHm. auto.
-Qed.
 
 Lemma subst_st_distr : forall m st,
   subst_state m st = (fun x => subst_state m st x).
-Proof. auto. Qed.
+Proof. reflexivity. Qed.
 
 (*
 Definition FlipMap {A B} (l : list (A * B)) :=
@@ -1139,38 +969,6 @@ Proof.
 Qed.
 *)
 
-Lemma Rename_continuous
-: forall (m' : list (Var * Var)) w
-         (H_is_st : forall st, is_st_formula (w st)),
-  let m := VarRenameMap m' in
-  Continuous (fun st' => Rename m (w (subst_state m st'))) |--
-  Rename m (Continuous w).
-Proof.
-  breakAbstraction; intros.
-  { destruct tr. simpl in *.
-    destruct p.
-    destruct H as [ ? [ ? [ ? [ ? ? ] ] ] ].
-    subst.
-    exists x; split; eauto.
-    simpl.
-    split; eauto.
-    split.
-    { destruct tr. simpl in *.
-      unfold subst_flow. f_equal. assumption. }
-    unfold is_solution, solves_diffeqs in *.
-    destruct H2.
-    exists (VarRenameMap_derivable f m' x0).
-    intros.
-    specialize (H0 _ H2).
-    simpl in *.
-    rewrite (@Stream.stream_map_forever _ _ (subst (VarRenameMap m')) (@eq (state*flow))) in H0
-         by eauto with typeclass_instances.
-    unfold subst in H0. simpl in H0.
-    eapply st_formula_hd. eauto.
-    setoid_rewrite subst_VarRenameMap_derive_distr in H0.
-    eapply H0.
-    simpl. reflexivity. }
-Qed.
 
 (*
 Lemma Rename_continuous : forall m m' w,
@@ -1300,34 +1098,12 @@ Proof.
   { simpl. compute. tauto. }
   { simpl. restoreAbstraction.
     rewrite Rename_and. rewrite IHunch0.
-    rewrite Rename_comp; auto.
+    rewrite Rename_Comp; auto.
     unfold rename_formula.
     rewrite Rename_next_term. reflexivity. }
 Qed.
 
-Lemma stream_map_cons : forall T U r (f : T -> U) x y,
-    Reflexive r ->
-    Stream.stream_eq r (Stream.stream_map f (Stream.Cons x y))
-                     (Stream.Cons (f x) (Stream.stream_map f y)).
-Proof.
-  intros.
-  eapply Stream.stream_eq_eta. simpl. split; reflexivity.
-Qed.
-
-Lemma Rename_Enabled
-: forall P m,
-    Enabled (Rename m P) |-- Rename m (Enabled P).
-Proof.
-  Opaque Stream.stream_map.
-  breakAbstraction. intros.
-  destruct H.
-  simpl.
-  destruct tr. simpl in H.
-  eapply Proper_eval_formula in H. 2: reflexivity.
-  2: symmetry. 2: eapply stream_map_cons. 2: eauto.
-  eauto.
-Qed.
-
+(** TODO: Move this **)
 Lemma Rename_Enabled'
 : forall P m,
     Rename m (Enabled P) |-- Enabled (Rename m P).
@@ -1343,41 +1119,48 @@ Proof.
   (* only if m is invertible *)
 Abort.
 
-
-
 Theorem SysRename_sound
 : forall s m'
          (H_is_st : forall st, is_st_formula (s.(world) st)),
   let m := VarRenameMap m' in
   NotRenamed m "t" ->
-  Rename m (Enabled (Discr s.(Prog) s.(maxTime))) -|-
-  Enabled (Rename m (Discr s.(Prog) s.(maxTime))) ->
+  (Rename m (Enabled (Discr s.(Prog) s.(maxTime))) |--
+          Enabled (Rename m (Discr s.(Prog) s.(maxTime)))) ->
   SysD (SysRename m s) |-- Rename m (SysD s).
 Proof.
   intros. destruct s. unfold SysD, sysD, Next, World, Discr in *. simpl in *.
   restoreAbstraction. Rename_rewrite; auto; try apply VarRenameMap_is_st_term.
-  rewrite H0. Rename_rewrite; auto; try apply VarRenameMap_is_st_term.
+  apply land_lentails_m.
+  { simpl rename_formula. repeat rewrite NotRenamed_find_term; auto.
+    reflexivity. }
+  tlaRevert. eapply always_imp. charge_intro.
+  apply land_lentails_m.
+  2: simpl rename_formula; repeat rewrite NotRenamed_find_term; auto; reflexivity.
+  rewrite H0.
   rewrite Rename_UnchangedT by eapply VarRenameMap_is_st_term.
   repeat match goal with
          |- context [ rename_formula ?m ?e ]
          => simpl (rename_formula m e)
          end.
   repeat rewrite NotRenamed_find_term; auto.
-  charge_split; try charge_tauto.
-  tlaRevert. apply forget_prem.
-  apply always_imp. charge_intros.
-  apply land_lentails_m; [ | reflexivity ].
-  apply lor_lentails_m; [ | reflexivity ].
-  apply lor_lentails_m; [ | reflexivity ].
-  etransitivity; [ | eapply Rename_continuous ].
-  { eapply Proper_Continuous. red; intros.
+  subst m.
+  rewrite <- Rename_Continuous.
+  apply lor_lentails_m; try reflexivity.
+  { apply lor_lentails_m; try reflexivity.
+    eapply Proper_Continuous_entails.
+    red. intros.
     unfold mkEvolution.
-    rewrite Rename_and.
-    apply land_lentails_m.
-    { rewrite Rename_comp by eauto using VarRenameMap_is_st_term.
-      simpl rename_formula.
-      rewrite NotRenamed_subst by eauto. reflexivity. }
-    { reflexivity. } }
+    Rename_rewrite.
+    apply land_lentails_m; auto.
+    simpl rename_formula.
+    rewrite NotRenamed_subst by eauto. reflexivity.
+    eauto using VarRenameMap_is_st_term. }
+  { apply lor_lentails_m; try reflexivity.
+    apply limpl_lentails_m; try reflexivity.
+    red. rewrite Rename_and.
+    rewrite Rename_Comp by eauto using VarRenameMap_is_st_term.
+    simpl rename_formula.
+    rewrite NotRenamed_find_term by eauto. reflexivity. }
   { unfold mkEvolution. simpl. intros.
     split; auto. }
 Qed.

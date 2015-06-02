@@ -1,4 +1,5 @@
 Require Import Coq.Classes.Morphisms.
+Require Import Coq.Logic.FunctionalExtensionality.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.Automation.
@@ -7,6 +8,13 @@ Require Import Rdefinitions.
 (* Various proof rules for TLA in general *)
 
 Open Scope HP_scope.
+
+Ltac morphism_intro :=
+  repeat (intros; match goal with
+                  | |- Proper (_ ==> _)%signature _ => red
+                  | |- (_ ==> _)%signature _ _ => red
+                  end; intros).
+
 
 Lemma exists_iff : forall {T} (P Q: T -> Prop),
     (forall x, P x <-> Q x) ->
@@ -18,48 +26,84 @@ Lemma forall_iff : forall {T} (P Q: T -> Prop),
     (forall x, P x <-> Q x) ->
     ((forall x, P x) <-> (forall x, Q x)).
 Proof. split; intuition; firstorder. Qed.
+Lemma impl_iff : forall (P Q R S : Prop),
+    (P <-> Q) ->
+    (P -> (R <-> S)) ->
+    ((P -> R) <-> (Q -> S)).
+Proof.
+  intros. tauto.
+Qed.
+Lemma and_iff : forall (P Q R S : Prop),
+    (P <-> Q) ->
+    (P -> (R <-> S)) ->
+    ((P /\ R) <-> (Q /\ S)).
+Proof.
+  intros. tauto.
+Qed.
+Lemma or_iff : Proper (iff ==> iff ==> iff) or.
+Proof.
+  morphism_intro. tauto.
+Qed.
+
+Global Instance Proper_is_solution
+: Proper ((lequiv ==> Stream.stream_eq eq ==> iff) ==> eq ==> pointwise_relation _ lequiv ==> eq ==> iff) is_solution.
+Proof.
+  morphism_intro.
+  subst. unfold is_solution.
+  eapply exists_iff. intros.
+  unfold solves_diffeqs.
+  eapply forall_iff; intros.
+  eapply impl_iff; try reflexivity. intros.
+  eapply H. 2: reflexivity.
+  red in H1. eapply H1.
+Qed.
+
+
+Lemma lequiv_to_iff
+: forall (P Q : Formula),
+    (P -|- Q) <-> (forall st, eval_formula P st <-> eval_formula Q st).
+Proof.
+  split.
+  { intros. destruct H; split; auto. }
+  { intro. split; intro; apply H. }
+Qed.
 
 Global Instance Proper_eval_formula
-: Proper (eq ==> Stream.stream_eq eq ==> iff) eval_formula.
+: Proper (lequiv ==> Stream.stream_eq eq ==> iff) eval_formula.
 Proof.
-  red. red. intros. subst.
-  red.
-  induction y; simpl; intros; try tauto.
-  { eapply Stream.stream_eq_eta in H.
-    rewrite Stream.stream_eq_eta in H.
-    destruct H as [ ? [ ? ? ] ].
+  red. red.
+  induction x;
+    morphism_intro;
+    try match goal with
+        | H : _ -|- _ |- _ => rewrite lequiv_to_iff in H ; rewrite <- H ; clear H
+        end; simpl; try tauto.
+  { destruct H0. destruct H0.
     rewrite H. rewrite H0. reflexivity. }
-  { rewrite IHy1; eauto.
-    rewrite IHy2; eauto.
-    reflexivity. }
-  { rewrite IHy1; eauto.
-    rewrite IHy2; eauto.
-    reflexivity. }
-  { rewrite IHy1; eauto.
-    rewrite IHy2; eauto.
-    reflexivity. }
-  { admit. }
+  { eapply and_iff; intros; first [ eapply IHx1 | eapply IHx2 ]; eauto. }
+  { eapply or_iff; intros; first [ eapply IHx1 | eapply IHx2 ]; eauto. }
+  { eapply impl_iff; intros; first [ eapply IHx1 | eapply IHx2 ]; eauto. }
+  { destruct H1. rewrite H0.
+    destruct (Stream.hd ys).
+    apply exists_iff; intros.
+    destruct H1. rewrite H1. reflexivity. }
   { eapply exists_iff; intros.
-    eauto. }
+    eapply H; eauto. }
   { eapply forall_iff; intros.
-    eauto. }
+    eapply H; eauto. }
   { eapply exists_iff; intros.
-    eapply IHy.
-    eapply Stream.stream_eq_eta in H.
-    destruct H.
-    constructor; simpl; auto.
+    destruct H0. rewrite H.
     reflexivity. }
-  { eapply forall_iff. intros.
-    eapply IHy.
+  { eapply forall_iff; intros.
+    eapply IHx. reflexivity.
     eapply Stream.Proper_nth_suf_stream_eq; eauto. }
   { eapply exists_iff; intros.
-    eapply IHy.
+    eapply IHx. reflexivity.
     eapply Stream.Proper_nth_suf_stream_eq; eauto. }
-  { do 2 rewrite Stream.stream_eq_eta in H.
-    destruct H as [ ? [ ? ? ] ].
+  { destruct H0. destruct H0.
     rewrite H. rewrite H0. reflexivity. }
-  { eapply IHy. eapply Stream.Proper_stream_map; eauto.
-    red. intros. subst. reflexivity. }
+  { eapply IHx. reflexivity.
+    eapply Stream.Proper_stream_map; eauto.
+    reflexivity. }
 Qed.
 
 (* First, a few functions for expressing
@@ -646,20 +690,20 @@ Proof.
     + erewrite find_term_next_None_ok; auto.
 Qed.
 
-Lemma Rename_true : forall m,
+Lemma Rename_True : forall m,
   Rename m TRUE -|- TRUE.
 Proof.
   intros; split; breakAbstraction; auto.
 Qed.
 
-Lemma Rename_false : forall m,
+Lemma Rename_False : forall m,
   Rename m FALSE -|- FALSE.
 Proof.
   intros; split; breakAbstraction; auto.
 Qed.
 
 
-Lemma Rename_comp : forall m t1 t2 op,
+Lemma Rename_Comp : forall m t1 t2 op,
   List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
   Rename m (Comp t1 t2 op) -|-
   rename_formula m (Comp t1 t2 op).
@@ -694,27 +738,27 @@ Proof.
   intros; split; breakAbstraction; auto.
 Qed.
 
-Lemma Rename_prop : forall m P,
+Lemma Rename_PropF : forall m P,
   Rename m (PropF P) -|- PropF P.
 Proof.
   intros; split; breakAbstraction; auto.
 Qed.
 
-Lemma Rename_exists : forall T m f,
+Lemma Rename_Exists : forall T m f,
   Rename m (Syntax.Exists T f) -|-
   Syntax.Exists T (fun x => Rename m (f x)).
 Proof.
   intros; split; breakAbstraction; auto.
 Qed.
 
-Lemma Rename_forall : forall T m f,
+Lemma Rename_Forall : forall T m f,
   Rename m (Syntax.Forall T f) -|-
   Syntax.Forall T (fun x => Rename m (f x)).
 Proof.
   intros; split; breakAbstraction; auto.
 Qed.
 
-Lemma Rename_always : forall m F,
+Lemma Rename_Always : forall m F,
   Rename m (Always F) -|-
   Always (Rename m F).
 Proof.
@@ -724,7 +768,7 @@ Proof.
   { rewrite Stream.stream_map_nth_suf; auto. }
 Qed.
 
-Lemma Rename_eventually : forall m F,
+Lemma Rename_Eventually : forall m F,
   Rename m (Eventually F) -|-
   Eventually (Rename m F).
 Proof.
@@ -735,14 +779,107 @@ Proof.
     exists n. rewrite Stream.stream_map_nth_suf; auto. }
 Qed.
 
+Definition VarRenameMap (m : list (Var * Var)) : RenameMap :=
+  List.map (fun p => (fst p, VarNowT (snd p))) m.
+
+Lemma VarRenameMap_derivable : forall f m,
+    (forall x,
+        Ranalysis1.derivable (fun t => f t x)) ->
+    forall x,
+      Ranalysis1.derivable
+        (fun t => subst_state (VarRenameMap m) (f t) x).
+Proof.
+  intros.
+  induction m.
+  - simpl. auto.
+  - simpl. destruct a. simpl.
+    destruct (String.string_dec x v).
+    + subst. apply H.
+    + auto.
+Qed.
+
+Require Ranalysis4.
+
+Lemma subst_VarRenameMap_derive_distr :
+  forall m f z pf1 pf2,
+    subst_state (VarRenameMap m)
+          (fun x =>
+             Ranalysis1.derive (fun t : R => f t x) (pf1 x) z) =
+    fun x =>
+      Ranalysis1.derive (fun t : R =>
+                           subst_state (VarRenameMap m) (f t) x)
+                        (pf2 x)
+                        z.
+Proof.
+  intros. apply functional_extensionality.
+  intros. generalize (pf2 x). clear pf2.
+  induction m; intros.
+  - simpl. apply Ranalysis4.pr_nu_var. auto.
+  - destruct a. simpl in *.
+    destruct (String.string_dec x v).
+    + subst. apply Ranalysis4.pr_nu_var.
+      auto.
+    + erewrite IHm. auto.
+Qed.
+
+
+(** TODO: Generalize this **)
+Lemma Rename_Continuous
+: forall (m' : list (Var * Var)) w
+         (H_is_st : forall st, is_st_formula (w st)),
+  let m := VarRenameMap m' in
+  Continuous (fun st' => Rename m (w (subst_state m st'))) |--
+  Rename m (Continuous w).
+Proof.
+  breakAbstraction; intros.
+  { destruct tr. simpl in *.
+    destruct p.
+    destruct H as [ ? [ ? [ ? [ ? ? ] ] ] ].
+    subst.
+    exists x; split; eauto.
+    simpl.
+    split; eauto.
+    split.
+    { destruct tr. simpl in *.
+      unfold subst_flow. f_equal. assumption. }
+    unfold is_solution, solves_diffeqs in *.
+    destruct H2.
+    exists (VarRenameMap_derivable f m' x0).
+    intros.
+    specialize (H0 _ H2).
+    simpl in *.
+    rewrite (@Stream.stream_map_forever _ _ (subst (VarRenameMap m')) (@eq (state*flow))) in H0
+         by eauto with typeclass_instances.
+    unfold subst in H0. simpl in H0.
+    eapply st_formula_hd. eauto.
+    setoid_rewrite subst_VarRenameMap_derive_distr in H0.
+    eapply H0.
+    simpl. reflexivity. }
+Qed.
+
+
+Lemma Rename_Enabled
+: forall P m,
+    Enabled (Rename m P) |-- Rename m (Enabled P).
+Proof.
+  Opaque Stream.stream_map.
+  breakAbstraction. intros.
+  destruct H.
+  simpl.
+  destruct tr. simpl in H.
+  eapply Proper_eval_formula in H. 2: reflexivity.
+  2: symmetry. 2: eapply Stream.stream_map_cons. 2: eauto.
+  eauto.
+Qed.
+
 Lemma Rename_ok : forall m F,
   List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
   rename_formula m F -|- Rename m F.
 Proof.
   induction F; intros.
-  - apply Rename_true with (m:=m).
-  - apply Rename_false with (m:=m).
-  - rewrite Rename_comp; auto.
+  - apply Rename_True with (m:=m).
+  - apply Rename_False with (m:=m).
+  - rewrite Rename_Comp; auto.
   - rewrite Rename_and. simpl rename_formula.
     restoreAbstraction. rewrite IHF1; auto.
     rewrite IHF2; auto.
@@ -752,51 +889,107 @@ Proof.
   - rewrite Rename_impl. simpl rename_formula.
     restoreAbstraction. rewrite IHF1; auto.
     rewrite IHF2; auto.
-  - rewrite Rename_prop. simpl rename_formula.
+  - rewrite Rename_PropF. simpl rename_formula.
     split; charge_tauto.
   - split; charge_tauto.
-  - rewrite Rename_exists. simpl rename_formula.
+  - rewrite Rename_Exists. simpl rename_formula.
     split; breakAbstraction; intros.
     + destruct H1. specialize (H x H0). destruct H.
-      revert H0 H1. breakAbstraction. intros. exists x. 
+      revert H0 H1. breakAbstraction. intros. exists x.
       auto.
     + destruct H1. specialize (H x H0). destruct H.
-      revert H0 H1. breakAbstraction. intros. exists x. 
+      revert H0 H1. breakAbstraction. intros. exists x.
       auto.
-  - rewrite Rename_forall. simpl rename_formula.
+  - rewrite Rename_Forall. simpl rename_formula.
     split; breakAbstraction; intros.
     + specialize (H x H0). destruct H. revert H H1.
       breakAbstraction. intros. auto.
     + specialize (H x H0). destruct H. revert H H1.
       breakAbstraction. intros. auto.
   - simpl rename_formula. auto.
-  - rewrite Rename_always. simpl rename_formula.
+  - rewrite Rename_Always. simpl rename_formula.
     split; tlaRevert; apply always_imp; rewrite IHF;
     auto; charge_tauto.
-  - rewrite Rename_eventually. simpl rename_formula.
+  - rewrite Rename_Eventually. simpl rename_formula.
     split; tlaRevert; apply eventually_imp; rewrite IHF;
     auto; charge_tauto.
   - simpl rename_formula. split; charge_tauto.
   - simpl rename_formula. split; charge_tauto.
 Qed.
 
+Hint Rewrite Rename_True Rename_False Rename_Comp
+     Rename_and Rename_or Rename_impl Rename_PropF
+     Rename_Exists Rename_Forall
+     Rename_Always Rename_Eventually
+     Rename_Continuous Rename_Enabled : rw_rename.
+
 Ltac Rename_rewrite :=
-  repeat first [ rewrite Rename_true |
-                 rewrite Rename_false |
-                 rewrite Rename_comp |
+  autorewrite with rw_rename.
+(*
+  repeat first [ rewrite Rename_True |
+                 rewrite Rename_False |
+                 rewrite Rename_Comp |
                  rewrite Rename_and |
                  rewrite Rename_or |
                  rewrite Rename_impl |
-                 rewrite Rename_prop |
-                 rewrite Rename_exists |
-                 rewrite Rename_forall |
-                 rewrite Rename_always |
-                 rewrite Rename_eventually ].
+                 rewrite Rename_PropF |
+                 rewrite Rename_Exists |
+                 rewrite Rename_Forall |
+                 rewrite Rename_Always |
+                 rewrite Rename_Eventually ].
+*)
 
-Lemma Proper_Rename m :
-  Proper (lentails ==> lentails) (Rename m).
+Global Instance Proper_Rename :
+  Proper (eq ==> lentails ==> lentails) Rename.
 Proof.
-  red. red. breakAbstraction. intuition.
+  morphism_intro.
+  breakAbstraction. subst. intuition.
 Qed.
 
-Existing Instance Proper_Rename.
+Global Instance Proper_Enabled :
+  Proper (lequiv ==> lequiv) Enabled.
+Proof.
+  red. red. unfold lequiv, lentails. simpl.
+  unfold tlaEntails. simpl. intros. split.
+  { intros. destruct H0. exists x0. intuition. }
+  { intros. destruct H0. exists x0. intuition. }
+Qed.
+
+Global Instance Proper_Always :
+  Proper (lequiv ==> lequiv) Always.
+Proof.
+  red. red. unfold lequiv, lentails. simpl.
+  intuition. restoreAbstraction. tlaRevert. apply always_imp.
+  charge_tauto.
+  restoreAbstraction. tlaRevert.
+  apply always_imp. charge_tauto.
+Qed.
+
+Global Instance Proper_Continuous_entails
+  : Proper ((pointwise_relation _ lentails) ==> lentails) Continuous.
+Proof.
+  do 5 red.
+  simpl. destruct tr; simpl.
+  destruct p.
+  destruct 1.
+  exists x0. intuition.
+  unfold is_solution in *. destruct H4. exists x1.
+  unfold solves_diffeqs in *.
+  intros.
+  specialize (H3 _ H4).
+  eapply H. assumption.
+Qed.
+
+Global Instance Proper_Continuous_equiv
+  : Proper ((pointwise_relation _ lequiv) ==> lequiv) Continuous.
+Proof.
+  morphism_intro.
+  eapply lequiv_to_iff.
+  intros. simpl.
+  destruct (Stream.hd st).
+  apply exists_iff; intros.
+  eapply and_iff; try tauto; intros.
+  eapply and_iff; try tauto; intros.
+  eapply and_iff; try tauto; intros.
+  setoid_rewrite H. reflexivity.
+Qed.
