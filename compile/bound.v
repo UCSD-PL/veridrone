@@ -226,9 +226,9 @@ Definition combineTriplePlus (triple triple2 : singleBoundTerm) (t1 t2 : NowTerm
      :: List.nil). 
 
 (*
-    (((ub triple - ub triple2 >= floatMin) //\\ (lb triple - lb triple2 >=floatMin) //\\ (ub triple2 - lb triple >= floatMin)) \\//
-                                         ((ub triple2 - ub triple >= floatMin) //\\ (lb triple - lb triple2 >=floatMin)) \\//
-                                         ((ub triple - ub triple2 >= floatMin) /\ (lb triple2 - lb triple >= floatMin)) \\//
+    (((ub triple - ub triple2 >= floatMin) //\\ (lb triple - lb triple2 >=floatMin) //\\ (ub triple2 - lb triple >= floatMin)) \/
+                                         ((ub triple2 - ub triple >= floatMin) //\\ (lb triple - lb triple2 >=floatMin)) \/
+                                         ((ub triple - ub triple2 >= floatMin) /\ (lb triple2 - lb triple >= floatMin)) \/
                                          ((ub triple2 - ub triple >=floatMin) /\ (ub triple - lb triple2 >=floatMin) /\ (lb triple2 - lb triple >= floatMin)) ) /\
 *)
 Print Float.
@@ -946,8 +946,8 @@ Lemma resultImplicationsPlus :
          validFloat f ->
          exists (f1 f2:float),
            Some f1 = eval_NowTerm fState expr1
-           //\\ Some f2 = eval_NowTerm fState expr2
-                                       //\\ validFloat f1 //\\ validFloat f2.
+           /\ Some f2 = eval_NowTerm fState expr2
+                                       /\ validFloat f1 /\ validFloat f2.
   breakAbstraction.
   intros.  
   unfold lift2 in H.
@@ -1078,8 +1078,8 @@ Lemma resultImplicationsMult :
          validFloat f ->
          exists (f1 f2:float),
            Some f1 = eval_NowTerm fState expr1
-           //\\ Some f2 = eval_NowTerm fState expr2
-                                       //\\ validFloat f1 //\\ validFloat f2.
+           /\ Some f2 = eval_NowTerm fState expr2
+                                       /\ validFloat f1 /\ validFloat f2.
   breakAbstraction.
   intros.
   unfold lift2 in H.
@@ -1236,8 +1236,8 @@ Lemma resultImplicationsMinus :
          validFloat f ->
          exists (f1 f2:float),
            Some f1 = eval_NowTerm fState expr1
-           //\\ Some f2 = eval_NowTerm fState expr2
-                                       //\\ validFloat f1 //\\ validFloat f2.
+           /\ Some f2 = eval_NowTerm fState expr2
+                                       /\ validFloat f1 /\ validFloat f2.
   breakAbstraction.
   intros.
   unfold lift2 in H.
@@ -1916,7 +1916,7 @@ Qed.
 
 
 Lemma absoluteValGe : forall (r1 r2:R) , 
-                (Rabs r1 >= r2 -> r1 >= r2 \\// -r1 >= r2)%R. 
+                (Rabs r1 >= r2 -> r1 >= r2 \/ -r1 >= r2)%R. 
             Proof.
               intros.
               unfold Rabs in *. simpl.
@@ -1924,7 +1924,7 @@ Lemma absoluteValGe : forall (r1 r2:R) ,
             Qed.
             
 Lemma absoluteValLt : forall (r1 r2:R) , 
-                (Rabs r1 < r2 -> r1 < r2 \\// -r1 < r2)%R. 
+                (Rabs r1 < r2 -> r1 < r2 \/ -r1 < r2)%R. 
 Proof.
   intros.
   unfold Rabs in *. simpl.
@@ -1936,15 +1936,15 @@ Qed.
 
 
 Declare ML Module "z3Tactic".
-(*((ub2 >= lb1) //\\ 
-      (ub1 >= lb2) //\\ 
-      (((ub1 - ub2 >= floatMin) //\\ (lb1 - lb2 >=floatMin) //\\ (ub2 - lb1 >= floatMin)) \\//
-       ((ub2 - ub1 >= floatMin) //\\ (lb1 - lb2 >=floatMin)) \\//
-       ((ub1 - ub2 >= floatMin) //\\ (lb2 - lb1 >= floatMin)) \\//
-       ((ub2 - ub1 >=floatMin) //\\ (ub1 - lb2 >=floatMin) //\\ (lb2 - lb1 >= floatMin)) ))*)
+(*((ub2 >= lb1) /\ 
+      (ub1 >= lb2) /\ 
+      (((ub1 - ub2 >= floatMin) /\ (lb1 - lb2 >=floatMin) /\ (ub2 - lb1 >= floatMin)) \/
+       ((ub2 - ub1 >= floatMin) /\ (lb1 - lb2 >=floatMin)) \/
+       ((ub1 - ub2 >= floatMin) /\ (lb2 - lb1 >= floatMin)) \/
+       ((ub2 - ub1 >=floatMin) /\ (ub1 - lb2 >=floatMin) /\ (lb2 - lb1 >= floatMin)) ))*)
 Lemma minusfloatMinBoundProof:  forall (x1 x2 lb1 lb2 ub1 ub2:R), 
-    (((lb1 >= ub2) //\\ (floatMin <= lb1 - ub2)) \\// 
-     ((ub1 <= lb2) //\\(floatMin <= lb2 - ub1))
+    (((lb1 >= ub2) /\ (floatMin <= lb1 - ub2)) \/ 
+     ((ub1 <= lb2) /\(floatMin <= lb2 - ub1))
     -> 
   lb1 <= x1 -> lb2 <= x2 -> x1 <= ub1 -> x2 <= ub2 -> (Rabs (x1 - x2) >= floatMin))%R. 
 Proof.
@@ -1972,7 +1972,7 @@ clear -H6 r H4 H1 H2.
 psatz R.
 Qed.
 
-Lemma plusfloatMinBoundProof:  forall (x1 x2 lb1 lb2 ub1 ub2:R), ((floatMin <= lb1 + lb2) \\// (floatMin <= 0 - ub1 + (0 - ub2)) -> lb1 <= x1 -> lb2 <= x2 -> x1 <= ub1 -> x2 <= ub2 -> (Rabs (x1 + x2) >= floatMin))%R. 
+Lemma plusfloatMinBoundProof:  forall (x1 x2 lb1 lb2 ub1 ub2:R), ((floatMin <= lb1 + lb2) \/ (floatMin <= 0 - ub1 + (0 - ub2)) -> lb1 <= x1 -> lb2 <= x2 -> x1 <= ub1 -> x2 <= ub2 -> (Rabs (x1 + x2) >= floatMin))%R. 
 Proof.
   intros.
   pose proof floatMinGt0.
@@ -1999,10 +1999,10 @@ Qed.
 
 
 Lemma multfloatMinBoundProof:  forall (x1 x2 lb1 lb2 ub1 ub2:R), 
-    (((floatMin <= lb1 * lb2) //\\  (lb1 >= R0) //\\ (lb2 >= R0))
-    \\// (floatMin <= (0 - ub1) * (0 - ub2) //\\ (ub1 < R0) //\\ (ub2 < R0)) 
-    \\// (floatMin <= lb1 * (0 - ub2) //\\ (lb1 >= R0) //\\  (ub2 < R0)) 
-    \\// (floatMin <= (0 - ub1) * lb2 //\\ (ub1 < R0) //\\  (lb2 >= R0)) -> lb1 <= x1 -> lb2 <= x2 -> x1 <= ub1 -> x2 <= ub2 -> (Rabs (x1 * x2) >= floatMin))%R. 
+    (((floatMin <= lb1 * lb2) /\  (lb1 >= R0) /\ (lb2 >= R0))
+    \/ (floatMin <= (0 - ub1) * (0 - ub2) /\ (ub1 < R0) /\ (ub2 < R0)) 
+    \/ (floatMin <= lb1 * (0 - ub2) /\ (lb1 >= R0) /\  (ub2 < R0)) 
+    \/ (floatMin <= (0 - ub1) * lb2 /\ (ub1 < R0) /\  (lb2 >= R0)) -> lb1 <= x1 -> lb2 <= x2 -> x1 <= ub1 -> x2 <= ub2 -> (Rabs (x1 * x2) >= floatMin))%R. 
 Proof.
   breakAbstraction.
   intros;
@@ -2014,7 +2014,7 @@ Proof.
 Qed.
 
 
-Lemma lbAndUbSumIsZero : forall (lb1 lb2 ub1 ub2 x1 x2: R), ((lb1 + lb2)%R = 0%R //\\ (ub1 + ub2)%R = 0%R) ->  (lb1 <= x1 <= ub1)%R ->  (lb2 <= x2 <= ub2)%R -> (x1 + x2 = 0)%R.
+Lemma lbAndUbSumIsZero : forall (lb1 lb2 ub1 ub2 x1 x2: R), ((lb1 + lb2)%R = 0%R /\ (ub1 + ub2)%R = 0%R) ->  (lb1 <= x1 <= ub1)%R ->  (lb2 <= x2 <= ub2)%R -> (x1 + x2 = 0)%R.
 Proof.
   breakAbstraction.
   intros.
@@ -2026,10 +2026,10 @@ Proof.
 Qed.
 
 Lemma relErrorBasedOnFloatMinTruthMult : forall (x1 x2 lb1 lb2 ub1 ub2:R), 
-    ((((floatMin <= lb1 * lb2) //\\  (lb1 >= R0) //\\ (lb2 >= R0)) 
-\\// (floatMin <= (0 - ub1) * (0 - ub2) //\\ (ub1 < R0) //\\ (ub2 < R0))
-\\// (floatMin <= lb1 * (0 - ub2) //\\ (lb1 >= R0) //\\  (ub2 < R0)) 
-\\// (floatMin <= (0 - ub1) * lb2 //\\ (ub1 < R0) //\\  (lb2 >= R0)))
+    ((((floatMin <= lb1 * lb2) /\  (lb1 >= R0) /\ (lb2 >= R0)) 
+\/ (floatMin <= (0 - ub1) * (0 - ub2) /\ (ub1 < R0) /\ (ub2 < R0))
+\/ (floatMin <= lb1 * (0 - ub2) /\ (lb1 >= R0) /\  (ub2 < R0)) 
+\/ (floatMin <= (0 - ub1) * lb2 /\ (ub1 < R0) /\  (lb2 >= R0)))
  -> 
 lb1 <= x1 -> lb2 <= x2 -> x1 <= ub1 -> x2 <= ub2 ->  
 (Rabs (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (x1 * x2) - (x1 * x2)) < 
@@ -2065,8 +2065,8 @@ Proof.
   apply Rel_Err.
 Qed.
 Lemma relErrorBasedOnFloatMinTruthMinus : forall (x1 x2 lb1 lb2 ub1 ub2:R), 
-(((lb1 >= ub2)  //\\  (floatMin <= lb1 - ub2)) 
-\\// ((ub1 <= lb2) //\\(floatMin <= lb2 - ub1)) -> 
+(((lb1 >= ub2)  /\  (floatMin <= lb1 - ub2)) 
+\/ ((ub1 <= lb2) /\(floatMin <= lb2 - ub1)) -> 
 lb1 <= x1 -> lb2 <= x2 -> x1 <= ub1 -> x2 <= ub2 ->  
 (Rabs (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (x1 - x2) - (x1 - x2)) < 
  bpow radix2 (- custom_prec + 1) * Rabs (x1 - x2)))%R.
@@ -2105,7 +2105,7 @@ Qed.
 Lemma relErrorBasedOnFloatMinTruthPlus : forall (x1 x2 lb1 lb2 ub1 ub2:R), 
     (
       (floatMin <= lb1 + lb2)  
-      \\// (floatMin <= 0 - ub1 + (0 - ub2)) -> 
+      \/ (floatMin <= 0 - ub1 + (0 - ub2)) -> 
       lb1 <= x1 -> 
       lb2 <= x2 -> 
       x1 <= ub1 -> 
@@ -2145,8 +2145,8 @@ Qed.
 
 Lemma minusRoundingTruth : forall (f1 f2:float)  (lb1 lb2 ub1 ub2 r1 r2:R),  (Some r1 = (floatToReal f1) -> 
                                                                               Some r2 = (floatToReal f2) ->
-                                                                              ( (((lb1 >= ub2)  //\\  (floatMin <= lb1 - ub2)) //\\  ((ub1 - lb2)*(1+error) < floatMax)) \\// 
-                                                                                (((ub1 <= lb2)  //\\  (floatMin <= lb2 - ub1)) //\\  ((ub2 - lb1)*(1+error) < floatMax)) 
+                                                                              ( (((lb1 >= ub2)  /\  (floatMin <= lb1 - ub2)) /\  ((ub1 - lb2)*(1+error) < floatMax)) \/ 
+                                                                                (((ub1 <= lb2)  /\  (floatMin <= lb2 - ub1)) /\  ((ub2 - lb1)*(1+error) < floatMax)) 
                                                                               ) ->
                                                                               (lb1 <= r1) ->
                                                                               (lb2 <= r2) ->
@@ -2165,7 +2165,7 @@ Proof.
       inversion H0.
       pose proof relErrorBasedOnFloatMinTruthMinus.
       Lemma andOrProof : forall (p1 p2 p3 p4 p5 p6:Prop), 
-                           ((p1 //\\ p2) //\\ p3) \\// ((p4 //\\ p5) //\\ p6) -> (p1 //\\ p2 ) \\// (p4 //\\ p5).
+                           ((p1 /\ p2) /\ p3) \/ ((p4 /\ p5) /\ p6) -> (p1 /\ p2 ) \/ (p4 /\ p5).
         tlaIntuition.
       Qed.
       intros.
@@ -2227,9 +2227,7 @@ Proof.
       destruct Rcase_abs;
       destruct Rcase_abs; destruct H1';
       unfold error in *; unfold floatMax in *;
-    (* very slow; admitted for now -- Mario *)
-    (* psatz R. *)
-    admit.
+      psatz R.
     
   }
   {
@@ -2242,7 +2240,7 @@ Proof.
   destruct f2.
   {
     
-
+    simpl in H1.
     inversion H.
     remember ((B2R custom_prec custom_emax (B754_zero custom_prec custom_emax b0))) as arg2.
     inversion H0.
@@ -2258,6 +2256,7 @@ Proof.
     pose proof errorGt0 as errorGt0.
     remember  (round radix2 (FLT_exp (3 - 1024 - 53) 53) 
                      (round_mode mode_NE) (r1 - arg2)) as roundedValue.
+    simpl in H1.
     clear HeqroundedValue.
     
     pose proof floatMaxGt0.
@@ -2269,8 +2268,7 @@ Proof.
       destruct Rcase_abs; 
       destruct Rcase_abs; 
       unfold floatMax,custom_prec,custom_emax in *;
-     admit.
-      (*psatz R.*)
+      psatz R.
   }
   
   {
@@ -2299,24 +2297,22 @@ Proof.
     pose proof floatMinGt0.
     clear r1Value.
     clear r2Value.
-    
+    simpl in H1,H1'.
     destruct Rcase_abs;
       destruct Rcase_abs;
       destruct Rcase_abs;
       unfold error,floatMax in *;
-      (*psatz R.*)
-      admit.
+      psatz R.
   }    
 Qed.  
-  Lemma abs: forall x y, (x >= y \\// x <= (0-y) -> y <= Rabs x)%R.
+  Lemma abs: forall x y, (x >= y \/ x <= (0-y) -> y <= Rabs x)%R.
   Proof.
     breakAbstraction.
     intros.
-    admit.
-(*          destruct H;unfold Rabs;destruct Rcase_abs; breakAbstraction; psatz R;psatz R. *)
+         destruct H;unfold Rabs;destruct Rcase_abs; breakAbstraction; psatz R;psatz R. 
         Qed.
 
-        Lemma orExtra : forall (p1 p2:Prop), p1 -> p1 \\// p2.
+        Lemma orExtra : forall (p1 p2:Prop), p1 -> p1 \/ p2.
           breakAbstraction.
         intros.
         intuition.
@@ -2326,7 +2322,7 @@ Lemma plusRoundingTruth3 : forall (f1 f2: float)  (lb1 lb2 ub1 ub2 x1 x2:R),
       Some x1 = (floatToReal f1) -> 
       Some x2 = (floatToReal f2) ->
       (
-        x1 + x2 >= floatMin \\// x1 + x2 <= (0-floatMin)
+        x1 + x2 >= floatMin \/ x1 + x2 <= (0-floatMin)
       ) ->
       lb1 <= x1 ->
       lb2 <= x2 ->
@@ -2396,12 +2392,8 @@ Proof.
       clear H1.
       unfold error in *.
       unfold floatMax in *.
-      breakAbstraction.
-      (*
       destruct Rcase_abs; destruct Rcase_abs; destruct Rcase_abs;
       psatz R.
-       *)
-      admit.
     }
     inversion H0.
     inversion H0.
@@ -2422,14 +2414,11 @@ Proof.
     clear H1.
     clear H11.
 
-    (*
     destruct Rcase_abs; destruct Rcase_abs; destruct Rcase_abs;
     unfold error in *;
     unfold floatMax in *;
     psatz R.
-*)
     
-    admit.
   }
   inversion H0.
   inversion H.
@@ -2454,13 +2443,10 @@ Proof.
   pose proof floatMaxGt0.
   pose proof floatMinGt0.
   clear H1.
-  admit.
-  (*
   destruct Rcase_abs; destruct Rcase_abs; destruct Rcase_abs;
   unfold error in *;
   unfold floatMax in *;
   psatz R.
-   *)
 
   inversion H0.
   inversion H0.
@@ -2503,7 +2489,7 @@ Lemma plusRoundingTruth : forall (f1 f2: float)  (lb1 lb2 ub1 ub2 r1 r2:R),
       Some r1 = (floatToReal f1) -> 
       Some r2 = (floatToReal f2) ->
       (
-        (floatMin <= lb1 + lb2) \\// 
+        (floatMin <= lb1 + lb2) \/ 
         (floatMin <= 0 - ub1 + (0 - ub2))
       ) ->
       lb1 <= r1 ->
@@ -2693,13 +2679,13 @@ Qed.
 Lemma multRoundingTruth : forall (f1 f2: float)  (lb1 lb2 ub1 ub2 r1 r2:R),  (Some r1 = (floatToReal f1) -> 
     Some r2 = (floatToReal f2) ->
     
-    (((floatMin <= lb1 * lb2) //\\  (lb1 >= R0) //\\ (lb2 >= R0)) //\\ ((ub1 * ub2)*(1+error) < floatMax)) 
+    (((floatMin <= lb1 * lb2) /\  (lb1 >= R0) /\ (lb2 >= R0)) /\ ((ub1 * ub2)*(1+error) < floatMax)) 
 
-    \\// ((floatMin <= (0 - ub1) * (0 - ub2) //\\ (ub1 < R0) //\\ (ub2 < R0)) //\\ (((0 - lb1) * (0 - lb2))*(1+error) < floatMax))
+    \/ ((floatMin <= (0 - ub1) * (0 - ub2) /\ (ub1 < R0) /\ (ub2 < R0)) /\ (((0 - lb1) * (0 - lb2))*(1+error) < floatMax))
 
-    \\//   ((floatMin <= lb1 * (0 - ub2) //\\ (lb1 >= R0) //\\  (ub2 < R0)) //\\ ((ub1 * (0 - lb2))*(1+error) < floatMax)) 
+    \/   ((floatMin <= lb1 * (0 - ub2) /\ (lb1 >= R0) /\  (ub2 < R0)) /\ ((ub1 * (0 - lb2))*(1+error) < floatMax)) 
 
-    \\//   ((floatMin <= (0 - ub1) * lb2 //\\ (ub1 < R0) //\\  (lb2 >= R0)) //\\ (((0 - lb1) * (ub2))*(1+error) < floatMax)) ->
+    \/   ((floatMin <= (0 - ub1) * lb2 /\ (ub1 < R0) /\  (lb2 >= R0)) /\ (((0 - lb1) * (ub2))*(1+error) < floatMax)) ->
     
     
     (lb1 <= r1) ->
@@ -2724,15 +2710,15 @@ Proof.
       inversion H0.
       pose proof relErrorBasedOnFloatMinTruthMult.
       Lemma andOrProof2 : forall (p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 p14 p15 p16:Prop),
-          (p1 //\\ p2 //\\ p3) //\\ p4
-          \\// (p5 //\\ p6 //\\ p7) //\\ p8 
-          \\// (p9 //\\ p10 //\\ p11) //\\ p12
-          \\// ( p13 //\\ p14 //\\ p15) //\\ p16 
+          (p1 /\ p2 /\ p3) /\ p4
+          \/ (p5 /\ p6 /\ p7) /\ p8 
+          \/ (p9 /\ p10 /\ p11) /\ p12
+          \/ ( p13 /\ p14 /\ p15) /\ p16 
           ->
-          (p1 //\\ p2 //\\ p3)
-          \\// (p5 //\\ p6 //\\ p7)
-          \\// (p9 //\\ p10 //\\ p11)
-          \\// (p13 //\\ p14 //\\ p15).
+          (p1 /\ p2 /\ p3)
+          \/ (p5 /\ p6 /\ p7)
+          \/ (p9 /\ p10 /\ p11)
+          \/ (p13 /\ p14 /\ p15).
       Proof.
         intros.
         tlaIntuition.      
@@ -4011,7 +3997,7 @@ Lemma plusRoundingTruth2 : forall (f1 f2: float)  (r1 r2:R) ,
 
     ((Rabs (round radix2 (FLT_exp (3-custom_emax- custom_prec) custom_prec ) (round_mode mode_NE) (B2R custom_prec custom_emax f1 + B2R custom_prec custom_emax f2))) <  (bpow radix2 custom_emax))%R  ->
     
-    (B2R custom_prec custom_emax (Bplus custom_prec custom_emax  custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) =round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (B2R custom_prec custom_emax f1 + B2R custom_prec custom_emax f2)  //\\   is_finite custom_prec custom_emax (Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) = true)%R. 
+    (B2R custom_prec custom_emax (Bplus custom_prec custom_emax  custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) =round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (B2R custom_prec custom_emax f1 + B2R custom_prec custom_emax f2)  /\   is_finite custom_prec custom_emax (Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) = true)%R. 
 Proof.
   intros.
   pose proof Bplus_correct.
@@ -4037,7 +4023,7 @@ Lemma minusRoundingTruth2 : forall (f1 f2: float)  (r1 r2:R) ,  Some r1 = (float
                                                                        
                                                                        ((Rabs (round radix2 (FLT_exp (3-custom_emax- custom_prec) custom_prec ) (round_mode mode_NE) (B2R custom_prec custom_emax f1 - B2R custom_prec custom_emax f2))) 
                                                                         <  (bpow radix2 custom_emax))%R -> 
-                                                                       (B2R custom_prec custom_emax (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) =round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (B2R custom_prec custom_emax f1 - B2R custom_prec custom_emax f2)  //\\   is_finite custom_prec custom_emax (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) = true)%R.
+                                                                       (B2R custom_prec custom_emax (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) =round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (B2R custom_prec custom_emax f1 - B2R custom_prec custom_emax f2)  /\   is_finite custom_prec custom_emax (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) = true)%R.
 
 Proof.
   intros.
@@ -4064,7 +4050,7 @@ Lemma multRoundingTruth2 : forall (f1 f2: float)  (r1 r2:R) ,  Some r1 = (floatT
                                                                       
                                                                       ((Rabs (round radix2 (FLT_exp (3-custom_emax- custom_prec) custom_prec ) (round_mode mode_NE) (B2R custom_prec custom_emax f1 * B2R custom_prec custom_emax f2))) 
                                                                        <  (bpow radix2 custom_emax))%R -> 
-                                                                      (B2R custom_prec custom_emax (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) =round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (B2R custom_prec custom_emax f1 * B2R custom_prec custom_emax f2)  //\\   is_finite custom_prec custom_emax (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) = true)%R.
+                                                                      (B2R custom_prec custom_emax (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) =round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (B2R custom_prec custom_emax f1 * B2R custom_prec custom_emax f2)  /\   is_finite custom_prec custom_emax (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE f1 f2) = true)%R.
 
 Proof.
   intros.
@@ -4093,7 +4079,7 @@ Qed.
 
 Lemma natFloatMinBoundProof : 
   forall n,
-    ((floatMin <= INR n //\\ INR n >= 0) \\// (floatMin <= 0 -(INR n) //\\ INR n < 0) -> floatMin <= Rabs (INR n))%R.
+    ((floatMin <= INR n /\ INR n >= 0) \/ (floatMin <= 0 -(INR n) /\ INR n < 0) -> floatMin <= Rabs (INR n))%R.
 Proof.
   breakAbstraction.
     intros.
@@ -4115,8 +4101,8 @@ Qed.
 Lemma relErrorTruthNat : 
   forall n, 
     (
-      (floatMin <= INR n)%R //\\ (INR n >= 0)%R \\//
-       (floatMin <= 0 - INR n)%R //\\ (INR n < 0)%R
+      (floatMin <= INR n)%R /\ (INR n >= 0)%R \/
+       (floatMin <= 0 - INR n)%R /\ (INR n < 0)%R
       -> 
       (Rabs 
          (round 
@@ -4148,8 +4134,8 @@ Qed.
 
   Lemma natRoundingTruth : 
     forall n, 
-      (((floatMin <= INR n)%R //\\ (INR n >= 0)%R //\\  ((INR n)* (1+error) <  (floatMax))%R) \\//
-       ((floatMin <= 0 - INR n)%R //\\ (INR n < 0)%R //\\  ((0 -(INR n))* (1+error) <  (floatMax))) 
+      (((floatMin <= INR n)%R /\ (INR n >= 0)%R /\  ((INR n)* (1+error) <  (floatMax))%R) \/
+       ((floatMin <= 0 - INR n)%R /\ (INR n < 0)%R /\  ((0 -(INR n))* (1+error) <  (floatMax))) 
 
        ->
        
@@ -4160,7 +4146,7 @@ Qed.
 Proof.
   intros.
   pose proof relErrorTruthNat as relErrorTruthNat.
-  Lemma orProof: forall (p1 p2 p3 p4 p5 p6 : Prop), (p1 //\\ p2 //\\ p3) \\// (p4 //\\ p5 //\\ p6) -> (p1 //\\ p2) \\// (p4 //\\ p5).
+  Lemma orProof: forall (p1 p2 p3 p4 p5 p6 : Prop), (p1 /\ p2 /\ p3) \/ (p4 /\ p5 /\ p6) -> (p1 /\ p2) \/ (p4 /\ p5).
   Proof.
     intros.
     tlaIntuition.
@@ -4321,7 +4307,6 @@ Lemma bound_proof' :
     related fState st -> 
     boundDef' expr st fState.
 Proof.
-(*
   unfold boundDef'. 
   intros.
   remember (eval_NowTerm fState expr). destruct o; trivial.
@@ -4359,7 +4344,7 @@ Proof.
       clear H5.
       clear H0.
       
-      Lemma conjoin2 : forall (p1 p2 p3:Prop), p1 -> p2 -> p3 -> p1 //\\ p2 //\\ p3.
+      Lemma conjoin2 : forall (p1 p2 p3:Prop), p1 -> p2 -> p3 -> p1 /\ p2 /\ p3.
         intros.
         tlaIntuition.
       Qed.
@@ -4370,23 +4355,23 @@ Proof.
      
       intros.
       pose proof orExtra as orExtra1.
-      specialize (orExtra1 ((floatMin <= INR n)%R //\\
-                            (INR n >= 0)%R //\\ (INR n * (1 + error) < floatMax)%R) 
-                           ((floatMin <=0 - INR n)%R //\\
-                            (INR n < 0)%R //\\ ((0 - INR n) * (1 + error) < floatMax)%R) premise).
+      specialize (orExtra1 ((floatMin <= INR n)%R /\
+                            (INR n >= 0)%R /\ (INR n * (1 + error) < floatMax)%R) 
+                           ((floatMin <=0 - INR n)%R /\
+                            (INR n < 0)%R /\ ((0 - INR n) * (1 + error) < floatMax)%R) premise).
       pose proof natRoundingTruth as natRoundingTruth.
       specialize (natRoundingTruth n orExtra1).
       pose proof natRoundingTruth2 as natRoundingTruth2.
       specialize (natRoundingTruth2 f r n Heqo0 Heqo natRoundingTruth).
-      Lemma conjoin : forall (p1 p2:Prop), p1 -> p2 -> p1 //\\ p2.
+      Lemma conjoin : forall (p1 p2:Prop), p1 -> p2 -> p1 /\ p2.
         intros.
         tlaIntuition.
       Qed.
       pose proof conjoin as premise2.
       specialize (premise2 (floatMin <= INR n)%R (INR n >= 0)%R H1 H3).
       pose proof orExtra as orExtra2.
-      specialize (orExtra2 ((floatMin <= INR n)%R //\\ (INR n >= 0)%R) 
-                           ((floatMin <= 0 - INR n)%R //\\ (INR n < 0)%R) premise2).
+      specialize (orExtra2 ((floatMin <= INR n)%R /\ (INR n >= 0)%R) 
+                           ((floatMin <= 0 - INR n)%R /\ (INR n < 0)%R) premise2).
       
       unfold floatToReal in *.
       unfold nat_to_float in *.
@@ -4428,9 +4413,7 @@ Proof.
         pose proof errorGt0 as errorGt0.
         pose proof errorLessThan1 as errorLessThan1.
         unfold error in *.
-        breakAbstraction.
-        admit.
-        (*
+        
         destruct Rcase_abs;
           destruct Rcase_abs;
           repeat match goal with
@@ -4441,7 +4424,7 @@ Proof.
                  | H :@ Rgt _ _ |- _ => revert H
                  | H : @Rge _ _ |- _ => revert H
                  end;
-          psatz R.*)
+          psatz R.
       }
       {
         inversion Heqo0.
@@ -4479,19 +4462,17 @@ Proof.
         pose proof errorGt0 as errorGt0.
         pose proof errorLessThan1 as errorLessThan1.
         unfold error in *.
-        breakAbstraction.
-        admit.
-        (*destruct Rcase_abs;
+        destruct Rcase_abs;
           destruct Rcase_abs;
           repeat match goal with
-                 | H : @eq R _ _ |- _ => revert H
-                 | H : @Rle _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
-                 | H : @Rlt _ _ |- _ => revert H
-                 | H :@ Rgt _ _ |- _ => revert H
-                 | H : @Rge _ _ |- _ => revert H
+                   | H : @eq R _ _ |- _ => revert H
+                   | H : @Rle _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
+                   | H : @Rlt _ _ |- _ => revert H
+                   | H :@ Rgt _ _ |- _ => revert H
+                   | H : @Rge _ _ |- _ => revert H
                  end;
-          psatz R. *)
+          psatz R. 
       }
     } 
     {
@@ -4509,14 +4490,14 @@ Proof.
       
       specialize (premise (floatMin <= 0 - INR n)%R  (INR n < 0)%R ((0 - INR n) * (1 + error) < floatMax)%R H1 H3 H2).
       intros.
-        Lemma orExtra2 : forall p1 p2 : Prop, p2 -> p1 \\// p2.
+        Lemma orExtra2 : forall p1 p2 : Prop, p2 -> p1 \/ p2.
           intros; tlaIntuition. Qed.
       
       pose proof orExtra2 as orExtra1.
-      specialize (orExtra1 ((floatMin <= INR n)%R //\\
-                            (INR n >= 0)%R //\\ (INR n * (1 + error) < floatMax)%R) 
-                           ((floatMin <= 0 - INR n)%R //\\
-                            (INR n < 0)%R //\\ ((0 - INR n) * (1 + error) < floatMax)%R) premise).
+      specialize (orExtra1 ((floatMin <= INR n)%R /\
+                            (INR n >= 0)%R /\ (INR n * (1 + error) < floatMax)%R) 
+                           ((floatMin <= 0 - INR n)%R /\
+                            (INR n < 0)%R /\ ((0 - INR n) * (1 + error) < floatMax)%R) premise).
       pose proof natRoundingTruth as natRoundingTruth.
       specialize (natRoundingTruth n orExtra1).
       pose proof natRoundingTruth2 as natRoundingTruth2.
@@ -4524,8 +4505,8 @@ Proof.
       pose proof conjoin as premise2.
       specialize (premise2 (floatMin <= 0 - INR n)%R (INR n < 0)%R H1 H3).
       pose proof orExtra2 as orExtra2.
-      specialize (orExtra2 ((floatMin <= INR n)%R //\\ (INR n >= 0)%R) 
-                           ((floatMin <=0 - INR n)%R //\\ (INR n < 0)%R) premise2).
+      specialize (orExtra2 ((floatMin <= INR n)%R /\ (INR n >= 0)%R) 
+                           ((floatMin <=0 - INR n)%R /\ (INR n < 0)%R) premise2).
       
       unfold floatToReal in *.
       unfold nat_to_float in *.
@@ -4561,9 +4542,6 @@ Proof.
         pose proof errorGt0 as errorGt0.
         pose proof errorLessThan1 as errorLessThan1.
         unfold error in *.
-        breakAbstraction.
-        admit.
-        (*
         destruct Rcase_abs;
           destruct Rcase_abs;
           repeat match goal with
@@ -4574,7 +4552,7 @@ Proof.
                  | H :@ Rgt _ _ |- _ => revert H
                  | H : @Rge _ _ |- _ => revert H
                  end;
-          psatz R. *)
+          psatz R. 
       }
       {
         inversion Heqo0.
@@ -4613,8 +4591,6 @@ Proof.
         pose proof errorGt0 as errorGt0.
         pose proof errorLessThan1 as errorLessThan1.
         unfold error in *.
-        breakAbstraction.
-        (*
         destruct Rcase_abs;
           destruct Rcase_abs;
           repeat match goal with
@@ -4625,8 +4601,7 @@ Proof.
                  | H :@ Rgt _ _ |- _ => revert H
                  | H : @Rge _ _ |- _ => revert H
                  end;
-          psatz R. *)
-        admit.
+          psatz R. 
       }
     } 
     {
@@ -4642,13 +4617,13 @@ Proof.
     unfold floatToReal in Heqo0.
     destruct f; simpl; inversion Heqo0; intuition.
   }
-  { simpl.   unfold getBound. 
+  { simpl.   unfold getBound. breakAbstraction.
     intros.
     Print plusMinusfoldListwithList.
     assert (Heqo':=Heqo).
     apply resultImplicationsPlus in Heqo.
     Require Import ExtLib.Tactics.
-    breakAbstraction.
+    simpl in Heqo.
     forward_reason. destruct H2; destruct H3.
     specialize (IHexpr1 _ _ H2 H0).
     specialize (IHexpr2 _ _ H3 H1).
@@ -4656,6 +4631,7 @@ Proof.
     eapply Forall_forall. intros.
     revert H5.
     eapply In_cross_In in H4.
+    simpl in H4.
     forward_reason.
     eapply Forall_forall in IHexpr1; eauto.
     eapply Forall_forall in IHexpr2; eauto.
@@ -4666,18 +4642,18 @@ Proof.
     rewrite <- H1 in Heqo'.
     inversion Heqo'.
     unfold floatToReal in Heqo0.
-    breakAbstraction.
-    rewrite H7 in Heqo0.
+    simpl in H4.
+    rewrite H9 in Heqo0.
     unfold floatToReal in Heqo0.
     unfold denote_singleBoundTerm in *.
     destruct f eqn:f_des.
     {
-      rewrite <- H7 in Heqo0.
+      rewrite <- H9 in Heqo0.
       inversion Heqo0.
-      assert (plusResultStmt := H7).
+      assert (plusResultStmt := H9).
       assert (floatToRealRelationForExpr1:= H2).
       assert (floatToRealRelationForExpr2:= H3).
-      clear H f Heqo0 H0 H1 H8 f_des Heqo' H7 H8 .
+      clear H f Heqo0 H0 H1 H8 f_des Heqo' H9 H10 .
       assert (floatToRealProof1:= H2).
       assert (floatToRealProof2:= H3).
       clear H2 H3.      
@@ -5037,7 +5013,7 @@ Proof.
                   forall x ex, (bpow radix2 (ex - 1) <= Rabs (x) < bpow radix2 ex)%R -> 
                                (ex <= custom_emin)%Z ->
                                (x < floatMin -> x > 0 ->                        
-                                (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x = bpow radix2 ((FLT_exp (3 - custom_emax - custom_prec) custom_prec) ex) \\// round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x = R0 \\// bpow radix2 (ex - 1)<= round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x <= bpow radix2 ex) //\\ Rabs (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x) < bpow radix2 custom_emax)%R.
+                                (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x = bpow radix2 ((FLT_exp (3 - custom_emax - custom_prec) custom_prec) ex) \/ round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x = R0 \/ bpow radix2 (ex - 1)<= round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x <= bpow radix2 ex) /\ Rabs (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x) < bpow radix2 custom_emax)%R.
                   intros. 
                   assert (gt0 := H2).                  
                   apply gt0ImpNE0 in H2.
@@ -6389,6 +6365,7 @@ clear H1. psatz R. Qed.
     Print plusMinusfoldListwithList.
     assert (Heqo':=Heqo).
     apply resultImplicationsMinus in Heqo.
+    simpl in Heqo.
     Require Import ExtLib.Tactics.
     forward_reason. destruct H2; destruct H3.
     specialize (IHexpr1 _ _ H2 H0).
@@ -6397,6 +6374,7 @@ clear H1. psatz R. Qed.
     eapply Forall_forall. intros.
     revert H5.
     eapply In_cross_In in H4.
+    simpl in H4.
     forward_reason.
     eapply Forall_forall in IHexpr1; eauto.
     eapply Forall_forall in IHexpr2; eauto.
@@ -6469,17 +6447,18 @@ clear H1. psatz R. Qed.
         
         intros.
         pose proof orExtra as extraFloatMinCase.
-        specialize (extraFloatMinCase ((lb1 >= ub2)%R //\\ (floatMin <= lb1 - ub2))%R ((ub1 <= lb2)%R //\\ (floatMin <= lb2 - ub1))%R ).
+        specialize (extraFloatMinCase ((lb1 >= ub2)%R /\ (floatMin <= lb1 - ub2))%R ((ub1 <= lb2)%R /\ (floatMin <= lb2 - ub1))%R ).
         specialize (extraFloatMinCase floatMinCase).
         specialize (relErrorBasedOnFloatMinTruthMinus extraFloatMinCase H H1 H0 H2).
         pose proof minusRoundingTruth as minusRoundingTruth.
-        Lemma andExtra : forall (p1 p2:Prop), p1  -> p2 ->   p1 //\\ p2.
+        Lemma andExtra : forall (p1 p2:Prop), p1  -> p2 ->   p1 /\ p2.
+          simpl.
           intros.
           intuition.
         Qed.
         intros.
         pose proof andExtra as andExtra.
-        specialize (andExtra (lb1 >= ub2 //\\ floatMin <= lb1 - ub2)%R ((ub1 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
+        specialize (andExtra (lb1 >= ub2 /\ floatMin <= lb1 - ub2)%R ((ub1 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
         
         
         pose proof orExtra as extraFloatMinCase2.
@@ -6487,8 +6466,8 @@ clear H1. psatz R. Qed.
         simpl in extraFloatMinCase2.
         Local Open Scope R_scope.
         specialize (extraFloatMinCase2 
-                      (((lb1 >= ub2) //\\ (floatMin <= lb1 - ub2)) //\\ ((ub1 - lb2) * (1 + error) < floatMax)) (((ub1 <= lb2)%R //\\
-                                                                                                              (floatMin <= lb2 - ub1)) //\\ ((ub2 - lb1) * (1 + error) < floatMax))).
+                      (((lb1 >= ub2) /\ (floatMin <= lb1 - ub2)) /\ ((ub1 - lb2) * (1 + error) < floatMax)) (((ub1 <= lb2)%R /\
+                                                                                                              (floatMin <= lb2 - ub1)) /\ ((ub2 - lb1) * (1 + error) < floatMax))).
         simpl in extraFloatMinCase2.
         specialize (extraFloatMinCase2 andExtra).
         
@@ -6642,14 +6621,14 @@ clear H1. psatz R. Qed.
         clear conjoin.
         intros.
         pose proof orExtra2 as extraFloatMinCase.
-        specialize (extraFloatMinCase ((lb1 >= ub2)%R //\\ (floatMin <= lb1 - ub2)%R) ((ub1 <= lb2)%R //\\ (floatMin <= lb2 - ub1))%R ).
+        specialize (extraFloatMinCase ((lb1 >= ub2)%R /\ (floatMin <= lb1 - ub2)%R) ((ub1 <= lb2)%R /\ (floatMin <= lb2 - ub1))%R ).
         specialize (extraFloatMinCase floatMinCase).
         specialize (relErrorBasedOnFloatMinTruthMinus extraFloatMinCase H H1 H0 H2).
         pose proof minusRoundingTruth as minusRoundingTruth.
        
         intros.
         pose proof andExtra as andExtra.
-        specialize (andExtra (ub1 <= lb2 //\\ floatMin <= lb2 - ub1)%R ((ub2 - lb1) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
+        specialize (andExtra (ub1 <= lb2 /\ floatMin <= lb2 - ub1)%R ((ub2 - lb1) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
       
           
         pose proof orExtra2 as extraFloatMinCase2.
@@ -6657,8 +6636,8 @@ clear H1. psatz R. Qed.
         simpl in extraFloatMinCase2.
         Local Open Scope R_scope.
         specialize (extraFloatMinCase2 
-                      (((lb1 >= ub2) //\\ (floatMin <= lb1 - ub2)) //\\ ((ub1 - lb2) * (1 + error) < floatMax)) (((ub1 <= lb2)%R //\\
-  (floatMin <= lb2 - ub1)) //\\ ((ub2 - lb1) * (1 + error) < floatMax))).
+                      (((lb1 >= ub2) /\ (floatMin <= lb1 - ub2)) /\ ((ub1 - lb2) * (1 + error) < floatMax)) (((ub1 <= lb2)%R /\
+  (floatMin <= lb2 - ub1)) /\ ((ub2 - lb1) * (1 + error) < floatMax))).
         simpl in extraFloatMinCase2.
         specialize (extraFloatMinCase2 andExtra).
         
@@ -6885,7 +6864,7 @@ clear H1. psatz R. Qed.
         clear conjoin.
         intros.
         pose proof orExtra as extraFloatMinCase.
-        specialize (extraFloatMinCase ((lb1 >= ub2)%R //\\ (floatMin <= lb1 - ub2))%R ((ub1 <= lb2)%R //\\ (floatMin <= lb2 - ub1))%R ).
+        specialize (extraFloatMinCase ((lb1 >= ub2)%R /\ (floatMin <= lb1 - ub2))%R ((ub1 <= lb2)%R /\ (floatMin <= lb2 - ub1))%R ).
         specialize (extraFloatMinCase floatMinCase).
         specialize (relErrorBasedOnFloatMinTruthMinus extraFloatMinCase H H1 H0 H2).
         pose proof minusRoundingTruth as minusRoundingTruth.
@@ -6893,14 +6872,14 @@ clear H1. psatz R. Qed.
 
         intros.
         pose proof andExtra as andExtra.
-        specialize (andExtra (lb1 >= ub2 //\\ floatMin <= lb1 - ub2)%R ((ub1 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
+        specialize (andExtra (lb1 >= ub2 /\ floatMin <= lb1 - ub2)%R ((ub1 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
         pose proof orExtra as extraFloatMinCase2.
         simpl in andExtra.
         simpl in extraFloatMinCase2.
         Local Open Scope R_scope.
         specialize (extraFloatMinCase2
-                      (((lb1 >= ub2) //\\ (floatMin <= lb1 - ub2)) //\\ ((ub1 - lb2) * (1 + error) < floatMax)) (((ub1 <= lb2)%R //\\
-                                                                                                              (floatMin <= lb2 - ub1)) //\\ ((ub2 - lb1) * (1 + error) < floatMax))).
+                      (((lb1 >= ub2) /\ (floatMin <= lb1 - ub2)) /\ ((ub1 - lb2) * (1 + error) < floatMax)) (((ub1 <= lb2)%R /\
+                                                                                                              (floatMin <= lb2 - ub1)) /\ ((ub2 - lb1) * (1 + error) < floatMax))).
         simpl in extraFloatMinCase2.
         specialize (extraFloatMinCase2 andExtra).
         specialize (minusRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 extraFloatMinCase2 H H1 H0 H2).
@@ -7077,20 +7056,20 @@ clear H1. psatz R. Qed.
           intros.
 
           pose proof orExtra2 as extraFloatMinCase.
-          specialize (extraFloatMinCase ((lb1 >= ub2)%R //\\ (floatMin <= lb1 - ub2)%R) ((ub1 <= lb2)%R //\\ (floatMin <= lb2 - ub1))%R ).
+          specialize (extraFloatMinCase ((lb1 >= ub2)%R /\ (floatMin <= lb1 - ub2)%R) ((ub1 <= lb2)%R /\ (floatMin <= lb2 - ub1))%R ).
           specialize (extraFloatMinCase floatMinCase).
           specialize (relErrorBasedOnFloatMinTruthMinus extraFloatMinCase H H1 H0 H2).
           pose proof minusRoundingTruth as minusRoundingTruth.
           intros.
           pose proof andExtra as andExtra.
-          specialize (andExtra (ub1 <= lb2 //\\ floatMin <= lb2 - ub1)%R ((ub2 - lb1) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
+          specialize (andExtra (ub1 <= lb2 /\ floatMin <= lb2 - ub1)%R ((ub2 - lb1) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
           pose proof orExtra2 as extraFloatMinCase2.
           simpl in andExtra.
           simpl in extraFloatMinCase2.
           Local Open Scope R_scope.
           specialize (extraFloatMinCase2
-                        (((lb1 >= ub2) //\\ (floatMin <= lb1 - ub2)) //\\ ((ub1 - lb2) * (1 + error) < floatMax)) (((ub1 <= lb2)%R //\\
-                                                                                                                (floatMin <= lb2 - ub1)) //\\ ((ub2 - lb1) * (1 + error) < floatMax))).
+                        (((lb1 >= ub2) /\ (floatMin <= lb1 - ub2)) /\ ((ub1 - lb2) * (1 + error) < floatMax)) (((ub1 <= lb2)%R /\
+                                                                                                                (floatMin <= lb2 - ub1)) /\ ((ub2 - lb1) * (1 + error) < floatMax))).
           simpl in extraFloatMinCase2.
           specialize (extraFloatMinCase2 andExtra).
           specialize (minusRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 extraFloatMinCase2 H H1 H0 H2).
@@ -7254,14 +7233,16 @@ clear H1. psatz R. Qed.
     intros.
     assert (Heqo':=Heqo).
     apply resultImplicationsMult in Heqo.
+    simpl in Heqo.
     Require Import ExtLib.Tactics.
-    forward_reason. destruct H2; destruct H3.
+    forward_reason.  destruct H2; destruct H3.
     specialize (IHexpr1 _ _ H2 H0).
     specialize (IHexpr2 _ _ H3 H1).
     2: eexists; eauto.
     eapply Forall_forall. intros.
     revert H5.
     eapply In_cross_In in H4.
+    simpl in H4.
     forward_reason.
     eapply Forall_forall in IHexpr1; eauto.
     eapply Forall_forall in IHexpr2; eauto.
@@ -7332,36 +7313,48 @@ clear H1. psatz R. Qed.
         assert (floatMinCase:=conjoin2).
         clear conjoin2.
         intros.
-        Lemma orExtra3 : forall p1 p2 p3 p4: Prop, p1 -> p1 \\// p2 \\// p3 \\// p4.
-          intros; intuition. Qed.
+        Lemma orExtra3 : forall p1 p2 p3 p4: Prop, p1 -> p1 \/ p2 \/ p3 \/ p4.
+          simpl ;intros; intuition. Qed.
         pose proof orExtra3 as extraFloatMinCase.
-        specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R //\\ (lb1 >= 0)%R //\\ (lb2 >= 0)%R)  ((floatMin <= (0 - ub1) * (0 - ub2))%R //\\ (ub1 < 0)%R //\\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R //\\(lb1 >= 0)%R //\\ (ub2 < 0)%R )  ((floatMin <= (0 - ub1) * lb2)%R //\\ (ub1 < 0)%R //\\ (lb2 >= 0)%R) ).
+        specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R)  ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R /\(lb1 >= 0)%R /\ (ub2 < 0)%R )  ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R) ).
+        remember  (Rabs
+                                        (round radix2
+                                           (FLT_exp
+                                              (3 - custom_emax - custom_prec)
+                                              custom_prec)
+                                           (round_mode mode_NE) 
+                                           (x1 * x2) - 
+                                         x1 * x2) <
+                                      bpow radix2 (- custom_prec + 1) *
+                                      Rabs (x1 * x2))%R.
+        simpl in relErrorBasedOnFloatMinTruthMult, floatMinCase, extraFloatMinCase.
         specialize (extraFloatMinCase floatMinCase).
         specialize (relErrorBasedOnFloatMinTruthMult extraFloatMinCase H H1 H0 H2).
         pose proof multRoundingTruth as multRoundingTruth.
         intros.
         pose proof andExtra as andExtra.
-       
+        rewrite HeqP in relErrorBasedOnFloatMinTruthMult.
+        clear HeqP.
          intros.
-        specialize (andExtra ((floatMin <= lb1 * lb2)%R //\\ (lb1 >= 0)%R //\\ (lb2 >= 0))%R (ub1 * ub2 * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
+        specialize (andExtra ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0))%R (ub1 * ub2 * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
         pose proof orExtra3 as extraFloatMinCase2.
         simpl in andExtra.
         simpl in extraFloatMinCase2.
         Local Open Scope R_scope.
         specialize (extraFloatMinCase2
-                      ((floatMin <= lb1 * lb2 //\\
-                        lb1 >= 0 //\\
-                        lb2 >= 0) //\\ ub1 * ub2 * (1 + error) < floatMax)
-                      ((floatMin <= (0 - ub1) * (0 - ub2) //\\
-                      ub1 < 0 //\\
-                      ub2 < 0) //\\
+                      ((floatMin <= lb1 * lb2 /\
+                        lb1 >= 0 /\
+                        lb2 >= 0) /\ ub1 * ub2 * (1 + error) < floatMax)
+                      ((floatMin <= (0 - ub1) * (0 - ub2) /\
+                      ub1 < 0 /\
+                      ub2 < 0) /\
                       (0 - lb1) * (0 - lb2) * (1 + error) < floatMax)
-                      ((floatMin <= lb1 * (0 - ub2) //\\
-                      lb1 >= 0 //\\
-                      ub2 < 0) //\\ ub1 * (0 - lb2) * (1 + error) < floatMax)
-                      (( floatMin <= (0 - ub1) * lb2 //\\
-                      ub1 < 0 //\\
-                      lb2 >= 0) //\\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
+                      ((floatMin <= lb1 * (0 - ub2) /\
+                      lb1 >= 0 /\
+                      ub2 < 0) /\ ub1 * (0 - lb2) * (1 + error) < floatMax)
+                      (( floatMin <= (0 - ub1) * lb2 /\
+                      ub1 < 0 /\
+                      lb2 >= 0) /\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
         simpl in extraFloatMinCase2.
         specialize (extraFloatMinCase2 andExtra).
         specialize (multRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 extraFloatMinCase2 H H1 H0 H2).
@@ -7547,13 +7540,13 @@ clear H1. psatz R. Qed.
         clear conjoin2.
         intros.
         pose proof orExtra3 as extraFloatMinCase.
-        specialize (extraFloatMinCase  ((floatMin <= (0 - ub1) * (0 - ub2))%R //\\ (ub1 < 0)%R //\\ (ub2 < 0)%R) ((floatMin <= lb1 * lb2)%R //\\ (lb1 >= 0)%R //\\ (lb2 >= 0)%R)  ((floatMin <= lb1 * (0 - ub2))%R //\\(lb1 >= 0)%R //\\ (ub2 < 0)%R )  ((floatMin <= (0 - ub1) * lb2)%R //\\ (ub1 < 0)%R //\\ (lb2 >= 0)%R) ).
+        specialize (extraFloatMinCase  ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R)  ((floatMin <= lb1 * (0 - ub2))%R /\(lb1 >= 0)%R /\ (ub2 < 0)%R )  ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R) ).
         specialize (extraFloatMinCase floatMinCase).
-        Lemma diffOR : forall (p1 p2 p3 p4 : Prop), p1 \\// p2 \\// p3 \\// p4 -> p2 \\// p1 \\// p3 \\// p4.
+        Lemma diffOR : forall (p1 p2 p3 p4 : Prop), p1 \/ p2 \/ p3 \/ p4 -> p2 \/ p1 \/ p3 \/ p4.
           intuition.
         Qed.
         pose proof diffOR as diffOR.
-        specialize ( diffOR ((floatMin <= (0 - ub1) * (0 - ub2))%R //\\ (ub1 < 0)%R //\\ (ub2 < 0)%R) ((floatMin <= lb1 * lb2)%R //\\ (lb1 >= 0)%R //\\ (lb2 >= 0)%R) ((floatMin <= lb1 * (0 - ub2))%R //\\ (lb1 >= 0)%R //\\ (ub2 < 0)%R) ((floatMin <= (0 - ub1) * lb2)%R //\\ (ub1 < 0)%R //\\ (lb2 >= 0)%R)).
+        specialize ( diffOR ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R) ((floatMin <= lb1 * (0 - ub2))%R /\ (lb1 >= 0)%R /\ (ub2 < 0)%R) ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R)).
         apply diffOR in extraFloatMinCase.
         clear diffOR.
         specialize (relErrorBasedOnFloatMinTruthMult extraFloatMinCase H H1 H0 H2).
@@ -7561,35 +7554,35 @@ clear H1. psatz R. Qed.
         intros.
         pose proof andExtra as andExtra.
          intros.
-        specialize (andExtra ((floatMin <= (0 - ub1) * (0 - ub2))%R //\\ (ub1 < 0)%R //\\ (ub2 < 0)%R) ((0 - lb1) * (0 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
+        specialize (andExtra ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((0 - lb1) * (0 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
         pose proof orExtra3 as extraFloatMinCase2.
         simpl in andExtra.
         simpl in extraFloatMinCase2.
         Local Open Scope R_scope.
         specialize (extraFloatMinCase2
-                       ((floatMin <= (0 - ub1) * (0 - ub2) //\\
-                      ub1 < 0 //\\
-                      ub2 < 0) //\\
+                       ((floatMin <= (0 - ub1) * (0 - ub2) /\
+                      ub1 < 0 /\
+                      ub2 < 0) /\
                       (0 - lb1) * (0 - lb2) * (1 + error) < floatMax)                     
-                      ((floatMin <= lb1 * lb2 //\\
-                        lb1 >= 0 //\\
-                        lb2 >= 0) //\\ ub1 * ub2 * (1 + error) < floatMax)
+                      ((floatMin <= lb1 * lb2 /\
+                        lb1 >= 0 /\
+                        lb2 >= 0) /\ ub1 * ub2 * (1 + error) < floatMax)
                       
-                      ((floatMin <= lb1 * (0 - ub2) //\\
-                      lb1 >= 0 //\\
-                      ub2 < 0) //\\ ub1 * (0 - lb2) * (1 + error) < floatMax)
-                      (( floatMin <= (0 - ub1) * lb2 //\\
-                      ub1 < 0 //\\
-                      lb2 >= 0) //\\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
+                      ((floatMin <= lb1 * (0 - ub2) /\
+                      lb1 >= 0 /\
+                      ub2 < 0) /\ ub1 * (0 - lb2) * (1 + error) < floatMax)
+                      (( floatMin <= (0 - ub1) * lb2 /\
+                      ub1 < 0 /\
+                      lb2 >= 0) /\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
         simpl in extraFloatMinCase2.
         specialize (extraFloatMinCase2 andExtra).
 
         pose proof diffOR as diffOR.
         specialize ( diffOR 
-                       ((floatMin <= (0 - ub1) * (0 - ub2) //\\ ub1 < 0 //\\ ub2 < 0) //\\ (0 - lb1) * (0 - lb2) * (1 + error) < floatMax) 
-                       ((floatMin <= lb1 * lb2 //\\ lb1 >= 0 //\\ lb2 >= 0) //\\ ub1 * ub2 * (1 + error) < floatMax) 
-                       ((floatMin <= lb1 * (0 - ub2) //\\ lb1 >= 0 //\\ ub2 < 0) //\\ ub1 * (0 - lb2) * (1 + error) < floatMax) 
-                       ((floatMin <= (0 - ub1) * lb2 //\\ ub1 < 0 //\\ lb2 >= 0) //\\ (0 - lb1) * ub2 * (1 + error) < floatMax) )%R.
+                       ((floatMin <= (0 - ub1) * (0 - ub2) /\ ub1 < 0 /\ ub2 < 0) /\ (0 - lb1) * (0 - lb2) * (1 + error) < floatMax) 
+                       ((floatMin <= lb1 * lb2 /\ lb1 >= 0 /\ lb2 >= 0) /\ ub1 * ub2 * (1 + error) < floatMax) 
+                       ((floatMin <= lb1 * (0 - ub2) /\ lb1 >= 0 /\ ub2 < 0) /\ ub1 * (0 - lb2) * (1 + error) < floatMax) 
+                       ((floatMin <= (0 - ub1) * lb2 /\ ub1 < 0 /\ lb2 >= 0) /\ (0 - lb1) * ub2 * (1 + error) < floatMax) )%R.
 
         
 
@@ -7773,17 +7766,17 @@ clear H1. psatz R. Qed.
         assert (floatMinCase:=conjoin2).
         clear conjoin2.
         intros.
-        Lemma orExtra3_3 : forall p1 p2 p3 p4: Prop, p3 -> p1 \\// p2 \\// p3 \\// p4.
+        Lemma orExtra3_3 : forall p1 p2 p3 p4: Prop, p3 -> p1 \/ p2 \/ p3 \/ p4.
           intros; intuition. Qed.
         pose proof orExtra3_3 as extraFloatMinCase.
-        specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R //\\ (lb1 >= 0)%R //\\ (lb2 >= 0)%R) ((floatMin <= (0 - ub1) * (0 - ub2))%R //\\ (ub1 < 0)%R //\\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R //\\ (lb1 >= 0)%R //\\ (ub2 < 0)%R)  ((floatMin <= (0 - ub1) * lb2)%R //\\ (ub1 < 0)%R //\\ (lb2 >= 0)%R)).
+        specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R) ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R /\ (lb1 >= 0)%R /\ (ub2 < 0)%R)  ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R)).
         specialize (extraFloatMinCase floatMinCase).
         specialize (relErrorBasedOnFloatMinTruthMult extraFloatMinCase H H1 H0 H2).
         pose proof multRoundingTruth as multRoundingTruth.
         intros.
         pose proof andExtra as andExtra.
          intros.
-        specialize (andExtra ((floatMin <= lb1 * (0 - ub2))%R //\\ (lb1 >= 0)%R //\\ (ub2 < 0)%R) (ub1 * (0 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1).
+        specialize (andExtra ((floatMin <= lb1 * (0 - ub2))%R /\ (lb1 >= 0)%R /\ (ub2 < 0)%R) (ub1 * (0 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1).
        
         Local Open Scope R_scope.
        
@@ -7791,19 +7784,19 @@ clear H1. psatz R. Qed.
         simpl in andExtra.
         simpl in extraFloatMinCase2.
         specialize (extraFloatMinCase2
-                      ((floatMin <= lb1 * lb2 //\\
-                        lb1 >= 0 //\\
-                        lb2 >= 0) //\\ ub1 * ub2 * (1 + error) < floatMax)
-                      ((floatMin <= (0 - ub1) * (0 - ub2) //\\
-                      ub1 < 0 //\\
-                      ub2 < 0) //\\
+                      ((floatMin <= lb1 * lb2 /\
+                        lb1 >= 0 /\
+                        lb2 >= 0) /\ ub1 * ub2 * (1 + error) < floatMax)
+                      ((floatMin <= (0 - ub1) * (0 - ub2) /\
+                      ub1 < 0 /\
+                      ub2 < 0) /\
                       (0 - lb1) * (0 - lb2) * (1 + error) < floatMax)
-                      ((floatMin <= lb1 * (0 - ub2) //\\
-                      lb1 >= 0 //\\
-                      ub2 < 0) //\\ ub1 * (0 - lb2) * (1 + error) < floatMax)
-                      (( floatMin <= (0 - ub1) * lb2 //\\
-                      ub1 < 0 //\\
-                      lb2 >= 0) //\\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
+                      ((floatMin <= lb1 * (0 - ub2) /\
+                      lb1 >= 0 /\
+                      ub2 < 0) /\ ub1 * (0 - lb2) * (1 + error) < floatMax)
+                      (( floatMin <= (0 - ub1) * lb2 /\
+                      ub1 < 0 /\
+                      lb2 >= 0) /\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
 
         simpl in extraFloatMinCase2.
         specialize (extraFloatMinCase2 andExtra).
@@ -7984,17 +7977,17 @@ clear H1. psatz R. Qed.
         assert (floatMinCase:=conjoin2).
         clear conjoin2.
         intros.
-        Lemma orExtra3_4 : forall p1 p2 p3 p4: Prop, p4 -> p1 \\// p2 \\// p3 \\// p4.
+        Lemma orExtra3_4 : forall p1 p2 p3 p4: Prop, p4 -> p1 \/ p2 \/ p3 \/ p4.
           intros; intuition. Qed.
         pose proof orExtra3_4 as extraFloatMinCase.
-        specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R //\\ (lb1 >= 0)%R //\\ (lb2 >= 0)%R) ((floatMin <= (0 - ub1) * (0 - ub2))%R //\\ (ub1 < 0)%R //\\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R //\\ (lb1 >= 0)%R //\\ (ub2 < 0)%R)  ((floatMin <= (0 - ub1) * lb2)%R //\\ (ub1 < 0)%R //\\ (lb2 >= 0)%R)).
+        specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R) ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R /\ (lb1 >= 0)%R /\ (ub2 < 0)%R)  ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R)).
         specialize (extraFloatMinCase floatMinCase).
         specialize (relErrorBasedOnFloatMinTruthMult extraFloatMinCase H H1 H0 H2).
         pose proof multRoundingTruth as multRoundingTruth.
         intros.
         pose proof andExtra as andExtra.
          intros.
-        specialize (andExtra ((floatMin <= (0 - ub1) * lb2)%R //\\ (ub1 < 0)%R //\\ (lb2 >= 0)%R) ((0 - lb1) * ub2 * (1 + error) < floatMax)%R floatMinCase floatMaxBound1).
+        specialize (andExtra ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R) ((0 - lb1) * ub2 * (1 + error) < floatMax)%R floatMinCase floatMaxBound1).
        
         Local Open Scope R_scope.
 
@@ -8002,19 +7995,19 @@ clear H1. psatz R. Qed.
         simpl in andExtra.
         simpl in extraFloatMinCase2.
         specialize (extraFloatMinCase2
-                      ((floatMin <= lb1 * lb2 //\\
-                        lb1 >= 0 //\\
-                        lb2 >= 0) //\\ ub1 * ub2 * (1 + error) < floatMax)
-                      ((floatMin <= (0 - ub1) * (0 - ub2) //\\
-                      ub1 < 0 //\\
-                      ub2 < 0) //\\
+                      ((floatMin <= lb1 * lb2 /\
+                        lb1 >= 0 /\
+                        lb2 >= 0) /\ ub1 * ub2 * (1 + error) < floatMax)
+                      ((floatMin <= (0 - ub1) * (0 - ub2) /\
+                      ub1 < 0 /\
+                      ub2 < 0) /\
                       (0 - lb1) * (0 - lb2) * (1 + error) < floatMax)
-                      ((floatMin <= lb1 * (0 - ub2) //\\
-                      lb1 >= 0 //\\
-                      ub2 < 0) //\\ ub1 * (0 - lb2) * (1 + error) < floatMax)
-                      (( floatMin <= (0 - ub1) * lb2 //\\
-                      ub1 < 0 //\\
-                      lb2 >= 0) //\\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
+                      ((floatMin <= lb1 * (0 - ub2) /\
+                      lb1 >= 0 /\
+                      ub2 < 0) /\ ub1 * (0 - lb2) * (1 + error) < floatMax)
+                      (( floatMin <= (0 - ub1) * lb2 /\
+                      ub1 < 0 /\
+                      lb2 >= 0) /\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
 
         simpl in extraFloatMinCase2.
         specialize (extraFloatMinCase2 andExtra).
@@ -8227,7 +8220,7 @@ clear H1. psatz R. Qed.
         clear conjoin2.
         intros.
         pose proof orExtra3 as extraFloatMinCase.
-        specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R //\\ (lb1 >= 0)%R //\\ (lb2 >= 0)%R)  ((floatMin <= (0 - ub1) * (0 - ub2))%R //\\ (ub1 < 0)%R //\\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R //\\(lb1 >= 0)%R //\\ (ub2 < 0)%R )  ((floatMin <= (0 - ub1) * lb2)%R //\\ (ub1 < 0)%R //\\ (lb2 >= 0)%R) ).
+        specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R)  ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R /\(lb1 >= 0)%R /\ (ub2 < 0)%R )  ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R) ).
         specialize (extraFloatMinCase floatMinCase).
         specialize (relErrorBasedOnFloatMinTruthMult extraFloatMinCase H H1 H0 H2).
         pose proof multRoundingTruth as multRoundingTruth.
@@ -8235,25 +8228,25 @@ clear H1. psatz R. Qed.
         pose proof andExtra as andExtra.
         
         intros.
-        specialize (andExtra ((floatMin <= lb1 * lb2)%R //\\ (lb1 >= 0)%R //\\ (lb2 >= 0))%R (ub1 * ub2 * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
+        specialize (andExtra ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0))%R (ub1 * ub2 * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
         pose proof orExtra3 as extraFloatMinCase2.
         simpl in andExtra.
         simpl in extraFloatMinCase2.
         Local Open Scope R_scope.
         specialize (extraFloatMinCase2
-                      ((floatMin <= lb1 * lb2 //\\
-                        lb1 >= 0 //\\
-                        lb2 >= 0) //\\ ub1 * ub2 * (1 + error) < floatMax)
-                      ((floatMin <= (0 - ub1) * (0 - ub2) //\\
-                        ub1 < 0 //\\
-                        ub2 < 0) //\\
+                      ((floatMin <= lb1 * lb2 /\
+                        lb1 >= 0 /\
+                        lb2 >= 0) /\ ub1 * ub2 * (1 + error) < floatMax)
+                      ((floatMin <= (0 - ub1) * (0 - ub2) /\
+                        ub1 < 0 /\
+                        ub2 < 0) /\
                        (0 - lb1) * (0 - lb2) * (1 + error) < floatMax)
-                      ((floatMin <= lb1 * (0 - ub2) //\\
-                        lb1 >= 0 //\\
-                        ub2 < 0) //\\ ub1 * (0 - lb2) * (1 + error) < floatMax)
-                      (( floatMin <= (0 - ub1) * lb2 //\\
-                         ub1 < 0 //\\
-                         lb2 >= 0) //\\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
+                      ((floatMin <= lb1 * (0 - ub2) /\
+                        lb1 >= 0 /\
+                        ub2 < 0) /\ ub1 * (0 - lb2) * (1 + error) < floatMax)
+                      (( floatMin <= (0 - ub1) * lb2 /\
+                         ub1 < 0 /\
+                         lb2 >= 0) /\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
         simpl in extraFloatMinCase2.
         specialize (extraFloatMinCase2 andExtra).
         specialize (multRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 extraFloatMinCase2 H H1 H0 H2).
@@ -8439,10 +8432,10 @@ clear H1. psatz R. Qed.
           clear conjoin2.
           intros.
           pose proof orExtra3 as extraFloatMinCase.
-          specialize (extraFloatMinCase  ((floatMin <= (0 - ub1) * (0 - ub2))%R //\\ (ub1 < 0)%R //\\ (ub2 < 0)%R) ((floatMin <= lb1 * lb2)%R //\\ (lb1 >= 0)%R //\\ (lb2 >= 0)%R)  ((floatMin <= lb1 * (0 - ub2))%R //\\(lb1 >= 0)%R //\\ (ub2 < 0)%R )  ((floatMin <= (0 - ub1) * lb2)%R //\\ (ub1 < 0)%R //\\ (lb2 >= 0)%R) ).
+          specialize (extraFloatMinCase  ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R)  ((floatMin <= lb1 * (0 - ub2))%R /\(lb1 >= 0)%R /\ (ub2 < 0)%R )  ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R) ).
           specialize (extraFloatMinCase floatMinCase).
           pose proof diffOR as diffOR.
-          specialize ( diffOR ((floatMin <= (0 - ub1) * (0 - ub2))%R //\\ (ub1 < 0)%R //\\ (ub2 < 0)%R) ((floatMin <= lb1 * lb2)%R //\\ (lb1 >= 0)%R //\\ (lb2 >= 0)%R) ((floatMin <= lb1 * (0 - ub2))%R //\\ (lb1 >= 0)%R //\\ (ub2 < 0)%R) ((floatMin <= (0 - ub1) * lb2)%R //\\ (ub1 < 0)%R //\\ (lb2 >= 0)%R)).
+          specialize ( diffOR ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R) ((floatMin <= lb1 * (0 - ub2))%R /\ (lb1 >= 0)%R /\ (ub2 < 0)%R) ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R)).
           apply diffOR in extraFloatMinCase.
           clear diffOR.
           specialize (relErrorBasedOnFloatMinTruthMult extraFloatMinCase H H1 H0 H2).
@@ -8450,35 +8443,35 @@ clear H1. psatz R. Qed.
           intros.
           pose proof andExtra as andExtra.
           intros.
-          specialize (andExtra ((floatMin <= (0 - ub1) * (0 - ub2))%R //\\ (ub1 < 0)%R //\\ (ub2 < 0)%R) ((0 - lb1) * (0 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
+          specialize (andExtra ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((0 - lb1) * (0 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
           pose proof orExtra3 as extraFloatMinCase2.
           simpl in andExtra.
           simpl in extraFloatMinCase2.
           Local Open Scope R_scope.
           specialize (extraFloatMinCase2
-                        ((floatMin <= (0 - ub1) * (0 - ub2) //\\
-                          ub1 < 0 //\\
-                          ub2 < 0) //\\
+                        ((floatMin <= (0 - ub1) * (0 - ub2) /\
+                          ub1 < 0 /\
+                          ub2 < 0) /\
                          (0 - lb1) * (0 - lb2) * (1 + error) < floatMax)                     
-                        ((floatMin <= lb1 * lb2 //\\
-                          lb1 >= 0 //\\
-                          lb2 >= 0) //\\ ub1 * ub2 * (1 + error) < floatMax)
+                        ((floatMin <= lb1 * lb2 /\
+                          lb1 >= 0 /\
+                          lb2 >= 0) /\ ub1 * ub2 * (1 + error) < floatMax)
                         
-                        ((floatMin <= lb1 * (0 - ub2) //\\
-                          lb1 >= 0 //\\
-                          ub2 < 0) //\\ ub1 * (0 - lb2) * (1 + error) < floatMax)
-                        (( floatMin <= (0 - ub1) * lb2 //\\
-                           ub1 < 0 //\\
-                           lb2 >= 0) //\\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
+                        ((floatMin <= lb1 * (0 - ub2) /\
+                          lb1 >= 0 /\
+                          ub2 < 0) /\ ub1 * (0 - lb2) * (1 + error) < floatMax)
+                        (( floatMin <= (0 - ub1) * lb2 /\
+                           ub1 < 0 /\
+                           lb2 >= 0) /\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
           simpl in extraFloatMinCase2.
           specialize (extraFloatMinCase2 andExtra).
 
           pose proof diffOR as diffOR.
           specialize ( diffOR 
-                         ((floatMin <= (0 - ub1) * (0 - ub2) //\\ ub1 < 0 //\\ ub2 < 0) //\\ (0 - lb1) * (0 - lb2) * (1 + error) < floatMax) 
-                         ((floatMin <= lb1 * lb2 //\\ lb1 >= 0 //\\ lb2 >= 0) //\\ ub1 * ub2 * (1 + error) < floatMax) 
-                         ((floatMin <= lb1 * (0 - ub2) //\\ lb1 >= 0 //\\ ub2 < 0) //\\ ub1 * (0 - lb2) * (1 + error) < floatMax) 
-                         ((floatMin <= (0 - ub1) * lb2 //\\ ub1 < 0 //\\ lb2 >= 0) //\\ (0 - lb1) * ub2 * (1 + error) < floatMax) )%R.
+                         ((floatMin <= (0 - ub1) * (0 - ub2) /\ ub1 < 0 /\ ub2 < 0) /\ (0 - lb1) * (0 - lb2) * (1 + error) < floatMax) 
+                         ((floatMin <= lb1 * lb2 /\ lb1 >= 0 /\ lb2 >= 0) /\ ub1 * ub2 * (1 + error) < floatMax) 
+                         ((floatMin <= lb1 * (0 - ub2) /\ lb1 >= 0 /\ ub2 < 0) /\ ub1 * (0 - lb2) * (1 + error) < floatMax) 
+                         ((floatMin <= (0 - ub1) * lb2 /\ ub1 < 0 /\ lb2 >= 0) /\ (0 - lb1) * ub2 * (1 + error) < floatMax) )%R.
 
           
 
@@ -8663,14 +8656,14 @@ clear H1. psatz R. Qed.
             clear conjoin2.
             intros.
             pose proof orExtra3_3 as extraFloatMinCase.
-            specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R //\\ (lb1 >= 0)%R //\\ (lb2 >= 0)%R) ((floatMin <= (0 - ub1) * (0 - ub2))%R //\\ (ub1 < 0)%R //\\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R //\\ (lb1 >= 0)%R //\\ (ub2 < 0)%R)  ((floatMin <= (0 - ub1) * lb2)%R //\\ (ub1 < 0)%R //\\ (lb2 >= 0)%R)).
+            specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R) ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R /\ (lb1 >= 0)%R /\ (ub2 < 0)%R)  ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R)).
             specialize (extraFloatMinCase floatMinCase).
             specialize (relErrorBasedOnFloatMinTruthMult extraFloatMinCase H H1 H0 H2).
             pose proof multRoundingTruth as multRoundingTruth.
             intros.
             pose proof andExtra as andExtra.
             intros.
-            specialize (andExtra ((floatMin <= lb1 * (0 - ub2))%R //\\ (lb1 >= 0)%R //\\ (ub2 < 0)%R) (ub1 * (0 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1).
+            specialize (andExtra ((floatMin <= lb1 * (0 - ub2))%R /\ (lb1 >= 0)%R /\ (ub2 < 0)%R) (ub1 * (0 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1).
             
             Local Open Scope R_scope.
             
@@ -8678,19 +8671,19 @@ clear H1. psatz R. Qed.
             simpl in andExtra.
             simpl in extraFloatMinCase2.
             specialize (extraFloatMinCase2
-                          ((floatMin <= lb1 * lb2 //\\
-                            lb1 >= 0 //\\
-                            lb2 >= 0) //\\ ub1 * ub2 * (1 + error) < floatMax)
-                          ((floatMin <= (0 - ub1) * (0 - ub2) //\\
-                            ub1 < 0 //\\
-                            ub2 < 0) //\\
+                          ((floatMin <= lb1 * lb2 /\
+                            lb1 >= 0 /\
+                            lb2 >= 0) /\ ub1 * ub2 * (1 + error) < floatMax)
+                          ((floatMin <= (0 - ub1) * (0 - ub2) /\
+                            ub1 < 0 /\
+                            ub2 < 0) /\
                            (0 - lb1) * (0 - lb2) * (1 + error) < floatMax)
-                          ((floatMin <= lb1 * (0 - ub2) //\\
-                            lb1 >= 0 //\\
-                            ub2 < 0) //\\ ub1 * (0 - lb2) * (1 + error) < floatMax)
-                          (( floatMin <= (0 - ub1) * lb2 //\\
-                             ub1 < 0 //\\
-                             lb2 >= 0) //\\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
+                          ((floatMin <= lb1 * (0 - ub2) /\
+                            lb1 >= 0 /\
+                            ub2 < 0) /\ ub1 * (0 - lb2) * (1 + error) < floatMax)
+                          (( floatMin <= (0 - ub1) * lb2 /\
+                             ub1 < 0 /\
+                             lb2 >= 0) /\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
 
             simpl in extraFloatMinCase2.
             specialize (extraFloatMinCase2 andExtra).
@@ -8872,14 +8865,14 @@ clear H1. psatz R. Qed.
               clear conjoin2.
               intros.
               pose proof orExtra3_4 as extraFloatMinCase.
-              specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R //\\ (lb1 >= 0)%R //\\ (lb2 >= 0)%R) ((floatMin <= (0 - ub1) * (0 - ub2))%R //\\ (ub1 < 0)%R //\\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R //\\ (lb1 >= 0)%R //\\ (ub2 < 0)%R)  ((floatMin <= (0 - ub1) * lb2)%R //\\ (ub1 < 0)%R //\\ (lb2 >= 0)%R)).
+              specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R) ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R /\ (lb1 >= 0)%R /\ (ub2 < 0)%R)  ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R)).
               specialize (extraFloatMinCase floatMinCase).
               specialize (relErrorBasedOnFloatMinTruthMult extraFloatMinCase H H1 H0 H2).
               pose proof multRoundingTruth as multRoundingTruth.
               intros.
               pose proof andExtra as andExtra.
               intros.
-              specialize (andExtra ((floatMin <= (0 - ub1) * lb2)%R //\\ (ub1 < 0)%R //\\ (lb2 >= 0)%R) ((0 - lb1) * ub2 * (1 + error) < floatMax)%R floatMinCase floatMaxBound1).
+              specialize (andExtra ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R) ((0 - lb1) * ub2 * (1 + error) < floatMax)%R floatMinCase floatMaxBound1).
               
               Local Open Scope R_scope.
 
@@ -8887,19 +8880,19 @@ clear H1. psatz R. Qed.
               simpl in andExtra.
               simpl in extraFloatMinCase2.
               specialize (extraFloatMinCase2
-                            ((floatMin <= lb1 * lb2 //\\
-                              lb1 >= 0 //\\
-                              lb2 >= 0) //\\ ub1 * ub2 * (1 + error) < floatMax)
-                            ((floatMin <= (0 - ub1) * (0 - ub2) //\\
-                              ub1 < 0 //\\
-                              ub2 < 0) //\\
+                            ((floatMin <= lb1 * lb2 /\
+                              lb1 >= 0 /\
+                              lb2 >= 0) /\ ub1 * ub2 * (1 + error) < floatMax)
+                            ((floatMin <= (0 - ub1) * (0 - ub2) /\
+                              ub1 < 0 /\
+                              ub2 < 0) /\
                              (0 - lb1) * (0 - lb2) * (1 + error) < floatMax)
-                            ((floatMin <= lb1 * (0 - ub2) //\\
-                              lb1 >= 0 //\\
-                              ub2 < 0) //\\ ub1 * (0 - lb2) * (1 + error) < floatMax)
-                            (( floatMin <= (0 - ub1) * lb2 //\\
-                               ub1 < 0 //\\
-                               lb2 >= 0) //\\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
+                            ((floatMin <= lb1 * (0 - ub2) /\
+                              lb1 >= 0 /\
+                              ub2 < 0) /\ ub1 * (0 - lb2) * (1 + error) < floatMax)
+                            (( floatMin <= (0 - ub1) * lb2 /\
+                               ub1 < 0 /\
+                               lb2 >= 0) /\ (0 - lb1) * ub2 * (1 + error) < floatMax)).
 
               simpl in extraFloatMinCase2.
               specialize (extraFloatMinCase2 andExtra).
@@ -9179,6 +9172,7 @@ clear H1. psatz R. Qed.
        Qed.
        simpl in *.    
        eapply In_cross_In in H0.
+       simpl in H0.
        forward_reason.
        simpl in *.
        destruct H3.
@@ -9230,6 +9224,7 @@ clear H1. psatz R. Qed.
   {
      simpl in *.    
        eapply In_cross_In in H0.
+       simpl in H0.
        forward_reason.
        simpl in *.
        destruct H3.
@@ -9257,6 +9252,7 @@ clear H1. psatz R. Qed.
   {
     simpl in *.    
        eapply In_cross_In in H0.
+       simpl in H0.
        forward_reason.
        simpl in *.
        destruct H3.
@@ -9303,5 +9299,3 @@ clear H1. psatz R. Qed.
        }
 
 Qed.
- *)
-  Admitted.
