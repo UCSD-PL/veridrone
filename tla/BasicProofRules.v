@@ -601,7 +601,7 @@ Fixpoint rename_formula (m : RenameMap) (F:Formula) :=
     | Rename s P => Rename m (Rename s P)
   end.
 
-Lemma find_term_now_Some_ok : forall m x t st1 st2,
+Lemma find_term_now_Some_ok' : forall m x t st1 st2,
   List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
   find_term m x = Some t ->
   eval_term t st1 st2 =
@@ -621,6 +621,15 @@ Proof.
     + apply IHm; auto. inversion H. auto.
 Qed.
 
+Lemma find_term_now_Some_ok : forall m x t st1 st2,
+  List.forallb (fun p => is_st_term (snd p)) m = true ->
+  find_term m x = Some t ->
+  eval_term t st1 st2 =
+  subst_state m st1 x.
+Proof.
+  intros. apply find_term_now_Some_ok'; auto.
+  apply List.Forall_forall. apply List.forallb_forall; auto.
+Qed.
 
 Lemma find_term_now_None_ok : forall m x st1 st2,
   find_term m x = None ->
@@ -638,7 +647,7 @@ Proof.
     + apply IHm; auto.
 Qed.
 
-Lemma find_term_next_Some_ok : forall m x t st1 st2,
+Lemma find_term_next_Some_ok' : forall m x t st1 st2,
   List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
   find_term m x = Some t ->
   eval_term (next_term t) st1 st2 =
@@ -658,6 +667,16 @@ Proof.
     + apply IHm; auto. inversion H. auto.
 Qed.
 
+Lemma find_term_next_Some_ok : forall m x t st1 st2,
+  List.forallb (fun p => is_st_term (snd p)) m = true ->
+  find_term m x = Some t ->
+  eval_term (next_term t) st1 st2 =
+  subst_state m st2 x.
+Proof.
+  intros. apply find_term_next_Some_ok'; auto.
+  apply List.Forall_forall. apply List.forallb_forall; auto.
+Qed.
+
 Lemma find_term_next_None_ok : forall m x st1 st2,
   find_term m x = None ->
   eval_term (VarNextT x) st1 st2 =
@@ -675,7 +694,7 @@ Proof.
 Qed.
 
 Lemma Rename_term_ok : forall m t st1 st2,
-  List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
+  List.forallb (fun p => is_st_term (snd p)) m = true ->
   eval_term (rename_term m t) st1 st2 =
   eval_term t (subst_state m st1) (subst_state m st2).
 Proof.
@@ -704,7 +723,7 @@ Qed.
 
 
 Lemma Rename_Comp : forall m t1 t2 op,
-  List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
+  List.forallb (fun p => is_st_term (snd p)) m = true ->
   Rename m (Comp t1 t2 op) -|-
   rename_formula m (Comp t1 t2 op).
 Proof.
@@ -873,7 +892,7 @@ Proof.
 Qed.
 
 Lemma Rename_ok : forall m F,
-  List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
+  List.forallb (fun p => is_st_term (snd p)) m = true ->
   rename_formula m F -|- Rename m F.
 Proof.
   induction F; intros.

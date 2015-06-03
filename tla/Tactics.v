@@ -7,10 +7,62 @@ Require Import TLA.Semantics.
 Require Import TLA.Lib.
 Require Import TLA.ProofRules.
 Require Import TLA.Automation.
-
+Require Import Coq.Lists.List.
+Require Import Coq.Strings.String.
 
 (* Some useful tactics for our examples. *)
 
+Fixpoint get_next_vars_term (t : Term) : list Var :=
+  match t with
+  | VarNextT t => t :: nil
+  | VarNowT _ | NatT _ | RealT _ => nil
+  | PlusT a b | MinusT a b | MultT a b =>
+                             get_next_vars_term a ++
+                             get_next_vars_term b
+  | InvT a | CosT a | SinT a => get_next_vars_term a
+  end.
+
+Fixpoint get_next_vars_formula (f : Formula) : list Var :=
+  match f with
+  | Always a | Eventually a | Enabled a =>
+                              get_next_vars_formula a
+  | And a b | Or a b | Imp a b =>
+                       get_next_vars_formula a ++
+                       get_next_vars_formula b
+  | Rename _ a => get_next_vars_formula a
+  | Comp l r _ => get_next_vars_term l ++
+                                     get_next_vars_term r
+  | _ => nil
+  end.
+
+Fixpoint remove_dup (ls : list Var) : list Var :=
+  match ls with
+  | nil => nil
+  | l :: ls => let ls' := remove_dup ls in
+               if in_dec string_dec l ls'
+               then ls' else l :: ls'
+  end.
+
+Ltac enable_ex_st :=
+  match goal with
+  | |- lentails _ (Enabled ?X) =>
+    let vars := eval compute in
+    (remove_dup (get_next_vars_formula X)) in
+        let rec foreach ls :=
+            match ls with
+            | @cons _ ?l ?ls => eapply (ex_state l); simpl;
+                                foreach ls
+            | _ => idtac
+            end
+        in
+        eapply Enabled_action; intros; eapply ex_state_flow_any;
+        auto; simpl; intros;
+        foreach vars
+  end; try (eapply ex_state_any; (let st := fresh in
+                                  intro st; clear st)).
+
+(* The old tactic, very slow. *)
+(*
 Ltac enable_ex_st :=
   eapply Enabled_action; intros; eapply ex_state_flow_any;
   auto; simpl; intros;
@@ -31,6 +83,7 @@ Ltac enable_ex_st :=
          end;
   try (eapply ex_state_any ;
        let st := fresh in intro st ; clear st).
+*)
 
 Lemma reason_action : forall P Q,
     (forall a b tr,

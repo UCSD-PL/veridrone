@@ -2,6 +2,7 @@ Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
 Require Import Examples.System.
 Require Import Examples.SecondDerivShimCtrl.
+Require Import ChargeTactics.Lemmas.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -56,7 +57,9 @@ Module Corner (P : CornerParams).
                (SysRename rename_y SDSP_Y.SpecR).
 
   Lemma the_box'
-  : |-- SysD Spec -->> [] (Rename rename_x SDSP_X.Safe //\\ Rename rename_y SDSP_Y.Safe).
+  : |-- SysD Spec -->>
+        [](Rename rename_x SDSP_X.Safe //\\
+           Rename rename_y SDSP_Y.Safe).
   Proof.
     eapply Compose.
     { apply SysSafe_rule; apply always_tauto.
@@ -70,45 +73,7 @@ Module Corner (P : CornerParams).
 *)
       Time simpl rename_formula; restoreAbstraction.
       unfold Discr.
-
-      (** TODO: This stuff should move! *)
-      Fixpoint get_next_vars_term (t : Term) : list Var :=
-        match t with
-        | VarNextT t => t :: nil
-        | VarNowT _ | NatT _ | RealT _ => nil
-        | PlusT a b | MinusT a b | MultT a b => get_next_vars_term a ++ get_next_vars_term b
-        | InvT a | CosT a | SinT a => get_next_vars_term a
-        end.
-
-      Fixpoint get_next_vars_formula (f : Formula) : list Var :=
-        match f with
-        | Always a | Eventually a | Enabled a => get_next_vars_formula a
-        | And a b | Or a b | Imp a b => get_next_vars_formula a ++ get_next_vars_formula b
-        | Rename _ a => get_next_vars_formula a
-        | Comp l r _ => get_next_vars_term l ++ get_next_vars_term r
-        | _ => nil
-        end.
-
-      Fixpoint remove_dup (ls : list Var) : list Var :=
-        match ls with
-        | nil => nil
-        | l :: ls => let ls' := remove_dup ls in if in_dec string_dec l ls' then ls' else l :: ls'
-        end.
-      Ltac enabled_ex_st :=
-      match goal with
-      | |- lentails _ (Enabled ?X) =>
-        let vars := eval compute in (remove_dup (get_next_vars_formula X)) in
-        let rec foreach ls :=
-            match ls with
-            | @cons _ ?l ?ls => eapply (ex_state l); simpl ; foreach ls
-            | _ => idtac
-            end
-        in
-        eapply Enabled_action; intros; eapply ex_state_flow_any; auto; simpl; intros;
-        foreach vars
-      end; try (eapply ex_state_any; (let st := fresh in
-                                          intro st; clear st)).
-      enabled_ex_st.
+      enable_ex_st.
       unfold X.d, Y.d.
       rewrite Rbasic_fun.Rmin_left by reflexivity.
       exists P.d.
@@ -127,7 +92,25 @@ Module Corner (P : CornerParams).
           charge_split; try charge_assumption. admit. } }
       { compute. tauto. }
       { compute. intuition congruence. }
-      { admit. (** this is not trivial **) } }
-    { (* similar to above *) admit. }
+      { apply forget_prem. rewrite <- Rename_ok.
+        simpl rename_formula. restoreAbstraction.
+        enable_ex_st. repeat eexists. solve_linear.
+        reflexivity. apply VarRenameMap_is_st_term. } }
+    { apply forget_prem. tlaIntro.
+      rewrite <- Rename_Always.
+      unfold rename_y.
+      rewrite SysRename_sound.
+      { eapply Proper_Rename.
+        { reflexivity. }
+        { pose proof SDSP_Y.ctrl_safe.
+          charge_apply H. unfold SDSP_Y.Spec.
+          charge_split; try charge_assumption. admit. } }
+      { compute. tauto. }
+      { compute. intuition congruence. }
+      { apply forget_prem. rewrite <- Rename_ok.
+        simpl rename_formula. restoreAbstraction.
+        enable_ex_st. repeat eexists. solve_linear.
+        reflexivity. apply VarRenameMap_is_st_term. } }
   Qed.
+
 End Corner.

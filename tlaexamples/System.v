@@ -1062,8 +1062,9 @@ Proof.
 Qed.
 
 Lemma VarRenameMap_is_st_term : forall m,
-  List.Forall (fun p : Var * Term => (is_st_term (snd p) = true)%type)
-              (VarRenameMap m).
+  List.forallb
+    (fun p : Var * Term => is_st_term (snd p))
+    (VarRenameMap m) = true.
 Proof.
   induction m; simpl; auto.
 Qed.
@@ -1077,19 +1078,21 @@ Proof.
          end; auto.
 Qed.
 
-Lemma Rename_next_term : forall a m, rename_term m (next_term a) = next_term (rename_term m a).
+Lemma Rename_next_term : forall a m,
+    rename_term m (next_term a) = next_term (rename_term m a).
 Proof.
   induction a; simpl; intros; eauto;
   repeat match goal with
          | H : _ |- _ => rewrite H
          end; auto.
   - destruct (find_term m v); reflexivity.
-  - destruct (find_term m v). rewrite next_term_idempotent. reflexivity.
+  - destruct (find_term m v). rewrite next_term_idempotent.
+    reflexivity.
     reflexivity.
 Qed.
 
 Lemma Rename_UnchangedT : forall m unch,
-    (List.Forall (fun p : Var * Term => (is_st_term (snd p) = true)%type) m) ->
+  List.forallb (fun p => is_st_term (snd p)) m = true ->
   Rename m (UnchangedT unch) -|-
   UnchangedT (List.map (rename_term m) unch).
 Proof.
@@ -1128,14 +1131,18 @@ Theorem SysRename_sound
           Enabled (Rename m (Discr s.(Prog) s.(maxTime)))) ->
   SysD (SysRename m s) |-- Rename m (SysD s).
 Proof.
-  intros. destruct s. unfold SysD, sysD, Next, World, Discr in *. simpl in *.
-  restoreAbstraction. Rename_rewrite; auto; try apply VarRenameMap_is_st_term.
+  intros. destruct s. unfold SysD, sysD, Next, World, Discr in *.
+  simpl in *.
+  restoreAbstraction.
+  Rename_rewrite; auto; try apply VarRenameMap_is_st_term.
   apply land_lentails_m.
-  { simpl rename_formula. repeat rewrite NotRenamed_find_term; auto.
+  { simpl rename_formula.
+    repeat rewrite NotRenamed_find_term; auto.
     reflexivity. }
   tlaRevert. eapply always_imp. charge_intro.
   apply land_lentails_m.
-  2: simpl rename_formula; repeat rewrite NotRenamed_find_term; auto; reflexivity.
+  2: simpl rename_formula; repeat rewrite NotRenamed_find_term;
+  auto; reflexivity.
   rewrite H0.
   rewrite Rename_UnchangedT by eapply VarRenameMap_is_st_term.
   repeat match goal with

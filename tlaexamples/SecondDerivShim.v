@@ -51,7 +51,8 @@ Definition CtrlSenseErrorSysR err :=
     (SysRename (VarRenameMap (("x","v")::("Xmax","Vmax")::("Xmin","Vmin")::nil))
             (SensorWithError.SpecR err ShimParams.d))
     (SysCompose
-       (SensorWithError.SpecR err ShimParams.d)
+       (SysRename (VarRenameMap (("x","y")::("Xmax","Ymax")::nil))
+                   (SensorWithError.SpecR err ShimParams.d))
        ShimCtrl.SpecR).
 
 Definition CtrlSenseErrorSys err :=
@@ -62,8 +63,9 @@ Theorem ctrl_sense_error_safe : forall err,
 Proof.
   intro err.
   apply imp_trans with
-  (F2:=[](Rename (("x","v":Term)::("Xmax","Vmax":Term)::("Xmin","Vmin":Term)::nil)
+  (F2:=[](Rename (VarRenameMap (("x","v")::("Xmax","Vmax")::("Xmin","Vmin")::nil))
                  SensorWithError.SenseSafe //\\
+          Rename (VarRenameMap (("x","y")::("Xmax","Ymax")::nil))
           SensorWithError.SenseSafe //\\
           "y" <= ShimParams.ub)).
   - apply Compose.
@@ -71,21 +73,32 @@ Proof.
       enable_ex_st; repeat eexists; solve_linear.
     + tlaIntro. rewrite <- Rename_always.
       rewrite <- (SensorWithError.sense_safe err ShimParams.d).
-      rewrite <- SysRename_sound.
+      rewrite SysRename_sound.
       * charge_tauto.
-      * unfold NotRenamed. simpl. intuition congruence.
-      * admit.
+      * simpl. intuition.
+      * compute. intuition congruence.
+      * 
     + apply Compose.
       * apply SysSafe_rule; apply always_tauto.
         enable_ex_st; repeat eexists; solve_linear.
       * tlaIntro. tlaRevert. apply forget_prem.
-        tlaIntro. apply SensorWithError.sense_safe; reflexivity.
+        tlaIntro. pose proof (SensorWithError.sense_safe err ShimParams.d).
+        apply Proper_Rename
+        with (m:=VarRenameMap (("x","y")::("Xmax","Ymax")::nil))
+          in H. revert H. unfold SensorWithError.SenseSafe.
+        Rename_rewrite; try solve [ apply VarRenameMap_is_st_term ].
+        simpl rename_formula. intro H. charge_apply H.
+        apply SysRename_sound.
+        { simpl. intuition. }
+        { compute. intuition congruence. }
+        { admit. }
       * tlaIntro. pose proof ShimCtrl.ctrl_safe.
         unfold ShimCtrl.Safe in *. charge_apply H.
         unfold ShimCtrl.Spec. unfold SensorWithError.SenseSafe.
-        Rename_rewrite; try solve [intuition]. simpl rename_formula.
+        Rename_rewrite; try solve [apply VarRenameMap_is_st_term].
+        simpl rename_formula.
         repeat rewrite <- Always_and.
-        repeat charge_split; try charge_assumption.
+        repeat charge_split; try charge_assumption;
         solve_linear.
   - apply always_imp. charge_tauto.
 Qed.
