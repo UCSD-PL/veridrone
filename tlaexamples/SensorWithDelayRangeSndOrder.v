@@ -79,11 +79,11 @@ Module SensorWithDelayRangeSndOrder
   Proof.
     intros.
     apply SysSafe_rule; apply always_tauto.
-    enable_ex_st. destruct st as [st ?].
-    exists d. exists d. exists (st "v").
-    exists (st "v"). exists (st "x").
+    enable_ex_st. destruct st as [st ?]. simpl.
+    exists d. exists (st "v"). exists (st "x").
+    exists d. exists (st "v"). exists (st "x").
     exists (st "Xmax" + Rbasic_fun.Rmax (st "Vmax" * d) 0)%R.
-    exists (st "x"). exists R0. solve_linear. left.
+    exists R0. solve_linear. left.
     rewrite_real_zeros. solve_linear.
     { unfold Rbasic_fun.Rmax.
       match goal with

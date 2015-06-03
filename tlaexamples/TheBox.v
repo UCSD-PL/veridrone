@@ -95,7 +95,7 @@ Module Corner (P : CornerParams).
       { apply forget_prem. rewrite <- Rename_ok.
         simpl rename_formula. restoreAbstraction.
         enable_ex_st. repeat eexists. solve_linear.
-        reflexivity. apply VarRenameMap_is_st_term. } }
+        reflexivity. reflexivity. } }
     { apply forget_prem. tlaIntro.
       rewrite <- Rename_Always.
       unfold rename_y.
@@ -110,7 +110,7 @@ Module Corner (P : CornerParams).
       { apply forget_prem. rewrite <- Rename_ok.
         simpl rename_formula. restoreAbstraction.
         enable_ex_st. repeat eexists. solve_linear.
-        reflexivity. apply VarRenameMap_is_st_term. } }
+        reflexivity. reflexivity. } }
   Qed.
 
 End Corner.
