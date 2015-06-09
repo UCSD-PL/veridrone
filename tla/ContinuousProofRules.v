@@ -42,8 +42,7 @@ Proof.
   intros G cp F x Hcont Hin Hsuf tr HF.
   apply Hsuf; split; auto.
   specialize (Hcont tr HF).
-  destruct tr as [[st1 f] ?]. simpl in *.
-  destruct Hcont as [r [Hr [Hstart [Hend Hsol]]]].
+  destruct Hcont as [r [f [Hr [Hsol [Hstart Hend]]]]].
   rewrite <- Hend. rewrite <- Hstart.
   unfold is_solution, solves_diffeqs in Hsol.
   destruct Hsol as [pf Hsol].
@@ -59,7 +58,7 @@ Proof.
   - unfold derive in Hsol. intros.
     assert (0 <= x0 <= r)%R as Hx0 by psatzl R.
     specialize (Hsol _ Hx0).
-    specialize (Hin (Stream.forever (f x0, fun _ _ => R0)) I
+    specialize (Hin (Stream.forever (f x0)) I
                (fun x1 : Var =>
                   derive_pt (fun t : R => f t x1) x0 (pf x1 x0))).
     rewrite <- Hin; auto.
@@ -75,12 +74,11 @@ Lemma Continuous_st_formula : forall w F,
   Continuous w |-- next F.
 Proof.
   breakAbstraction. intros.
-  destruct tr as [[st1 f] ?].
-  destruct H2 as [r ?].
+  destruct H2 as [r [f ?]].
   intuition.
   unfold is_solution, solves_diffeqs in *.
   apply next_formula_tl; auto.
-  destruct H6. specialize (H5 r).
+  destruct H2. specialize (H2 r).
   assert (0 <= r <= r)%R by psatzl R.
   intuition.
   eapply H1; eauto.

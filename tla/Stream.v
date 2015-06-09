@@ -24,6 +24,10 @@ Section parametric.
     | Cons _ s' => s'
     end.
 
+  Lemma trace_eta : forall (tr : stream),
+      tr = Cons (hd tr) (tl tr).
+  Proof. destruct tr. reflexivity. Qed.
+
   CoInductive stream_eq (r : A -> A -> Prop)
   : stream -> stream -> Prop :=
   | Cons_eq : forall xs ys,

@@ -84,10 +84,6 @@ Proof.
   { eapply and_iff; intros; first [ eapply IHx1 | eapply IHx2 ]; eauto. }
   { eapply or_iff; intros; first [ eapply IHx1 | eapply IHx2 ]; eauto. }
   { eapply impl_iff; intros; first [ eapply IHx1 | eapply IHx2 ]; eauto. }
-  { destruct H1. rewrite H0.
-    destruct (Stream.hd ys).
-    apply exists_iff; intros.
-    destruct H1. rewrite H1. reflexivity. }
   { eapply exists_iff; intros.
     eapply H; eauto. }
   { eapply forall_iff; intros.
@@ -143,7 +139,6 @@ Fixpoint next (F:Formula) :=
     | Syntax.Exists _ f => Exists x, next (f x)
     | Syntax.Forall _ f => Forall x, next (f x)
     | PropF P => PropF P
-    | Continuous w => Continuous (fun st' => next (w st'))
     | Enabled F => Enabled (next F)
     | Always F => Always (next F)
     | Eventually F => Eventually (next F)
@@ -231,17 +226,17 @@ Qed.
 Lemma st_formula_hd : forall F tr1 tr2,
   is_st_formula F ->
   eval_formula F tr1 ->
-  fst (Stream.hd tr1) = fst (Stream.hd tr2) ->
+  Stream.hd tr1 = Stream.hd tr2 ->
   eval_formula F tr2.
 Proof.
   induction F; intros; simpl in *; auto;
   try tauto; try discriminate.
   - unfold eval_comp in *. simpl in *.
     rewrite st_term_hd
-    with (t:=t) (s3:=fst (Stream.hd (Stream.tl tr1)));
+    with (t:=t) (s3:=Stream.hd (Stream.tl tr1));
       intuition.
     rewrite st_term_hd
-    with (t:=t0) (s3:=fst (Stream.hd (Stream.tl tr1)));
+    with (t:=t0) (s3:=Stream.hd (Stream.tl tr1));
       intuition.
     rewrite <- H1; auto.
   - split; try eapply IHF1; try eapply IHF2;
@@ -280,8 +275,8 @@ Proof.
   induction F; simpl in *; intros ;
   try tauto.
   - unfold eval_comp in *. simpl in *.
-    rewrite <- next_term_tl with (s1:=fst (Stream.hd tr)) (t:=t).
-    rewrite <- next_term_tl with (s1:=fst (Stream.hd tr)) (t:=t0).
+    rewrite <- next_term_tl with (s1:=Stream.hd tr) (t:=t).
+    rewrite <- next_term_tl with (s1:=Stream.hd tr) (t:=t0).
     intuition. intuition. intuition.
   - rewrite IHF1; try rewrite IHF2; tauto.
   - rewrite IHF1; try rewrite IHF2; tauto.
@@ -601,7 +596,6 @@ Fixpoint rename_formula (m : RenameMap) (F:Formula) :=
     | Syntax.Exists _ f => Exists x, rename_formula m (f x)
     | Syntax.Forall _ f => Forall x, rename_formula m (f x)
     | PropF P => PropF P
-    | Continuous w => Rename m (Continuous w)
     | Enabled F => Rename m (Enabled F)
     | Always F => Always (rename_formula m F)
     | Eventually F => Eventually (rename_formula m F)
@@ -825,7 +819,7 @@ Proof.
     + auto.
 Qed.
 
-Require Ranalysis4.
+Require Coq.Reals.Ranalysis4.
 
 Lemma subst_VarRenameMap_derive_distr :
   forall m f z pf1 pf2,
@@ -847,41 +841,6 @@ Proof.
     + subst. apply Ranalysis4.pr_nu_var.
       auto.
     + erewrite IHm. auto.
-Qed.
-
-
-(** TODO: Generalize this **)
-Lemma Rename_Continuous
-: forall (m' : list (Var * Var)) w
-         (H_is_st : forall st, is_st_formula (w st)),
-  let m := VarRenameMap m' in
-  Continuous (fun st' => Rename m (w (subst_state m st'))) |--
-  Rename m (Continuous w).
-Proof.
-  breakAbstraction; intros.
-  { destruct tr. simpl in *.
-    destruct p.
-    destruct H as [ ? [ ? [ ? [ ? ? ] ] ] ].
-    subst.
-    exists x; split; eauto.
-    simpl.
-    split; eauto.
-    split.
-    { destruct tr. simpl in *.
-      unfold subst_flow. f_equal. assumption. }
-    unfold is_solution, solves_diffeqs in *.
-    destruct H2.
-    exists (VarRenameMap_derivable f m' x0).
-    intros.
-    specialize (H0 _ H2).
-    simpl in *.
-    rewrite (@Stream.stream_map_forever _ _ (subst (VarRenameMap m')) (@eq (state*flow))) in H0
-         by eauto with typeclass_instances.
-    unfold subst in H0. simpl in H0.
-    eapply st_formula_hd. eauto.
-    setoid_rewrite subst_VarRenameMap_derive_distr in H0.
-    eapply H0.
-    simpl. reflexivity. }
 Qed.
 
 
@@ -918,7 +877,6 @@ Proof.
     rewrite IHF2; auto.
   - rewrite Rename_PropF. simpl rename_formula.
     split; charge_tauto.
-  - split; charge_tauto.
   - rewrite Rename_Exists. simpl rename_formula.
     split; breakAbstraction; intros.
     + destruct H1. specialize (H x H0). destruct H.
@@ -948,7 +906,7 @@ Hint Rewrite Rename_True Rename_False Rename_Comp
      Rename_and Rename_or Rename_impl Rename_PropF
      Rename_Exists Rename_Forall
      Rename_Always Rename_Eventually
-     Rename_Continuous Rename_Enabled : rw_rename.
+     Rename_Enabled : rw_rename.
 
 Ltac Rename_rewrite :=
   autorewrite with rw_rename.
@@ -990,33 +948,4 @@ Proof.
   charge_tauto.
   restoreAbstraction. tlaRevert.
   apply always_imp. charge_tauto.
-Qed.
-
-Global Instance Proper_Continuous_entails
-  : Proper ((pointwise_relation _ lentails) ==> lentails) Continuous.
-Proof.
-  do 5 red.
-  simpl. destruct tr; simpl.
-  destruct p.
-  destruct 1.
-  exists x0. intuition.
-  unfold is_solution in *. destruct H4. exists x1.
-  unfold solves_diffeqs in *.
-  intros.
-  specialize (H3 _ H4).
-  eapply H. assumption.
-Qed.
-
-Global Instance Proper_Continuous_equiv
-  : Proper ((pointwise_relation _ lequiv) ==> lequiv) Continuous.
-Proof.
-  morphism_intro.
-  eapply lequiv_to_iff.
-  intros. simpl.
-  destruct (Stream.hd st).
-  apply exists_iff; intros.
-  eapply and_iff; try tauto; intros.
-  eapply and_iff; try tauto; intros.
-  eapply and_iff; try tauto; intros.
-  setoid_rewrite H. reflexivity.
 Qed.

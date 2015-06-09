@@ -1,6 +1,7 @@
 -R ../Z3-plugin/src Z3
 -R . TLA
 -I ../Charge/Charge!/bin
+-R ../coq-ext-lib/theories ExtLib
 -R ../ChargeTactics ChargeTactics
 Stream.v
 Syntax.v

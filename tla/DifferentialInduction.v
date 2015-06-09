@@ -140,7 +140,7 @@ Fixpoint deriv_formula (P:state->Formula) (F:Formula) (st:state)
 
 Lemma term_deriv : forall (f : R -> state) e e'
   (r : R) eqs is_derivable s,
-  solves_diffeqs eval_formula f eqs r is_derivable ->
+  solves_diffeqs f eqs r is_derivable ->
   deriv_term e = Some e' ->
   exists pf,
     forall z,
@@ -360,8 +360,8 @@ Qed.
 
 Lemma is_solution_sub : forall f eqs r1 r2,
   (r1 <= r2)%R ->
-  is_solution eval_formula f eqs r2 ->
-  is_solution eval_formula f eqs r1.
+  is_solution f eqs r2 ->
+  is_solution f eqs r1.
 Proof.
   intros f eqs r1 r2 Hr Hsol.
   unfold is_solution in *.
@@ -377,7 +377,7 @@ Definition derive_stateF (f : R -> state) (is_derivable : forall x, derivable (f
   fun t v => derive (fun t => f t v) (is_derivable v) t.
 
 Lemma deriv_neg : forall f t1 t2 t1' t2' r eqs is_derivable s,
-  solves_diffeqs eval_formula f eqs r is_derivable ->
+  solves_diffeqs f eqs r is_derivable ->
   deriv_term t1 = Some t1' ->
   deriv_term t2 = Some t2' ->
   forall t,
@@ -421,17 +421,17 @@ Proof.
   breakAbstraction; unfold eval_comp in *; simpl in *.
   intros tr XX H; clear XX; destruct H as [Hbase [HhypsI Hcont] ].
 
-  destruct tr as [[st1 f] [[st2 ?] ?]] eqn:?; simpl in *;
-  destruct Hcont as [r [Hr [? [? Hsol] ] ]]; simpl in *.
+  destruct Hcont as [r [f Hcont] ];
+    destruct Hcont as [Hr [Hsol [? ?] ] ].
   pose proof (deriv_st_term _ _ Ht1).
   pose proof (deriv_st_term _ _ Ht2).
-  repeat rewrite eval_next_term with (s3:=st2); auto.
+  repeat rewrite eval_next_term with (s3:=Stream.hd (Stream.tl tr)); auto.
   unfold is_solution in *. destruct Hsol as [pf Hsol].
   pose proof (term_deriv f (t1 - t2) (fun st' => t1' st' - t2' st')
-                         r eqs pf st2 Hsol)
+                         r eqs pf (Stream.hd (Stream.tl tr)) Hsol)
     as Hterm1.
   pose proof (term_deriv f (t2 - t1) (fun st' => t2' st' - t1' st')
-                         r eqs pf st2 Hsol)
+                         r eqs pf (Stream.hd (Stream.tl tr)) Hsol)
     as Hterm2.
   rewrite <- H in *.
   rewrite <- H0 in *.
@@ -449,40 +449,23 @@ Proof.
   deriv_ineq; intros; try solve_ineq;
   (instantiate (1:=pf1) || instantiate (1:=pf2));
   (rewrite Hterm1 || rewrite Hterm2); try solve_ineq;
-  specialize (Hhyps
-                (Stream.Cons
-                   (st1, f)
-                   (Stream.Cons (f t, fun _ _ => R0)
-                                (Stream.tl tr))) I);
-  simpl in *; apply next_formula_tl in Hhyps; auto;
-  specialize (Hind (Stream.Cons (f t, fun _ _ => R0)
-                                (Stream.tl tr)) I);
-  simpl in *; rewrite Heqt in *; simpl in *;
+  try specialize (Hhyps (Stream.Cons (Stream.hd tr)
+                              (Stream.Cons (f t) (Stream.tl tr))) I);
+  simpl in *; try apply next_formula_tl in Hhyps; auto;
+  try specialize (Hind (Stream.Cons (f t) (Stream.tl tr)) I); simpl in *;
   try specialize (Hind Hhyps); try solve_ineq;
-(*  try (repeat split;
+  try (split;
         [ eapply st_formula_hd; eauto |
           exists t; exists f; repeat split; try solve_ineq; auto;
           solve [apply is_solution_sub with (r2:=r);
                   try solve_ineq; unfold is_solution; eauto]
-      ]);*)
-  match goal with
-  | [ |- context [eval_formula _ _] ] =>
-    split; try exists t; repeat split;
-      try solve [eapply st_formula_hd; eauto; simpl; subst; auto |
-                 auto |
-                 solve_ineq |
-                 apply is_solution_sub with (r2:=r);
-                   try solve_ineq; unfold is_solution; eauto ]
-  | _ =>
-  specialize (Hind (fun x : Var => derive_pt
-                                     (fun t0 : R => f t0 x) t
-                                     (pf x t)));
-  unfold solves_diffeqs in *; rewrite H0 in *;
+      ]);
+  specialize (Hind (fun x : Var => derive_pt (fun t0 : R => f t0 x) t (pf x t)));
+  unfold solves_diffeqs in *; rewrite H0;
   assert (0 <= t <= r)%R as Ht by solve_ineq;
   specialize (Hsol t Ht);
   eapply st_formula_hd in Hsol; try apply Hind in Hsol;
-  try solve_ineq; auto
-end.
+  try solve_ineq; auto.
 Qed.
 
 Lemma Continuous_deriv_exists :
@@ -491,14 +474,11 @@ Lemma Continuous_deriv_exists :
     eval_formula (Continuous Pdiff) tr ->
     exists st, eval_formula (Pdiff st) tr.
 Proof.
-  breakAbstraction. intros. destruct tr as [[? ?] ?]; simpl in *.
-  destruct H0 as [r H0].
+  breakAbstraction. intros. destruct H0 as [r [f H0]].
   unfold is_solution, solves_diffeqs in *.
-  destruct H0 as [? [? [? [? ?]]]]. eexists.
-  subst s.
-  eapply st_formula_hd
-  with (tr1:=Stream.forever (f R0, fun _ _ => R0)); eauto.
-  apply H3; solve_ineq.
+  destruct H0 as [? [ [? ?] [? ?] ] ]. eexists.
+  eapply st_formula_hd with (tr1:=Stream.forever (f R0)); eauto.
+  apply H1; solve_ineq.
 Qed.
 
 (* Differential induction proof rule plus soundness
@@ -514,31 +494,29 @@ Lemma diff_ind : forall Hyps G cp F,
   (Hyps |-- Forall st, cp st -->> deriv_formula cp G st) ->
   (F |-- next G).
 Proof.
+  Opaque Continuous.
   intros Hyps G; generalize dependent Hyps;
   induction G;
     intros Hyps cp F HstG HstH Hcont Hcp Hhyps Hbase HhypsF Hind;
-    simpl in *; unfold tlaEntails in *; simpl in *; intros;
-    trivial;
+    simpl in *; unfold tlaEntails in *; simpl in *; intros; trivial;
     try solve [ pose proof (Hcont tr) as Hcont2;
                 eapply Continuous_deriv_exists in Hcont2; auto;
                 destruct Hcont2 as [st Hcont2]; exfalso;
                 eapply Hind; eauto ].
   - destruct HstG as [HstG1 HstG2].
     pose proof (HhypsF _ H) as HhypsF2. pose proof Hcont as Hcont2.
-    pose proof (Hind _ HhypsF2).
-    eapply Continuous_deriv_exists in Hcont2; eauto.
+    pose proof (Hind _ HhypsF2). eapply Continuous_deriv_exists in Hcont2; eauto.
     destruct (deriv_term t) eqn:?;
              destruct (deriv_term t0) eqn:?;
     try solve [destruct Hcont2; exfalso; eapply Hind; eauto].
     pose proof (eval_comp_ind Hyps cp t t0
-                              t1 t2 c Hcp Heqo Heqo0 HstH)
-      as Hcomp.
+                              t1 t2 c Hcp Heqo Heqo0 HstH) as Hcomp.
     apply Hcomp.
     { breakAbstraction. intros. eauto. }
     { breakAbstraction. intros. eauto. }
     { breakAbstraction. auto. }
     { fold eval_formula. repeat split; eauto.
-      try eapply Hbase; eauto. apply Hcont; auto. }
+      try eapply Hbase; eauto. }
   - split.
     + eapply IHG1; eauto.
       * intuition.
@@ -550,22 +528,13 @@ Proof.
       * apply Hind; auto.
   - eapply IHG2 with (Hyps:=Hyps //\\ G1) (F:=F //\\ G1); eauto;
     simpl; intuition.
-    + pose proof Hcont as Hcont2;
-      eapply Continuous_deriv_exists in Hcont2; eauto.
-      apply Hcont; auto.
-    + pose proof Continuous_deriv_exists as Hcont2.
-      specialize (Hcont2 cp tr0 Hcp H5). destruct Hcont2.
-      specialize (Hind tr0 H3); eapply Hind; eauto.
+    + pose proof H5 as Hcont2;
+      eapply Continuous_deriv_exists in Hcont2; destruct Hcont2;
+      auto; specialize (Hind tr0 H3 _ H4); apply Hind; auto.
+    + specialize (Hind tr0 H4); apply Hind; auto.
     + specialize (HhypsF _ H). pose proof (Hcont _ H) as Hcont2.
-      eapply Continuous_deriv_exists in Hcont2; eauto;
-        destruct Hcont2 as [st Hcont2].
-      specialize (Hind _ H4 _ H3).
-      eapply Hind; auto.
-    + pose proof Continuous_deriv_exists as Hcont2.
-      specialize (Hcont tr H).
-      specialize (Hcont2 cp tr Hcp Hcont).
-      destruct Hcont2 as [st Hcont2].
-      eapply Hind; eauto.
+      eapply Continuous_deriv_exists in Hcont2; destruct Hcont2 as [st Hcont2].
+      specialize (Hind _ HhypsF _ Hcont2). apply Hind; auto. auto.
 Qed.
 
 Close Scope HP_scope.
