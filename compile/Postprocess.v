@@ -75,38 +75,51 @@ Proof.
 Qed.
 
 Lemma embed_push_And :
-  forall (P1 P2 : _ -> _ -> Prop),
-    Embed (fun x y => P1 x y /\ P2 x y) -|- Embed P1 //\\ Embed P2.
+  forall (P1 P2 : _ -> _ -> Prop) (F1 F2 : Formula),
+    Embed P1 -|- F1 -> Embed P2 -|- F2 ->
+    Embed (fun x y => P1 x y /\ P2 x y) -|- F1 //\\ F2.
 Proof.
-  shatterAbstraction. tauto.
+  shatterAbstraction. intuition.
 Qed.
 
 Lemma embed_push_Or :
-  forall (P1 P2 : _ -> _ -> Prop),
-    Embed (fun x y => P1 x y \/ P2 x y) -|- Embed P1 \\// Embed P2.
+  forall (P1 P2 : _ -> _ -> Prop) (F1 F2 : Formula),
+    Embed P1 -|- F1 -> Embed P2 -|- F2 ->
+    Embed (fun x y => P1 x y \/ P2 x y) -|- F1 \\// F2.
 Proof.
-  shatterAbstraction. tauto.
+  shatterAbstraction. intuition.
 Qed.
 
 Lemma embed_push_Imp :
-  forall (P1 P2 : _ -> _ -> Prop),
-    Embed (fun x y => P1 x y -> P2 x y) -|- Embed P1 -->> Embed P2.
+  forall (P1 P2 : _ -> _ -> Prop) (F1 F2 : Formula),
+    Embed P1 -|- F1 -> Embed P2 -|- F2 ->
+    Embed (fun x y => P1 x y -> P2 x y) -|- F1 -->> F2.
 Proof.
-  shatterAbstraction. tauto.
+  shatterAbstraction. intuition.
 Qed.
 
 Lemma embed_push_Exists :
-  forall (T : Type) (P : T -> state -> state -> Prop),
-    Embed (fun x y => exists (t : T), (P t x y)) -|- Syntax.Exists T (fun (t : T) => Embed (P t)).
+  forall (T : Type) (P : T -> state -> state -> Prop) (F : T -> Formula),
+    (forall (t : T), Embed (P t) -|- F t) ->
+    Embed (fun x y => exists (t : T), (P t x y)) -|- lexists F.
 Proof.
-  shatterAbstraction. tauto.
+  shatterAbstraction.
+  intuition.
+  fwd. specialize (H x). fwd.
+  eexists. eauto.
+  fwd. specialize (H x). fwd.
+  eexists. eauto.
 Qed.
 
 Lemma embed_push_Forall :
-  forall (T : Type) (P : T -> state -> state -> Prop),
-    Embed (fun x y => forall (t : T), (P t x y)) -|- Syntax.Forall T (fun (t : T) => Embed (P t)).
+  forall (T : Type) (P : T -> state -> state -> Prop) (F : T -> Formula),
+    (forall (t : T), Embed (P t) -|- F t) ->
+    Embed (fun x y => forall (t : T), (P t x y)) -|- lforall F.
 Proof.
-  shatterAbstraction. tauto.
+  intros.
+  shatterAbstraction. intuition.
+  eapply H. apply H0.
+  eapply H. apply H0.  
 Qed.
 
 Lemma embed_push_Const : forall P, Embed (fun _ _ => P) -|- PropF P.
@@ -139,6 +152,28 @@ Lemma embed_push_Gt :
     r =|> r' ->
     Embed (fun x y => Rgt (l' x y) (r' x y))%type -|-
           Comp l r Gt.
+Proof.
+  intros. unfold evals_to in *. shatterAbstraction. subst. reflexivity.
+Qed.
+
+Lemma embed_push_Ge :
+  forall l r l' r',
+    l =|> l' ->
+    r =|> r' ->
+    Embed (fun x y => Rge (l' x y) (r' x y))%type -|-
+          Comp l r Ge.
+Proof.
+  intros.
+  unfold evals_to in *. 
+  shatterAbstraction. subst. reflexivity.
+Qed.
+
+Lemma embed_push_Lt :
+  forall l r l' r',
+    l =|> l' ->
+    r =|> r' ->
+    Embed (fun x y => Rlt (l' x y) (r' x y))%type -|-
+          Comp l r Lt.
 Proof.
   intros. unfold evals_to in *. shatterAbstraction. subst. reflexivity.
 Qed.
@@ -189,8 +224,6 @@ Proof.
   intros. unfold evals_to in *. shatterAbstraction. subst. reflexivity.
 Qed.
 
-Print Semantics.eval_term.
-
 Lemma arith_push_cos :
   forall l l',
     l =|> l' ->
@@ -206,8 +239,6 @@ Lemma arith_push_sin :
 Proof.
   intros. unfold evals_to in *. shatterAbstraction. subst. reflexivity.
 Qed.
-
-Print Syntax.Term.
 
 (* var, real *)
 Lemma arith_push_VarNow :
@@ -244,6 +275,28 @@ Lemma arith_push_Real :
     RealT r =|> fun _ _ => r.
 Proof. reflexivity. Qed.
 
+(* for solving goals containing fupdate *)
+Lemma arith_push_fupdate_eq :
+  forall (t: state -> state -> R) (v : Var) (X : Term) f,
+    X =|> t ->
+    X =|> (fun x y : state => fupdate (f x y) v (t x y) v).
+Proof.
+  intros. unfold evals_to in *.
+  rewrite H. unfold fupdate.
+  rewrite rel_dec_eq_true; eauto with typeclass_instances.
+Qed.
+
+Lemma arith_push_fupdate_neq :
+  forall (t: state -> state -> R) (v v' : Var) (X : Term) f,
+    v <> v' ->
+    X =|> (fun x y : state => f x y v') ->
+    X =|> (fun x y : state => fupdate (f x y) v (t x y) v').
+Proof.
+  intros.
+  unfold fupdate, evals_to in *. rewrite H0.
+  rewrite rel_dec_neq_false; eauto with typeclass_instances.
+Qed.
+
 Create HintDb embed_push discriminated.
 Create HintDb arith_push discriminated.
 
@@ -255,15 +308,15 @@ Hint Rewrite
   : embed_push.
 
 Hint Rewrite
-     embed_push_Le embed_push_Eq embed_push_Gt embed_push_Le (* embed_push_Gt embed_push_Ge embed_push_Le *)
+     embed_push_Eq embed_push_Gt embed_push_Ge embed_push_Lt embed_push_Le
      using solve [eauto 20 with arith_push]
                          : embed_push.
 
-Hint Resolve
-     arith_push_plus arith_push_VarNow arith_push_VarNext arith_push_Nat_zero arith_push_Nat_one arith_push_Nat arith_push_Real
-  : arith_push.
+(* for the "<>" goals created by arith_push_fupdate_neq *)
+Hint Extern
+     0 (_ <> _) => congruence : arith_push.
 
-(* Useful lemmas *)
+(* Other miscellaneous rewriting lemmas *)
 Lemma AnyOf_singleton :
   forall (P : Prop), AnyOf [P] -|- P.
 Proof.
@@ -353,6 +406,14 @@ Qed.
 Axiom Always_proper : Proper (lentails ==> lentails) Syntax.Always.
 Existing Instance Always_proper.
 
+(* Used to begin rewriting in our goal. *)
+Lemma lequiv_rewrite_left :
+  forall (A B C : Formula),
+    A -|- C -> C |-- B -> A |-- B.
+Proof.
+  shatterAbstraction. intuition.
+Qed.
+
 Fact fwp_simple : |-- "x" > 0 //\\ [](oembed_fcmd simple_prog_ivs simple_prog_ivs simple_prog) -->> []("x" > 0).
 Proof.
   erewrite -> HoareA_embed_ex_rw; [| solve [simpl; intuition] | solve [simpl; intuition; eauto]].
@@ -362,17 +423,117 @@ Proof.
   { charge_assumption. }
   { charge_assumption. }
   { SearchAbout land lentails.
+    SearchAbout Proper land.
     Print ILogic.
     (* rhs *)
     rewrite landforallDL. eapply lforallL. instantiate (1 := (fun st => st "x" > 0)%R).
     tlaRevert. apply PropF_pull.
     - unfold SEMR. intros. SearchAbout vmodels. admit (* prove a lemma *).
     - simpl fwp.
-      rewrite_strat (topdown (old_hints embed_push)).
+      (*rewrite_strat (topdown (terms embed_push_Eq)).
+      rewrite_strat (topdown (old_hints embed_push)).*)
+      (*
       rewrite_strat (topdown (repeat (terms embed_push_TRUE embed_push_FALSE
                                             embed_push_And embed_push_Or embed_push_Imp
                                             embed_push_Exists embed_push_Forall
-                                            embed_push_Const))).
+                                            embed_push_Const))). *)
+      (*autorewrite with embed_push.*)
+
+
+
+      eapply lequiv_rewrite_left.
+
+      Hint Extern
+           0 (_ =|> (fun _ _ => ?X)) => first [ apply arith_push_Nat_zero | apply arith_push_Nat_one
+                                              | apply arith_push_Nat | apply arith_push_Real]
+        : arith_push.
+
+      Hint Resolve
+           arith_push_plus arith_push_minus arith_push_mult arith_push_inv
+           arith_push_sin arith_push_cos
+           arith_push_VarNow arith_push_VarNext
+           arith_push_fupdate_eq arith_push_fupdate_neq
+        : arith_push.
+
+      {
+        progress repeat
+            match goal with
+            | |- Embed (fun x y => _ /\ _) -|- _ => eapply embed_push_And
+            | |- Embed (fun x y => _ -> _) -|- _ => eapply embed_push_Imp
+            | |- Embed (fun x y => _ \/ _) -|- _ => eapply embed_push_Or
+            | |- Embed (fun x y => exists z, _) -|- _ => eapply embed_push_Exists; intro
+            | |- Embed (fun x y => forall z, _) -|- _ => eapply embed_push_Forall; intro
+            | |- Embed (fun x y => _ = _) -|- _ => eapply embed_push_Eq; eauto with arith_push
+            | |- Embed (fun x y => (_ < _)%R) -|- _ => eapply embed_push_Lt; eauto with arith_push
+            | |- Embed (fun x y => (_ <= _)%R) -|- _ => eapply embed_push_Le; eauto with arith_push
+            | |- Embed (fun x y => (_ > _)%R) -|- _ => eapply embed_push_Gt; eauto with arith_push
+            | |- Embed (fun x y => (_ >= _)%R) -|- _ => eapply embed_push_Ge; eauto with arith_push
+            | |- Embed (fun x y => ?X) -|- _ => eapply embed_push_Const
+            end.
+      }
+
+      Lemma lentail_cut1 :
+        forall (A B C : Formula),
+               C |-- A ->
+               A -->> B |-- C -->> B.
+      Proof.
+        intros. breakAbstraction. intuition.
+      Qed.
+               
+
+      idtac.
+      apply lentail_cut1.
+      Print bound.isVarValid.
+      
+      simpl next.
+
+      
+
+        idtac.
+        eapply arith_push_fupdate.
+        eauto with arith_push.
+
+        Print evals_to.
+        
+        Print Syntax.Term.
+        unfold fupdate.
+        simpl.
+        Print eval_term.
+        eauto with arith_push.
+        
+        
+            
+        Print fupdate.
+        
+                                                                                                                    
+
+        repeat (first [ eapply embed_push_And (*; eauto with arith_push*) |
+                        eapply embed_push_Or  (*; eauto with arith_push*) |
+                        eapply embed_push_Imp (*; eauto with arith_push*) |
+                        eapply embed_push_Exists; intro (*; eauto with arith_push*) |
+                        eapply embed_push_Forall; intro (*; eauto with arith_push*) |
+                        eapply embed_push_Const (*; eauto with arith_push*) |
+                        eapply embed_push_Eq; eauto with arith_push |
+                        eapply embed_push_Lt; eauto with arith_push |
+                        eapply embed_push_Le; eauto with arith_push |
+                        eapply embed_push_Gt; eauto with arith_push |
+                        eapply embed_push_Ge; eauto with arith_push
+               ]).
+        simple eapply embed_push_Imp.
+        eapply embed_push_And.
+
+        idtac.
+        Check embed_push_Forall.
+        match goal with 
+        
+        eauto with arith_push.
+        
+        Focus 7. eapply lforall_lequiv_m.
+      2: eauto with arith_push.
+      2: eauto with arith_push.
+      setoid_rewrite embed_push_Le.
+
+      rewrite_strat (subterm (terms (embed_push_Le))).
       rewrite_strat (topdown (repeat (old_hints embed_push))).
 
       rewrite_strat (topdown (repeat (terms embed_push_Imp embed_push_And embed_push_Or))).

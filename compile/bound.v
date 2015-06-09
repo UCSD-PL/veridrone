@@ -32,105 +32,261 @@ Local Open Scope HP_scope.
 Definition error := bpow radix2 (- (custom_prec) + 1).
 Print Formula.
 
-Record singleBoundTerm : Type := mkSBT {lb : Term; 
-                                 ub : Term ; 
-                                 premise : Formula}. 
+Record singleBoundTerm : Type := mkSBT {lb : fstate -> R;
+                                 ub : fstate -> R ; 
+                                 premise : fstate -> Prop}. 
 
 (*used for addition when the result is positive and multiplication when both the arguments are positive*)
 
-Definition bd := mkSBT (RealT R0) (RealT R0) (RealT R0 > RealT R0) .
-Print Bplus_correct.
+(* Definition bd := mkSBT (RealT R0) (RealT R0) (RealT R0 > RealT R0) .*)
+Require Import Charge.Logics.ILInsts.
+
+(* need "arithable" typeclass with addition, subtraction, multipliction, division
+   make Terms arithable, as well as real numbers and stuff
+ *)
+Class Arithable (T : Type) : Type :=
+  { a_plus : T -> T -> T;
+    a_minus : T -> T -> T;
+    a_mult : T -> T -> T
+  }.
+
+Class ArithableX (T : Type) (aT : Arithable T) : Type :=
+  { (*exp : T -> T;*)
+    ax_sin : T -> T;
+    ax_cos : T -> T;
+    ax_inv : T -> T
+  }.
+
+Class Comparable (A L : Type) : Type :=
+  {
+    c_eq  : A -> A -> L;
+    (*ac_neq : A -> A -> L;*)
+    c_lt  : A -> A -> L;
+    c_le  : A -> A -> L;
+    c_gt  : A -> A -> L;
+    c_ge  : A -> A -> L
+  }.
+
+Instance Arithable_Term : Arithable Term :=
+  { a_plus := PlusT;
+    a_minus := MinusT;
+    a_mult := MultT
+  }.
+
+Instance ArithableX_Term : ArithableX Term _ :=
+  { ax_sin := SinT;
+    ax_cos := CosT;
+    ax_inv := InvT
+  }.
+
+Instance Comparable_Term : Comparable Term Formula :=
+  { c_eq a b := Comp a b Eq;
+    c_lt a b := Comp a b Lt;
+    c_le a b := Comp a b Le;
+    c_gt a b := Comp a b Gt;
+    c_ge a b := Comp a b Ge
+  }.
+
+Instance Arithable_R : Arithable R :=
+  { a_plus := Rplus;
+    a_minus := Rminus;
+    a_mult := Rmult
+  }.
+
+Instance ArithableX_R : ArithableX R _ :=
+  { ax_sin := Rtrigo_def.sin;
+    ax_cos := Rtrigo_def.cos;
+    ax_inv := Rinv
+  }.
+
+Instance Comparable_R : Comparable R Prop :=
+  { c_eq a b := eq a b;
+    c_lt a b := Rlt a b;
+    c_le a b := Rle a b;
+    c_gt a b := Rgt a b;
+    c_ge a b := Rge a b
+  }.
+
+Instance Arithable_Nat : Arithable nat :=
+  { a_plus := Peano.plus;
+    a_minus := Peano.minus;
+    a_mult := Peano.mult
+  }.
+
+Instance Comparable_Nat : Comparable nat Prop :=
+  { c_eq a b := eq a b;
+    c_lt a b := lt a b;
+    c_le a b := le a b;
+    c_gt a b := gt a b;
+    c_ge a b := ge a b
+  }.
+
+Require Import ExtLib.Data.Fun.
+Require Import ExtLib.Structures.Applicative.
+
+(*
+Instance arithable_Lift'
+         (T1 : Type) (T2 : Type)
+         (aT1 : Arithable T1) : Arithable (T2 -> T1) :=
+  {
+    plus a b := (fun c => plus (a c) (b c));
+    minus a b := (fun c => minus (a c) (b c));
+    mult a b := (fun c => mult (a c) (b c))
+  }.
+*)
+
+Definition Arithable_Applicative
+         (A : Type) (F : Type -> Type)
+         (aA : Arithable A) (apF : Applicative F) : Arithable (F A) :=
+  {|
+    a_plus a b := ap (ap (pure a_plus) a) b;
+    a_minus a b := ap (ap (pure a_minus) a) b;
+    a_mult a b := ap (ap (pure a_mult) a) b
+  |}.
+
+Instance Arithable_Lift
+         (A T : Type) (aA : Arithable A) : Arithable (T -> A) :=
+  Arithable_Applicative A (Fun T) aA (Applicative_Fun T).
+
+Definition g := (a_plus (fun (_ : nat) => 4) (fun (_ : nat) => 5)).
+
+Definition ArithableX_Applicative
+           (A : Type) (F : Type -> Type)
+           (aA : Arithable A)
+           (axA : ArithableX A aA) (apF : Applicative F)
+  : ArithableX (F A) (Arithable_Applicative A F aA apF) :=
+  {|
+    ax_inv := ap (pure ax_inv);
+    ax_sin := ap (pure ax_sin);
+    ax_cos := ap (pure ax_cos)
+  |}.
+
+Instance ArithableX_Lift (A T : Type) (aA : Arithable A) (axA : ArithableX A aA)
+  : ArithableX (T -> A) (Arithable_Lift A T aA) :=
+  ArithableX_Applicative A (Fun T) aA axA (Applicative_Fun T).
+
+Definition Comparable_Applicative
+           (A L : Type) (F : Type -> Type) (cAL : Comparable A L) (apF : Applicative F) : Comparable (F A) (F L) :=
+  {|
+    c_eq a b := ap (ap (pure c_eq) a) b;
+    c_lt a b := ap (ap (pure c_lt) a) b;
+    c_le a b := ap (ap (pure c_le) a) b;
+    c_gt a b := ap (ap (pure c_gt) a) b;
+    c_ge a b := ap (ap (pure c_ge) a) b
+  |}.
+
+Instance Comparable_Lift (A T L : Type) (cAL : Comparable A L) :
+  Comparable (T -> A) (T -> L) :=
+  Comparable_Applicative A L (Fun T) cAL (Applicative_Fun T).
+
+(* Notations using arithable *)
+Notation "x + y" := (a_plus x y) : arithable_scope.
+Notation "x - y" := (a_minus x y) : arithable_scope.
+Notation "x * y" := (a_mult x y) : arithable_scope.
+
+(* Notations using arithableX *)
+Notation "/ x" := (ax_inv x) : arithable_scope.
+
+(* Notations using comparable *)
+(* TODO: give these explicit levels? *)
+Notation "x = y"  := (c_eq x y) : arithable_scope.
+Notation "x < y"  := (c_lt x y) : arithable_scope.
+Notation "x <= y" := (c_le x y) : arithable_scope.
+Notation "x > y"  := (c_gt x y) : arithable_scope.
+Notation "x >= y" := (c_ge x y) : arithable_scope.
+
+Definition bd := mkSBT (fun _ => R0) (fun _ => R0) (lfalse).
+
+Local Open Scope arithable_scope.
+
 Definition simpleBound 
            (triple1 triple2:singleBoundTerm) 
-           (combFunc:Term->Term->Term)  
-           (fla:Formula) : 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R))  
+           (fla: fstate -> Prop) : 
   singleBoundTerm := 
-  mkSBT ((combFunc (lb triple1) (lb triple2)) * (RealT R1 - RealT error)) 
-        ((combFunc (ub triple1) (ub triple2)) * (RealT R1 + RealT error)) 
+  mkSBT ((combFunc (lb triple1) (lb triple2)) * (fun _ => R1 - error)) 
+        ((combFunc (ub triple1) (ub triple2)) * (fun _ => R1 + error)) 
         fla. 
 
 (*used for subtraction when the result is positive*)
 Definition simpleBound2 
            (triple1 triple2:singleBoundTerm) 
-           (combFunc:Term->Term->Term)  
-           (fla:Formula) : 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R))  
+           (fla:fstate -> Prop) : 
   singleBoundTerm := 
-  mkSBT ((combFunc (lb triple1)  (ub triple2)) * (RealT R1- RealT error)) 
-        ((combFunc (ub triple1) (lb triple2)) * (RealT R1 + RealT error)) 
+  mkSBT ((combFunc (lb triple1)  (ub triple2)) * (fun _ => R1 - error)) 
+        ((combFunc (ub triple1) (lb triple2)) * (fun _ => R1 + error)) 
         fla. 
 
 (*used for multiplication - when both the arguments is negative*)
 Definition simpleBound3 
            (triple1 triple2:singleBoundTerm) 
-           (combFunc:Term->Term->Term)  
-           (fla:Formula) : 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R))  
+           (fla:fstate -> Prop) : 
   singleBoundTerm := 
-  mkSBT ((combFunc (ub triple1)  (ub triple2)) * (RealT R1 - RealT error)) 
-        ((combFunc (lb triple1) (lb triple2)) * (RealT R1 + RealT error)) 
+  mkSBT ((combFunc (ub triple1)  (ub triple2)) * (fun _ => R1 - error)) 
+        ((combFunc (lb triple1) (lb triple2)) * (fun _ => R1 + error)) 
         fla.
-
 
 (*used for addition - negative result*)
 Definition simpleBound4 
            (triple1 triple2:singleBoundTerm) 
-           (combFunc:Term->Term->Term)  
-           (fla:Formula) : 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R))  
+           (fla:fstate -> Prop) : 
   singleBoundTerm := 
-  mkSBT ((combFunc (lb triple1)  (lb triple2)) * (RealT R1+ RealT error)) 
-        ((combFunc (ub triple1) (ub triple2)) * (RealT R1 - RealT error)) 
+  mkSBT ((combFunc (lb triple1)  (lb triple2)) * (fun _ => R1 + error)) 
+        ((combFunc (ub triple1) (ub triple2)) * (fun _ => R1 - error)) 
         fla.
-
 
 (*used for subtraction when the result is negative*)
 Definition simpleBound5 
            (triple1 triple2:singleBoundTerm) 
-           (combFunc:Term->Term->Term)  
-           (fla:Formula) : 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R))  
+           (fla:fstate -> Prop) : 
   singleBoundTerm := 
-  mkSBT ((combFunc (lb triple1)  (ub triple2)) * (RealT R1+ RealT error)) 
-        ((combFunc (ub triple1) (lb triple2)) * (RealT R1 - RealT error)) 
+  mkSBT ((combFunc (lb triple1)  (ub triple2)) * (fun _ => R1 + error)) 
+        ((combFunc (ub triple1) (lb triple2)) * (fun _ => R1 - error)) 
         fla.
 
 (*used for multiplication - when one of the arguments is negative*)
 Definition simpleBound6 
            (triple1 triple2:singleBoundTerm) 
-           (combFunc:Term->Term->Term)  
-           (fla:Formula) : 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R))  
+           (fla:fstate -> Prop) : 
   singleBoundTerm := 
-  mkSBT ((combFunc (ub triple1)  (lb triple2)) * (RealT R1+ RealT error)) 
-        ((combFunc (lb triple1) (ub triple2)) * (RealT R1 - RealT error)) 
+  mkSBT ((combFunc (ub triple1)  (lb triple2)) * (fun _ => R1 + error)) 
+        ((combFunc (lb triple1) (ub triple2)) * (fun _ => R1 - error)) 
         fla.
 
 (*used for multiplication - when one of the arguments is negative*)
 Definition simpleBound7 
            (triple1 triple2:singleBoundTerm) 
-           (combFunc:Term->Term->Term)  
-           (fla:Formula) : 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R))  
+           (fla:fstate -> Prop) : 
   singleBoundTerm := 
-  mkSBT ((combFunc (lb triple1)  (ub triple2)) * (RealT R1+ RealT error)) 
-        ((combFunc (ub triple1) (lb triple2)) * (RealT R1 - RealT error)) 
+  mkSBT ((combFunc (lb triple1)  (ub triple2)) * (fun _ => R1 + error)) 
+        ((combFunc (ub triple1) (lb triple2)) * (fun _ => R1 - error)) 
         fla.
 
 (*used for multiplication - when one of the arguments is negative*)
 Definition simpleBound8 
            (triple1 triple2:singleBoundTerm) 
-           (combFunc:Term->Term->Term)  
-           (fla:Formula) : 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R))  
+           (fla:fstate -> Prop) : 
   singleBoundTerm := 
-  mkSBT ((combFunc (lb triple1)  (ub triple2)) * (RealT R1+ RealT error)) 
-        ((combFunc (ub triple1) (lb triple2)) * (RealT R1 + RealT error)) 
+  mkSBT ((combFunc (lb triple1)  (ub triple2)) * (fun _ => R1 + error)) 
+        ((combFunc (ub triple1) (lb triple2)) * (fun _ => R1 + error)) 
         fla.
+
 (*used for additon - when lb1 + lb2 < floatMin*)
 Definition simpleBound9
            (triple1 triple2:singleBoundTerm) 
-           (combFunc:Term->Term->Term)  
-           (fla:Formula) : 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R))  
+           (fla:fstate -> Prop) : 
   singleBoundTerm := 
-  mkSBT 0 
-        ((combFunc (ub triple1) (ub triple2)) * (RealT R1 + RealT error)) 
+  mkSBT (fun _ => 0%R)
+        ((combFunc (ub triple1) (ub triple2)) * (fun _ => R1 + error)) 
         fla.
-
-
 
 Definition floatMax:= bpow radix2 custom_emax.
 Definition floatMin := bpow radix2 custom_emin%Z.
@@ -138,21 +294,19 @@ Definition floatMin := bpow radix2 custom_emin%Z.
 (*used for addition when ub1 + ub2 < floatMin*)
 Definition simpleBound10
            (triple1 triple2:singleBoundTerm) 
-           (combFunc:Term->Term->Term)  
-           (fla:Formula) : 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R))  
+           (fla:fstate -> Prop) : 
   singleBoundTerm := 
-  mkSBT 0 floatMin 
+  mkSBT (fun _ => 0%R) (fun _ => floatMin)
         fla.
-
-
 
 (*used for subtraction - when lb1 + lb2 is greater than -floatMin*)
 Definition simpleBound11
            (triple1 triple2:singleBoundTerm) 
-           (combFunc:Term->Term->Term)  
-           (fla:Formula) : 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R))  
+           (fla:fstate -> Prop) : 
   singleBoundTerm := 
-  mkSBT ((combFunc (lb triple1)  (lb triple2)) * (RealT R1 + RealT error)) 0
+  mkSBT ((combFunc (lb triple1)  (lb triple2)) * (fun _ => R1 + error)) (fun _ => 0%R)
         fla.
 
 Definition isFloatConstValid (f:binary_float custom_prec custom_emax) : Prop 
@@ -164,17 +318,18 @@ Definition isFloatConstValid (f:binary_float custom_prec custom_emax) : Prop
      end.
 
 
-Definition plusResultValidity (t1 t2 : NowTerm) := 
-      (forall (fState:fstate),
+Definition plusResultValidity (t1 t2 : NowTerm) (fState : fstate):  Prop:= 
+      (
           let result := (lift2
                            (Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax
                                   custom_nan mode_NE) (eval_NowTerm fState t1) (eval_NowTerm fState t2)) 
           in match result with 
                 | Some f => isFloatConstValid f 
                 | None => False
-              end).
-Definition minusResultValidity (t1 t2 : NowTerm) := 
-      (forall (fState:fstate),
+             end).
+
+Definition minusResultValidity (t1 t2 : NowTerm) (fState : fstate) : Prop := 
+      (
           let result := (lift2
                            (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax
                                   custom_nan mode_NE) (eval_NowTerm fState t1) (eval_NowTerm fState t2)) 
@@ -183,46 +338,53 @@ Definition minusResultValidity (t1 t2 : NowTerm) :=
                 | None => False
               end).
 
-Definition multResultValidity (t1 t2 : NowTerm) := 
-      (forall (fState:fstate),
+Definition multResultValidity (t1 t2 : NowTerm) (fState : fstate) : Prop := 
+      (
           let result := (lift2
                            (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax
                                   custom_nan mode_NE) (eval_NowTerm fState t1) (eval_NowTerm fState t2)) 
           in match result with 
                 | Some f => isFloatConstValid f 
                 | None => False
-              end).
+             end).
+
+Check eval_term.
+
+(* "lift over float state" *)
+Definition lofst (r : R) : fstate -> R :=
+  fun _ => r.
+
 
 Definition combineTriplePlus (triple triple2 : singleBoundTerm) (t1 t2 : NowTerm):=
-  ((simpleBound triple triple2 PlusT 
+  ((simpleBound triple triple2 a_plus 
                 (premise triple //\\
                  premise triple2 //\\ 
-                 ((floatMin <= lb triple + lb triple2)) //\\ 
-                 ((ub triple + ub triple2)*(1+error) < floatMax) //\\
-                 (lb triple + lb triple2 >= R0) //\\
-                 (PropF (plusResultValidity t1 t2))))
-     :: (simpleBound4 triple triple2 PlusT 
+                 ((lofst floatMin <= lb triple + lb triple2)) //\\ 
+                 ((ub triple + ub triple2)*(lofst (1+error)) < lofst floatMax) //\\
+                 (lb triple + lb triple2 >= lofst R0) //\\
+                 ((plusResultValidity t1 t2))))
+     :: (simpleBound4 triple triple2 a_plus 
                       (premise triple //\\ 
                        premise triple2 //\\ 
-                       (floatMin <= ((0 - ub triple) + (0 - ub triple2))) //\\
-                       (((0 - lb triple + (0 - lb triple2))*(1+error)) < floatMax) //\\ 
-                       (ub triple + ub triple2 < R0)//\\
-                       (PropF (plusResultValidity t1 t2))))
-     :: (simpleBound9 triple triple2 PlusT 
+                       (lofst floatMin <= ((lofst 0 - ub triple) + (lofst 0 - ub triple2))) //\\
+                       (((lofst 0 - lb triple + (lofst 0 - lb triple2))*(lofst (1+error))) < lofst floatMax) //\\ 
+                       (ub triple + ub triple2 < lofst R0)//\\
+                       ((plusResultValidity t1 t2))))
+     :: (simpleBound9 triple triple2 a_plus 
                       (premise triple //\\ 
                        premise triple2 //\\
-                       (lb triple + lb triple2 < floatMin) //\\ 
-                       (ub triple + ub triple2 >= floatMin) //\\ 
-                       ((ub triple + ub triple2)*(1+error) < floatMax) //\\ 
-                       (lb triple + lb triple2 >= R0)//\\
-                       (PropF (plusResultValidity t1 t2))))
-     :: (simpleBound10 triple triple2 PlusT 
+                       (lb triple + lb triple2 < lofst floatMin) //\\ 
+                       (ub triple + ub triple2 >= lofst floatMin) //\\ 
+                       ((ub triple + ub triple2)*(lofst (1+error)) < lofst floatMax) //\\ 
+                       (lb triple + lb triple2 >= lofst R0)//\\
+                       ((plusResultValidity t1 t2))))
+     :: (simpleBound10 triple triple2 a_plus
                       (premise triple //\\ 
                        premise triple2 //\\
-                       (ub triple + ub triple2 < floatMin) //\\ 
-                       ((ub triple + ub triple2)*(1+error) < floatMax) //\\ 
-                       (lb triple + lb triple2 >= R0)//\\
-                       (PropF (plusResultValidity t1 t2))))
+                       (ub triple + ub triple2 < lofst floatMin) //\\ 
+                       ((ub triple + ub triple2)*(lofst (1+error)) < lofst floatMax) //\\ 
+                       (lb triple + lb triple2 >= lofst R0)//\\
+                       ((plusResultValidity t1 t2))))
      :: List.nil). 
 
 (*
@@ -231,50 +393,50 @@ Definition combineTriplePlus (triple triple2 : singleBoundTerm) (t1 t2 : NowTerm
                                          ((ub triple - ub triple2 >= floatMin) /\ (lb triple2 - lb triple >= floatMin)) \/
                                          ((ub triple2 - ub triple >=floatMin) /\ (ub triple - lb triple2 >=floatMin) /\ (lb triple2 - lb triple >= floatMin)) ) /\
 *)
-Print Float.
 Definition combineTripleMinus (triple triple2 : singleBoundTerm) (t1 t2:NowTerm):=
-  ((simpleBound2 triple triple2 MinusT 
+  ((simpleBound2 triple triple2 a_minus 
                  (premise triple //\\ 
                   premise triple2  //\\ 
                   (lb triple >= ub triple2) //\\
-                 (floatMin <= lb triple - ub triple2) //\\ 
-                ((ub triple - lb triple2)*(1+error) < floatMax)//\\
-                (PropF (minusResultValidity t1 t2))))
-     :: (simpleBound5 triple triple2 MinusT 
+                 (lofst floatMin <= lb triple - ub triple2) //\\ 
+                ((ub triple - lb triple2)*(lofst (1+error)) < lofst floatMax)//\\
+                ((minusResultValidity t1 t2))))
+     :: (simpleBound5 triple triple2 a_minus 
                       (premise triple //\\ 
                        premise triple2 //\\
                        (ub triple <= lb triple2) //\\
-                       (floatMin <= lb triple2 - ub triple) //\\
-                       ((ub triple2 - lb triple)*(1+error) < floatMax) //\\
-                       (PropF (minusResultValidity t1 t2)))
-                    :: List.nil)).   
+                       (lofst floatMin <= lb triple2 - ub triple) //\\
+                       ((ub triple2 - lb triple)*(lofst (1+error)) < lofst floatMax) //\\
+                       ((minusResultValidity t1 t2))))
+                       :: List.nil).
+   
 Definition combineTripleMult (triple triple2 : singleBoundTerm) (t1 t2:NowTerm):=
-  ((simpleBound triple triple2 MultT 
+  ((simpleBound triple triple2 a_mult 
                 (premise triple //\\ 
                  premise triple2 //\\ 
-                 (floatMin <= lb triple * lb triple2) //\\ 
-                 ((ub triple * ub triple2)*(1+error) < floatMax) //\\ 
-                 (lb triple >= R0) //\\ (lb triple2 >= R0) //\\ 
-                (PropF (multResultValidity t1 t2))))
-    :: (simpleBound3 triple triple2 MultT 
+                 (lofst floatMin <= lb triple * lb triple2) //\\ 
+                 ((ub triple * ub triple2)*(lofst (1+error)) < lofst floatMax) //\\ 
+                 (lb triple >= lofst R0) //\\ (lb triple2 >= lofst R0) //\\ 
+                ((multResultValidity t1 t2))))
+    :: (simpleBound3 triple triple2 a_mult
                       (premise triple //\\ 
                        premise triple2 //\\ 
-                       (floatMin <= (0 - ub triple) * (0 - ub triple2)) //\\ 
-                       (((0 - lb triple) * (0 - lb triple2))*(1+error) < floatMax) //\\ 
-                       (ub triple < R0) //\\ (ub triple2 < R0) //\\ 
-                       (PropF (multResultValidity t1 t2))))
-          :: (simpleBound6 triple triple2 MultT 
+                       (lofst floatMin <= (lofst 0 - ub triple) * (lofst 0 - ub triple2)) //\\ 
+                       (((lofst 0 - lb triple) * (lofst 0 - lb triple2))*(lofst (1+error)) < lofst floatMax) //\\ 
+                       (ub triple < lofst R0) //\\ (ub triple2 < lofst R0) //\\ 
+                       ((multResultValidity t1 t2))))
+          :: (simpleBound6 triple triple2 a_mult
                       (premise triple //\\ 
                        premise triple2 //\\ 
-                       (floatMin <= (lb triple) * (0 - (ub triple2))) //\\ 
-                       ((ub triple * (0 - lb triple2))*(1+error) < floatMax) //\\ 
-                       (lb triple >= R0) //\\  (ub triple2 < R0) //\\ (PropF (multResultValidity t1 t2)))) 
-                      ::  (simpleBound7 triple triple2 MultT 
+                       (lofst floatMin <= (lb triple) * (lofst 0 - (ub triple2))) //\\ 
+                       ((ub triple * (lofst 0 - lb triple2))*(lofst (1+error)) < lofst floatMax) //\\ 
+                       (lb triple >= lofst R0) //\\  (ub triple2 < lofst R0) //\\ ((multResultValidity t1 t2)))) 
+                      ::  (simpleBound7 triple triple2 a_mult 
                                         (premise triple //\\ 
                                          premise triple2 //\\ 
-                                         (floatMin <= (0 - ub triple) * lb triple2) //\\ 
-                                         (((0 - lb triple) * (ub triple2))*(1+error) < floatMax) //\\ 
-                                         (ub triple < R0) //\\  (lb triple2 >= R0) //\\ (PropF (multResultValidity t1 t2)))) :: List.nil).   
+                                         (lofst floatMin <= (lofst 0 - ub triple) * lb triple2) //\\ 
+                                         (((lofst 0 - lb triple) * (ub triple2))*(lofst (1+error)) < lofst floatMax) //\\ 
+                                         (ub triple < lofst R0) //\\  (lb triple2 >= lofst R0) //\\ ((multResultValidity t1 t2)))) :: List.nil).   
 Local Close Scope HP_scope.
 Fixpoint cross {T U R : Type} (f : T -> U -> list R) (ls : list T) (rs : list U) : list R :=
       match ls with
@@ -318,110 +480,112 @@ Fixpoint cross {T U R : Type} (f : T -> U -> list R) (ls : list T) (rs : list U)
       }
     Qed.
 
-Local Open Scope HP_scope.
+    Check simpleBound4.
+
 Definition plusMinusfoldBoundListWithTriple 
            (list:list singleBoundTerm) 
            (triple: singleBoundTerm) 
-           (combFunc:Term->Term->Term) 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R)) 
            (simpleBoundFunc1 : singleBoundTerm -> 
                               singleBoundTerm -> 
-                              (Term->Term->Term) -> 
-                              Formula -> 
+                              ((fstate -> R) -> (fstate -> R) -> (fstate -> R)) -> 
+                              (fstate -> Prop) -> 
                               singleBoundTerm) 
            (simpleBoundFunc2 : singleBoundTerm -> 
                               singleBoundTerm -> 
-                              (Term->Term->Term) -> 
-                              Formula -> 
+                              ((fstate -> R) -> (fstate -> R) -> (fstate -> R)) -> 
+                              (fstate -> Prop) -> 
                               singleBoundTerm) 
   := 
 
   fold_right (fun triple2 curList => ((simpleBoundFunc1 triple triple2 combFunc 
                                                       (premise triple //\\ 
                                                        premise triple2 //\\ 
-                                                       ((floatMin <= lb triple + lb triple2) \\// (floatMin <= ((0 - lb triple) + (0 - lb triple2))) \\// ((lb triple + lb triple =0) //\\ (ub triple + ub triple =0))) //\\ 
-                                                       (ub triple + ub triple2 < floatMax) //\\
-                                                             ((0- ub triple) + (0 - ub triple2) < floatMax) //\\ 
-                                                       (lb triple + lb triple2 >= R0)))
+                                                       ((lofst floatMin <= lb triple + lb triple2) \\// (lofst floatMin <= ((lofst 0 - lb triple) + (lofst 0 - lb triple2))) \\// ((lb triple + lb triple = lofst 0) //\\ (ub triple + ub triple = lofst 0))) //\\ 
+                                                       (ub triple + ub triple2 < lofst floatMax) //\\
+                                                             ((lofst 0 - ub triple) + (lofst 0 - ub triple2) < lofst floatMax) //\\ 
+                                                       (lb triple + lb triple2 >= lofst R0)))
                                        :: ((simpleBoundFunc2 triple triple2 combFunc 
                                                             (premise triple //\\ 
                                                              premise triple2 //\\ 
-                                                            ((floatMin <= lb triple + lb triple2) \\// (floatMin <= ((0 - lb triple) + (0 - lb triple2))) \\// ((lb triple + lb triple =0) //\\ (ub triple + ub triple =0))) //\\ 
-                                                             (ub triple + ub triple2 < floatMax) //\\
-                                                             ((0 - ub triple) + (0 - ub triple2) < floatMax) //\\ 
-                                                             (ub triple + ub triple2 < R0))) ::
+                                                            ((lofst floatMin <= lb triple + lb triple2) \\// (lofst floatMin <= ((lofst 0 - lb triple) + (lofst 0 - lb triple2))) \\// ((lb triple + lb triple = lofst 0) //\\ (ub triple + ub triple = lofst 0))) //\\ 
+                                                             (ub triple + ub triple2 < lofst floatMax) //\\
+                                                             ((lofst 0 - ub triple) + (lofst 0 - ub triple2) < lofst floatMax) //\\ 
+                                                             (ub triple + ub triple2 < lofst R0))) ::
                                              curList))) List.nil list. 
+Print Scopes.
+
+Locate nat.
 
 Definition multfoldBoundListWithTriple 
            (list:list singleBoundTerm) 
            (triple: singleBoundTerm) 
-           (combFunc:Term->Term->Term) 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R)) 
            (simpleBoundFunc1 : singleBoundTerm -> 
                               singleBoundTerm -> 
-                              (Term->Term->Term) -> 
-                              Formula -> 
+                              ((fstate -> R) -> (fstate -> R) -> (fstate -> R)) -> 
+                              (fstate -> Prop) -> 
                               singleBoundTerm) 
            (simpleBoundFunc2 : singleBoundTerm -> 
                               singleBoundTerm -> 
-                              (Term->Term->Term) -> 
-                              Formula -> 
+                              ((fstate -> R) -> (fstate -> R) -> (fstate -> R)) -> 
+                              (fstate -> Prop) -> 
                               singleBoundTerm) 
            (simpleBoundFunc3 : singleBoundTerm -> 
                               singleBoundTerm -> 
-                              (Term->Term->Term) -> 
-                              Formula -> 
+                              ((fstate -> R) -> (fstate -> R) -> (fstate -> R)) -> 
+                              (fstate -> Prop) -> 
                               singleBoundTerm) 
            (simpleBoundFunc4 : singleBoundTerm -> 
                               singleBoundTerm -> 
-                              (Term->Term->Term) -> 
-                              Formula -> 
+                              ((fstate -> R) -> (fstate -> R) -> (fstate -> R)) -> 
+                              (fstate -> Prop) -> 
                               singleBoundTerm) 
   := 
 
     fold_right (
         fun triple2 curList => (simpleBoundFunc1 triple triple2 combFunc  (premise triple //\\ 
                                                                            premise triple2 //\\ 
-                                                                           ((floatMin <= lb triple + lb triple2) \\// (floatMin <= ((0 - lb triple) + (0 - lb triple2))) \\// ((lb triple + lb triple =0) //\\ (ub triple + ub triple =0)))//\\
-                                                                           (ub triple + ub triple2 < floatMax) //\\  
-                                                                           ((0 - ub triple) + (0 - ub triple2) < floatMax) //\\
-                                                                           (lb triple >= R0) //\\ (lb triple2 >= R0)))
+                                                                           ((lofst floatMin <= lb triple + lb triple2) \\// (lofst floatMin <= ((lofst 0 - lb triple) + (lofst 0 - lb triple2))) \\// ((lb triple + lb triple = lofst 0) //\\ (ub triple + ub triple = lofst 0)))//\\
+                                                                           (ub triple + ub triple2 < lofst floatMax) //\\  
+                                                                           ((lofst 0 - ub triple) + (lofst 0 - ub triple2) < lofst floatMax) //\\
+                                                                           (lb triple >= lofst R0) //\\ (lb triple2 >= lofst R0)))
                                  :: ((simpleBoundFunc2 triple triple2 combFunc 
                                                        (premise triple //\\ 
                                                         premise triple2 //\\ 
-                                                        ((floatMin <= lb triple + lb triple2) \\// (floatMin <= ((0 - lb triple) + (0 - lb triple2))) \\// ((lb triple + lb triple =0) //\\ (ub triple + ub triple =0))) //\\ 
-                                                        
-                                                        (ub triple + ub triple2 < floatMax) //\\
-                                                        ((0 - ub triple) + (0 - ub triple2) < floatMax) //\\
-                                                        (ub triple < R0) //\\ (ub triple2 < R0)))
+                                                        ((lofst floatMin <= lb triple + lb triple2) \\// (lofst floatMin <= ((lofst 0 - lb triple) + (lofst 0 - lb triple2))) \\// ((lb triple + lb triple = lofst 0) //\\ (ub triple + ub triple = lofst 0))) //\\ 
+                                                        (ub triple + ub triple2 < lofst floatMax) //\\
+                                                        ((lofst 0 - ub triple) + (lofst 0 - ub triple2) < lofst floatMax) //\\
+                                                        (ub triple < lofst R0) //\\ (ub triple2 < lofst R0)))
                                        :: ((simpleBoundFunc3 triple triple2 combFunc 
                                                              (premise triple //\\ 
                                                               premise triple2 //\\ 
-                                                              ((floatMin <= lb triple + lb triple2) \\// (floatMin <= ((0 - lb triple) + (0 - lb triple2))) \\// ((lb triple + lb triple =0) //\\ (ub triple + ub triple =0))) //\\ 
-                                                              (ub triple + ub triple2 < floatMax) //\\
-                                                              ((0 - ub triple) + (0 - ub triple2) < floatMax) //\\
-                                                              (lb triple >= R0) //\\ (ub triple2 < R0)))
+                                                              ((lofst floatMin <= lb triple + lb triple2) \\// (lofst floatMin <= ((lofst 0 - lb triple) + (lofst 0 - lb triple2))) \\// ((lb triple + lb triple = lofst 0) //\\ (ub triple + ub triple = lofst 0))) //\\ 
+                                                              (ub triple + ub triple2 < lofst floatMax) //\\
+                                                              ((lofst 0 - ub triple) + (lofst 0 - ub triple2) < lofst floatMax) //\\
+                                                              (lb triple >= lofst R0) //\\ (ub triple2 < lofst R0)))
                                              :: ((simpleBoundFunc4 triple triple2 combFunc 
                                                                    (premise triple //\\ 
                                                                     premise triple2 //\\ 
-                                                                    ((floatMin <= lb triple + lb triple2) \\// (floatMin <= ((0 - lb triple) + (0 - lb triple2))) \\// ((lb triple + lb triple =0) //\\ (ub triple + ub triple =0))) //\\ 
-                                                                    ((ub triple + ub triple2 < floatMax) //\\
-                                                                     ((0 - ub triple) + (0 - ub triple2) < floatMax)) //\\ 
-                                                                    (ub triple < R0) //\\ (lb triple2 >= R0)))
+                                                                    ((lofst floatMin <= lb triple + lb triple2) \\// (lofst floatMin <= ((lofst 0 - lb triple) + (lofst 0 - lb triple2))) \\// ((lb triple + lb triple = lofst 0) //\\ (ub triple + ub triple = lofst 0))) //\\ 
+                                                                    ((ub triple + ub triple2 < lofst floatMax) //\\
+                                                                     ((lofst 0 - ub triple) + (lofst 0 - ub triple2) < lofst floatMax)) //\\ 
+                                                                    (ub triple < lofst R0) //\\ (lb triple2 >= lofst R0)))
                                                    ::   
                                                    curList)))) List.nil list. 
 
-
 Definition plusMinusfoldListwithList 
            (list1 list2: list singleBoundTerm) 
-           (combFunc:Term->Term->Term) 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R)) 
            (simpleBoundFunc1 : singleBoundTerm -> 
                               singleBoundTerm -> 
-                              (Term->Term->Term) -> 
-                              Formula -> 
+                              ((fstate -> R) -> (fstate -> R) -> (fstate -> R)) -> 
+                              (fstate -> Prop) -> 
                               singleBoundTerm )
            (simpleBoundFunc2 : singleBoundTerm -> 
                               singleBoundTerm -> 
-                              (Term->Term->Term) -> 
-                              Formula -> 
+                              ((fstate -> R) -> (fstate -> R) -> (fstate -> R)) -> 
+                              (fstate -> Prop) -> 
                               singleBoundTerm )
            
   : list singleBoundTerm :=
@@ -430,33 +594,31 @@ Definition plusMinusfoldListwithList
 
 Definition multfoldListwithList 
            (list1 list2: list singleBoundTerm) 
-           (combFunc:Term->Term->Term) 
+           (combFunc: (fstate -> R) -> (fstate -> R) -> (fstate -> R)) 
            (simpleBoundFunc1 : singleBoundTerm -> 
                               singleBoundTerm -> 
-                              (Term->Term->Term) -> 
-                              Formula -> 
+                              ((fstate -> R) -> (fstate -> R) -> (fstate -> R)) -> 
+                              (fstate -> Prop) -> 
                               singleBoundTerm )
            (simpleBoundFunc2 : singleBoundTerm -> 
                               singleBoundTerm -> 
-                              (Term->Term->Term) -> 
-                              Formula -> 
+                              ((fstate -> R) -> (fstate -> R) -> (fstate -> R)) -> 
+                              (fstate -> Prop) -> 
                               singleBoundTerm )
            (simpleBoundFunc3 : singleBoundTerm -> 
                               singleBoundTerm -> 
-                              (Term->Term->Term) -> 
-                              Formula -> 
+                              ((fstate -> R) -> (fstate -> R) -> (fstate -> R)) -> 
+                              (fstate -> Prop) -> 
                               singleBoundTerm )
            (simpleBoundFunc4 : singleBoundTerm -> 
                               singleBoundTerm -> 
-                              (Term->Term->Term) -> 
-                              Formula -> 
+                              ((fstate -> R) -> (fstate -> R) -> (fstate -> R)) -> 
+                              (fstate -> Prop) -> 
                               singleBoundTerm )
            
   : list singleBoundTerm :=
  
   fold_right (fun triple list => list ++ (multfoldBoundListWithTriple list1 triple combFunc simpleBoundFunc1 simpleBoundFunc2 simpleBoundFunc3 simpleBoundFunc4)) List.nil list2.
-
-Print cross.
 
 
 
@@ -481,27 +643,35 @@ Definition getBound (t1 t2:NowTerm)
                                         list singleBoundTerm) :=  
   boundFunc (bound_term_func t1) (bound_term_func t2).
 
-Print eval_NowTerm.
 
-
-
-Definition isVarValid (v:Var) : Prop 
-  := forall (fState:fstate),
+Definition isVarValid (v:Var) (fState : fstate) : Prop 
+  :=
     match (fstate_lookup fState v) with 
         | Some f => isFloatConstValid f
         | None => False
     end.
 
+Print singleBoundTerm.
 
+(* TODO: need to define lifting through AND and OR... *)
+(* Local Close Scope HP_scope. *)
+Local Open Scope arithable_scope.
+
+(* "lift prop over float state" *)
+Definition lpofst (P : Prop) : fstate -> Prop :=
+  fun _ => P.
 
 Definition natBound (n:nat): list singleBoundTerm :=
 
-   [ (mkSBT (RealT ((INR n) *(1-error)) ) (RealT ((INR n) * (1+error))) ((floatMin <= RealT (INR n)) //\\ (INR n >= 0) //\\  ((INR n)* (1+error) <  (floatMax)) //\\ (PropF (isFloatConstValid (nat_to_float n))) )) ;  (mkSBT (RealT ((INR n) * (1+error))) (RealT ((INR n)*(1-error))) ((floatMin <= (0 - INR n)) //\\ (INR n < 0) //\\  ((0 - INR n)* (1+error) <  (floatMax)) //\\ (PropF (isFloatConstValid (nat_to_float n))) )  )].
+  [ (mkSBT (lofst ((INR n) *(1-error)) )
+           (lofst ((INR n) * (1+error)))
+           (lpofst ((floatMin <= (INR n)) //\\ (INR n >= 0%R) //\\  ((INR n)* (1%R+error) <  (floatMax)) //\\ ((isFloatConstValid (nat_to_float n))) ))) ;
+    (mkSBT (lofst ((INR n) * (1+error)))
+           (lofst ((INR n)*(1-error)))
+           (lpofst ((floatMin <= (0%R - INR n)) //\\ (INR n < 0%R) //\\  ((0%R - INR n)* (1%R+error) <  (floatMax)) //\\ ((isFloatConstValid (nat_to_float n))) )  ))].
 
 
 
-Print eval_NowTerm.
-Print singleBoundTerm.
 Fixpoint addPlusResultValidity (bounds:list singleBoundTerm) (t1:NowTerm) (t2:NowTerm) := 
   match bounds with 
     | (h :: t) => 
@@ -516,15 +686,15 @@ Fixpoint addPlusResultValidity (bounds:list singleBoundTerm) (t1:NowTerm) (t2:No
                           | Some f => isFloatConstValid f 
                           | None => False
                         end)
-                ) in (mkSBT lb ub (premise //\\ PropF resultValidPremise))
+                ) in (mkSBT lb ub (premise //\\ lpofst resultValidPremise))
            )
        end) ::  (addPlusResultValidity t t1 t2) 
   | Nil => Nil
-  end. 
+  end.
 
 Fixpoint bound_term (x:NowTerm)  : (list singleBoundTerm):= 
   match x with
-    | VarNowN var =>  [mkSBT (VarNowT var) (VarNowT var) (PropF (isVarValid var))]
+    | VarNowN var =>  [mkSBT (VarNowT var) (VarNowT var) (Embed (fun x _ => isVarValid var x))]
     | NatN n =>  natBound n
     | FloatN f => [mkSBT (RealT (B2R _ _ f)) (RealT (B2R _ _ f)) (PropF (isFloatConstValid f))]
     | PlusN t1 t2 => cross (fun bd1 bd2 => combineTriplePlus bd1 bd2 t1 t2) (bound_term t1) (bound_term t2)
