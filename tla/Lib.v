@@ -161,7 +161,7 @@ Proof.
     + erewrite IHm. auto.
 Qed.
 
-Theorem Continuous_rename : forall (r : list (Var * Var)) c,
+Theorem Rename_Continuous : forall (r : list (Var * Var)) c,
     Continuous (fun st' => Rename (VarRenameMap r) (c (subst_state (VarRenameMap r) st')))
     |-- Rename (VarRenameMap r) (Continuous c).
 Proof.

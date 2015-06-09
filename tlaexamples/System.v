@@ -92,8 +92,46 @@ Definition SysRename (m : list (Var * Term)) (s : SysRec)
 Definition SysSafe (a : SysRec) : Formula :=
   SysD a -->> SysD_or_stuck a.
 
+Definition set_subset {T} (a b : list T) : Prop :=
+  forall x, List.In x a -> List.In x b.
+
+Definition set_equiv {T} (a b : list T) : Prop :=
+  set_subset a b /\ set_subset b a.
+
+Instance Reflexive_set_subset {T} : Reflexive (@set_subset T).
+Proof.
+  red. red. tauto.
+Qed.
+
+Instance Transitive_set_subset {T} : Transitive (@set_subset T).
+Proof.
+  red. red. intros. eapply H0. eapply H. assumption.
+Qed.
+
+Theorem set_equiv_iff : forall {T} (a b : list T),
+    set_equiv a b <-> (forall x, List.In x a <-> List.In x b).
+Proof.
+  intros. split.
+  { destruct 1. split; eauto. }
+  { split; red; firstorder. }
+Qed.
+
+Instance Reflexive_set_equiv {T} : Reflexive (@set_equiv T).
+Proof.
+  red. red. split; reflexivity.
+Qed.
+
+Instance Transitive_set_equiv {T} : Transitive (@set_equiv T).
+Proof.
+  red. intros.
+  eapply set_equiv_iff.
+  rewrite set_equiv_iff in H.
+  rewrite set_equiv_iff in H0.
+  firstorder.
+Qed.
+
 Definition SysRec_equiv (a b : SysRec) : Prop :=
-  a.(unch) = b.(unch) /\
+  set_equiv a.(unch) b.(unch) /\
   (a.(Init) -|- b.(Init)) /\
   (a.(Prog) -|- b.(Prog)) /\
   (forall st', (a.(world) st' -|- b.(world) st')) /\
@@ -113,19 +151,38 @@ Proof.
   intros. rewrite H. rewrite H0. reflexivity.
 Qed.
 
-Lemma Proper_mkEvolution : Proper (pointwise_relation _ lequiv ==> pointwise_relation _ lequiv) mkEvolution.
+Lemma Proper_mkEvolution_lequiv
+: Proper (pointwise_relation _ lequiv ==> pointwise_relation _ lequiv) mkEvolution.
 Proof.
   red. red. red. intros. unfold mkEvolution.
   rewrite H. reflexivity.
 Qed.
-Existing Instance Proper_mkEvolution.
+Existing Instance Proper_mkEvolution_lequiv.
 
-Lemma Proper_World : Proper (pointwise_relation _ lequiv ==> lequiv) World.
+Lemma Proper_mkEvolution_lentails
+: Proper (pointwise_relation _ lentails ==> pointwise_relation _ lentails) mkEvolution.
+Proof.
+  red. red. red. intros. unfold mkEvolution.
+  rewrite H. reflexivity.
+Qed.
+Existing Instance Proper_mkEvolution_lentails.
+
+Lemma Proper_World_lequiv
+: Proper (pointwise_relation _ lequiv ==> lequiv) World.
 Proof.
   red. red. intros. unfold World.
   rewrite H. reflexivity.
 Qed.
-Existing Instance Proper_World.
+Existing Instance Proper_World_lequiv.
+
+Lemma Proper_World_lentails
+: Proper (pointwise_relation _ lentails ==> lentails) World.
+Proof.
+  red. red. intros. unfold World.
+  rewrite H. reflexivity.
+Qed.
+Existing Instance Proper_World_lentails.
+
 
 Lemma Proper_Discr : Proper (lequiv ==> eq ==> lequiv) Discr.
 Proof.
@@ -134,12 +191,52 @@ Proof.
 Qed.
 Existing Instance Proper_Discr.
 
-Lemma Proper_Next : Proper (lequiv ==> (pointwise_relation _ lequiv) ==> eq ==> eq ==> lequiv) Next.
+Lemma UnchangedT_In : forall x xs,
+    List.In x xs ->
+    UnchangedT xs |-- next_term x = x.
+Proof.
+  induction xs.
+  - inversion 1.
+  - destruct 1; subst; simpl; restoreAbstraction.
+    + charge_tauto.
+    + rewrite <- IHxs; auto.
+      charge_tauto.
+Qed.
+
+Instance Proper_UnchangedT_lentails
+  : Proper (set_subset --> lentails) UnchangedT.
+Proof.
+  red. red. unfold Basics.flip.
+  induction y.
+  { intros. simpl; restoreAbstraction. eapply ltrueR. }
+  { simpl; restoreAbstraction. intros.
+    charge_split.
+    { eapply UnchangedT_In. apply H. left. reflexivity. }
+    { eapply IHy. clear - H. red in H. red.
+      intros. eapply H. right. assumption. } }
+Qed.
+Instance Proper_UnchangedT_lequiv : Proper (set_equiv ==> lequiv) UnchangedT.
+Proof.
+  split; apply Proper_UnchangedT_lentails; eapply H.
+Qed.
+Instance Proper_set_equiv_cons {T}
+  : Proper (eq ==> set_equiv ==> set_equiv) (@cons T).
+Proof.
+  red. red. red. split; subst.
+  { red. destruct 1; subst. left; auto. right; eauto.
+    eapply H0. eauto. }
+  { red. destruct 1; subst. left; auto. right; eauto.
+    eapply H0. eauto. }
+Qed.
+
+Lemma Proper_Next
+: Proper (lequiv ==> (pointwise_relation _ lequiv) ==> set_equiv ==> eq ==> lequiv) Next.
 Proof.
   red. red. red. red. red. intros.
   subst. unfold Next.
-  rewrite H0.
-  rewrite H. reflexivity.
+  rewrite H0; clear H0.
+  rewrite H; clear H.
+  rewrite H1. reflexivity.
 Qed.
 Existing Instance Proper_Next.
 
@@ -149,22 +246,22 @@ Proof.
   red. red. intros.
   unfold SysD. red in H.
   destruct H as [ ? [ ? [ ? [ ? ? ] ] ] ].
-  rewrite H3. clear H3.
-  rewrite H; clear H.
+  rewrite H3; clear H3.
   unfold sysD.
   rewrite H0; clear H0.
-  rewrite H1.
+  rewrite H1; clear H1.
+  rewrite H; clear H.
   change (forall st' : state, world x st' -|- world y st')
     with (pointwise_relation _ lequiv (world x) (world y)) in H2.
   rewrite H2. reflexivity.
 Qed.
 Existing Instance Proper_SysD.
 
-Lemma Proper_Next_or_stuck : Proper (lequiv ==> (pointwise_relation _ lequiv) ==> eq ==> eq ==> lequiv) Next_or_stuck.
+Lemma Proper_Next_or_stuck : Proper (lequiv ==> (pointwise_relation _ lequiv) ==> set_equiv ==> eq ==> lequiv) Next_or_stuck.
 Proof.
   morphism_intro. unfold Next_or_stuck.
   subst.
-  rewrite H0. rewrite H. reflexivity.
+  rewrite H0. rewrite H. rewrite H1. reflexivity.
 Qed.
 Existing Instance Proper_Next_or_stuck.
 
@@ -400,94 +497,12 @@ Lemma World_weaken : forall w w',
     (forall st', w' st' |-- w st') ->
     World w' |-- World w.
 Proof.
-  intros.
-  unfold World.
-  repeat (apply exists_entails; intros).
-  repeat charge_split; try solve [tlaAssume].
-  breakAbstraction; unfold is_solution; intros;
-    intuition.
-  destruct tr as [[st1 f] ?]. simpl in *.
-  destruct H0 as [r [Hr [Hstart [Hend Hsol]]]].
-  exists r. intuition.
-    match goal with
-    | [ H : context[solves_diffeqs] |- _ ]
-        => let pf := fresh "pf" in
-           let Hcont := fresh "Hcont" in
-           destruct H as [pf Hcont]; exists pf
-    end.
-    unfold solves_diffeqs in *; intros.
-    specialize (Hcont z H0).
-    unfold mkEvolution in *.
-    simpl in *.
-    decompose [and] Hcont.
-    split.
-    { intuition. }
-    { specialize (H (fun x1 : Var =>
-             Ranalysis1.derive (fun t : R => f t x1) (pf x1) z) (Stream.forever (f z, fun _ _ => R0))).
-      intuition.
-    }
-    Qed.
-(*
-    erewrite Hcont; eauto.
-    simpl in *; intuition. right.
-    apply List.in_or_app.
-    match goal with
-    | [ H : _ |- _ ]
-      => apply List.in_app_or in H
-    end; intuition. right.
-    apply List.in_map_iff.
-    match goal with
-    | [ H : _ |- _ ]
-      => let x := fresh "x" in
-         apply List.in_map_iff in H;
-           destruct H as [x ?]; exists x
-    end; intuition.
-  - fold VarsAgree. simpl VarsAgree.
-    repeat rewrite List.map_app with (f:=get_var).
-    repeat rewrite VarsAgree_app. charge_split.
-    + erewrite VarsAgree_weaken with (xs:=List.map get_var w).
-      * tlaIntuition.
-      * apply all_in_map; auto.
-    + erewrite VarsAgree_weaken with
-      (xs:=List.map get_var
-                    (List.map (fun x1 : Var => x1 '  ::= 0)
-                              dvars0))
-        (xs':=List.map get_var
-                       (List.map (fun x1 : Var => x1 '  ::= 0)
-                                 dvars')).
-      * tlaIntuition.
-      * repeat apply all_in_map; auto.
-  - fold AVarsAgree. simpl AVarsAgree.
-    repeat rewrite List.map_app with (f:=get_var).
-    repeat rewrite AVarsAgree_app. charge_split.
-    + erewrite AVarsAgree_weaken with (xs:=List.map get_var w).
-      * tlaIntuition.
-      * apply all_in_map; auto.
-    + erewrite AVarsAgree_weaken with
-      (xs:=List.map get_var
-                    (List.map (fun x1 : Var => x1 '  ::= 0)
-                              dvars0))
-        (xs':=List.map get_var
-                       (List.map (fun x1 : Var => x1 '  ::= 0)
-                                 dvars')).
-      * tlaIntuition.
-      * repeat apply all_in_map; auto.
-*)
+  intros. eapply Proper_World_lentails. eauto.
+Qed.
 
 Lemma Unchanged_In : forall ls l,
     List.In l ls ->
     Unchanged ls |-- l! = l.
-Proof.
-  induction ls; simpl.
-  { inversion 1. }
-  { intros. destruct H; restoreAbstraction.
-    { subst. charge_tauto. }
-    { rewrite IHls; eauto. charge_tauto. } }
-Qed.
-
-Lemma UnchangedT_In : forall ls l,
-    List.In l ls ->
-    UnchangedT ls |-- next_term l = l.
 Proof.
   induction ls; simpl.
   { inversion 1. }
@@ -802,10 +817,62 @@ Proof.
       apply List.in_app_or in H. intuition. }
 Qed.
 
-Axiom Proper_SysCompose : Proper (SysRec_equiv ==> SysRec_equiv ==> SysRec_equiv) SysCompose.
+Instance Proper_app_set_equiv {T}
+  : Proper (set_equiv ==> set_equiv ==> set_equiv) (@app T).
+Proof.
+  red. red. red. intros.
+  rewrite set_equiv_iff.
+  rewrite set_equiv_iff in H.
+  rewrite set_equiv_iff in H0.
+  intros. do 2 rewrite List.in_app_iff.
+  setoid_rewrite H. setoid_rewrite H0. reflexivity.
+Qed.
+
+Theorem Proper_SysCompose
+: Proper (SysRec_equiv ==> SysRec_equiv ==> SysRec_equiv) SysCompose.
+Proof.
+  unfold SysRec_equiv in *.
+  red. red. red. intros.
+  Require Import ExtLib.Tactics.
+  forward_reason.
+  unfold SysCompose. simpl. restoreAbstraction.
+  rewrite H; clear H. rewrite H0; clear H0.
+  rewrite H8; clear H8.
+  rewrite H4; clear H4.
+  rewrite H5; clear H5.
+  rewrite H6; clear H6.
+  rewrite H1; clear H1.
+  rewrite H2; clear H2.
+  setoid_rewrite H7; clear H7.
+  setoid_rewrite H3; clear H3.
+  intuition.
+Qed.
 Existing Instance Proper_SysCompose.
 
-Axiom SysCompose_Comm : forall a b, SysRec_equiv (SysCompose a b) (SysCompose b a).
+Lemma set_equiv_app_comm : forall {T} a b,
+    @set_equiv T (a ++ b) (b ++ a).
+Proof.
+  intros. rewrite set_equiv_iff.
+  intros.
+  repeat rewrite List.in_app_iff.
+  tauto.
+Qed.
+
+Theorem SysCompose_Comm
+: forall a b, SysRec_equiv (SysCompose a b) (SysCompose b a).
+Proof.
+  red. intros. unfold SysCompose; destruct a; destruct b; simpl.
+  restoreAbstraction.
+  split.
+  { eapply set_equiv_app_comm. }
+  split.
+  { rewrite landC. reflexivity. }
+  split.
+  { rewrite landC. reflexivity. }
+  split.
+  { intros; rewrite landC. reflexivity. }
+  { apply Rmin_comm. }
+Qed.
 
 Theorem Compose (a b : SysRec) P Q G :
   forall Hsafe : |-- SysSafe (SysCompose a b),
@@ -1168,6 +1235,4 @@ Proof.
     rewrite Rename_Comp by eauto using VarRenameMap_is_st_term.
     simpl rename_formula.
     rewrite NotRenamed_find_term by eauto. reflexivity. }
-  { unfold mkEvolution. simpl. intros.
-    split; auto. }
 Qed.
