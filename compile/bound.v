@@ -107,6 +107,14 @@ Instance Comparable_R : Comparable R Prop :=
     c_ge a b := Rge a b
   }.
 
+Instance Comparable_RT : Comparable R Type :=
+  { c_eq a b := eq a b;
+    c_lt a b := Rlt a b;
+    c_le a b := Rle a b;
+    c_gt a b := Rgt a b;
+    c_ge a b := Rge a b
+  }.
+
 Instance Arithable_Nat : Arithable nat :=
   { a_plus := Peano.plus;
     a_minus := Peano.minus;
@@ -119,6 +127,26 @@ Instance Comparable_Nat : Comparable nat Prop :=
     c_le a b := le a b;
     c_gt a b := gt a b;
     c_ge a b := ge a b
+  }.
+
+Unset Printing Notations.
+
+Instance Arithable_Z : Arithable Z :=
+  {
+    a_plus := Z.add;
+    a_minus := Z.sub;
+    a_mult := Z.mul
+  }.
+
+Check (1 < 1)%Z.
+
+Instance Comparable_Z : Comparable Z Prop :=
+  {
+    c_eq a b := eq a b;
+    c_lt a b := Z.lt a b;
+    c_le a b := Z.le a b;
+    c_gt a b := Z.gt a b;
+    c_ge a b := Z.ge a b
   }.
 
 Require Import ExtLib.Data.Fun.
@@ -194,6 +222,12 @@ Notation "x < y"  := (c_lt x y) : arithable_scope.
 Notation "x <= y" := (c_le x y) : arithable_scope.
 Notation "x > y"  := (c_gt x y) : arithable_scope.
 Notation "x >= y" := (c_ge x y) : arithable_scope.
+
+(* another useful ILogic operator, bi-implication *)
+Definition lbiimpl {L : Type} {iloL : ILogicOps L} (P Q : L) :=
+  (P -->> Q) //\\ (Q -->> P).
+
+Notation "a <<-->> b" := (lbiimpl a b) (at level 90).
 
 Definition bd := mkSBT (fun _ => R0) (fun _ => R0) (lfalse).
 
@@ -438,6 +472,7 @@ Definition combineTripleMult (triple triple2 : singleBoundTerm) (t1 t2:NowTerm):
                                          (((lofst 0 - lb triple) * (ub triple2))*(lofst (1+error)) < lofst floatMax) //\\ 
                                          (ub triple < lofst R0) //\\  (lb triple2 >= lofst R0) //\\ ((multResultValidity t1 t2)))) :: List.nil).   
 Local Close Scope HP_scope.
+
 Fixpoint cross {T U R : Type} (f : T -> U -> list R) (ls : list T) (rs : list U) : list R :=
       match ls with
       | List.nil => List.nil
@@ -447,7 +482,7 @@ Fixpoint cross {T U R : Type} (f : T -> U -> list R) (ls : list T) (rs : list U)
     Lemma In_cross_In
       : forall {T U R : Type} f (ls : list T) (rs  : list U),
         forall x : R,
-          List.In x (cross f ls rs) <->
+          List.In x (cross f ls rs) <<-->>
           (exists l r, List.In l ls //\\ List.In r rs //\\ List.In x (f l r)).
     Proof.
       induction ls.
@@ -692,17 +727,24 @@ Fixpoint addPlusResultValidity (bounds:list singleBoundTerm) (t1:NowTerm) (t2:No
   | Nil => Nil
   end.
 
+(* Total version of fstate_lookup that returns 0 if the variable can't be
+   found in the variable map, or has an exceptional value.
+   (The premise in the SBT will capture the condition that neither of these will happen) *)
+Definition fstate_lookup_force (fst : fstate) (v : Var) : R :=
+  match fstate_lookup fst v with
+  | Some f => FloatToR f
+  | None => 0%R
+  end.
+
 Fixpoint bound_term (x:NowTerm)  : (list singleBoundTerm):= 
   match x with
-    | VarNowN var =>  [mkSBT (VarNowT var) (VarNowT var) (Embed (fun x _ => isVarValid var x))]
+    | VarNowN var =>  [mkSBT (fun fst => fstate_lookup_force fst var) (fun fst => fstate_lookup_force fst var) (fun fst => isVarValid var fst)]
     | NatN n =>  natBound n
-    | FloatN f => [mkSBT (RealT (B2R _ _ f)) (RealT (B2R _ _ f)) (PropF (isFloatConstValid f))]
+    | FloatN f => [mkSBT (fun _ => B2R _ _ f) (fun _ => B2R _ _ f) (fun _ => isFloatConstValid f)]
     | PlusN t1 t2 => cross (fun bd1 bd2 => combineTriplePlus bd1 bd2 t1 t2) (bound_term t1) (bound_term t2)
     | MinusN t1 t2 => cross (fun bd1 bd2 => combineTripleMinus bd1 bd2 t1 t2) (bound_term t1) (bound_term t2)
     | MultN t1 t2 =>  cross (fun bd1 bd2 => combineTripleMult bd1 bd2 t1 t2) (bound_term t1) (bound_term t2)
   end.
-
-
 
 Definition floatToReal (f:binary_float custom_prec custom_emax) : option R :=
   match f with 
@@ -713,19 +755,17 @@ Definition floatToReal (f:binary_float custom_prec custom_emax) : option R :=
     end.
 
 Local Close Scope HP_scope.
-Definition foldBoundProp (evalExpr:option (binary_float custom_prec custom_emax)) (tr:trace) :=
-  let s1 := Stream.hd tr in
-  let s2 := Stream.hd (Stream.tl tr) in
+Definition foldBoundProp (evalExpr:option (binary_float custom_prec custom_emax)) (fst:fstate) :=
   match evalExpr with 
   | Some evalExpr =>  
     match floatToReal evalExpr with 
     | Some realEvalExpr => 
       (fun (triple:singleBoundTerm) (prop:Prop) =>
          (prop //\\ 
-          (eval_formula (premise triple) tr 
-           -> eval_term (lb triple) s1 s2 <= 
+          ((premise triple fst) 
+           -->> (lb triple fst) <= 
               realEvalExpr <= 
-              eval_term (ub triple) s1 s2)%R))
+              (ub triple fst))%R))
     | None => fun _ prop => prop
     end
   | None => fun _ prop => prop
@@ -743,23 +783,26 @@ Qed.
 CoFixpoint traceFromState (st:state) : (trace) := 
   @Stream.Cons state st (traceFromState st).
 
+Definition denote_singleBoundTermNew (fst:fstate) (s:singleBoundTerm) : Prop*(R->Prop) :=
+  ((premise s fst), fun f => (lb s fst) <= f <= (ub s fst))%R.
 
+(* Previous version; I'm not completely convinced new version does the right thing. --M *)
+(* More convinced now. --M *)
+(*
 Definition denote_singleBoundTermNew (st:state) (s:singleBoundTerm) : Prop*(R->Prop) :=
   let tr := traceFromState st in                                              
   let s1 := Stream.hd tr in
   let s2 := Stream.hd (Stream.tl tr) in
   ((eval_formula (premise s) tr, fun f => eval_term (lb s) s1 s2 <= f <= eval_term (ub s) s1 s2)%R).
 
+ *)
 
+Definition denote_singleBoundTerm (f : R) (fst : fstate) (s : singleBoundTerm) : Prop :=
+  ((premise s fst)
+   -> (lb s fst) <= f <= (ub s fst))%R.
 
-Definition denote_singleBoundTerm (f : R) (tr : trace) (s : singleBoundTerm) : Prop :=
-  let s1 := Stream.hd tr in
-  let s2 := Stream.hd (Stream.tl tr) in
-  (eval_formula (premise s) tr
-   -> eval_term (lb s) s1 s2 <= f <= eval_term (ub s) s1 s2)%R.
-
-Print List.Forall.
-
+(* Again, not sure about this one --M *)
+(*
 Definition boundDef' :=
 fun (expr : NowTerm) (st : Syntax.state) (fState : fstate) =>
 match eval_NowTerm fState expr with
@@ -776,7 +819,24 @@ match eval_NowTerm fState expr with
 
 | None => True
 end.
+ *)
 
+Definition boundDef' :=
+fun (expr : NowTerm) (fState : fstate) =>
+match eval_NowTerm fState expr with
+| Some evalAsF =>
+
+        List.Forall
+          (fun term : singleBoundTerm =>
+           let (premise, pred) := denote_singleBoundTermNew fState term in
+           premise ->
+                  match floatToReal evalAsF with
+                        | Some f => pred f
+                        | None => False
+                  end) (bound_term expr)
+
+| None => True
+end.
 
 (*
 Definition boundDef' (expr:NowTerm) (st:state) (fState: fstate) : Prop :=
@@ -794,8 +854,6 @@ Definition boundDef' (expr:NowTerm) (st:state) (fState: fstate) : Prop :=
   | None => True
   end.
 *)
-Print boundDef'.
-
 
 Lemma emptyListappend : forall (A:Type) (lst:list A), lst ++ (List.nil) = lst. 
 intros.
@@ -828,7 +886,7 @@ simpl.
 intuition.
 Qed.
 
-Lemma and_proof : forall x1 x2 : Prop, x1 //\\ x2 -> x1.
+Lemma and_proof : forall x1 x2 : Prop, x1 //\\ x2 -->> x1.
 intros.
 tlaIntuition.
 Qed.
@@ -858,82 +916,82 @@ Lemma firstappend : forall (A:Type) (a:A) lst1 lst2, (a::lst1) ++ lst2 = (a :: (
                       intros.
                       simpl.
                       reflexivity.
-                      Qed.
+Qed.
 
-Lemma fold_right_subList_inferring: forall a x lst tr, fold_right (fun (triple : singleBoundTerm) (prop : Prop) =>
+Check lb.
+
+Lemma fold_right_subList_inferring: forall a x lst fst, fold_right (fun (triple : singleBoundTerm) (prop : Prop) =>
          prop //\\
-         (eval_formula (premise triple) tr ->
-          (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-           eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True (a::lst) -> fold_right (fun (triple : singleBoundTerm) (prop : Prop) =>
+         ((premise triple fst) -->>
+          ((lb triple fst) <= x <=
+           (ub triple fst))%R)) True (a::lst) -->> fold_right (fun (triple : singleBoundTerm) (prop : Prop) =>
          prop //\\
-         (eval_formula (premise triple) tr ->
-          (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-           eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True lst   //\\  (eval_formula (premise a) tr ->
-       (eval_term (lb a) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-        eval_term (ub a) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R).
+         ((premise triple fst) -->>
+          ((lb triple fst) <= x <=
+           (ub triple fst)))%R) True lst   //\\  ((premise a fst) -->>
+       ((lb a fst) <= x <=
+        (ub a fst))%R).
 intros.
 simpl in *.
 tlaIntuition.
 Qed.
-        
-  
 
-Lemma fold_right_combine : forall tr lst a x,   fold_right
+(* TODO there is a small chance I re-parenthesized this one wrong... --M *)
+Lemma fold_right_combine : forall fst lst a x,   fold_right
          (fun (triple : singleBoundTerm) (prop : Prop) =>
           prop //\\
-          (eval_formula (premise triple) tr ->
-           (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-            eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True lst //\\ 
-             (eval_formula (premise a) tr ->
-       (eval_term (lb a) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-        eval_term (ub a) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R) ->   fold_right (fun (triple : singleBoundTerm) (prop : Prop) =>
+          ((premise triple fst) -->>
+           ((lb triple fst) <= x <=
+            (ub triple fst))%R)) True lst //\\ 
+             ((premise a fst) -->>
+       ((lb a fst) <= x <=
+        (ub a fst))%R) -->>   fold_right (fun (triple : singleBoundTerm) (prop : Prop) =>
           prop //\\
-          (eval_formula (premise triple) tr ->
-           (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-            eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True (a::lst).
+          ((premise triple fst) -->>
+           ((lb triple fst) <= x <=
+            (ub triple fst))%R)) True (a::lst).
 
 intros.
 simpl in *.
 intuition.
 Qed.
 
-Lemma fold_right_combine_opp :   forall tr lst a x,  fold_right (fun (triple : singleBoundTerm) (prop : Prop) =>
+Lemma fold_right_combine_opp :   forall fst lst a x,  fold_right (fun (triple : singleBoundTerm) (prop : Prop) =>
           prop //\\
-          (eval_formula (premise triple) tr ->
-           (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-            eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True (a::lst) -> fold_right
+          ((premise triple fst) -->>
+           ((lb triple fst) <= x <=
+            (ub triple fst))%R)) True (a::lst) -->> fold_right
          (fun (triple : singleBoundTerm) (prop : Prop) =>
           prop //\\
-          (eval_formula (premise triple) tr ->
-           (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-            eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True lst //\\ 
-             (eval_formula (premise a) tr ->
-       (eval_term (lb a) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-        eval_term (ub a) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R).
+          ((premise triple fst) -->>
+           ((lb triple fst) <= x <=
+            (ub triple fst))%R)) True lst //\\ 
+             (premise a fst) -->>
+       ((lb a fst) <= x <=
+        (ub a fst))%R.
 intros.
 simpl in *.
 intuition.
 Qed.
 
 
-Lemma fold_right_inferr_sublist : forall lst1 lst2 tr x, fold_right
+Lemma fold_right_inferr_sublist : forall lst1 lst2 fst x, fold_right
         (fun (triple : singleBoundTerm) (prop : Prop) =>
          prop //\\
-         (eval_formula (premise triple) tr ->
-          (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-           eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True
-        (lst1 ++ lst2) -> fold_right
+         ((premise triple fst) -->>
+          ((lb triple fst) <= x <=
+           (ub triple fst))%R)) True
+        (lst1 ++ lst2) -->> fold_right
      (fun (triple : singleBoundTerm) (prop : Prop) =>
       prop //\\
-      (eval_formula (premise triple) tr ->
-       (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-        eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True lst2 //\\ fold_right
+      ((premise triple fst) -->>
+       ((lb triple fst) <= x <=
+        (ub triple fst))%R)) True lst2 //\\ fold_right
      (fun (triple : singleBoundTerm) (prop : Prop) =>
       prop //\\
-      (eval_formula (premise triple) tr ->
-       (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-        eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True lst1.
-  breakAbstraction.
+      ((premise triple fst) -->>
+       ((lb triple fst) <= x <=
+        (ub triple fst))%R)) True lst1.
   intros.
 split.
 induction lst1.
@@ -958,34 +1016,28 @@ intuition.
 Qed.
 
 
-
- 
-
-
-Lemma fold_right_two_list :forall lst1 lst2 x tr, 
+Lemma fold_right_two_list :forall lst1 lst2 x fst, 
                       fold_right
                (fun (triple : singleBoundTerm) (prop : Prop) =>
                 prop //\\
-                (eval_formula (premise triple) tr ->
-                 (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-                  eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True
-               (lst1 ++ lst2) ->   (fold_right
+                ((premise triple fst) -->>
+                 ((lb triple fst) <= x <=
+                  (ub triple fst)))%R) True
+               (lst1 ++ lst2) -->>   (fold_right
                (fun (triple : singleBoundTerm) (prop : Prop) =>
                 prop //\\
-                (eval_formula (premise triple) tr ->
-                 (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-                  eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True
+                ((premise triple fst) -->>
+                 ((lb triple fst) <= x <=
+                  (ub triple fst))%R)) True
                lst1) //\\ (fold_right
                (fun (triple : singleBoundTerm) (prop : Prop) =>
                 prop //\\
-                (eval_formula (premise triple) tr ->
-                 (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-                  eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True
+                ((premise triple fst) -->>
+                 ((lb triple fst) <= x <=
+                  (ub triple fst))%R)) True
                lst2) .
-  breakAbstraction.
   intros.
   split.
-  simpl in *.
   induction lst1.
   simpl in *.
   intuition.
@@ -997,7 +1049,7 @@ Lemma fold_right_two_list :forall lst1 lst2 x tr,
 destruct H.
 apply IHlst1 in H.
 simpl.
-intuition.
+tlaIntuition.
 apply fold_right_inferr_sublist in H.
 breakAbstraction.
 intuition.
@@ -1010,25 +1062,25 @@ Qed.
     reflexivity.
     Qed.
 
-Lemma fold_right_two_list_opp :forall lst1 lst2 x tr, 
+Lemma fold_right_two_list_opp :forall lst1 lst2 x fst, 
                        (fold_right
                (fun (triple : singleBoundTerm) (prop : Prop) =>
                 prop //\\
-                (eval_formula (premise triple) tr ->
-                 (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-                  eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True
+                ((premise triple fst) -->>
+                 ((lb triple fst) <= x <=
+                  (ub triple fst))%R)) True
                lst1) //\\ (fold_right
                (fun (triple : singleBoundTerm) (prop : Prop) =>
                 prop //\\
-                (eval_formula (premise triple) tr ->
-                 (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-                  eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True
-               lst2) -> fold_right
+                ((premise triple fst) -->>
+                 ((lb triple fst) <= x <=
+                  (ub triple fst))%R)) True
+               lst2) -->> fold_right
                (fun (triple : singleBoundTerm) (prop : Prop) =>
                 prop //\\
-                (eval_formula (premise triple) tr ->
-                 (eval_term (lb triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)) <= x <=
-                  eval_term (ub triple) (Stream.hd tr) (Stream.hd (Stream.tl tr)))%R)) True
+                ((premise triple fst) -->>
+                 ((lb triple fst) <= x <=
+                  (ub triple fst))%R)) True
                (lst1 ++ lst2).
   breakAbstraction.
   intros.
@@ -1038,8 +1090,8 @@ Lemma fold_right_two_list_opp :forall lst1 lst2 x tr,
   intuition.
   rewrite  list3Commutative.
   apply fold_right_combine.
-  apply fold_right_subList_inferring in H0.
-  breakAbstraction.
+  generalize (fold_right_subList_inferring); intro Hfrsi.
+  breakAbstraction. apply Hfrsi in H0.
   decompose [and] H0.
   apply IHlst1 in H2.
   split.
@@ -1050,9 +1102,7 @@ Lemma fold_right_two_list_opp :forall lst1 lst2 x tr,
   intuition.
   Qed.
   
- Local Open Scope HP_scope.
-
-Lemma deNowifyPlus : forall t1 t2, denowify t1 + denowify t2 = denowify (PlusN t1 t2).
+ Lemma deNowifyPlus : forall t1 t2, denowify t1 + denowify t2 = denowify (PlusN t1 t2).
 intros.
 induction t1;
 induction t2;
@@ -1061,7 +1111,6 @@ Qed.
 
 Local Close Scope HP_scope.
  Require Import compcert.flocq.Prop.Fprop_relative.
-Print relative_error.
 
 
 Lemma simpleTruth : true = true.
@@ -1070,7 +1119,7 @@ Qed.             Lemma truth : true = true.
 intuition.
 Qed.
 
-Lemma rltProof2 : forall r1 r2,  (r1 < r2)%R-> ( Rlt_bool r1 r2 = true). 
+Lemma rltProof2 : forall r1 r2,  (r1 < r2)%R -> ( Rlt_bool r1 r2 = true). 
 intros.
  unfold Rlt_bool in *.
                          Transparent Rcompare.
@@ -1103,7 +1152,7 @@ Definition related (f : fstate) (s : state) : Prop :=
 
 
 Definition validFloat (f : binary_float custom_prec custom_emax) : Prop :=
-  exists r, Some r = floatToReal f.
+  exists r, (eq (Some r) (floatToReal f)).
 
 
 Print Floats.float.
@@ -2002,7 +2051,8 @@ Lemma errorLessThan1: (error <= 1)%R.
   intros.
   pose proof OneMinus.
   apply H0 in H.
-Lemma minus: forall x, (1- x = -x +1 ) %Z. 
+
+Lemma minus: forall x, (eq (1- x) (-x +1)) %Z. 
 intros.
 lia.
 Qed.
@@ -2182,7 +2232,6 @@ Proof.
   destruct H;
   psatz R.
 Qed.
-
 
 Lemma lbAndUbSumIsZero : forall (lb1 lb2 ub1 ub2 x1 x2: R), ((lb1 + lb2)%R = 0%R /\ (ub1 + ub2)%R = 0%R) ->  (lb1 <= x1 <= ub1)%R ->  (lb2 <= x2 <= ub2)%R -> (x1 + x2 = 0)%R.
 Proof.
@@ -4384,15 +4433,15 @@ Proof.
   apply H2.
 Qed.
 
-
-
- Lemma denote_singleBoundTermsEquality :   forall (st : state) (expr : NowTerm) (fState : fstate),
-   related fState (Stream.hd (traceFromState st)) ->
+(* Unused now. --M *)
+(*
+ Lemma denote_singleBoundTermsEquality : forall (expr : NowTerm) (fState : fstate),
+   (*related fState (Stream.hd (traceFromState st)) ->*)
    match eval_NowTerm fState expr with
    | Some evalAsF =>
            List.Forall
              (fun term : singleBoundTerm =>
-              let (premise0, pred) := denote_singleBoundTermNew st term in
+              let (premise0, pred) := denote_singleBoundTermNew fState term in
               premise0 -> match floatToReal evalAsF with 
                             | Some f => pred f
                             | None => True
@@ -4400,13 +4449,13 @@ Qed.
 
    | None => True
    end ->   
-   related fState (Stream.hd (traceFromState st)) ->
+   (*related fState (Stream.hd (traceFromState st)) ->*)
    match eval_NowTerm fState expr with
    | Some evalAsF =>
      match floatToReal evalAsF with 
        | Some f => 
            List.Forall
-          (denote_singleBoundTerm f (traceFromState st))   (bound_term expr)
+          (denote_singleBoundTerm f fState)   (bound_term expr)
        | None => True
      end
    | None => True
@@ -4414,18 +4463,16 @@ Qed.
    
     unfold denote_singleBoundTermNew.
     unfold denote_singleBoundTerm.
-    Lemma boundTermProof : forall fState st expr,  
+    Lemma boundTermProof : forall fState expr,  
         match eval_NowTerm fState expr with
           | Some evalAsF =>
             List.Forall
               (fun term : singleBoundTerm =>
-                 eval_formula (premise term) (traceFromState st) ->
+                 (premise term fState) ->
                  match floatToReal evalAsF with
                    | Some f =>
-                     (eval_term (lb term) (Stream.hd (traceFromState st))
-                                (Stream.hd (Stream.tl (traceFromState st))) <= f <=
-                      eval_term (ub term) (Stream.hd (traceFromState st))
-                                (Stream.hd (Stream.tl (traceFromState st))))%R
+                     ((lb term fState) <= f <=
+                      (ub term fState))%R
                    | None => True
                  end) (bound_term expr)
           | None => True
@@ -4436,11 +4483,9 @@ Qed.
               | Some f =>
                 List.Forall
                   (fun s : singleBoundTerm =>
-                     eval_formula (premise s) (traceFromState st) ->
-                     (eval_term (lb s) (Stream.hd (traceFromState st))
-                                (Stream.hd (Stream.tl (traceFromState st))) <= f <=
-                      eval_term (ub s) (Stream.hd (traceFromState st))
-                                (Stream.hd (Stream.tl (traceFromState st))))%R) 
+                     (premise s fState) ->
+                     ((lb s fState)  <= f <=
+                      (ub s fState))%R) 
                   (bound_term expr)
               | None => True
             end
@@ -4465,42 +4510,513 @@ Qed.
       } 
     Qed.
     intros.    
-   
-     pose proof boundTermProof.
-     specialize (H2 fState st expr H0).
-     apply H2.
+
+    apply boundTermProof.
+    apply H.
  Qed.
+ *)
+
+(* Sub-lemmas and helper definistions used in bound_proof' *)
+Lemma conjoin2 : forall (p1 p2 p3:Prop), p1 -> p2 -> p3 -> p1 /\ p2 /\ p3.
+   intros.
+   tlaIntuition.
+Qed.
+
+Lemma conjoin : forall (p1 p2:Prop), p1 -> p2 -> p1 /\ p2.
+    intros.
+    tlaIntuition.
+Qed.
+
+Lemma simplify2 : (round_mode mode_NE)  =  (Znearest (fun x : Z => negb (Zeven x))).
+      simpl.
+      reflexivity.
+Qed.
+
+Lemma orExtra2 : forall p1 p2 : Prop, p2 -> p1 \/ p2.
+Proof.
+  intros; tlaIntuition. Qed.
+
+Lemma floatMaxBoundHelper : forall lb1 lb2 floatMax error, (lb1 + lb2 >= R0)%R -> (floatMax > 0)%R ->  (error > R0)%R -> ((0-lb1+(0-lb2))*(1+error)<floatMax)%R.
+          intros. psatz R. Qed.
+
+Lemma floatMaxBoundHelper2 : forall ub1 ub2 floatMax error, (ub1 + ub2 < R0)%R -> (floatMax > 0)%R ->  (error > R0)%R -> ((ub1 + ub2)*(1+error)<floatMax)%R.
+             intros. psatz R. Qed.
+
+Lemma absHelper: forall x y, (x>=0)%R -> (x>=y)%R -> (y<=(Rabs x))%R.
+Proof.
+  intros. unfold Rabs in *. destruct Rcase_abs; psatz R. Qed.
+
+Lemma posResInf : forall lb1 lb2 x1 x2, (x1 >= lb1 -> x2 >= lb2 -> lb1 + lb2 >=0 -> x1 + x2 >= 0)%R.
+Proof.
+  intros. 
+  psatz R. Qed.
+
+Definition el2 (r : radix) (x : R) (lbp : ln_beta_prop r x) : 
+                (x <> 0%R -> (bpow r (ln_beta_val r x lbp - 1) <= Rabs x < bpow r (ln_beta_val r x lbp)))%R := let '(Build_ln_beta_prop _ pf) := lbp in pf.
+
+Lemma abs2: forall x0 y : R, (x0 > 0)%R -> (x0 < y)%R -> (Rabs x0 < y)%R.
+Proof.
+  intros. unfold Rabs. destruct Rcase_abs. 
+  psatz R.
+  psatz R.
+Qed.
+
+Lemma subNormal: forall x:R,  (x > R0)%R -> (x < floatMin)%R ->  (ln_beta radix2 x <= custom_emin)%Z.
+Proof.
+  intros.
+  unfold floatMin in *.
+  assert (H1 := H).
+  pose proof ln_beta_le_bpow.
+  apply Rgt_not_eq in H.
+  specialize (H2 radix2 x custom_emin H).
+  intros.
+  pose proof abs2.
+  specialize (H3 x (bpow radix2 custom_emin) H1 H0).
+  specialize (H2 H3).
+  apply H2.
+Qed.
+
+Lemma absImp : forall x, (x > 0)%R-> Rabs x = x.
+Proof.
+  intros. unfold Rabs. destruct Rcase_abs. psatz R. psatz R. Qed.
+
+Lemma gt0ImpNE0 :forall x, (x>0 -> x<>0)%R.
+                  intros. psatz R. Qed.
+
+Lemma zMaxProof : forall x1 x2, (x1<=x2 -> Z.max x1 x2 = x2)%Z. 
+intros. SearchAbout Z.max . pose proof Z.max_r. 
+specialize (H0 x1 x2 H). apply H0.
+Qed.
+
+Lemma fexpEminGtEmax :  (3 - custom_emax - custom_prec < custom_emax)%Z.
+pose proof precGe1. pose proof precLtEmax. unfold error,custom_emax, custom_prec in *. 
+lia. 
+Qed.
+
+Lemma fexpEminGtEmax1 : forall ex,  (ex <= custom_emin -> (ex <= ex - custom_prec) -> ex - custom_prec < custom_emax)%Z.
+intros. unfold custom_emin, custom_prec,custom_emax in *. 
+pose proof precGe1. pose proof precLtEmax.
+pose proof emaxGtEmin. lia.
+Qed.
+
+Lemma floatMaxProofRounding : 
+  forall x ex, (bpow radix2 (ex - 1) <= Rabs (x) < bpow radix2 ex)%R -> 
+               (ex <= custom_emin)%Z ->
+               (x < floatMin -> x > 0 ->                        
+                (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x = bpow radix2 ((FLT_exp (3 - custom_emax - custom_prec) custom_prec) ex) \/ round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x = R0 \/ bpow radix2 (ex - 1)<= round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x <= bpow radix2 ex) /\ Rabs (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x) < bpow radix2 custom_emax)%R.
+Proof.
+  intros. 
+  assert (gt0 := H2).                  
+  apply gt0ImpNE0 in H2.
+  pose proof bpow_le.
+  specialize (H3 radix2 ex custom_emin H0).
+  pose proof emaxGtEmin.
+  apply Z.gt_lt in H4.
+  
+  pose proof bpow_lt.
+  specialize (H5 radix2 emin emax H4 ).
+  clear H4.
+  pose proof absImp.
+  specialize (H4 x gt0).
+  rewrite H4 in H.
+  clear H4.
+  destruct (Coqlib.zle ex  (FLT_exp (3 - custom_emax - custom_prec) custom_prec ex)).
+  {
+    pose proof round_bounded_small_pos.
+    specialize (H4 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef) x ex).
+    specialize (H4 l H).
+    remember  (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                     (round_mode mode_NE) x).
+    destruct H4.
+    {
+      rewrite H4 in *.
+      pose proof floatMaxGt0.
+      unfold floatMax in *.
+      unfold Rabs. destruct Rcase_abs.                       
+      split. constructor 2. constructor 1. intuition. 
+      psatz R. split. constructor 2. constructor 1. intuition.
+      psatz R. 
+    }
+    {
+      pose proof bpow_lt.
+      unfold FLT_exp in *.
+      destruct (Z_le_gt_dec (ex - custom_prec) (3 - custom_emax - custom_prec)%Z).
+      {
+        
+        intros.
+        pose proof zMaxProof as zMaxProof.
+        specialize (zMaxProof (ex - custom_prec)%Z (3 - custom_emax - custom_prec)%Z l0).
+        rewrite zMaxProof in *.
+        
+        clear zMaxProof l0 H6 Heqr. 
+        pose proof errorGt0.
+        unfold error in *.
+        
+        intros.
+        pose proof fexpEminGtEmax as fexpEminGtEmax.
+        pose proof bpow_lt.
+        specialize (H7 radix2 (3 - custom_emax - custom_prec)%Z custom_emax fexpEminGtEmax).
+        split. 
+        constructor 1. apply H4.
+        clear fexpEminGtEmax H H1 H6 l H2 H5.     
+        pose proof bpow_gt_0.
+        specialize (H radix2 (3 - custom_emax - custom_prec)%Z).
+        pose proof bpow_gt_0.
+        specialize (H1 radix2 custom_emax).
+        unfold Rabs. destruct Rcase_abs. psatz R.   psatz R.
+      }
+      {
+        pose proof zMaxProof as zMaxProof. 
+        apply Z.gt_lt in g0.
+        pose proof Z.lt_le_incl.
+        
+        specialize (H7 (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z g0).
+        specialize (zMaxProof   (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z H7).
+        rewrite Z.max_comm in zMaxProof.
+        rewrite zMaxProof in *.
+        
+        clear zMaxProof g0 H7 H6 Heqr. 
+        
+
+        intros.
+        pose proof fexpEminGtEmax1.
+        specialize (H6 ex H0 l).
+        pose proof bpow_lt.
+        specialize (H7 radix2 (ex - custom_prec)%Z custom_emax H6).
+        clear H.
+        pose proof errorGt0. unfold error in *. unfold custom_emax,custom_emin,custom_prec in *.
+        pose proof bpow_gt_0. specialize (H8 radix2 (ex-prec)%Z).
+        split. constructor 1. apply H4.
+        unfold Rabs. destruct Rcase_abs.
+        psatz R. psatz R.
+      }
+    }
+  }
+  {
+    pose proof round_bounded_large_pos.
+    apply Z.gt_lt in g0.
+    specialize (H4 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef) x ex g0 H).
+    remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                    (round_mode mode_NE) x).
+    split. constructor 2. constructor 2. apply H4.
+    unfold custom_emax, custom_prec, custom_emin in *.
+    unfold Rabs. destruct Rcase_abs.
+    pose proof bpow_gt_0.
+    specialize (H6 radix2 ex).
+    pose proof bpow_gt_0.
+    specialize (H7 radix2 (ex-1)%Z).
+    psatz R. psatz R.
+    
+  }
+Qed.
+
+Set Printing Notations.
+
+Lemma floatMaxProof1 : forall x, 
+    (x < floatMin ->
+     x > 0 ->
+     Rabs (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                 (round_mode mode_NE) x) < bpow radix2 custom_emax)%R.
+Proof.
+  intros.
+  generalize (el2 radix2 (x)%R (ln_beta radix2 (x))).
+  intros. 
+  assert (gt0 := H0).
+  apply gt0ImpNE0 in H0.
+  specialize (H1 H0).
+  pose proof subNormal.
+  specialize (H2 x gt0 H).
+  remember (ln_beta radix2 x) as ex.
+  pose proof bpow_le.
+  specialize (H3 radix2 ex custom_emin H2).
+  pose proof emaxGtEmin.
+  apply Z.gt_lt in H4.
+  
+  pose proof bpow_lt.
+  specialize (H5 radix2 emin emax H4 ).
+  clear H4.
+  pose proof absImp.
+  specialize (H4 x gt0).
+  rewrite H4 in H1.
+  clear H4.
+  destruct (Coqlib.zle ex  (FLT_exp (3 - custom_emax - custom_prec) custom_prec ex)).
+  {
+    pose proof round_bounded_small_pos.
+    specialize (H4 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef) x ex).
+    specialize (H4 l H1).
+    remember  (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                     (round_mode mode_NE) x).
+    destruct H4.
+    {
+      rewrite H4 in *.
+      pose proof floatMaxGt0.
+      unfold floatMax in *.
+      unfold Rabs. destruct Rcase_abs.                       
+      psatz R. psatz R.
+    }
+    {
+      pose proof bpow_lt.
+      unfold FLT_exp in *.
+      destruct (Z_le_gt_dec (ex - custom_prec) (3 - custom_emax - custom_prec)%Z).
+      {
+        intros.
+        pose proof zMaxProof as zMaxProof.
+        specialize (zMaxProof (ex - custom_prec)%Z (3 - custom_emax - custom_prec)%Z l0).
+        rewrite zMaxProof in H4.
+        clear zMaxProof l0 H6 Heqr. 
+        pose proof errorGt0.
+        unfold error in *.
+        intros.
+        pose proof fexpEminGtEmax as fexpEminGtEmax.
+        pose proof bpow_lt.
+        specialize (H7 radix2 (3 - custom_emax - custom_prec)%Z custom_emax fexpEminGtEmax).
+        clear fexpEminGtEmax H H1 H6 l H2 H5.     
+        pose proof bpow_gt_0.
+        specialize (H radix2 (3 - custom_emax - custom_prec)%Z).
+        pose proof bpow_gt_0.
+        specialize (H1 radix2 custom_emax).
+        unfold Rabs. destruct Rcase_abs. psatz R. psatz R.
+      }
+      {
+        pose proof zMaxProof as zMaxProof. 
+        apply Z.gt_lt in g0.
+        pose proof Z.lt_le_incl.
+        
+        specialize (H7 (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z g0).
+        specialize (zMaxProof   (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z H7).
+        rewrite Z.max_comm in zMaxProof.
+        rewrite zMaxProof in l, H4.
+        
+        clear zMaxProof g0 H7 H6 Heqr. 
+        
+        intros.
+        pose proof fexpEminGtEmax1.
+        specialize (H6 ex H2 l).
+        pose proof bpow_lt.
+        specialize (H7 radix2 (ex - custom_prec)%Z custom_emax H6).
+        clear H.
+        pose proof errorGt0. unfold error in *. unfold custom_emax,custom_emin,custom_prec in *.
+        pose proof bpow_gt_0. specialize (H8 radix2 (ex-prec)%Z).
+        unfold Rabs. destruct Rcase_abs.
+        psatz R. psatz R.
+      }
+    }
+  }
+  {
+    pose proof round_bounded_large_pos.
+    apply Z.gt_lt in g0.
+    specialize (H4 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef) x ex g0 H1).
+    remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                    (round_mode mode_NE) x).
+    unfold custom_emax, custom_prec, custom_emin in *.
+    unfold Rabs. destruct Rcase_abs.
+    pose proof bpow_gt_0.
+    specialize (H6 radix2 ex).
+    pose proof bpow_gt_0.
+    specialize (H7 radix2 (ex-1)%Z).
+    psatz R. psatz R.
+    
+  }
+Qed.
+
+Lemma zlt_le : forall x1 x2, (x1 > x2 -> x1 >= x2)%Z.
+                               intros.
+                               lia.
+Qed.
+
+Lemma exCustomPrec : forall x, (x <= custom_emin ->  custom_prec >=1 -> x - custom_prec  < custom_emin)%Z. 
+                                 intros. lia. 
+Qed.                    
+
+Lemma zeroLtFloatMax : forall x, (x = 0 -> Rabs x <floatMax)%R .
+                                   intros.  unfold Rabs in *. destruct Rcase_abs; unfold floatMax in *;
+                                                              pose proof bpow_gt_0;
+                                                              specialize (H0 radix2 custom_emax);
+                                                              psatz R.
+Qed.                    
+
+Lemma exHelper : forall x, (x <= custom_emin -> x - custom_prec <custom_emin)%Z. 
+                             intros. unfold custom_prec, custom_emin in *.
+                             pose proof precGe1.
+                             lia.
+Qed.
+
+Lemma roundedValLessThanFloatMin: forall ex, ((ex <=custom_emin)%Z -> (bpow radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec ex) <= floatMin))%R.
+Proof.
+  intros.
+  unfold FLT_exp. 
+  destruct (Coqlib.zle (3 - custom_emax - custom_prec) (ex-custom_prec)).
+  {
+    SearchAbout Z.max.
+    pose proof Z.max_l.
+    specialize (H0 (ex-custom_prec)%Z (3 - custom_emax - custom_prec)%Z l).
+    rewrite H0.
+    unfold floatMin.
+    
+    specialize (exHelper ex H).
+    intros.
+    pose proof bpow_lt.
+    specialize (H2 radix2 (ex - custom_prec)%Z custom_emin H1).
+    psatz R.
+  }
+  {
+    pose proof Z.max_r.
+    SearchAbout (_>_ -> _ >= _)%Z.
+    apply zlt_le in g0.
+    apply Z.ge_le in g0.
+    specialize (H0 (ex - custom_prec)%Z (3 - custom_emax - custom_prec)%Z g0).
+    rewrite H0.
+    unfold floatMin.
+    unfold custom_emin,custom_prec, custom_emax in *.
+    pose proof eminMinValue.
+    apply Z.gt_lt in H1.
+    pose proof bpow_lt.
+    specialize (H2 radix2  (3 - emax - prec)%Z emin H1).
+    psatz R.
+  }
+Qed.        
+
+Lemma boundUsingRelativeErrorProof : forall lb1 lb2 ub1 ub2 x1 x2, 
+    (lb1 <= x1 ->
+     x1 <= ub1 -> 
+     lb2 <= x2 ->
+     x2 <= ub2 -> 
+     lb1 + lb2 >= 0 ->
+     (Rabs
+        (round radix2
+               (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+               (round_mode mode_NE) (x1 + x2) - 
+         (x1 + x2)) <
+      bpow radix2 (- custom_prec + 1) * Rabs (x1 + x2))%R 
+     ->
+     0 <=
+     round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+           (round_mode mode_NE)
+           (x1 + x2) <=
+     (ub1 + ub2) * (1 + error))%R.
+Proof.
+  intros.
+  remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                  (round_mode mode_NE) (x1 + x2))%R as roundedValue.
+  pose proof errorGt0 as errorGt0.
+  pose proof errorLessThan1 as errorLessThan1.
+  clear HeqroundedValue.
+  unfold error in *.
+  unfold Rabs in *. destruct Rcase_abs; destruct Rcase_abs;
+                    psatz R.
+Qed.                           
+
+Lemma andExtra : forall (p1 p2:Prop), p1  -> p2 ->   p1 /\ p2.
+Proof.
+                                                       simpl.
+                                                       intros.
+                                                       intuition.
+Qed.       
+
+Lemma orExtra3 : forall p1 p2 p3 p4: Prop, p1 -> p1 \/ p2 \/ p3 \/ p4.
+Proof.
+                                                   simpl ;intros; intuition. Qed.              
+
+Lemma diffOR : forall (p1 p2 p3 p4 : Prop), p1 \/ p2 \/ p3 \/ p4 -> p2 \/ p1 \/ p3 \/ p4.
+Proof.
+                                                                        
+                                                                      intuition.
+Qed.                                      
+
+Lemma orExtra3_3 : forall p1 p2 p3 p4: Prop, p3 -> p1 \/ p2 \/ p3 \/ p4.
+Proof.
+
+  intros; intuition. Qed.
+
+Lemma floatConstValidityProof : forall f, isFloatConstValid f -> None = floatToReal f -> False.
+Proof.
+
+  intros. 
+  unfold isFloatConstValid in *.
+  destruct f.
+  { unfold floatToReal in *.
+    simpl in *.
+    inversion H0.
+  }
+  {
+    intuition.
+  }
+  {
+    intuition.
+  }
+  {
+    unfold floatToReal in *.
+    simpl in *.
+    inversion H0.
+  }
+Qed.          
+
+Lemma plusResultValidityProof : forall expr1 expr2 fState f, plusResultValidity expr1 expr2 fState -> (Some f = lift2 
+                                                                                                           (Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                                                                                                  custom_nan mode_NE) (eval_NowTerm fState expr1)
+                                                                                                           (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
+Proof.
+  intros.
+  unfold plusResultValidity in *.
+  rewrite <- H0 in H.
+  revert H H1.
+  apply floatConstValidityProof.
+Qed.
+
+Lemma minusResultValidityProof : forall expr1 expr2 fState f, minusResultValidity expr1 expr2 fState -> (Some f = lift2 
+                                                                                                             (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                                                                                                     custom_nan mode_NE) (eval_NowTerm fState expr1)
+                                                                                                             (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
+Proof.
+  intros.
+  unfold minusResultValidity in *.
+  rewrite <- H0 in H.
+  revert H H1.
+  apply floatConstValidityProof.
+Qed.
+
+Lemma multResultValidityProof : forall expr1 expr2 fState f, multResultValidity expr1 expr2 fState -> (Some f = lift2 
+                                                                                                           (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                                                                                                  custom_nan mode_NE) (eval_NowTerm fState expr1)
+                                                                                                           (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
+Proof.
+  intros.
+  unfold multResultValidity in *.
+  rewrite <- H0 in H.
+  revert H H1.
+  apply floatConstValidityProof.
+Qed.       
 
 
+(* The main lemma - correctness for floating-point bounds *)
+Require Import ExtLib.Tactics.
 Lemma bound_proof' : 
-  forall (st:state) (expr:NowTerm) (fState:fstate),
-    related fState st -> 
-    boundDef' expr st fState.
+  forall (expr:NowTerm) (fState:fstate),
+    boundDef' expr fState.
 Proof.
   unfold boundDef'. 
   intros.
   remember (eval_NowTerm fState expr). destruct o; trivial.
   remember (floatToReal f). destruct o; trivial.
   revert Heqo. revert Heqo0. revert f. revert r.
-  remember (traceFromState st) as tr.
-  clear Heqtr.
+  (*remember (traceFromState st) as tr.*)
   induction expr.
-
-
-
   { simpl. 
     intros.
     constructor; [ | constructor ]. intros.
-    unfold premise in H0.
-    unfold eval_formula in H0.
+    unfold premise in H.
+    (*unfold eval_formula in H0.*)
     unfold lb. unfold ub.
     simpl.
     red in H.
     symmetry in Heqo.
-    apply H in Heqo.
-    rewrite <- Heqo in *.
-    inversion Heqo0.
-    psatz R.
+
+    rewrite  Heqo in H.
+    unfold fstate_lookup_force.
+    rewrite Heqo.
+    unfold floatToReal in Heqo0. destruct f; try congruence; inversion Heqo0.
+    - simpl. psatz R.
+    - simpl. psatz R.
   }
 
   { simpl. constructor; [ | constructor ].
@@ -4509,16 +5025,15 @@ Proof.
       simpl in *.
       unfold Semantics.eval_comp in *.
       
-      simpl in H0.
-      decompose [and] H0.
+      simpl in H.
+      decompose [and] H.
       clear H5.
       clear H0.
       
-      Lemma conjoin2 : forall (p1 p2 p3:Prop), p1 -> p2 -> p3 -> p1 /\ p2 /\ p3.
-        intros.
-        tlaIntuition.
-      Qed.
-      intros. 
+      
+
+      intros.
+      
       pose proof conjoin2 as premise.
       
       specialize (premise (floatMin <= INR n)%R (INR n >= 0)%R (INR n * (1 + error) < floatMax)%R H1 H3 H2).
@@ -4533,10 +5048,7 @@ Proof.
       specialize (natRoundingTruth n orExtra1).
       pose proof natRoundingTruth2 as natRoundingTruth2.
       specialize (natRoundingTruth2 f r n Heqo0 Heqo natRoundingTruth).
-      Lemma conjoin : forall (p1 p2:Prop), p1 -> p2 -> p1 /\ p2.
-        intros.
-        tlaIntuition.
-      Qed.
+
       pose proof conjoin as premise2.
       specialize (premise2 (floatMin <= INR n)%R (INR n >= 0)%R H1 H3).
       pose proof orExtra as orExtra2.
@@ -4549,7 +5061,6 @@ Proof.
       {
         inversion Heqo0.
         inversion Heqo.
-        Print nat_to_float.
         unfold Fappli_IEEE_extra.b64_of_Z in H5.    
         rewrite <- H5 in natRoundingTruth2 at 1.
         
@@ -4564,10 +5075,7 @@ Proof.
         pose proof relErrorTruthNat as relErrorTruthNat.
       
         specialize (relErrorTruthNat n orExtra2).
-        Lemma simplify2 : (round_mode mode_NE)  =  (Znearest (fun x : Z => negb (Zeven x))).
-          simpl.
-          reflexivity.
-        Qed.
+        
         intros.
         rewrite natToReal.
         remember (round radix2
@@ -4605,7 +5113,6 @@ Proof.
       {
         inversion Heqo0.
         inversion Heqo.
-        Print nat_to_float.
         unfold Fappli_IEEE_extra.b64_of_Z in H5.    
         rewrite <- H5 in natRoundingTruth2 at 1.
         unfold B2R in natRoundingTruth2.
@@ -4660,8 +5167,6 @@ Proof.
       
       specialize (premise (floatMin <= 0 - INR n)%R  (INR n < 0)%R ((0 - INR n) * (1 + error) < floatMax)%R H1 H3 H2).
       intros.
-        Lemma orExtra2 : forall p1 p2 : Prop, p2 -> p1 \/ p2.
-          intros; tlaIntuition. Qed.
       
       pose proof orExtra2 as orExtra1.
       specialize (orExtra1 ((floatMin <= INR n)%R /\
@@ -4684,7 +5189,7 @@ Proof.
       {
         inversion Heqo0.
         inversion Heqo.
-        Print nat_to_float.
+
         unfold Fappli_IEEE_extra.b64_of_Z in H5.    
         rewrite <- H5 in natRoundingTruth2 at 1.
         unfold B2R in natRoundingTruth2.
@@ -4733,7 +5238,6 @@ Proof.
       {
         inversion Heqo0.
         inversion Heqo.
-        Print nat_to_float.
         unfold Fappli_IEEE_extra.b64_of_Z in H5.    
         rewrite <- H5 in natRoundingTruth2 at 1.
         
@@ -4789,10 +5293,10 @@ Proof.
   }
   { simpl.   unfold getBound. breakAbstraction.
     intros.
-    Print plusMinusfoldListwithList.
+
     assert (Heqo':=Heqo).
     apply resultImplicationsPlus in Heqo.
-    Require Import ExtLib.Tactics.
+
     simpl in Heqo.
     forward_reason. destruct H2; destruct H3.
     specialize (IHexpr1 _ _ H2 H0).
@@ -4879,8 +5383,7 @@ Proof.
         clear floatMinCase1.
         specialize (relErrorBasedOnFloatMinTruthPlus floatMinCase H H1 H0 H2).
         pose proof plusRoundingTruth as plusRoundingTruth. 
-        Lemma floatMaxBoundHelper : forall lb1 lb2 floatMax error, (lb1 + lb2 >= R0)%R -> (floatMax > 0)%R ->  (error > R0)%R -> ((0-lb1+(0-lb2))*(1+error)<floatMax)%R.
-          intros. psatz R. Qed.
+        
         pose proof floatMaxBoundHelper as floatMaxBound2.
         specialize (floatMaxBound2 lb1 lb2 floatMax error resultGe0 floatMaxGt0 errorGt0).
         specialize (plusRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 floatMinCase H H1 floatMaxBound1 floatMaxBound2 H0 H2).
@@ -4978,8 +5481,7 @@ Proof.
           clear floatMinCase1.
           specialize (relErrorBasedOnFloatMinTruthPlus floatMinCase H H1 H0 H2).
           pose proof plusRoundingTruth as plusRoundingTruth.
-           Lemma floatMaxBoundHelper2 : forall ub1 ub2 floatMax error, (ub1 + ub2 < R0)%R -> (floatMax > 0)%R ->  (error > R0)%R -> ((ub1 + ub2)*(1+error)<floatMax)%R.
-             intros. psatz R. Qed.
+
            pose proof floatMaxBoundHelper2 as floatMaxBound2.
            specialize (floatMaxBound2 ub1 ub2 floatMax error resultGe0 floatMaxGt0 errorGt0).
            specialize (plusRoundingTruth x x0 lb1 lb2 ub1 ub2 x1 x2 floatToRealProof1 floatToRealProof2 floatMinCase H H1 floatMaxBound2 floatMaxBound1 H0 H2).
@@ -5063,11 +5565,7 @@ Proof.
               (* relative_error*)
               pose proof relative_error as relative_error.
               specialize (relative_error radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) validFexpProof (custom_emin)%Z custom_prec precThm (round_mode mode_NE) (valid_rnd_N choiceDef) (x1 + x2)%R).
-              Lemma absHelper: forall x y, (x>=0)%R -> (x>=y)%R -> (y<=(Rabs x))%R.
-                intros. unfold Rabs in *. destruct Rcase_abs; psatz R. Qed.
-              Lemma posResInf : forall lb1 lb2 x1 x2, (x1 >= lb1 -> x2 >= lb2 -> lb1 + lb2 >=0 -> x1 + x2 >= 0)%R.
-                intros. 
-                psatz R. Qed.
+
               intros.
               
               pose proof absHelper as absProof.
@@ -5079,7 +5577,6 @@ Proof.
               assert (x2lb := H1).
               assert (x2ub := H2).
               clear H H0 H1 H2.
-              SearchAbout (_<=_->_>=_)%R.
               apply Rle_ge in x1lb.
               apply Rle_ge in x2lb.
               specialize (posResInf lb1 lb2 x1 x2 x1lb x2lb resultGe0).
@@ -5117,35 +5614,11 @@ Proof.
             }
             {
               apply Rnot_ge_lt in n.
-              Check relative_error.
-              Definition el2 (r : radix) (x : R) (lbp : ln_beta_prop r x) : 
-                (x <> 0%R -> (bpow r (ln_beta_val r x lbp - 1) <= Rabs x < bpow r (ln_beta_val r x lbp)))%R := let '(Build_ln_beta_prop _ pf) := lbp in pf.
+              
               generalize (el2 radix2 (x1+x2)%R (ln_beta radix2 (x1+x2))).
               intros ln_beta_premise. 
-              Lemma subNormal: forall x:R,  (x > R0)%R -> (x < floatMin)%R ->  (ln_beta radix2 x <= custom_emin)%Z.
-                intros.
-                unfold floatMin in *.
-                assert (H1 := H).
-                pose proof ln_beta_le_bpow.
-                apply Rgt_not_eq in H.
-                specialize (H2 radix2 x custom_emin H).
-                
-
-                Lemma abs2: forall x0 y : R, (x0 > 0)%R -> (x0 < y)%R -> (Rabs x0 < y)%R.
-                  intros. unfold Rabs. destruct Rcase_abs. 
-                  psatz R.
-                  psatz R.
-                Qed.
-
-                intros.
-                pose proof abs2.
-                specialize (H3 x (bpow radix2 custom_emin) H1 H0).
-                specialize (H2 H3).
-                apply H2.
-              Qed.
               intros. 
-              Lemma absImp : forall x, (x > 0)%R-> Rabs x = x.
-                intros. unfold Rabs. destruct Rcase_abs. psatz R. psatz R. Qed.
+              
               intros.
               pose proof absImp as absImp.
               pose proof posResInf as posResInf.
@@ -5160,7 +5633,6 @@ Proof.
               apply Rle_ge in x2lb.
               specialize (posResInf lb1 lb2 x1 x2 x1lb x2lb resultGe0).
               apply Rge_le in posResInf.
-              Check Rle_lt_or_eq_dec.
               destruct (Rle_lt_or_eq_dec 0 (x1+x2)%R).
               {
                 apply posResInf.
@@ -5170,253 +5642,14 @@ Proof.
                 apply Rlt_gt in r0.
                 specialize (subNormalProof (x1+x2)%R r0 n).
                 remember (ln_beta radix2 (x1 + x2)) as ex.
-                Lemma gt0ImpNE0 :forall x, (x>0 -> x<>0)%R.
-                  intros. psatz R. Qed.
+                
                 pose proof gt0ImpNE0 as gt0ImpNE0.
                 specialize (gt0ImpNE0 (x1+x2)%R r0).
                 specialize (ln_beta_premise gt0ImpNE0).
-                Check bpow_lt.
                 pose proof bpow_le as bpow_le.
                 specialize (bpow_le radix2 ex custom_emin subNormalProof).
                 pose proof plusRoundingTruth2.
-                Lemma floatMaxProofRounding : 
-                  forall x ex, (bpow radix2 (ex - 1) <= Rabs (x) < bpow radix2 ex)%R -> 
-                               (ex <= custom_emin)%Z ->
-                               (x < floatMin -> x > 0 ->                        
-                                (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x = bpow radix2 ((FLT_exp (3 - custom_emax - custom_prec) custom_prec) ex) \/ round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x = R0 \/ bpow radix2 (ex - 1)<= round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x <= bpow radix2 ex) /\ Rabs (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) x) < bpow radix2 custom_emax)%R.
-                  intros. 
-                  assert (gt0 := H2).                  
-                  apply gt0ImpNE0 in H2.
-                  pose proof bpow_le.
-                  specialize (H3 radix2 ex custom_emin H0).
-                  pose proof emaxGtEmin.
-                  SearchAbout (_ > _ -> _ < _)%Z.
-                  apply Z.gt_lt in H4.
-                  
-                  pose proof bpow_lt.
-                  specialize (H5 radix2 emin emax H4 ).
-                  clear H4.
-                  pose proof absImp.
-                  specialize (H4 x gt0).
-                  rewrite H4 in H.
-                  clear H4.
-                  destruct (Coqlib.zle ex  (FLT_exp (3 - custom_emax - custom_prec) custom_prec ex)).
-                  {
-                    pose proof round_bounded_small_pos.
-                    specialize (H4 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef) x ex).
-                    specialize (H4 l H).
-                    remember  (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
-                                     (round_mode mode_NE) x).
-                    destruct H4.
-                    {
-                      rewrite H4 in *.
-                      pose proof floatMaxGt0.
-                      unfold floatMax in *.
-                      unfold Rabs. destruct Rcase_abs.                       
-                      split. constructor 2. constructor 1. intuition. 
-                      psatz R. split. constructor 2. constructor 1. intuition.
-                      psatz R. 
-                    }
-                    {
-                      pose proof bpow_lt.
-                      unfold FLT_exp in *.
-                      SearchAbout ({_ <= _} + {_ > _ })%Z.
-                      destruct (Z_le_gt_dec (ex - custom_prec) (3 - custom_emax - custom_prec)%Z).
-                      {
-                        Lemma zMaxProof : forall x1 x2, (x1<=x2 -> Z.max x1 x2 = x2)%Z. 
-                          intros. SearchAbout Z.max . pose proof Z.max_r. 
-                          specialize (H0 x1 x2 H). apply H0.
-                        Qed.
-                        intros.
-                        pose proof zMaxProof as zMaxProof.
-                        specialize (zMaxProof (ex - custom_prec)%Z (3 - custom_emax - custom_prec)%Z l0).
-                        rewrite zMaxProof in *.
-                        
-                        clear zMaxProof l0 H6 Heqr. 
-                        pose proof errorGt0.
-                        unfold error in *.
-                        Lemma fexpEminGtEmax :  (3 - custom_emax - custom_prec < custom_emax)%Z.
-                          pose proof precGe1. pose proof precLtEmax. unfold error,custom_emax, custom_prec in *. 
-                          lia. 
-                        Qed.
-                        intros.
-                        pose proof fexpEminGtEmax as fexpEminGtEmax.
-                        pose proof bpow_lt.
-                        specialize (H7 radix2 (3 - custom_emax - custom_prec)%Z custom_emax fexpEminGtEmax).
-                        split. 
-                        constructor 1. apply H4.
-                        clear fexpEminGtEmax H H1 H6 l H2 H5.     
-                        SearchAbout bpow.
-                        pose proof bpow_gt_0.
-                        specialize (H radix2 (3 - custom_emax - custom_prec)%Z).
-                        pose proof bpow_gt_0.
-                        specialize (H1 radix2 custom_emax).
-                        unfold Rabs. destruct Rcase_abs. psatz R.   psatz R.
-                      }
-                      {
-                        pose proof zMaxProof as zMaxProof. 
-                        SearchAbout (_>_ -> _<_)%Z.
-                        apply Z.gt_lt in g.
-                        SearchAbout (_<_ -> _<=_)%Z.
-                        pose proof Z.lt_le_incl.
-                        
-                        specialize (H7 (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z g).
-                        specialize (zMaxProof   (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z H7).
-                        SearchAbout Z.max.
-                        rewrite Z.max_comm in zMaxProof.
-                        rewrite zMaxProof in *.
-                        
-                        clear zMaxProof g H7 H6 Heqr. 
-                        
-                        Lemma fexpEminGtEmax1 : forall ex,  (ex <= custom_emin -> (ex <= ex - custom_prec) -> ex - custom_prec < custom_emax)%Z.
-                          intros. unfold custom_emin, custom_prec,custom_emax in *. 
-                          pose proof precGe1. pose proof precLtEmax.
-                          pose proof emaxGtEmin. lia.
-                        Qed.
-                        intros.
-                        pose proof fexpEminGtEmax1.
-                        specialize (H6 ex H0 l).
-                        pose proof bpow_lt.
-                        specialize (H7 radix2 (ex - custom_prec)%Z custom_emax H6).
-                        clear H.
-                        pose proof errorGt0. unfold error in *. unfold custom_emax,custom_emin,custom_prec in *.
-                        pose proof bpow_gt_0. specialize (H8 radix2 (ex-prec)%Z).
-                        split. constructor 1. apply H4.
-                        unfold Rabs. destruct Rcase_abs.
-                        psatz R. psatz R.
-                      }
-                    }
-                  }
-                  {
-                    pose proof round_bounded_large_pos.
-                    apply Z.gt_lt in g.
-                    specialize (H4 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef) x ex g H).
-                    remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
-                                    (round_mode mode_NE) x).
-                    split. constructor 2. constructor 2. apply H4.
-                    unfold custom_emax, custom_prec, custom_emin in *.
-                    unfold Rabs. destruct Rcase_abs.
-                    pose proof bpow_gt_0.
-                    specialize (H6 radix2 ex).
-                    pose proof bpow_gt_0.
-                    specialize (H7 radix2 (ex-1)%Z).
-                    psatz R. psatz R.
-                    
-                  }
-                Qed.
-
-
-                Lemma floatMaxProof1 : forall x, 
-                    (x < floatMin ->
-                     x > 0 ->
-                     Rabs (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
-                                 (round_mode mode_NE) x) < bpow radix2 custom_emax)%R.
-                  intros.
-                  generalize (el2 radix2 (x)%R (ln_beta radix2 (x))).
-                  intros. 
-                  assert (gt0 := H0).
-                  apply gt0ImpNE0 in H0.
-                  specialize (H1 H0).
-                  pose proof subNormal.
-                  specialize (H2 x gt0 H).
-                  remember (ln_beta radix2 x) as ex.
-                  pose proof bpow_le.
-                  specialize (H3 radix2 ex custom_emin H2).
-                  pose proof emaxGtEmin.
-                  SearchAbout (_ > _ -> _ < _)%Z.
-                  apply Z.gt_lt in H4.
-                  
-                  pose proof bpow_lt.
-                  specialize (H5 radix2 emin emax H4 ).
-                  clear H4.
-                  pose proof absImp.
-                  specialize (H4 x gt0).
-                  rewrite H4 in H1.
-                  clear H4.
-                  destruct (Coqlib.zle ex  (FLT_exp (3 - custom_emax - custom_prec) custom_prec ex)).
-                  {
-                    pose proof round_bounded_small_pos.
-                    specialize (H4 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef) x ex).
-                    specialize (H4 l H1).
-                    remember  (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
-                                     (round_mode mode_NE) x).
-                    destruct H4.
-                    {
-                      rewrite H4 in *.
-                      pose proof floatMaxGt0.
-                      unfold floatMax in *.
-                      unfold Rabs. destruct Rcase_abs.                       
-                      psatz R. psatz R.
-                    }
-                    {
-                      pose proof bpow_lt.
-                      unfold FLT_exp in *.
-                      SearchAbout ({_ <= _} + {_ > _ })%Z.
-                      destruct (Z_le_gt_dec (ex - custom_prec) (3 - custom_emax - custom_prec)%Z).
-                      {
-                        intros.
-                        pose proof zMaxProof as zMaxProof.
-                        specialize (zMaxProof (ex - custom_prec)%Z (3 - custom_emax - custom_prec)%Z l0).
-                        rewrite zMaxProof in H4.
-                        clear zMaxProof l0 H6 Heqr. 
-                        pose proof errorGt0.
-                        unfold error in *.
-                        intros.
-                        pose proof fexpEminGtEmax as fexpEminGtEmax.
-                        pose proof bpow_lt.
-                        specialize (H7 radix2 (3 - custom_emax - custom_prec)%Z custom_emax fexpEminGtEmax).
-                        clear fexpEminGtEmax H H1 H6 l H2 H5.     
-                        SearchAbout bpow.
-                        pose proof bpow_gt_0.
-                        specialize (H radix2 (3 - custom_emax - custom_prec)%Z).
-                        pose proof bpow_gt_0.
-                        specialize (H1 radix2 custom_emax).
-                        unfold Rabs. destruct Rcase_abs. psatz R. psatz R.
-                      }
-                      {
-                        pose proof zMaxProof as zMaxProof. 
-                        SearchAbout (_>_ -> _<_)%Z.
-                        apply Z.gt_lt in g.
-                        SearchAbout (_<_ -> _<=_)%Z.
-                        pose proof Z.lt_le_incl.
-                        
-                        specialize (H7 (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z g).
-                        specialize (zMaxProof   (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z H7).
-                        SearchAbout Z.max.
-                        rewrite Z.max_comm in zMaxProof.
-                        rewrite zMaxProof in l, H4.
-                        
-                        clear zMaxProof g H7 H6 Heqr. 
-                        
-                        intros.
-                        pose proof fexpEminGtEmax1.
-                        specialize (H6 ex H2 l).
-                        pose proof bpow_lt.
-                        specialize (H7 radix2 (ex - custom_prec)%Z custom_emax H6).
-                        clear H.
-                        pose proof errorGt0. unfold error in *. unfold custom_emax,custom_emin,custom_prec in *.
-                        pose proof bpow_gt_0. specialize (H8 radix2 (ex-prec)%Z).
-                        unfold Rabs. destruct Rcase_abs.
-                        psatz R. psatz R.
-                      }
-                    }
-                  }
-                  {
-                    pose proof round_bounded_large_pos.
-                    apply Z.gt_lt in g.
-                    specialize (H4 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef) x ex g H1).
-                    remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
-                                    (round_mode mode_NE) x).
-                    unfold custom_emax, custom_prec, custom_emin in *.
-                    unfold Rabs. destruct Rcase_abs.
-                    pose proof bpow_gt_0.
-                    specialize (H6 radix2 ex).
-                    pose proof bpow_gt_0.
-                    specialize (H7 radix2 (ex-1)%Z).
-                    psatz R. psatz R.
-                    
-                  }
-                Qed.
+  
                 intros.
                 pose proof floatMaxProofRounding.
                 specialize (H0 (x1 +x2)%R ex ln_beta_premise subNormalProof n r0).
@@ -5445,7 +5678,6 @@ Proof.
                     clear zMaxProof.  
                     
                     pose proof customEminMinValue as customEminMinValue.
-                    SearchAbout (_ > _ -> _ < _)%Z.
                     apply Z.gt_lt in customEminMinValue.
                     pose proof bpow_lt.
                     specialize (H3 radix2 (3 - custom_emax - custom_prec)%Z custom_emin customEminMinValue).
@@ -5462,23 +5694,17 @@ Proof.
                   }
                   {
                     pose proof zMaxProof as zMaxProof.
-                    Lemma zlt_le : forall x1 x2, (x1 > x2 -> x1 >= x2)%Z.
-                      intros.
-                      lia.
-                    Qed.
+                    
                     intros.
                     apply zlt_le in g.
                     apply Z.ge_le in g.
                     specialize (zMaxProof (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z g).
-                    SearchAbout Z.max.
                     pose proof Z.max_comm.
                     specialize (H3 (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z).
                     rewrite <- H3 in H0.
                     rewrite zMaxProof in *.
                     clear zMaxProof H3 g.
-                    Lemma exCustomPrec : forall x, (x <= custom_emin ->  custom_prec >=1 -> x - custom_prec  < custom_emin)%Z. 
-                      intros. lia. 
-                    Qed.
+                   
                     intros.
                     specialize (exCustomPrec ex subNormalProof custom_precGe1).
                     intros.
@@ -5523,12 +5749,7 @@ Proof.
                 pose proof plusRoundingTruth2.
                 pose proof round_0 as round_0.
                 specialize (round_0 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef)).
-                Lemma zeroLtFloatMax : forall x, (x = 0 -> Rabs x <floatMax)%R .
-                  intros.  unfold Rabs in *. destruct Rcase_abs; unfold floatMax in *;
-                  pose proof bpow_gt_0;
-                  specialize (H0 radix2 custom_emax);
-                  psatz R.
-                Qed.
+                
                 pose proof zeroLtFloatMax.
                 specialize (H0 (round radix2
                                       (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
@@ -5577,7 +5798,6 @@ Proof.
                 psatz R.
               }
               {
-                SearchAbout (~(_<=_) -> (_>_))%R.
                 apply Rnot_le_gt in n.
                 pose proof floatMaxProofRounding as floatMaxProofRounding.
                 generalize (el2 radix2 (x1+x2)%R (ln_beta radix2 (x1+x2)%R)).
@@ -5617,45 +5837,7 @@ Proof.
                   destruct H.
                   {
                     unfold FLT_exp in H.
-                    Lemma roundedValLessThanFloatMin: forall ex, ((ex <=custom_emin)%Z -> (bpow radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec ex) <= floatMin))%R. 
-                      intros.
-                      unfold FLT_exp. 
-                      destruct (Coqlib.zle (3 - custom_emax - custom_prec) (ex-custom_prec)).
-                      {
-                        SearchAbout Z.max.
-                        pose proof Z.max_l.
-                        specialize (H0 (ex-custom_prec)%Z (3 - custom_emax - custom_prec)%Z l).
-                        rewrite H0.
-                        unfold floatMin.
-                        Lemma exHelper : forall x, (x <= custom_emin -> x - custom_prec <custom_emin)%Z. 
-                          intros. unfold custom_prec, custom_emin in *.
-                          pose proof precGe1.
-                          lia.
-                        Qed.
-                        specialize (exHelper ex H).
-                        intros.
-                        pose proof bpow_lt.
-                        specialize (H2 radix2 (ex - custom_prec)%Z custom_emin H1).
-                        psatz R.
-                      }
-                      {
-                        pose proof Z.max_r.
-                        SearchAbout (_>_ -> _ >= _)%Z.
-                        apply zlt_le in g.
-                        SearchAbout (_>=_ -> _<=_)%Z.
-                        apply Z.ge_le in g.
-                        specialize (H0 (ex - custom_prec)%Z (3 - custom_emax - custom_prec)%Z g).
-                        rewrite H0.
-                        unfold floatMin.
-                        unfold custom_emin,custom_prec, custom_emax in *.
-                        pose proof eminMinValue.
-                        SearchAbout (_>_ -> _<_)%Z.
-                        apply Z.gt_lt in H1.
-                        pose proof bpow_lt.
-                        specialize (H2 radix2  (3 - emax - prec)%Z emin H1).
-                        psatz R.
-                      }
-                    Qed.
+
                     intros.
                     pose proof roundedValLessThanFloatMin.
                     specialize (H6 ex subNormalProof).
@@ -6157,7 +6339,6 @@ clear H1. psatz R. Qed.
               assert (x2lb := H1).
               assert (x2ub := H2).
               clear H H0 H1 H2.
-              SearchAbout (_<=_->_>=_)%R.
               apply Rle_ge in x1lb.
               apply Rle_ge in x2lb.
               specialize (posResInf lb1 lb2 x1 x2 x1lb x2lb resultGe0).
@@ -6193,35 +6374,7 @@ clear H1. psatz R. Qed.
               apply validFloat2 in floatToRealProof2.
               rewrite <- floatToRealProof1.
               rewrite <- floatToRealProof2.
-              Lemma boundUsingRelativeErrorProof : forall lb1 lb2 ub1 ub2 x1 x2, 
-                  (lb1 <= x1 ->
-                  x1 <= ub1 -> 
-                  lb2 <= x2 ->
-                  x2 <= ub2 -> 
-                  lb1 + lb2 >= 0 ->
-                  (Rabs
-                     (round radix2
-                            (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
-                            (round_mode mode_NE) (x1 + x2) - 
-                      (x1 + x2)) <
-                   bpow radix2 (- custom_prec + 1) * Rabs (x1 + x2))%R 
-
-                  ->
-                  
-                  0 <=
-                  round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
-                        (round_mode mode_NE)
-                        (x1 + x2) <=
-                  (ub1 + ub2) * (1 + error))%R.
-                intros.
-                remember (round radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec)
-         (round_mode mode_NE) (x1 + x2))%R as roundedValue.
-                pose proof errorGt0 as errorGt0.
-                pose proof errorLessThan1 as errorLessThan1.
-                clear HeqroundedValue.
-                unfold error in *.
-                unfold Rabs in *. destruct Rcase_abs; destruct Rcase_abs;
-                psatz R. Qed.
+              
               intros.
               pose proof boundUsingRelativeErrorProof as boundUsingRelativeErrorProof.
               specialize (boundUsingRelativeErrorProof lb1 lb2 ub1 ub2 x1 x2 x1lb x1ub x2lb x2ub resultGe0 relative_error).
@@ -6229,7 +6382,6 @@ clear H1. psatz R. Qed.
             }
             {
               apply Rnot_ge_lt in n.
-              Check relative_error.
               generalize (el2 radix2 (x1+x2)%R (ln_beta radix2 (x1+x2))).
               intros ln_beta_premise. 
               
@@ -6248,7 +6400,6 @@ clear H1. psatz R. Qed.
               apply Rle_ge in x2lb.
               specialize (posResInf lb1 lb2 x1 x2 x1lb x2lb resultGe0).
               apply Rge_le in posResInf.
-              Check Rle_lt_or_eq_dec.
               destruct (Rle_lt_or_eq_dec 0 (x1+x2)%R).
               {
                 apply posResInf.
@@ -6261,7 +6412,6 @@ clear H1. psatz R. Qed.
                 pose proof gt0ImpNE0 as gt0ImpNE0.
                 specialize (gt0ImpNE0 (x1+x2)%R r0).
                 specialize (ln_beta_premise gt0ImpNE0).
-                Check bpow_lt.
                 pose proof bpow_le as bpow_le.
                 specialize (bpow_le radix2 ex custom_emin subNormalProof).
                 pose proof plusRoundingTruth2.
@@ -6295,7 +6445,6 @@ clear H1. psatz R. Qed.
                     clear zMaxProof.  
                     
                     pose proof customEminMinValue as customEminMinValue.
-                    SearchAbout (_ > _ -> _ < _)%Z.
                     apply Z.gt_lt in customEminMinValue.
                     pose proof bpow_lt.
                     specialize (H3 radix2 (3 - custom_emax - custom_prec)%Z custom_emin customEminMinValue).
@@ -6316,7 +6465,6 @@ clear H1. psatz R. Qed.
                     apply zlt_le in g.
                     apply Z.ge_le in g.
                     specialize (zMaxProof (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z g).
-                    SearchAbout Z.max.
                     pose proof Z.max_comm.
                     specialize (H3 (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z).
                     rewrite <- H3 in H0.
@@ -6421,7 +6569,6 @@ clear H1. psatz R. Qed.
               psatz R.
             }
             {
-              SearchAbout (~(_<=_) -> (_>_))%R.
               apply Rnot_le_gt in n.
               pose proof floatMaxProofRounding as floatMaxProofRounding.
               generalize (el2 radix2 (x1+x2)%R (ln_beta radix2 (x1+x2)%R)).
@@ -6532,11 +6679,9 @@ clear H1. psatz R. Qed.
     
     simpl. unfold getBound.
     intros.
-    Print plusMinusfoldListwithList.
     assert (Heqo':=Heqo).
     apply resultImplicationsMinus in Heqo.
     simpl in Heqo.
-    Require Import ExtLib.Tactics.
     forward_reason. destruct H2; destruct H3.
     specialize (IHexpr1 _ _ H2 H0).
     specialize (IHexpr2 _ _ H3 H1).
@@ -6621,11 +6766,7 @@ clear H1. psatz R. Qed.
         specialize (extraFloatMinCase floatMinCase).
         specialize (relErrorBasedOnFloatMinTruthMinus extraFloatMinCase H H1 H0 H2).
         pose proof minusRoundingTruth as minusRoundingTruth.
-        Lemma andExtra : forall (p1 p2:Prop), p1  -> p2 ->   p1 /\ p2.
-          simpl.
-          intros.
-          intuition.
-        Qed.
+        
         intros.
         pose proof andExtra as andExtra.
         specialize (andExtra (lb1 >= ub2 /\ floatMin <= lb1 - ub2)%R ((ub1 - lb2) * (1 + error) < floatMax)%R floatMinCase floatMaxBound1 ).
@@ -7407,7 +7548,6 @@ clear H1. psatz R. Qed.
     assert (Heqo':=Heqo).
     apply resultImplicationsMult in Heqo.
     simpl in Heqo.
-    Require Import ExtLib.Tactics.
     forward_reason.  destruct H2; destruct H3.
     specialize (IHexpr1 _ _ H2 H0).
     specialize (IHexpr2 _ _ H3 H1).
@@ -7486,8 +7626,7 @@ clear H1. psatz R. Qed.
         assert (floatMinCase:=conjoin2).
         clear conjoin2.
         intros.
-        Lemma orExtra3 : forall p1 p2 p3 p4: Prop, p1 -> p1 \/ p2 \/ p3 \/ p4.
-          simpl ;intros; intuition. Qed.
+        
         pose proof orExtra3 as extraFloatMinCase.
         specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R)  ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R /\(lb1 >= 0)%R /\ (ub2 < 0)%R )  ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R) ).
         remember  (Rabs
@@ -7715,9 +7854,7 @@ clear H1. psatz R. Qed.
         pose proof orExtra3 as extraFloatMinCase.
         specialize (extraFloatMinCase  ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R)  ((floatMin <= lb1 * (0 - ub2))%R /\(lb1 >= 0)%R /\ (ub2 < 0)%R )  ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R) ).
         specialize (extraFloatMinCase floatMinCase).
-        Lemma diffOR : forall (p1 p2 p3 p4 : Prop), p1 \/ p2 \/ p3 \/ p4 -> p2 \/ p1 \/ p3 \/ p4.
-          intuition.
-        Qed.
+
         pose proof diffOR as diffOR.
         specialize ( diffOR ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R) ((floatMin <= lb1 * (0 - ub2))%R /\ (lb1 >= 0)%R /\ (ub2 < 0)%R) ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R)).
         apply diffOR in extraFloatMinCase.
@@ -7939,8 +8076,7 @@ clear H1. psatz R. Qed.
         assert (floatMinCase:=conjoin2).
         clear conjoin2.
         intros.
-        Lemma orExtra3_3 : forall p1 p2 p3 p4: Prop, p3 -> p1 \/ p2 \/ p3 \/ p4.
-          intros; intuition. Qed.
+        
         pose proof orExtra3_3 as extraFloatMinCase.
         specialize (extraFloatMinCase ((floatMin <= lb1 * lb2)%R /\ (lb1 >= 0)%R /\ (lb2 >= 0)%R) ((floatMin <= (0 - ub1) * (0 - ub2))%R /\ (ub1 < 0)%R /\ (ub2 < 0)%R) ((floatMin <= lb1 * (0 - ub2))%R /\ (lb1 >= 0)%R /\ (ub2 < 0)%R)  ((floatMin <= (0 - ub1) * lb2)%R /\ (ub1 < 0)%R /\ (lb2 >= 0)%R)).
         specialize (extraFloatMinCase floatMinCase).
@@ -9214,26 +9350,6 @@ clear H1. psatz R. Qed.
   }
   {
 
- Lemma floatConstValidityProof : forall f, isFloatConstValid f -> None = floatToReal f -> False. 
-        intros. 
-        unfold isFloatConstValid in *.
-        destruct f.
-        { unfold floatToReal in *.
-          simpl in *.
-          inversion H0.
-        }
-        {
-          intuition.
-        }
-        {
-          intuition.
-        }
-        {
-          unfold floatToReal in *.
-          simpl in *.
-          inversion H0.
-        }
-       Qed.
    apply Forall_forall.
   intros.
   unfold denote_singleBoundTermNew. 
@@ -9307,42 +9423,6 @@ clear H1. psatz R. Qed.
     }
   }
   {
-      
-       
-       Lemma plusResultValidityProof : forall expr1 expr2 fState f, plusResultValidity expr1 expr2 -> (Some f = lift2 
-                                                                                                                  (Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax
-                                                                                                                         custom_nan mode_NE) (eval_NowTerm fState expr1)
-                                                                                                                  (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
-         intros.
-
-         unfold plusResultValidity in *.
-         specialize (H fState).
-         rewrite <- H0 in H.
-         revert H H1.
-         apply floatConstValidityProof.
-       Qed.
-           Lemma minusResultValidityProof : forall expr1 expr2 fState f, minusResultValidity expr1 expr2 -> (Some f = lift2 
-                                                                                                                  (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax
-                                                                                                                         custom_nan mode_NE) (eval_NowTerm fState expr1)
-                                                                                                                  (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
-         intros.
-         unfold minusResultValidity in *.
-         specialize (H fState).
-         rewrite <- H0 in H.
-         revert H H1.
-         apply floatConstValidityProof.
-       Qed.
-            Lemma multResultValidityProof : forall expr1 expr2 fState f, multResultValidity expr1 expr2 -> (Some f = lift2 
-                                                                                                                  (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax
-                                                                                                                         custom_nan mode_NE) (eval_NowTerm fState expr1)
-                                                                                                                  (eval_NowTerm fState expr2)) -> None = floatToReal f ->False.
-         intros.
-         unfold multResultValidity in *.
-         specialize (H fState).
-         rewrite <- H0 in H.
-         revert H H1.
-         apply floatConstValidityProof.
-       Qed.
        simpl in *.    
        eapply In_cross_In in H0.
        simpl in H0.
