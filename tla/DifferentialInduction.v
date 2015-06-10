@@ -444,8 +444,8 @@ Lemma deriv_neg : forall f t1 t2 t1' t2' r eqs is_derivable s,
 Proof.
   intros f t1 t2 t1' t2' r diffeqs is_derivable s Hsol
          Ht1 Ht2 t Ht.
-  pose proof (term_deriv f (t1-t2) (fun st' => t1' st' - t2' st') r diffeqs
-                         is_derivable s Hsol) as Hderiv.
+  pose proof (term_deriv f (t1-t2) (fun st' => t1' st' - t2' st') r
+                         is_derivable s) as Hderiv.
   simpl in *. rewrite Ht1 in *. rewrite Ht2 in *. simpl in *.
   specialize (Hderiv (Logic.eq_refl _)).
   destruct Hderiv as [pf Hderiv]. exists (pf t).
@@ -478,10 +478,10 @@ Proof.
   repeat rewrite eval_next_term with (s3:=Stream.hd (Stream.tl tr)); auto.
   unfold is_solution in *. destruct Hsol as [pf Hsol].
   pose proof (term_deriv f (t1 - t2) (fun st' => t1' st' - t2' st')
-                         r eqs pf (Stream.hd (Stream.tl tr)) Hsol)
+                         r pf (Stream.hd (Stream.tl tr)))
     as Hterm1.
   pose proof (term_deriv f (t2 - t1) (fun st' => t2' st' - t1' st')
-                         r eqs pf (Stream.hd (Stream.tl tr)) Hsol)
+                         r pf (Stream.hd (Stream.tl tr)))
     as Hterm2.
   rewrite <- H in *.
   rewrite <- H0 in *.
