@@ -59,7 +59,7 @@ Fixpoint AVarsAgree (xs:list Var) (st:state) : Formula :=
 
 (* Our shallow encoding of continuous evolutions. *)
 Definition DerivMap := (Var->Term).
-Definition Evolution := DerivMap->Formula.
+Definition Evolution := state->Formula.
 
 Definition deriv_stateF
            (f : R -> state)
@@ -237,7 +237,8 @@ Qed.
 
 Import Stream.
 Theorem Rename_Continuous :
-  forall (r : RenameMap) (r' : state->Var->Term) (c:Evolution)
+  forall (r : RenameMap) (r' : state->Var->Term)
+         (c:DerivMap->Formula)
 (*  (Hproper:Proper (pointwise_relation _ term_equiv ==> lequiv) c),*)
 (*  (forall st, BasicProofRules.is_st_formula (c st)) ->*)
   (Hproper:forall tr r1 r2,
@@ -254,11 +255,12 @@ Theorem Rename_Continuous :
         eq
           (Ranalysis1.derive
              (fun t => eval_term e (f t) (f t)) (pf1 v))
-          (fun t => eval_term (e' t) (f t) (f t))) ->
-    Continuous (fun dm' : DerivMap =>
-                  Forall st : state,
-                    (Forall v : Var, st v = r v) -->>
-                  Rename r (c (r' (fun x => eval_term (dm' x) st st))))
+          (fun t => eval_term (e' t)
+                              (fun x => eval_term (r x) (f t)
+                                                  (f t))
+                              (fun x => eval_term (r x) (f t)
+                                                  (f t)))) ->
+    Continuous (fun st' => Rename r (c (r' st')))
     |-- Rename r (Continuous c).
 Proof.
   breakAbstraction. intros.
@@ -275,40 +277,13 @@ Proof.
   unfold solves_diffeqs in *.
   intros. specialize (H1 _ H2).
   unfold deriv_stateF in *.
-  simpl in *. specialize (H1 _ (fun _ => Logic.eq_refl _)).
+  simpl in *.
   unfold deriv_stateF, subst_state in *.
   rewrite Stream.stream_map_forever in H1;
     eauto with typeclass_instances.
   eapply Hproper; eauto.
   simpl. intros.
-  rewrite H.
-
-  eapply Proper_eval_formula; [ | | eassumption ].
-  { apply Hproper. red. intros.
-    unfold term_equiv. intros.
-    simpl.
-
-erewrite Hprem.
-
-rewrite (H a).
-    unfold deriv_stateF.
-    rewrite subst_derivmap_subst_state.
-    { match goal with
-      | |- (_ ?X -|- _ ?Y) => assert (X = Y)
-      end.
-      { eapply FunctionalExtensionality.functional_extensionality.
-        erewrite subst_VarRenameMap_derive_distr.
-        intros. reflexivity. }
-      { rewrite H1. reflexivity. } }
-    { rewrite Stream.stream_map_forever;
-      eauto with typeclass_instances.
-      reflexivity. } }
-  split.
-  { rewrite H1. clear.
-    rewrite (Stream.trace_eta tr). simpl. reflexivity. }
-  { rewrite H2.
-    rewrite (Stream.trace_eta tr). simpl.
-    rewrite (Stream.trace_eta (Stream.tl tr)). simpl. reflexivity. }
+  rewrite H. auto.
 Qed.
 
 Close Scope string_scope.
