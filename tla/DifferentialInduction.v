@@ -139,34 +139,33 @@ Fixpoint deriv_formula (P:state->Formula) (F:Formula) (st:state)
    definition of a derivative. *)
 
 Lemma term_deriv : forall (f : R -> state) e e'
-  (r : R) eqs is_derivable s,
-  solves_diffeqs f eqs r is_derivable ->
+  (r : R) is_derivable s,
   deriv_term e = Some e' ->
-  exists pf,
+  { pf : _ |
     forall z,
       (R0 <= z <= r)%R ->
       let f' := (fun t x => derive (fun t => f t x) (is_derivable x) t) in
       eq (derive (fun t => eval_term e (f t) s) pf z)
-         (eval_term (e' (f' z)) (f z) s).
+         (eval_term (e' (f' z)) (f z) s) }.
 Proof.
   intros.
   generalize dependent e'.
   induction e; intros; simpl in *.
-    - inversion H0; clear H0; subst.
+    - inversion H; clear H; subst.
       simpl. exists (is_derivable v).
       auto.
-    - inversion H0.
-    - inversion H0; subst e'.
+    - inversion H.
+    - inversion H; subst e'.
       unfold eval_term, derive.
       exists (derivable_pt_const (Raxioms.INR n)). intros.
       eapply derive_pt_const.
-    - inversion H0; subst e'.
+    - inversion H; subst e'.
       unfold eval_term, derive.
       exists (derivable_pt_const r0). intros.
       eapply derive_pt_const.
     - destruct (deriv_term e1);
       destruct (deriv_term e2);
-      simpl in *; try discriminate. inversion H0; subst e'.
+      simpl in *; try discriminate. inversion H; subst e'.
       specialize (IHe1 t (Logic.eq_refl _)).
       specialize (IHe2 t0 (Logic.eq_refl _)).
       destruct IHe1 as [pf1 IHe1].
@@ -180,7 +179,7 @@ Proof.
       simpl. rewrite IHe1; auto; rewrite IHe2; auto.
     - destruct (deriv_term e1);
       destruct (deriv_term e2);
-      simpl in *; try discriminate. inversion H0; subst e'.
+      simpl in *; try discriminate. inversion H; subst e'.
       specialize (IHe1 t (Logic.eq_refl _)).
       specialize (IHe2 t0 (Logic.eq_refl _)).
       destruct IHe1 as [pf1 IHe1].
@@ -194,7 +193,7 @@ Proof.
       simpl. rewrite IHe1; auto; rewrite IHe2; auto.
     - destruct (deriv_term e1);
       destruct (deriv_term e2);
-      simpl in *; try discriminate. inversion H0; subst e'.
+      simpl in *; try discriminate. inversion H; subst e'.
       specialize (IHe1 t (Logic.eq_refl _)).
       specialize (IHe2 t0 (Logic.eq_refl _)).
       destruct IHe1 as [pf1 IHe1].
@@ -208,7 +207,7 @@ Proof.
       simpl. rewrite IHe1; auto; rewrite IHe2; auto.
     - discriminate.
     - destruct (deriv_term e);
-      simpl in *; try discriminate. inversion H0; subst e'.
+      simpl in *; try discriminate. inversion H; subst e'.
       specialize (IHe t (Logic.eq_refl _)).
       destruct IHe as [pf IHe].
       exists (fun r => derivable_pt_comp
@@ -224,7 +223,7 @@ Proof.
       simpl. rewrite IHe; auto; rewrite derive_pt_cos;
       rewrite RIneq.Rminus_0_l; auto.
     - destruct (deriv_term e);
-      simpl in *; try discriminate. inversion H0; subst e'.
+      simpl in *; try discriminate. inversion H; subst e'.
       specialize (IHe t (Logic.eq_refl _)).
       destruct IHe as [pf IHe].
       exists (fun r => derivable_pt_comp
@@ -238,9 +237,60 @@ Proof.
         as Hderiv.
       unfold derive, comp in *. rewrite Hderiv.
       simpl. rewrite IHe; auto. rewrite derive_pt_sin. auto.
-    - (** TODO: derivative of sqrt **) inversion H0.
-    - (** TODO: derivative of arctan **) inversion H0.
+    - (** TODO: derivative of sqrt **) inversion H.
+    - (** TODO: derivative of arctan **) inversion H.
 Qed.
+
+Theorem Rename_Continuous_deriv_term :
+  forall (r : RenameMap) (r' : state->Var->Term)
+         (c:DerivMap->Formula)
+(*  (Hproper:Proper (pointwise_relation _ term_equiv ==> lequiv) c),*)
+(*  (forall st, BasicProofRules.is_st_formula (c st)) ->*)
+  (Hproper:forall tr r1 r2,
+      (forall x, eval_term (r1 x) (Stream.hd tr) (Stream.hd (Stream.tl tr)) =
+                 eval_term (r2 x) (Stream.hd tr) (Stream.hd (Stream.tl tr))) ->
+      eval_formula (c r1) tr <-> eval_formula (c r2) tr),
+  (forall x,
+      { x' : _ |
+        deriv_term (r x) = Some x' /\
+        forall st', term_equiv (r' st' x) (x' st')}) ->
+    Continuous (fun st' => Rename r (c (r' st')))
+    |-- Rename r (Continuous c).
+Proof.
+  intros.
+  eapply Rename_Continuous; eauto.
+  intros.
+  assert (forall v : Var,
+             derivable (fun t : R => eval_term (r v) (f t) (f t))).
+  { intros. specialize (X v).
+    destruct X.
+    destruct a.
+    eapply term_deriv in H; eauto.
+    destruct H. clear e. revert x0.
+    instantiate (2 := f).
+    instantiate (1 := fun _ => R0). admit. }
+  { exists H.
+    simpl. intros.
+    specialize (X v).
+    destruct X.
+    destruct a.
+    eapply FunctionalExtensionality.functional_extensionality.
+    intros.
+    Require Import Coq.Classes.Morphisms.
+    Instance Proper_eval_term
+    : Proper (term_equiv ==> eq ==> eq ==> eq) eval_term.
+    Admitted.
+    setoid_rewrite H1; clear H1.
+    unfold deriv_stateF.
+    eapply term_deriv in H0.
+    revert H0. instantiate (2 := f).
+    instantiate (1 := fun _ => R0).
+    instantiate (2 := x0).
+    instantiate (1 := pf2).
+    destruct 1. specialize (e x0).
+    simpl in e.
+    admit. }
+Abort.
 
 (* Here are a few tactics for proving our main
    helper lemma: eval_comp_ind. It's probably
