@@ -1,3 +1,5 @@
+Require Import Coq.Classes.RelationClasses.
+Require Import Coq.Classes.Morphisms.
 Require Import Coq.Lists.List.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Rtrigo_def.
@@ -47,38 +49,11 @@ Definition eval_comp (t1 t2:Term) (op:CompOp) (s1 s2:state) :
   | Eq => eq
   end (eval_term t1 s1 s2) (eval_term t2 s1 s2).
 
-Fixpoint subst_state (s : list (Var * Term)) : state -> state :=
-  match s with
-  | nil => fun x => x
-  | (v,e) :: s =>
-    fun st v' => if String.string_dec v' v then
-                   eval_term e st st
-                 else
-                   subst_state s st v'
-  end.
+Definition subst_state (s : RenameMap) : state -> state :=
+  fun st x => eval_term (s x) st st.
 
-Definition subst_flow (s : list (Var * Term)) (f : flow) : flow :=
+Definition subst_flow (s : RenameMap) (f : flow) : flow :=
   fun t => subst_state s (f t).
-
-(* Expresses the property that a differentiable formula
-   is a solution to a list of differential equations
-   in the range 0 to r. *)
-Definition solves_diffeqs (eval : Formula -> trace -> Prop)
-           (f : R -> state) (cp : state->Formula) (r : R)
-           (is_derivable : forall x, derivable (fun t => f t x)) :=
-    forall z, (R0 <= z <= r)%R ->
-              eval
-                (cp (fun x => derive (fun t => f t x)
-                                     (is_derivable x) z))
-                (Stream.forever (f z)).
-
-(* Prop expressing that f is a solution to diffeqs in
-   [0,r]. *)
-Definition is_solution (eval : Formula -> trace -> Prop)
-           (f : R -> state) (cp:state->Formula) (r : R) :=
-  exists is_derivable,
-    (* f is a solution to diffeqs *)
-    solves_diffeqs eval f cp r is_derivable.
 
 (* Semantics of temporal formulas *)
 Fixpoint eval_formula (F:Formula) (tr:trace) :=
@@ -134,3 +109,16 @@ Proof.
               simpl; intros; intuition eauto.
   destruct H0. eauto.
 Qed.
+
+Definition term_equiv (t1 t2:Term) : Prop :=
+  forall st1 st2, eval_term t1 st1 st2 =
+                  eval_term t2 st1 st2.
+
+Global Instance Reflexive_term_equiv : Reflexive term_equiv.
+Proof. repeat red; reflexivity. Qed.
+
+Global Instance Transitive_term_equiv : Transitive term_equiv.
+Proof. repeat red; etransitivity. eapply H. eapply H0. Qed.
+
+Global Instance Reflexive_pointwise_refl {T U} (R : U -> U -> Prop) (ReflR : Reflexive R) : Reflexive (pointwise_relation T R).
+Proof. repeat red. reflexivity. Qed.

@@ -6,6 +6,7 @@ Require Import TLA.Automation.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.R_sqrt.
 Require Import Coq.Reals.Ratan.
+Require Import Coq.Lists.List.
 
 (* Various proof rules for TLA in general *)
 
@@ -46,20 +47,6 @@ Lemma or_iff : Proper (iff ==> iff ==> iff) or.
 Proof.
   morphism_intro. tauto.
 Qed.
-
-Global Instance Proper_is_solution
-: Proper ((lequiv ==> Stream.stream_eq eq ==> iff) ==> eq ==> pointwise_relation _ lequiv ==> eq ==> iff) is_solution.
-Proof.
-  morphism_intro.
-  subst. unfold is_solution.
-  eapply exists_iff. intros.
-  unfold solves_diffeqs.
-  eapply forall_iff; intros.
-  eapply impl_iff; try reflexivity. intros.
-  eapply H. 2: reflexivity.
-  red in H1. eapply H1.
-Qed.
-
 
 Lemma lequiv_to_iff
 : forall (P Q : Formula),
@@ -549,28 +536,21 @@ Proof.
   intros. exists (fun _ => 0%R). eauto.
 Qed.
 
+(*
 Definition find_term (m : RenameMap) (x : Var) : option Term :=
   option_map
     (@snd _ Term)
     (List.find (fun p =>
                   if String.string_dec x (fst p)
-                  then true else false) m).
+                  then true else false) m).*)
 
 (* Some renaming functions and proof rules. *)
 Fixpoint rename_term (m : RenameMap) (t:Term) :=
   match t with
     | NatT n => NatT n
     | RealT r => RealT r
-    | VarNowT x =>
-      match find_term m x with
-      | Some t => t
-      | None => VarNowT x
-      end
-    | VarNextT x =>
-      match find_term m x with
-      | Some t => next_term t
-      | None => VarNextT x
-      end
+    | VarNowT x => m x
+    | VarNextT x => next_term (m x)
     | PlusT t1 t2 => PlusT (rename_term m t1)
                            (rename_term m t2)
     | MinusT t1 t2 => MinusT (rename_term m t1)
@@ -603,6 +583,7 @@ Fixpoint rename_formula (m : RenameMap) (F:Formula) :=
     | Rename s P => Rename m (Rename s P)
   end.
 
+(*
 Lemma find_term_now_Some_ok' : forall m x t st1 st2,
   List.Forall (fun p => eq (is_st_term (snd p)) true) m ->
   find_term m x = Some t ->
@@ -694,21 +675,20 @@ Proof.
     + simpl in *. discriminate.
     + apply IHm; auto.
 Qed.
+*)
 
 Lemma Rename_term_ok : forall m t st1 st2,
-  List.forallb (fun p => is_st_term (snd p)) m = true ->
+  (forall x, is_st_term (m x) = true) ->
   eval_term (rename_term m t) st1 st2 =
   eval_term t (subst_state m st1) (subst_state m st2).
 Proof.
   induction t; simpl; intros; auto;
   try solve [rewrite IHt1; auto; rewrite IHt2; auto |
              rewrite IHt; auto ].
-  - destruct (find_term m v) eqn:?.
-    + erewrite find_term_now_Some_ok; auto.
-    + erewrite find_term_now_None_ok; auto.
-  - destruct (find_term m v) eqn:?.
-    + erewrite find_term_next_Some_ok; auto.
-    + erewrite find_term_next_None_ok; auto.
+  - unfold subst_state.
+    apply st_term_hd; auto.
+  - unfold subst_state.
+    apply next_term_tl; auto.
 Qed.
 
 Lemma Rename_True : forall m,
@@ -723,9 +703,8 @@ Proof.
   intros; split; breakAbstraction; auto.
 Qed.
 
-
 Lemma Rename_Comp : forall m t1 t2 op,
-  List.forallb (fun p => is_st_term (snd p)) m = true ->
+  (forall x, is_st_term (m x) = true) ->
   Rename m (Comp t1 t2 op) -|-
   rename_formula m (Comp t1 t2 op).
 Proof.
@@ -800,6 +779,15 @@ Proof.
     exists n. rewrite Stream.stream_map_nth_suf; auto. }
 Qed.
 
+Fixpoint to_RenameMap (m : list (Var * Term)) : RenameMap :=
+  match m with
+  | nil => fun x => x
+  | (y, t) :: m =>
+    fun x => if String.string_dec x y
+             then t else to_RenameMap m x
+  end.
+
+(*
 Definition VarRenameMap (m : list (Var * Var)) : RenameMap :=
   List.map (fun p => (fst p, VarNowT (snd p))) m.
 
@@ -841,8 +829,7 @@ Proof.
     + subst. apply Ranalysis4.pr_nu_var.
       auto.
     + erewrite IHm. auto.
-Qed.
-
+Qed.*)
 
 Lemma Rename_Enabled
 : forall P m,
@@ -859,7 +846,7 @@ Proof.
 Qed.
 
 Lemma Rename_ok : forall m F,
-  List.forallb (fun p => is_st_term (snd p)) m = true ->
+  (forall x, is_st_term (m x) = true) ->
   rename_formula m F -|- Rename m F.
 Proof.
   induction F; intros.

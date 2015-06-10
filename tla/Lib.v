@@ -1,4 +1,5 @@
 Require Import Coq.Classes.Morphisms.
+Require Import Coq.Lists.List.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Ranalysis1.
 Require Import Coq.Reals.RIneq.
@@ -6,6 +7,8 @@ Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.BasicProofRules.
 Require Import TLA.Automation.
+Require Import ExtLib.Tactics.
+Require Import Coq.Logic.FunctionalExtensionality.
 
 (* A library of useful TLA formulas, built
    from TLA primitives. *)
@@ -55,7 +58,14 @@ Fixpoint AVarsAgree (xs:list Var) (st:state) : Formula :=
   end.
 
 (* Our shallow encoding of continuous evolutions. *)
-Definition Evolution := state->Formula.
+Definition DerivMap := (Var->Term).
+Definition Evolution := DerivMap->Formula.
+
+Definition deriv_stateF
+           (f : R -> state)
+           (is_derivable : forall x, derivable (fun t => f t x))
+  :=
+  fun x => derive (fun t => f t x) (is_derivable x).
 
 (* Expresses the property that a differentiable formula
    is a solution to a list of differential equations
@@ -64,7 +74,8 @@ Definition solves_diffeqs (f : R -> state)
            (cp : Evolution) (r : R)
            (is_derivable : forall x, derivable (fun t => f t x)) :=
     forall z, (R0 <= z <= r)%R ->
-              eval_formula (cp (fun x => derive (fun t => f t x) (is_derivable x) z))
+              eval_formula (cp (fun x =>
+                                  deriv_stateF f is_derivable x z))
                            (Stream.forever (f z)).
 
 (* Prop expressing that f is a solution to diffeqs in
@@ -84,6 +95,46 @@ Definition Continuous (cp:Evolution) : Formula :=
          (r > 0)
     //\\ (PropF (is_solution f cp r))
     //\\ (Embed (fun st st' => f R0 = st /\ f r = st')).
+
+Global Instance Proper_is_solution
+: Proper (eq ==> pointwise_relation _ lequiv ==> eq ==> iff)
+         is_solution.
+Proof.
+  morphism_intro.
+  subst. unfold is_solution.
+  eapply exists_iff. intros.
+  unfold solves_diffeqs.
+  eapply forall_iff; intros.
+  eapply impl_iff; try reflexivity. intros.
+  red in H0. 
+  match goal with
+  |- context [eval_formula (_ ?c) _]
+    => specialize (H0 c)
+  end.
+  destruct H0; intuition.
+Qed.
+
+Global Instance Proper_is_solution2
+: Proper (eq ==> (pointwise_relation _ term_equiv ==> lequiv)
+             ==> eq ==> iff)
+         is_solution.
+Proof.
+  morphism_intro.
+  subst. unfold is_solution.
+  eapply exists_iff. intros.
+  unfold solves_diffeqs.
+  eapply forall_iff; intros.
+  eapply impl_iff; try reflexivity. intros.
+  red in H0. 
+  match goal with
+  |- context [eval_formula (_ ?c) _]
+    => specialize (H0 c)
+  end.
+  specialize (H0 (fun x2 : Var => derive (fun t : R => y t x2) (x x2) x1)).
+  rewrite lequiv_to_iff in H0.
+  eapply H0.
+  reflexivity.
+Qed.
 
 Global Instance Proper_Continuous_entails
   : Proper ((pointwise_relation _ lentails) ==> lentails) Continuous.
@@ -121,8 +172,7 @@ Proof.
   eapply Proper_eval_formula; reflexivity.
 Qed.
 
-Require Import ExtLib.Tactics.
-
+(*
 Lemma VarRenameMap_derivable : forall f m,
     (forall x, Ranalysis1.derivable (fun t => f t x)) ->
     forall x,
@@ -136,10 +186,9 @@ Proof.
     destruct (String.string_dec x v).
     + subst. apply H.
     + auto.
-Qed.
+Qed.*)
 
-Require Import Coq.Logic.FunctionalExtensionality.
-
+(*
 Lemma subst_VarRenameMap_derive_distr :
   forall m f z pf1 pf2,
     subst_state (VarRenameMap m)
@@ -160,33 +209,99 @@ Proof.
       auto.
     + erewrite IHm. auto.
 Qed.
+*)
 
-Theorem Rename_Continuous : forall (r : list (Var * Var)) c,
-    Continuous (fun st' => Rename (VarRenameMap r) (c (subst_state (VarRenameMap r) st')))
-    |-- Rename (VarRenameMap r) (Continuous c).
+(*
+Lemma subst_VarRenameMap_derive_distr :
+  forall m f z pf1 pf2,
+    subst_derivmap (VarRenameMap m)
+          (fun x =>
+             Ranalysis1.derive (fun t : R => f t x) (pf1 x) z) =
+    fun x =>
+      Ranalysis1.derive
+        (fun t : R =>
+           subst_derivmap (VarRenameMap m) (f t) x) (pf2 x)
+        z.
+Proof.
+  intros. apply functional_extensionality.
+  intros. generalize (pf2 x). clear pf2.
+  induction m; intros.
+  - simpl. apply Ranalysis4.pr_nu_var. auto.
+  - destruct a. simpl in *.
+    destruct (String.string_dec x v).
+    + subst. apply Ranalysis4.pr_nu_var.
+      auto.
+    + erewrite IHm. auto.
+Qed.
+*)
+
+Import Stream.
+Theorem Rename_Continuous :
+  forall (r : RenameMap) (r' : state->Var->Term) (c:Evolution)
+(*  (Hproper:Proper (pointwise_relation _ term_equiv ==> lequiv) c),*)
+(*  (forall st, BasicProofRules.is_st_formula (c st)) ->*)
+  (Hproper:forall tr r1 r2,
+      (forall x, eval_term (r1 x) (hd tr) (hd (tl tr)) =
+                 eval_term (r2 x) (hd tr) (hd (tl tr))) ->
+      eval_formula (c r1) tr <-> eval_formula (c r2) tr),
+  (forall f (pf2:forall x : Var, derivable (fun t : R => f t x)),
+      exists (pf1:forall v,
+                 derivable (fun t : R =>
+                              eval_term (r v) (f t) (f t))),
+        forall v,
+        let e := r v in
+        let e' t := r' (fun x => deriv_stateF f pf2 x t) v in
+        eq
+          (Ranalysis1.derive
+             (fun t => eval_term e (f t) (f t)) (pf1 v))
+          (fun t => eval_term (e' t) (f t) (f t))) ->
+    Continuous (fun dm' : DerivMap =>
+                  Forall st : state,
+                    (Forall v : Var, st v = r v) -->>
+                  Rename r (c (r' (fun x => eval_term (dm' x) st st))))
+    |-- Rename r (Continuous c).
 Proof.
   breakAbstraction. intros.
   forward_reason.
-  exists x. exists (fun t => subst_state (VarRenameMap r) (x0 t)).
+  exists x. exists (fun t => subst_state r (x0 t)).
   split; auto.
-  split.
-  { clear - H0.
-    unfold is_solution in *.
-    destruct H0.
-    exists (VarRenameMap_derivable _ _ x1).
-    unfold solves_diffeqs in *.
-    intros. specialize (H _ H0).
-    simpl in *.
-    eapply Proper_eval_formula; [ | | eassumption ].
+  rewrite H2; clear H2; rewrite H3; clear H3.
+  rewrite (Stream.trace_eta tr).
+  rewrite (Stream.trace_eta (Stream.tl tr)). simpl.
+  split; auto.
+  red in H1. destruct H1 as [pf1 H1].
+  specialize (H x0 pf1).
+  destruct H as [pf2 H]. exists pf2.
+  unfold solves_diffeqs in *.
+  intros. specialize (H1 _ H2).
+  unfold deriv_stateF in *.
+  simpl in *. specialize (H1 _ (fun _ => Logic.eq_refl _)).
+  unfold deriv_stateF, subst_state in *.
+  rewrite Stream.stream_map_forever in H1;
+    eauto with typeclass_instances.
+  eapply Hproper; eauto.
+  simpl. intros.
+  rewrite H.
+
+  eapply Proper_eval_formula; [ | | eassumption ].
+  { apply Hproper. red. intros.
+    unfold term_equiv. intros.
+    simpl.
+
+erewrite Hprem.
+
+rewrite (H a).
+    unfold deriv_stateF.
+    rewrite subst_derivmap_subst_state.
     { match goal with
       | |- (_ ?X -|- _ ?Y) => assert (X = Y)
       end.
       { eapply FunctionalExtensionality.functional_extensionality.
-        intros. clear.
         erewrite subst_VarRenameMap_derive_distr.
-        reflexivity. }
+        intros. reflexivity. }
       { rewrite H1. reflexivity. } }
-    { rewrite Stream.stream_map_forever; eauto with typeclass_instances.
+    { rewrite Stream.stream_map_forever;
+      eauto with typeclass_instances.
       reflexivity. } }
   split.
   { rewrite H1. clear.

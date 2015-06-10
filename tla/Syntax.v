@@ -36,7 +36,7 @@ Inductive CompOp :=
 
 (* Map from variable to term. Essentially
    a refinement mapping from TLA. *)
-Definition RenameMap := list (Var * Term).
+Definition RenameMap := Var->Term.
 
 (* Temporal formulas *)
 Inductive Formula :=
