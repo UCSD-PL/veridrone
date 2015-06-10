@@ -60,7 +60,7 @@ Record SysRec
 : Type := Sys
 { Init : Formula
 ; Prog : Formula
-; world : state->Formula
+; world : Evolution
 ; unch : list Term
 ; maxTime : R }.
 
@@ -80,14 +80,16 @@ Definition SysCompose (a b : SysRec) : SysRec :=
  ; maxTime := Rmin a.(maxTime) b.(maxTime)
  |}.
 
-Definition SysRename (m : list (Var * Term)) (s : SysRec)
-  : SysRec :=
-  {| Init := Rename m s.(Init)
-   ; Prog := Rename m s.(Prog)
-   ; world := fun st' => Rename m (s.(world) (subst_state m st'))
-   ; unch := List.map (rename_term m) s.(unch)
-   ; maxTime := s.(maxTime)
-  |}.
+Definition SysRename (m : RenameMap) (m' : state->RenameMap) (s : SysRec)
+: SysRec :=
+{| Init := Rename m s.(Init)
+ ; Prog := Rename m s.(Prog)
+ ; world := fun st' : state =>
+          (Forall x : Var, st' x = m' st' x) //\\
+          Rename m (s.(world) (fun x : Var => st' x))
+ ; unch := List.map (rename_term m) s.(unch)
+ ; maxTime := s.(maxTime)
+ |}.
 
 Definition SysSafe (a : SysRec) : Formula :=
   SysD a -->> SysD_or_stuck a.
@@ -1082,8 +1084,9 @@ fun st' => Rename (x -> y) (st' x = 5)
 *)
 
 Definition NotRenamed (m : RenameMap) (x : Var) :=
-  forall y t, List.In (y, t) m -> x <> y.
+  eq (m x) x.
 
+(*
 Lemma NotRenamed_find_term : forall m x,
   NotRenamed m x -> find_term m x = None.
 Proof.
@@ -1114,20 +1117,17 @@ Proof.
       destruct (String.string_dec x v); simpl in *;
       auto; discriminate.
 Qed.
+*)
 
 Lemma NotRenamed_subst : forall m x,
   NotRenamed m x ->
   forall st, subst_state m st x = st x.
 Proof.
-  induction m.
-  - auto.
-  - unfold NotRenamed. simpl. intros. destruct a.
-    destruct (String.string_dec x v).
-    + specialize (H v t). intuition congruence.
-    + rewrite IHm; auto. unfold NotRenamed. intros.
-      eapply H; eauto.
+  unfold NotRenamed, subst_state. intros. rewrite H.
+  reflexivity.
 Qed.
 
+(*
 Lemma VarRenameMap_is_st_term : forall m,
   List.forallb
     (fun p : Var * Term => is_st_term (snd p))
@@ -1135,6 +1135,7 @@ Lemma VarRenameMap_is_st_term : forall m,
 Proof.
   induction m; simpl; auto.
 Qed.
+*)
 
 Lemma next_term_idempotent : forall t,
   next_term (next_term t) = next_term t.
@@ -1152,14 +1153,11 @@ Proof.
   repeat match goal with
          | H : _ |- _ => rewrite H
          end; auto.
-  - destruct (find_term m v); reflexivity.
-  - destruct (find_term m v). rewrite next_term_idempotent.
-    reflexivity.
-    reflexivity.
+  rewrite next_term_idempotent. reflexivity.
 Qed.
 
 Lemma Rename_UnchangedT : forall m unch,
-  List.forallb (fun p => is_st_term (snd p)) m = true ->
+  (forall x, is_st_term (m x) = true) ->
   Rename m (UnchangedT unch) -|-
   UnchangedT (List.map (rename_term m) unch).
 Proof.
@@ -1173,66 +1171,43 @@ Proof.
     rewrite Rename_next_term. reflexivity. }
 Qed.
 
-(** TODO: Move this **)
-Lemma Rename_Enabled'
-: forall P m,
-    Rename m (Enabled P) |-- Enabled (Rename m P).
-Proof.
-  Opaque Stream.stream_map.
-  breakAbstraction. intros.
-  destruct H.
-  simpl.
-  destruct tr. simpl in H.
-  simpl.
-  Transparent Stream.stream_map. simpl in H.
-  Opaque Stream.stream_map.
-  (* only if m is invertible *)
-Abort.
+Hint Rewrite Rename_UnchangedT using eauto with rw_rename : rw_rename.
 
 Theorem SysRename_sound
-: forall s m'
+: forall s m m'
          (H_is_st : forall st, is_st_formula (s.(world) st)),
-  let m := VarRenameMap m' in
+  (forall x : Var, deriv_term (m x) = Some (fun st' : state => m' st' x)) ->
   NotRenamed m "t" ->
   (Rename m (Enabled (Discr s.(Prog) s.(maxTime))) |--
           Enabled (Rename m (Discr s.(Prog) s.(maxTime)))) ->
-  SysD (SysRename m s) |-- Rename m (SysD s).
+  SysD (SysRename m m' s) |-- Rename m (SysD s).
 Proof.
   intros. destruct s. unfold SysD, sysD, Next, World, Discr in *.
   simpl in *.
   restoreAbstraction.
-  Rename_rewrite; auto; try apply VarRenameMap_is_st_term.
+  Rename_rewrite.
   apply land_lentails_m.
   { simpl rename_formula.
-    repeat rewrite NotRenamed_find_term; auto.
-    reflexivity. }
+    rewrite H0. reflexivity. }
   tlaRevert. eapply always_imp. charge_intro.
   apply land_lentails_m.
-  2: simpl rename_formula; repeat rewrite NotRenamed_find_term;
-  auto; reflexivity.
-  rewrite H0.
-  rewrite Rename_UnchangedT by eapply VarRenameMap_is_st_term.
+  2: simpl rename_formula; rewrite H0; reflexivity.
+  eapply lorL; [ charge_left | charge_right ];
   repeat match goal with
          |- context [ rename_formula ?m ?e ]
          => simpl (rename_formula m e)
          end.
-  repeat rewrite NotRenamed_find_term; auto.
-  subst m.
-  rewrite <- Rename_Continuous.
-  apply lor_lentails_m; try reflexivity.
-  { apply lor_lentails_m; try reflexivity.
-    eapply Proper_Continuous_entails.
-    red. intros.
-    unfold mkEvolution.
-    Rename_rewrite.
-    apply land_lentails_m; auto.
-    simpl rename_formula.
-    rewrite NotRenamed_subst by eauto. reflexivity.
-    eauto using VarRenameMap_is_st_term. }
-  { apply lor_lentails_m; try reflexivity.
-    apply limpl_lentails_m; try reflexivity.
-    red. rewrite Rename_and.
-    rewrite Rename_Comp by eauto using VarRenameMap_is_st_term.
-    simpl rename_formula.
-    rewrite NotRenamed_find_term by eauto. reflexivity. }
+  { eapply lorL; [ charge_left | charge_right ].
+    { unfold mkEvolution.
+      erewrite <- Rename_Continuous_deriv_term; eauto.
+      eapply Proper_Continuous_entails. intro.
+      Rename_rewrite. simpl rename_formula.
+      charge_tauto. }
+    { rewrite H0. reflexivity. } }
+  { eapply lorL; [ charge_left | charge_right ].
+    { rewrite H1. eapply limpl_lentails_m.
+      { eapply Proper_Enabled. Rename_rewrite.
+        simpl rename_formula. rewrite H0. reflexivity. }
+      { reflexivity. } }
+    { rewrite H0. reflexivity. } }
 Qed.

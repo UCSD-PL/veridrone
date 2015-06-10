@@ -241,45 +241,62 @@ Proof.
     - (** TODO: derivative of arctan **) inversion H.
 Qed.
 
+Require Import ExtLib.Tactics.
+Require Import ExtLib.Data.Option.
+
+Lemma deriv_st_term : forall t t',
+  deriv_term t = Some t' ->
+  is_st_term t = true /\ (forall x, is_st_term (t' x) = true).
+Proof.
+  induction t; simpl; auto;
+  intros;
+  try solve [ discriminate
+            | unfold option_map2, option_map in *;
+              simpl in *; forward; inv_all; subst;
+              repeat match goal with
+                     | H : _ |- _ => specialize (H _ eq_refl); destruct H
+                     end; simpl; intuition ].
+Qed.
+
+Hint Extern 0 (forall x, is_st_term _ = true) =>
+  (intros; eapply deriv_st_term; eauto) : rw_rename.
+
 Theorem Rename_Continuous_deriv_term :
   forall (r : RenameMap) (r' : state->Var->Term)
-         (c:DerivMap->Formula)
-  (Hst1:forall x, is_st_term (r x) = true)
-  (Hst2:forall x st', is_st_term (r' st' x) = true)
-  (Hproper:forall tr r1 r2,
-      (forall x, eval_term (r1 x) (Stream.hd tr)
-                           (Stream.hd (Stream.tl tr)) =
-                 eval_term (r2 x) (Stream.hd tr)
-                           (Stream.hd (Stream.tl tr))) ->
-      eval_formula (c r1) tr <-> eval_formula (c r2) tr),
-    (forall x st' st1 st2,
-        eval_term (r' st' x)
-                  (fun v => eval_term (r v) st1 st2)
-                  (fun v => eval_term (r v) st1 st2) =
-        eval_term (r' st' x) st1 st2) ->
+         (c:Evolution),
     (forall x,
         deriv_term (r x) = Some (fun st' => r' st' x)) ->
-    Continuous (fun st' => Rename r (c (r' st')))
+    Continuous (fun st' => (Forall x : Var, st' x = r' st' x) //\\ Rename r (c st'))
     |-- Rename r (Continuous c).
 Proof.
-  intros. eapply Rename_Continuous; eauto. intros. simpl.
+  intros.
+  assert ((forall x, is_st_term (r x) = true) /\ (forall x st', is_st_term (r' st' x) = true)).
+  { generalize (fun x => @deriv_st_term _ _ (H x)); clear. firstorder. }
+  destruct H0 as [ Hst1 Hst2 ].
+  eapply Rename_Continuous; eauto. intros. simpl.
   assert (forall v : Var,
              derivable (fun t : R => eval_term (r v) (f t) (f t))).
-  { intros. specialize (H0 v).
-    eapply term_deriv in H0; eauto.
-    destruct H0. clear e. revert x.
+  { intros. specialize (H v).
+    eapply term_deriv in H; eauto.
+    destruct H. clear e. revert x.
     instantiate (2 := f).
     instantiate (1 := fun _ => R0).
     intros.
-    admit. }
-  { exists H1. intros.
-    specialize (H0 v).
+    match goal with
+    | _ : derivable ?X |- derivable ?Y =>
+      cutrewrite (eq Y X); eauto
+    end.
+    eapply FunctionalExtensionality.functional_extensionality.
+    intros.
+    eapply st_term_hd; eauto. }
+  { exists H0. intros.
+    specialize (H v).
     unfold deriv_stateF.
-    rewrite H.
-    eapply term_deriv in H0.
-    revert H0. instantiate (2 := f).
+    eapply term_deriv in H.
+    revert H. instantiate (2 := f).
     instantiate (1 := fun _ => R0).
     instantiate (1 := pf2).
+    instantiate (1:=z).
     destruct 1.
     simpl in e. specialize (e z).
     rewrite st_term_hd with (s3:=fun _ : Var => 0%R).
@@ -287,64 +304,13 @@ Proof.
     apply Ranalysis4.pr_nu_var.
     eapply FunctionalExtensionality.functional_extensionality.
     intros. apply st_term_hd.
-    apply Hst1. instantiate (1:=z).
+    apply Hst1.
     psatzl R.
     apply Hst2.
-Grab Existential Variables.
-exact R0.
-auto. }
+    Grab Existential Variables.
+    exact R0.
+    auto. }
 Qed.
-
-Theorem Rename_Continuous_deriv_term :
-  forall (r : RenameMap) (r' : state->Var->Term)
-         (c:DerivMap->Formula)
-(*  (Hproper:Proper (pointwise_relation _ term_equiv ==> lequiv) c),*)
-(*  (forall st, BasicProofRules.is_st_formula (c st)) ->*)
-  (Hproper:forall tr r1 r2,
-      (forall x, eval_term (r1 x) (Stream.hd tr) (Stream.hd (Stream.tl tr)) =
-                 eval_term (r2 x) (Stream.hd tr) (Stream.hd (Stream.tl tr))) ->
-      eval_formula (c r1) tr <-> eval_formula (c r2) tr),
-  (forall x,
-      { x' : _ |
-        deriv_term (r x) = Some x' /\
-        forall st', term_equiv (r' st' x) (x' st')}) ->
-    Continuous (fun st' => Rename r (c (r' st')))
-    |-- Rename r (Continuous c).
-Proof.
-  intros.
-  eapply Rename_Continuous; eauto.
-  intros.
-  assert (forall v : Var,
-             derivable (fun t : R => eval_term (r v) (f t) (f t))).
-  { intros. specialize (X v).
-    destruct X.
-    destruct a.
-    eapply term_deriv in H; eauto.
-    destruct H. clear e. revert x0.
-    instantiate (2 := f).
-    instantiate (1 := fun _ => R0). admit. }
-  { exists H.
-    simpl. intros.
-    specialize (X v).
-    destruct X.
-    destruct a.
-    eapply FunctionalExtensionality.functional_extensionality.
-    intros.
-    Require Import Coq.Classes.Morphisms.
-    Instance Proper_eval_term
-    : Proper (term_equiv ==> eq ==> eq ==> eq) eval_term.
-    Admitted.
-    setoid_rewrite H1; clear H1.
-    unfold deriv_stateF.
-    eapply term_deriv in H0.
-    revert H0. instantiate (2 := f).
-    instantiate (1 := fun _ => R0).
-    instantiate (2 := x0).
-    instantiate (1 := pf2).
-    destruct 1. specialize (e x0).
-    simpl in e.
-    admit. }
-Abort.
 
 (* Here are a few tactics for proving our main
    helper lemma: eval_comp_ind. It's probably
@@ -440,28 +406,6 @@ Proof.
        erewrite IHt2; eauto).
 Qed.
 
-Lemma deriv_st_term : forall t t',
-  deriv_term t = Some t' ->
-  is_st_term t = true.
-Proof.
-  induction t; simpl; auto;
-  intros; try discriminate;
-  try (unfold option_map2 in *;
-        simpl in *;
-        destruct (deriv_term t1) eqn:?;
-                 destruct (deriv_term t2) eqn:?;
-                 try discriminate;
-       apply andb_true_intro;
-       split; try eapply IHt1;
-       try eapply IHt2; eauto).
-  - destruct (deriv_term t) eqn:?;
-             try discriminate;
-    eapply IHt; eauto.
-  - destruct (deriv_term t) eqn:?;
-             try discriminate;
-    eapply IHt; eauto.
-Qed.
-
 Lemma is_solution_sub : forall f eqs r1 r2,
   (r1 <= r2)%R ->
   is_solution f eqs r2 ->
@@ -527,8 +471,8 @@ Proof.
 
   destruct Hcont as [r [f Hcont] ];
     destruct Hcont as [Hr [Hsol [? ?] ] ].
-  pose proof (deriv_st_term _ _ Ht1).
-  pose proof (deriv_st_term _ _ Ht2).
+  pose proof (proj1 (deriv_st_term _ _ Ht1)).
+  pose proof (proj1 (deriv_st_term _ _ Ht2)).
   repeat rewrite eval_next_term with (s3:=Stream.hd (Stream.tl tr)); auto.
   unfold is_solution in *. destruct Hsol as [pf Hsol].
   pose proof (term_deriv f (t1 - t2) (fun st' => t1' st' - t2' st')

@@ -106,7 +106,7 @@ Proof.
   unfold solves_diffeqs.
   eapply forall_iff; intros.
   eapply impl_iff; try reflexivity. intros.
-  red in H0. 
+  red in H0.
   match goal with
   |- context [eval_formula (_ ?c) _]
     => specialize (H0 c)
@@ -125,7 +125,7 @@ Proof.
   unfold solves_diffeqs.
   eapply forall_iff; intros.
   eapply impl_iff; try reflexivity. intros.
-  red in H0. 
+  red in H0.
   match goal with
   |- context [eval_formula (_ ?c) _]
     => specialize (H0 c)
@@ -235,16 +235,15 @@ Proof.
 Qed.
 *)
 
+Lemma lequiv_eq : forall {T} (lo : ILogicOps T) (IL : ILogic T) (a b : T),
+    a = b -> a -|- b.
+Proof. intros; subst; reflexivity. Qed.
+
+
 Import Stream.
 Theorem Rename_Continuous :
   forall (r : RenameMap) (r' : state->Var->Term)
-         (c:DerivMap->Formula)
-(*  (Hproper:Proper (pointwise_relation _ term_equiv ==> lequiv) c),*)
-(*  (forall st, BasicProofRules.is_st_formula (c st)) ->*)
-  (Hproper:forall tr r1 r2,
-      (forall x, eval_term (r1 x) (hd tr) (hd (tl tr)) =
-                 eval_term (r2 x) (hd tr) (hd (tl tr))) ->
-      eval_formula (c r1) tr <-> eval_formula (c r2) tr),
+         (c:Evolution),
   (forall f (pf2:forall x : Var, derivable (fun t : R => f t x)),
       exists (pf1:forall v,
                  derivable (fun t : R =>
@@ -257,36 +256,37 @@ Theorem Rename_Continuous :
           eq
             (Ranalysis1.derive
                (fun t => eval_term e (f t) (f t)) (pf1 v) z)
-            ((fun t => eval_term (e' t)
-                                (fun x => eval_term (r x) (f t)
-                                                    (f t))
-                                (fun x => eval_term (r x) (f t)
-                                                    (f t))) z)) ->
-    Continuous (fun st' => Rename r (c (r' st')))
+            (eval_term (e' z) (f z) (f z))) ->
+    Continuous (fun st' => (Forall x : Var, st' x = r' st' x) //\\ Rename r (c st'))
     |-- Rename r (Continuous c).
 Proof.
   breakAbstraction. intros.
   forward_reason.
+  rewrite (Stream.trace_eta tr).
+  rewrite (Stream.trace_eta (Stream.tl tr)). simpl.
   exists x. exists (fun t => subst_state r (x0 t)).
   split; auto.
   rewrite H2; clear H2; rewrite H3; clear H3.
-  rewrite (Stream.trace_eta tr).
-  rewrite (Stream.trace_eta (Stream.tl tr)). simpl.
   split; auto.
-  red in H1. destruct H1 as [pf1 H1].
+
+  unfold is_solution in *.
+  destruct H1 as [pf1 H1].
   specialize (H x0 pf1).
   destruct H as [pf2 H]. exists pf2.
   unfold solves_diffeqs in *.
   intros. specialize (H1 _ H2).
-  unfold deriv_stateF in *.
-  simpl in *.
-  unfold deriv_stateF, subst_state in *.
+  simpl in H1.
   rewrite Stream.stream_map_forever in H1;
     eauto with typeclass_instances.
-  eapply Hproper; eauto.
-  simpl. intros.
-  rewrite H. auto.
-  intuition.
+  unfold deriv_stateF, subst_state in *.
+  destruct H1.
+  specialize (fun v => H v z (proj1 H2)).
+  setoid_rewrite <- H1 in H; clear H1.
+  eapply Proper_eval_formula; [ | reflexivity | eassumption ].
+  eapply lequiv_eq; eauto with typeclass_instances.
+  f_equal.
+  eapply functional_extensionality. intros.
+  rewrite H. reflexivity.
 Qed.
 
 Close Scope string_scope.

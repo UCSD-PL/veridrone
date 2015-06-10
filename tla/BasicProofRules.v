@@ -893,7 +893,7 @@ Hint Rewrite Rename_True Rename_False Rename_Comp
      Rename_and Rename_or Rename_impl Rename_PropF
      Rename_Exists Rename_Forall
      Rename_Always Rename_Eventually
-     Rename_Enabled : rw_rename.
+     Rename_Enabled using eauto with rw_rename : rw_rename.
 
 Ltac Rename_rewrite :=
   autorewrite with rw_rename.
