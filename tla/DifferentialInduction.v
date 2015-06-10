@@ -244,6 +244,60 @@ Qed.
 Theorem Rename_Continuous_deriv_term :
   forall (r : RenameMap) (r' : state->Var->Term)
          (c:DerivMap->Formula)
+  (Hst1:forall x, is_st_term (r x) = true)
+  (Hst2:forall x st', is_st_term (r' st' x) = true)
+  (Hproper:forall tr r1 r2,
+      (forall x, eval_term (r1 x) (Stream.hd tr)
+                           (Stream.hd (Stream.tl tr)) =
+                 eval_term (r2 x) (Stream.hd tr)
+                           (Stream.hd (Stream.tl tr))) ->
+      eval_formula (c r1) tr <-> eval_formula (c r2) tr),
+    (forall x st' st1 st2,
+        eval_term (r' st' x)
+                  (fun v => eval_term (r v) st1 st2)
+                  (fun v => eval_term (r v) st1 st2) =
+        eval_term (r' st' x) st1 st2) ->
+    (forall x,
+        deriv_term (r x) = Some (fun st' => r' st' x)) ->
+    Continuous (fun st' => Rename r (c (r' st')))
+    |-- Rename r (Continuous c).
+Proof.
+  intros. eapply Rename_Continuous; eauto. intros. simpl.
+  assert (forall v : Var,
+             derivable (fun t : R => eval_term (r v) (f t) (f t))).
+  { intros. specialize (H0 v).
+    eapply term_deriv in H0; eauto.
+    destruct H0. clear e. revert x.
+    instantiate (2 := f).
+    instantiate (1 := fun _ => R0).
+    intros.
+    admit. }
+  { exists H1. intros.
+    specialize (H0 v).
+    unfold deriv_stateF.
+    rewrite H.
+    eapply term_deriv in H0.
+    revert H0. instantiate (2 := f).
+    instantiate (1 := fun _ => R0).
+    instantiate (1 := pf2).
+    destruct 1.
+    simpl in e. specialize (e z).
+    rewrite st_term_hd with (s3:=fun _ : Var => 0%R).
+    rewrite <- e.
+    apply Ranalysis4.pr_nu_var.
+    eapply FunctionalExtensionality.functional_extensionality.
+    intros. apply st_term_hd.
+    apply Hst1. instantiate (1:=z).
+    psatzl R.
+    apply Hst2.
+Grab Existential Variables.
+exact R0.
+auto. }
+Qed.
+
+Theorem Rename_Continuous_deriv_term :
+  forall (r : RenameMap) (r' : state->Var->Term)
+         (c:DerivMap->Formula)
 (*  (Hproper:Proper (pointwise_relation _ term_equiv ==> lequiv) c),*)
 (*  (forall st, BasicProofRules.is_st_formula (c st)) ->*)
   (Hproper:forall tr r1 r2,

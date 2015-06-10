@@ -252,14 +252,16 @@ Theorem Rename_Continuous :
         forall v,
         let e := r v in
         let e' t := r' (fun x => deriv_stateF f pf2 x t) v in
-        eq
-          (Ranalysis1.derive
-             (fun t => eval_term e (f t) (f t)) (pf1 v))
-          (fun t => eval_term (e' t)
-                              (fun x => eval_term (r x) (f t)
-                                                  (f t))
-                              (fun x => eval_term (r x) (f t)
-                                                  (f t)))) ->
+        forall z,
+          (0 <= z)%R ->
+          eq
+            (Ranalysis1.derive
+               (fun t => eval_term e (f t) (f t)) (pf1 v) z)
+            ((fun t => eval_term (e' t)
+                                (fun x => eval_term (r x) (f t)
+                                                    (f t))
+                                (fun x => eval_term (r x) (f t)
+                                                    (f t))) z)) ->
     Continuous (fun st' => Rename r (c (r' st')))
     |-- Rename r (Continuous c).
 Proof.
@@ -284,6 +286,7 @@ Proof.
   eapply Hproper; eauto.
   simpl. intros.
   rewrite H. auto.
+  intuition.
 Qed.
 
 Close Scope string_scope.
