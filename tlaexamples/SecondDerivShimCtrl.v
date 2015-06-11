@@ -111,14 +111,14 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     repeat match goal with
            | H : _ /\ _ |- _ => destruct H
            end.
-    specialize (H7 (fst (Stream.hd tr) "T" - fst (Stream.hd tr) "t"))%R.
+    specialize (H7 ((Stream.hd tr) "T" - (Stream.hd tr) "t"))%R.
     destruct (Rle_dec R0
-                      (fst (Stream.hd tr) "V"+
-                       fst (Stream.hd tr) "a"*
-                       (fst (Stream.hd tr) "T" - fst (Stream.hd tr) "t"))%R);
+                      ((Stream.hd tr) "V"+
+                       (Stream.hd tr) "a"*
+                       ((Stream.hd tr) "T" - (Stream.hd tr) "t"))%R);
       intuition.
     - eapply Rle_trans; eauto.
-      rewrite <- Rplus_0_r with (r:=fst (Stream.hd tr) "y").
+      rewrite <- Rplus_0_r with (r:=(Stream.hd tr) "y").
       apply Rplus_le_compat.
       + solve_linear.
       + rewrite Rmult_assoc.
@@ -127,9 +127,9 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
         assert (/ amin < 0)%R by solve_linear.
         solve_linear.
     - assert
-        ((fst (Stream.hd tr) "V" +
-          fst (Stream.hd tr) "a" *
-          (fst (Stream.hd tr) "T" - fst (Stream.hd tr) "t") < 0)%R)
+        (((Stream.hd tr) "V" +
+          (Stream.hd tr) "a" *
+          ((Stream.hd tr) "T" - (Stream.hd tr) "t") < 0)%R)
         by solve_linear.
       eapply Rle_trans; eauto.
       solve_linear.
@@ -284,10 +284,10 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
               * simpl; restoreAbstraction. tlaIntro.
                 reason_action_tac. intuition.
                 repeat match goal with
-                       | [ H : eq (fst post _) _ |- _ ]
+                       | [ H : eq (post _) _ |- _ ]
                          => try rewrite H in *; clear H
                        end.
-                assert (fst pre "v" <= 0)%R;
+                assert (pre "v" <= 0)%R;
                   [ solve_nonlinear | intros ].
                 clear - H2 H3 H4 H1 H5. solve_nonlinear. }
           - unfold IndInv. unfold History.
@@ -298,11 +298,11 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
               * tlaAssert (0 <= tdiff <= d);
                 [ solve_linear | charge_intros ].
                 reason_action_tac. intuition.
-                specialize (H11 (fst pre "T" - fst pre "t"))%R.
+                specialize (H11 (pre "T" - pre "t"))%R.
                 intuition.
                 eapply Rle_trans; eauto.
                 repeat match goal with
-                       | [ H : eq (fst post _) _ |- _ ]
+                       | [ H : eq (post _) _ |- _ ]
                          => rewrite H in *; clear H
                        end.
                 rewrite Rplus_assoc.
@@ -328,10 +328,10 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
               decompose_hyps.
               { reason_action_tac. intuition.
                 intuition.
-                specialize (H9 (fst pre "T" - fst pre "t"))%R.
+                specialize (H9 (pre "T" - pre "t"))%R.
                 intuition.
                 repeat match goal with
-                       | [ H : eq (fst post _) _ |- _ ]
+                       | [ H : eq (post _) _ |- _ ]
                          => rewrite H in *; clear H
                        end.
                 repeat match type of H23 with
@@ -362,7 +362,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
               - rewrite <- inv_safe. charge_tauto.
               - reason_action_tac. intuition.
                 repeat match goal with
-                     | [ H : eq (fst post _) _ |- _ ]
+                     | [ H : eq (post _) _ |- _ ]
                        => rewrite H in *; clear H
                      end.
                 eapply Rle_trans; eauto.

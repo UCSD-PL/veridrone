@@ -55,8 +55,7 @@ Ltac enable_ex_st :=
             | _ => idtac
             end
         in
-        eapply Enabled_action; intros; eapply ex_state_flow_any;
-        auto; simpl; intros;
+        eapply Enabled_action; simpl; intros;
         foreach vars
   end; try (eapply ex_state_any; (let st := fresh in
                                   intro st; clear st)).
@@ -154,7 +153,7 @@ Ltac z3_quick :=
    state into hypothesis and goals. *)
 Ltac rewrite_next_st :=
   repeat match goal with
-           | [ H : eq (fst (Stream.hd (Stream.tl _)) _)  _ |- _ ]
+           | [ H : eq (Stream.hd (Stream.tl _) _)  _ |- _ ]
              => rewrite H in *
          end.
 
