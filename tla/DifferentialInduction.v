@@ -9,6 +9,7 @@ Require Import TLA.Lib.
 Require Import TLA.BasicProofRules.
 Require Import TLA.Automation.
 Require Import Coq.Reals.R_sqrt.
+Require Import Coq.Lists.List.
 Open Scope HP_scope.
 
 (* This file contains the statement and soundness
@@ -310,6 +311,42 @@ Proof.
     Grab Existential Variables.
     exact R0.
     auto. }
+Qed.
+
+Definition deriv_term_succeed (t : Term) :=
+  match deriv_term t with
+  | Some t => t
+  | None => fun _ => R0
+  end.
+
+Fixpoint deriv_term_RenameList (l : list (Var*Term))
+         (st' : state) : RenameMap :=
+  match l with
+  | nil => st'
+  | (v, t) :: l =>
+    fun x => if String.string_dec x v
+             then deriv_term_succeed t st'
+             else deriv_term_RenameList l st' x
+  end.
+
+Lemma deriv_term_list : forall l,
+  List.forallb (fun p => match deriv_term (snd p) with
+                         | None => false
+                         | Some _ => true
+                         end) l = true ->
+  forall x,
+    deriv_term (to_RenameMap l x) =
+    Some (fun st' => deriv_term_RenameList l st' x).
+Proof.
+  induction l.
+  - reflexivity.
+  - simpl. destruct a. simpl.
+    destruct (deriv_term t) eqn:?.
+    + intros. destruct (String.string_dec x v).
+      * subst. unfold deriv_term_succeed. rewrite Heqo.
+        reflexivity.
+      * rewrite IHl; auto.
+    + inversion 1.
 Qed.
 
 (* Here are a few tactics for proving our main

@@ -4,6 +4,8 @@ Require Import Examples.System.
 Require Import Examples.SecondDerivShimCtrl.
 Require Import ChargeTactics.Lemmas.
 Require Import TLA.DifferentialInduction.
+Require Import Coq.Reals.R_sqrt.
+Require Import Coq.Reals.Ratan.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -17,6 +19,11 @@ Module Type CornerParams.
   Axiom amin_lt_0_X : (amin_X < 0)%R.
 
   Parameter ub_Y : R.
+
+  Parameter theta_min : R.
+  Parameter theta_max : R.
+  Axiom theta_min_lt_theta_max : (theta_min <= theta_max)%R.
+  Axiom theta_max_bound : (0 < theta_max < Rtrigo1.PI)%R.
 End CornerParams.
 
 Module Corner (P : CornerParams).
@@ -26,17 +33,16 @@ Module Corner (P : CornerParams).
     Definition d_gt_0 := P.d_gt_0.
     Definition amin := P.amin_X.
     Definition amin_lt_0 := P.amin_lt_0_X.
-    Definition WC := TRUE.
   End X.
 
   Module Y <: SecondDerivShimParams.
     Definition ub := P.ub_Y.
     Definition d := P.d.
     Definition d_gt_0 := P.d_gt_0.
-    Definition amin : R := (-1)%R. (** TODO **)
+    Definition amin : R :=
+      (X.amin/Rtrigo1.tan (P.theta_max))%R.
     Theorem amin_lt_0 : (amin < 0)%R.
     Admitted.
-    Definition WC := TRUE.
   End Y.
 
   Module SDSP_X := SecondDerivShimCtrl X.
@@ -48,10 +54,6 @@ Module Corner (P : CornerParams).
   Require Import BasicProofRules.
   Require Import Coq.Lists.List.
 
-Definition RenameListC (l : list (string * string)) :
-  list (Var * Term) :=
-  List.map (fun p => (fst p, VarNowT (snd p))) l.
-
   Let rename_y :=
     RenameListC (("A","Ay")::("V","Vy")::("Y","Y")::("y","y")::
                  ("v","vy")::("a","ay")::("Ymax","Ymax")::
@@ -61,43 +63,7 @@ Definition RenameListC (l : list (string * string)) :
                  ("v","vx")::("a","ax")::("Ymax","Xmax")::
                  ("Vmax","Vxmax")::nil).
 
-  Definition deriv_term_succeed (t : Term) :=
-    match deriv_term t with
-    | Some t => t
-    | None => fun _ => R0
-    end.
-
-  Fixpoint deriv_term_RenameList (l : list (Var*Term))
-    (st' : state) : RenameMap :=
-    match l with
-    | nil => st'
-    | (v, t) :: l =>
-      fun x => if String.string_dec x v
-               then deriv_term_succeed t st'
-               else deriv_term_RenameList l st' x
-    end.
-
-Lemma deriv_term_list : forall l,
-  List.forallb (fun p => match deriv_term (snd p) with
-                         | None => false
-                         | Some _ => true
-                         end) l = true ->
-  forall x,
-    deriv_term (to_RenameMap l x) =
-    Some (fun st' => deriv_term_RenameList l st' x).
-Proof.
-  induction l.
-  - reflexivity.
-  - simpl. destruct a. simpl.
-    destruct (deriv_term t) eqn:?.
-    + intros. destruct (String.string_dec x v).
-      * subst. unfold deriv_term_succeed. rewrite Heqo.
-        reflexivity.
-      * rewrite IHl; auto.
-    + inversion 1.
-Qed.
-
-  Definition Spec :=
+  Definition SpecRect :=
     SysCompose (SysRename (to_RenameMap rename_x)
                           (deriv_term_RenameList rename_x)
                           SDSP_X.SpecR)
@@ -105,15 +71,82 @@ Qed.
                           (deriv_term_RenameList rename_y)
                           SDSP_Y.SpecR).
 
-Ltac is_st_term_list :=
-  simpl; intros;
-  repeat match goal with
-           |- context [ String.string_dec ?e1 ?e2 ] =>
-           destruct (String.string_dec e1 e2)
-         end; try reflexivity.
+  Let rename_polar : list (Var*Term) :=
+    ("ax","a"*sin("theta"))::("ay","a"*cos("theta"))::nil.
+
+  Definition SpecPolar :=
+    SysRename (to_RenameMap rename_polar)
+              (deriv_term_RenameList rename_polar)
+              SpecRect.
+
+  Definition InputConstraint : Formula :=
+    P.theta_min <= "theta" <= P.theta_max.
+
+  Definition InputConstraintSys : SysRec :=
+    {| Init := InputConstraint;
+       Prog := next InputConstraint;
+       world := fun _ => TRUE;
+       unch := nil;
+       maxTime := P.d |}.
+
+  Definition SpecPolarConstrained :=
+    SysCompose SpecPolar InputConstraintSys.
+
+  Lemma constraints_ok :
+    |-- SysD SpecPolarConstrained -->> SysD SpecPolar.
+  Proof.
+    charge_intros. apply ComposeRefine.
+    apply SysSafe_rule. apply always_tauto.
+    unfold Discr. simpl.
+    unfold SDSP_X.Ctrl, SDSP_X.History,
+    SDSP_Y.Ctrl, SDSP_Y.History, Max. simpl. restoreAbstraction.
+    rewrite <- Rename_ok
+      by (simpl; intuition; is_st_term_list);
+      simpl rename_formula; unfold RenameMap_compose;
+      simpl rename_term; restoreAbstraction.
+    setoid_rewrite <- lor_right2.
+    enable_ex_st.
+    exists (Rbasic_fun.Rmin (Rbasic_fun.Rmin X.d Y.d) P.d).
+    exists P.theta_max.
+    repeat match goal with
+             |- exists x, _ => eexists
+           end. solve_linear.
+    instantiate (1:=(- sqrt (X.amin*X.amin + Y.amin*Y.amin))%R).
+    { unfold Y.amin. admit. }
+    { unfold Y.amin. admit. }
+    { apply P.theta_min_lt_theta_max. }
+  Qed.
+
+  Lemma rect_to_polar :
+    |-- SysD SpecPolar -->>
+        Rename (to_RenameMap rename_polar) (SysD SpecRect).
+  Proof.
+    unfold SpecPolar, SpecRect.
+    rewrite <- SysRename_sound.
+    { charge_tauto. }
+    { tlaIntuition; is_st_term_list. }
+    { apply deriv_term_list; reflexivity. }
+    { reflexivity. }
+    { apply forget_prem. unfold Discr. simpl.
+      unfold SDSP_X.Ctrl, SDSP_X.History,
+      SDSP_Y.Ctrl, SDSP_Y.History, Max. simpl. restoreAbstraction.
+      rewrite <- Rename_ok
+        by (simpl; intuition; is_st_term_list);
+        simpl rename_formula; unfold RenameMap_compose;
+        simpl rename_term; restoreAbstraction.
+      setoid_rewrite <- lor_right2.
+      enable_ex_st.
+      repeat match goal with
+               |- exists x, _ => eexists
+             end. solve_linear.
+      instantiate (2:=sqrt (X.amin*X.amin + Y.amin*Y.amin)).
+      instantiate (1:=atan (Y.amin/X.amin)).
+      rewrite sin_atan. admit.
+      rewrite cos_atan. admit. }
+  Qed.
 
   Lemma the_box_rect
-  : |-- SysD Spec -->>
+  : |-- SysD SpecRect -->>
         [](Rename (to_RenameMap rename_x) SDSP_X.Safe //\\
            Rename (to_RenameMap rename_y) SDSP_Y.Safe).
   Proof.

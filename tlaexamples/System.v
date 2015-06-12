@@ -1211,3 +1211,19 @@ Proof.
       { reflexivity. } }
     { rewrite H0. reflexivity. } }
 Qed.
+
+Lemma SysCompose_SysRename
+  : forall a b r r',
+    SysRec_equiv (SysRename r r' (SysCompose a b))
+                 (SysCompose (SysRename r r' a)
+                             (SysRename r r' b)).
+Proof.
+  intros. unfold SysCompose, SysRename, SysRec_equiv; simpl.
+  rewrite List.map_app.
+  split; [ reflexivity | ].
+  split; [ Rename_rewrite ; reflexivity | ].
+  split; [ Rename_rewrite ; reflexivity | ].
+  split; try reflexivity.
+  intros; Rename_rewrite.
+  restoreAbstraction. split; charge_tauto.
+Qed.

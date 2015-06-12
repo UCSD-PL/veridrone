@@ -139,6 +139,20 @@ Proof.
   - simpl. apply stream_map_id. auto.
 Qed.
 
+Lemma stream_map_compose :
+  forall T U V (f : T -> U) (g : U -> V) r,
+    Reflexive r ->
+    forall (s:stream T),
+      stream_eq r (stream_map g (stream_map f s))
+                (stream_map (fun x => g (f x)) s).
+Proof.
+  intros. revert s. cofix.
+  intros. destruct s.
+  constructor.
+  - auto.
+  - simpl. auto.
+Qed.
+
 Lemma stream_map_cons : forall T U r (f : T -> U) x y,
     Reflexive r ->
     stream_eq r (stream_map f (Cons x y))

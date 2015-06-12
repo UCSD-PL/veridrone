@@ -84,6 +84,13 @@ Ltac enable_ex_st :=
        let st := fresh in intro st ; clear st).
 *)
 
+Ltac is_st_term_list :=
+  simpl; intros;
+  repeat match goal with
+           |- context [ String.string_dec ?e1 ?e2 ] =>
+           destruct (String.string_dec e1 e2)
+         end; try reflexivity.
+
 Lemma reason_action : forall P Q,
     (forall a b tr,
         eval_formula

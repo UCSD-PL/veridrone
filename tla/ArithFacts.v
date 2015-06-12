@@ -120,6 +120,16 @@ Proof.
   apply Rmult_le_algebra in H0; auto.
 Qed.
 
+Lemma sin_atan : forall x,
+  Rtrigo_def.sin (Ratan.atan x) =
+  (x/R_sqrt.sqrt (1 + x*x))%R.
+Admitted.
+
+Lemma cos_atan : forall x,
+  Rtrigo_def.cos (Ratan.atan x) =
+  (1/R_sqrt.sqrt (1 + x*x))%R.
+Admitted.
+
 Require Import Coq.Classes.RelationClasses.
 Require Import RIneq.
 Instance Reflexive_Rge : Reflexive Rge.

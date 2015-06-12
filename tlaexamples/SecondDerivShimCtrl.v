@@ -40,7 +40,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
          (Max "A" 0 (fun mx => "Ymax" + tdist "Vmax" mx d +
                                sdist ("Vmax" + mx*d)
           <= ub) //\\ "a"! = "A")
-    \\// ("a"! = amin).
+    \\// ("a"! <= amin).
 
   Definition History : Formula :=
     "Y"! = "y" //\\ "V"! = "v" //\\ "T"! = "t"!.
@@ -314,7 +314,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
                   specialize (H15 (Stream.Cons pre
                                                (Stream.Cons
                                                   post tr))).
-                  intuition. simpl in *. eapply Rle_trans; eauto.
+                  intuition. simpl in *.
                   pose proof (sdist_incr "v" ("V" + "a"*tdiff)).
                   breakAbstraction. unfold eval_comp in *;
                                     simpl in *.
@@ -322,7 +322,22 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
                                                (Stream.Cons
                                                   post tr))).
                   intuition. simpl in *.
-                  apply H15; solve_nonlinear. }
+                  eapply Rle_trans; [ | apply H15 ].
+                  { eapply Rle_trans; eauto.
+                    apply Rplus_le_compat.
+                    { apply Rplus_le_compat_l.
+                      repeat rewrite Rmult_assoc.
+                      apply Rmult_le_compat_l; solve_linear.
+                      apply Rmult_le_compat_pos_r;
+                        solve_nonlinear. }
+                    { apply Rmult_le_compat_neg_r;
+                      solve_linear.
+                      apply Rmult_le_compat_neg_r;
+                      solve_linear.
+                      apply Rle_sq_pos; solve_linear.
+                      solve_nonlinear. } }
+                  { solve_nonlinear. }
+                  { solve_nonlinear. } }
             + tlaAssert ("v" >= 0 \\// "v" <= 0);
               [ solve_linear | tlaIntro ].
               decompose_hyps.
@@ -349,15 +364,24 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
                   specialize (H13 (Stream.Cons pre
                                                (Stream.Cons
                                                   post tr))).
-                  intuition. simpl in *. eapply Rle_trans; eauto.
+                  intuition. simpl in *.
                   pose proof (sdist_incr "v" ("V" + "a"*tdiff)).
-                  breakAbstraction. unfold eval_comp in *;
-                                    simpl in *.
+                  breakAbstraction.
                   specialize (H13 (Stream.Cons pre
                                                (Stream.Cons
                                                   post tr))).
-                  intuition. simpl in *. apply H13;
-                                         solve_nonlinear. } }
+                  intuition. simpl in *.
+                  eapply Rle_trans; [ | apply H13 ].
+                  { eapply Rle_trans; eauto.
+                    apply Rplus_le_compat; solve_linear.
+                    repeat rewrite Rmult_assoc.
+                    apply Rmult_le_compat_l;
+                      solve_linear.
+                    apply Rmult_le_compat_pos_r;
+                      solve_linear.
+                    solve_nonlinear. }
+                  { solve_nonlinear. }
+                  { solve_nonlinear. } } }
             { tlaAssert ("y" <= ub).
               - rewrite <- inv_safe. charge_tauto.
               - reason_action_tac. intuition.
@@ -366,7 +390,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
                        => rewrite H in *; clear H
                      end.
                 eapply Rle_trans; eauto.
-                clear - H3 amin_lt_0 H2 H6.
+                clear - H3 amin_lt_0 H2 H6 H18.
                 solve_nonlinear. } }
       { solve_linear. }
       { solve_linear. }
