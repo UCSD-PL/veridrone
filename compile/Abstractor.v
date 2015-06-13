@@ -50,22 +50,6 @@ Section embedding.
         (Some (tla_st v) = asReal st v' /\ omodels vars tla_st st)%type
     end.
 
-  (** Based on embedStep_maybenot, this definition succeeds on all cases except
-      (like embedStep_maybenot)
-      for programs that fail nondeterministically (i.e.,
-      take many paths nondeterministically, at least one of which Fails)
-      It isn't quite what we need because it's not really adapted to our new
-      semantics. oembedStep_maybenone fixes the problem, it seems.
-   **)
-  Definition oembedStep_maybenot (pre_vars post_vars : list (Syntax.Var * var))
-             (prg : ast) : Syntax.Formula :=
-    Syntax.Embed (fun pre post =>
-                    exists init_state : state,
-                      omodels pre_vars pre init_state /\
-                      (~(exists post_state : state, eval init_state prg (Some post_state)) \/
-                       (exists post_state : state, eval init_state prg (Some post_state) /\
-                                                   omodels post_vars post post_state)))%type.
-
   (** This version of embed appears to work for all the test cases we have come up
       with so far: it allows valid refinements, but does not permit proving
       refinements of pathological programs (ones that crash and/or exhibit nondeterminism)
@@ -137,7 +121,8 @@ End embedding.
 (***********************************************************************)
 Require Import source.
 
-Definition statef : Type := Var -> option float.
+(* We no longer use this. It just made everything more complicated. We use fstate instead. *)
+(* Definition statef : Type := Var -> option float. *)
 
 Inductive fexpr :=
 | FVar : Var -> fexpr
@@ -165,9 +150,10 @@ Definition fdiv : source.float -> source.float -> source.float :=
   Fappli_IEEE.Bdiv custom_prec custom_emax custom_precGt0
                    custom_precLtEmax custom_nan Fappli_IEEE.mode_NE.
 
-Fixpoint fexprD (fx : fexpr) (sf : statef) : option source.float :=
+(* TODO pretty sure we need to do variable translation here *)
+Fixpoint fexprD (fx : fexpr) (sf : fstate) : option source.float :=
   match fx with
-    | FVar s         => sf s
+    | FVar s         => fstate_lookup sf s
     | FConst f       => Some f
     | FPlus fx1 fx2  => lift2 fplus  (fexprD fx1 sf) (fexprD fx2 sf)
     | FMinus fx1 fx2 => lift2 fminus (fexprD fx1 sf) (fexprD fx2 sf)
@@ -206,7 +192,9 @@ Definition float_lt (f1 f2 : float)  : Prop :=
 Definition float_ge (f1 f2 : float) : Prop :=
   (FloatToR f1 >= FloatToR f2)%R.
 
-Inductive feval : statef -> fcmd -> option statef -> Prop :=
+SearchAbout fstate.
+
+Inductive feval : fstate -> fcmd -> option fstate -> Prop :=
 | FESkip : forall s, feval s FSkip (Some s)
 | FESeqS : forall s s' os'' a b,
     feval s a (Some s') ->
@@ -217,7 +205,7 @@ Inductive feval : statef -> fcmd -> option statef -> Prop :=
     feval s (FSeq a b) None
 | FEAsnS : forall s v e val,
     fexprD e s = Some val ->
-    feval s (FAsn v e) (Some (fupdate s v (Some val)))
+    feval s (FAsn v e) (Some (fstate_set s v val))
 | FEAsnN : forall s v e,
     fexprD e s = None ->
     feval s (FAsn v e) None
@@ -238,63 +226,56 @@ Inductive feval : statef -> fcmd -> option statef -> Prop :=
       fexprD ex s = None ->
       feval s (FIte ex c1 c2) None
 | FEHavoc : forall s v val,
-      feval s (FHavoc v) (Some (fupdate s v (Some val)))
+      feval s (FHavoc v) (Some (fstate_set s v val))
 | FEFail : forall s, feval s FFail None
 .
 
-(* Hoare instantiated with what we need for fcmd language *)
-Definition stater : Type := Var -> option R.
+(* Next, we develop Hoare instantiated with what we need for fcmd language *)
+(* We probably don't need this type at all... We can remove it once we are sure
+   this approach works. *)
 
-(* Convert a float state to a real state *)
-(* TODO make this also take a var map? *)
-Definition realify_state (sf : statef) : stater :=
-  (fun (v : Var) =>
-     match (sf v) with
-       | Some f => F2OR f
-       | None   => None
-     end)%type.
+Definition rstate : Type := list (Var * R).
 
-(* Embedding function for our new language *)
-Definition oembed_fcmd : _ -> _ -> fcmd -> Syntax.Formula :=
-  oembedStep_maybenone Var fcmd statef
-                       feval
-                       (fun st v => realify_state st v).
+Fixpoint rstate_lookup (r : rstate) (v : Var) : option R :=
+  match r with
+  | nil => None
+  | (v', b) :: rs => if v ?[eq] v' then Some b else rstate_lookup rs v
+  end.
 
+Fixpoint rstate_set (r : rstate) (v : Var) (val : R) : rstate :=
+  match r with
+  | nil => [(v, val)]
+  | (v', b) :: rs => if v ?[eq] v' then (v, val) :: rs  else (v', b) :: rstate_set rs v val
+  end.
 
 Definition real_float (r : R) (f : float): Prop :=
   (F2OR f = Some r)%type.
 
-Definition stater_statef (s : stater) (a : statef) : Prop :=
-  forall x, match s x, a x with
-              | Some sx, Some ax => real_float sx ax
-              | None, None       => True
-              | _, _             => False
-            end.
+Check state.
 
-(* TODO: ivs vs ovs?? *)
-Definition reval (rst : stater) (c : fcmd) (rst' : option stater) : Prop :=
-  (exists (fst : statef),
-    stater_statef rst fst /\
-    ((feval fst c None /\ rst' = None) \/
-     (exists (rst'' : stater),
-        rst' = Some rst'' /\
-        (exists (fst' : statef),
-           stater_statef rst'' fst' /\
-           feval fst c (Some fst')))))%type.
+(* Convert a float state to a real state *)
+(* Assumes the floats are valid. *)
+Fixpoint realify_state (fst : fstate) : rstate :=
+  match fst with
+  | nil            => nil
+  | (v, f) :: fst' => (v, FloatToR f) :: realify_state fst'
+  end.
 
-(* "Concrete Hoare" for floating-point language *)
-Definition FHoare (ivs ovs : list (Var * Var)) :=
-  Hoare fcmd stater (reval ).
+Require Import bound.
 
-(* Embedding *)
-Definition oembed_fcmdr (ivs ovs : list (Var * Var)) : fcmd -> Syntax.Formula :=
-  oembedStep_maybenone Var fcmd stater
-                       (reval)
-                       (fun st v => st v) ivs ovs.
+(* Embedding function for our new language *)
+Definition oembed_fcmd : _ -> _ -> fcmd -> Syntax.Formula :=
+  oembedStep_maybenone Var fcmd fstate
+                       feval
+                       (fun st v => match fstate_lookup st v with
+                                    | None => None
+                                    | Some f => F2OR f
+                                    end).
 
 (* Useful auxiliary lemma for proving correspondences
    between float and real states when used with models *)
 
+(*
 Lemma omodels_real_float :
       forall (vs : list (Var * Var))
              (st1 : Syntax.state) (st2 : statef),
@@ -314,9 +295,8 @@ Proof.
     + apply IHvs. simpl in H.
       forward_reason. assumption.
 Qed.
-
-Print statef.
-
+*)
+(*
 (* Predicate for whether a float state
    contains any invalid values *)
 Definition statef_valid (sf : statef) : Prop :=
@@ -342,7 +322,9 @@ Proof.
     + eapply H with (r:=0%R) in Hsfx.
       inversion Hsfx.
 Qed.
+*)
 
+(*
 Fixpoint syn_state_to_stater (vs : list (Var * Var)) (ss : Syntax.state) : stater :=
   match vs with
     | nil             => fun _ => None
@@ -360,6 +342,7 @@ Definition syn_state_statef (vs : list (Var * Var)) (ss : Syntax.state) (sf : st
     exists (f : float),
       (sf rv   = Some f /\
        F2OR f  = Some (ss lv))%type.
+*)
 
 (* More aggressive forward reasoning tactic *)
 Ltac fwd :=
@@ -394,6 +377,7 @@ Fixpoint ospec_valid (ovs : list (Var * Var)) : Prop :=
 Definition var_spec_valid (ivs ovs : list (Var * Var)) :=
   (ispec_valid ivs /\ ospec_valid ovs)%type.
 
+(*
 (* Useful auxiliary lemma; sanity for relationship between
    omodels and syn_state_to_stater (provided valid var-map) *)
 Lemma omodels_syn_state_to_stater:
@@ -417,9 +401,11 @@ Proof.
       apply Hfafa with (x := (v,v0)) in H.
       + congruence.
 Abort.
+*)
 
 (* A couple of useful definitions for the correctness
    sub-lemmas that follow *)
+(*
 Definition sf_subset_present (sub super : statef) : Prop :=
   forall (v : Var),
     super v = None -> sub v = None.
@@ -431,17 +417,37 @@ Proof.
   intros. unfold sf_subset_present.
   intros. auto.
 Qed.
+*)
+
+
+Definition fstate_lookupR (fst : fstate) (v : Var) : option R :=
+  match fstate_lookup fst v with
+  | None => None
+  | Some f => F2OR f
+  end.
+  
+(* remember, left vars are floating point vars and right vars are TLA vars *)
+(* Maybe useless; probably same as vmodels *)
+Fixpoint fstate_state (vs : list (Var * Var)) (fst : fstate) (st : state) : Prop :=
+  match vs with
+  | nil => True
+  | (vl, vr) :: vs' =>
+    fstate_lookupR fst vl = Some (st vr) /\
+              fstate_state vs' fst st
+  end.
 
 (* Another way of approaching abstract evaluation *)
-Definition vmodels (vs : list (Var * Var)) (ss : Syntax.state) (sf : statef) : Prop :=
-  omodels Var statef (fun (st : statef) (v : Var) => realify_state st v) vs ss sf.
+Definition vmodels (vs : list (Var * Var)) (ss : Syntax.state) (sf : fstate) : Prop :=
+  omodels Var fstate fstate_lookupR vs ss sf.
 
 (** This is the semantic side condition **)
 Definition SEMR (vs : list (Var * Var)) (P : Syntax.state -> Prop) : Prop :=
   forall c a b, vmodels vs a c -> vmodels vs b c -> P a -> P b.
 
-Definition Hoare_ := Hoare fcmd statef feval.
+Definition Hoare_ := Hoare fcmd fstate feval.
 
+(* These are no longer used; we're performing the abstraction at the level
+   of fwp rather than here. This was due to underlying changes to bound.v *)
 Definition HoareA_all (ivs ovs : list (Var * Var))
            (P : Syntax.state -> Prop) (c : fcmd) (Q : Syntax.state -> Prop)
 : Prop :=
@@ -492,6 +498,37 @@ Proof.
     eapply HsemrQ; [ | | eassumption ]; eauto. }
 Qed.
 
+Print oembedStep_maybenone.
+
+Print oembed_fcmd.
+Require Import bound.
+Lemma Hoare__embed :
+  forall P c Q vs1 vs2,
+    Hoare_ P c Q ->
+    (|-- oembed_fcmd vs1 vs2 c -->>
+         Embed (fun st st' =>
+                  exists fst,
+                    vmodels vs1 st fst /\
+                    (P fst ->
+                    exists fst',
+                      vmodels vs2 st' fst' /\
+                      Q fst'))).
+Proof.
+  simpl. intros. unfold tlaEntails. simpl.
+  intros.
+  fwd.
+  unfold Hoare_, Hoare in H.
+  exists x. intros. fwd.
+  specialize (H _ H4). fwd.
+  destruct H2.
+  - contradiction.
+  - fwd.
+    specialize (H6 _ H2).
+    exists x1.
+    unfold vmodels, fstate_lookupR.
+    split; auto.
+Qed.
+
 Lemma Hoare__skip :
   forall P,
     Hoare_ P FSkip P.
@@ -534,13 +571,14 @@ Qed.
 
 (* this plus consequence should be enough to get our real assignment rule
    that talks about bounds *)
+SearchAbout fstate.
 Lemma Hoare__asn :
   forall P v e,
     Hoare_
-      (fun fs : statef =>
+      (fun fs : fstate =>
          exists val : float,
            fexprD e fs = Some val /\
-           P (fupdate fs v (Some val)))%type
+           P (fstate_set fs v val))%type
       (FAsn v e)
       P.
 Proof.
@@ -558,6 +596,7 @@ Qed.
 Require Import bound.
 
 (* Variable translation functions *)
+(* These may be unnecessary *)
 Fixpoint vtrans_flt2tla (ivs : list (Var * Var)) (v : Var) : Var :=
   match ivs with
     | nil              => v (* bogus *)
@@ -586,39 +625,50 @@ Fixpoint var_spec_valid' {T U : Type} (vs : list (T * U)) : Prop :=
   end.
 
 (* Calculating bounds for expressions *)
+(* TODO: removing vtrans here may be the wrong call *)
 Fixpoint fexpr_to_NowTerm (fx : fexpr) (ivs : list (Var * Var)) : NowTerm :=
   match fx with
-    | FVar v   => VarNowN (vtrans_flt2tla ivs v)
-    | FConst f => FloatN f
-    | FPlus fx1 fx2 =>
-      PlusN (fexpr_to_NowTerm fx1 ivs) (fexpr_to_NowTerm fx2 ivs)
-    | FMinus fx1 fx2 =>
-      MinusN (fexpr_to_NowTerm fx1 ivs) (fexpr_to_NowTerm fx2 ivs)
-    | FMult fx1 fx2 =>
-      MultN (fexpr_to_NowTerm fx1 ivs) (fexpr_to_NowTerm fx2 ivs)
+  (*| FVar v   => VarNowN (vtrans_flt2tla ivs v)*)
+  | FVar v => VarNowN v
+  | FConst f => FloatN f
+  | FPlus fx1 fx2 =>
+    PlusN (fexpr_to_NowTerm fx1 ivs) (fexpr_to_NowTerm fx2 ivs)
+  | FMinus fx1 fx2 =>
+    MinusN (fexpr_to_NowTerm fx1 ivs) (fexpr_to_NowTerm fx2 ivs)
+  | FMult fx1 fx2 =>
+    MultN (fexpr_to_NowTerm fx1 ivs) (fexpr_to_NowTerm fx2 ivs)
   end.
 
 Definition bound_fexpr (fx : fexpr) (ivs : list (Var * Var)) : list singleBoundTerm :=
   bound_term (fexpr_to_NowTerm fx ivs).
 
-Definition bounds_to_formula (sbt : singleBoundTerm) (ss : Syntax.state) : (Prop * (R -> Prop)) :=
-  denote_singleBoundTermNew ss sbt.
+Definition bounds_to_formula (sbt : singleBoundTerm) (fs : fstate) : (Prop * (R -> Prop)) :=
+  denote_singleBoundTermNew fs sbt.
 
 (* Used to translate between two different representations
-   of floating-point state (since bounds proofs use a different one    Only checks to see if related on variables in fstate *)
-(* This isn't really the notion we want; we instead use fstate_to_statef *)
-Fixpoint fstate_statef (fs : fstate) (sf : statef) : Prop :=
+   of floating-point state (since bounds proofs use a different one) *)
+(*
+Fixpoint fstate_statef (ivs : list (Var * Var)) (fs : fstate) (sf : statef) : Prop :=
+  match ivs with
+  | nil              => True
+  | (vl, vr) :: ivs' =>
+    fstate_lookup fs vl = sf vr /\ fstate_statef ivs' fs sf
+  end.
+             *)
+(* old definition *)
+(*
   match fs with
     | nil           => True
     | (v, f) :: fs' =>
       (sf v = Some f /\ fstate_statef fs' sf)%type
   end.
+ *)
 
+(*
 Lemma fstate_statef_correct :
-  forall (fs : fstate) (sf : statef) (v : Var) (f : float),
-    fstate_statef fs sf ->
-    fstate_lookup fs v = Some f ->
-    sf v = Some f.
+  forall (ivs : list (Var * Var)) (fs : fstate) (sf : statef) (v : Var) (f : float),
+    fstate_statef ivs fs sf ->
+    fstate_lookup fs v = sf v.
 Proof.
   intro.
   induction fs.
@@ -628,8 +678,10 @@ Proof.
     consider (v ?[eq] v0); intros; subst; auto.
     rewrite <- H2. rewrite <- H. reflexivity.
 Qed.
+*)
 
 (* TODO maybe have a concept of statef "containing" var map *)
+(*
 Fixpoint statef_to_fstate (ivs : list (Var * Var)) (sf : statef) : fstate :=
   match ivs with
     | nil             => nil
@@ -641,7 +693,9 @@ Fixpoint statef_to_fstate (ivs : list (Var * Var)) (sf : statef) : fstate :=
                                vl = use tla var for float state *)
       end
   end.
+*)
 
+(*
 Lemma related_vmodels :
   forall (ivs : list (Var * Var)) (ss : Syntax.state) (sf : statef),
     var_spec_valid' ivs ->
@@ -661,24 +715,23 @@ Proof.
     inversion H5; subst; clear H5.    
     rewrite H3. reflexivity. 
 Qed.
+*)
       
-Check bound_proof'.
-Print boundDef'.
-
-(* Our correctness lemma for bound_fexpr *)
+(* Ensures the variable map only mentions variables in the given expression *)
 Fixpoint varmap_check_fexpr (ivs : list (Var * Var)) (e : fexpr) : Prop :=
   match e with
-    | FVar v       => exists lv, In (lv, v) ivs
-    | FConst _     => True
-    | FPlus e1 e2  => varmap_check_fexpr ivs e1 /\
-                      varmap_check_fexpr ivs e2
-    | FMinus e1 e2 => varmap_check_fexpr ivs e1 /\
-                      varmap_check_fexpr ivs e2
-    | FMult e1 e2  => varmap_check_fexpr ivs e1 /\
-                      varmap_check_fexpr ivs e2
+  | FVar v       => exists lv, In (lv, v) ivs
+  | FConst _     => True
+  | FPlus e1 e2  => varmap_check_fexpr ivs e1 /\
+                    varmap_check_fexpr ivs e2
+  | FMinus e1 e2 => varmap_check_fexpr ivs e1 /\
+                    varmap_check_fexpr ivs e2
+  | FMult e1 e2  => varmap_check_fexpr ivs e1 /\
+                    varmap_check_fexpr ivs e2
   end%type.  
 
 (* Another lemma relating the behaviors of necessary primitives *)
+(*
 Lemma related_vmodels_lookup :
   forall ivs v x,
     var_spec_valid' ivs ->
@@ -719,49 +772,57 @@ Proof.
            * reflexivity.
        - reflexivity. }
 Qed.
+*)
 
 (* Important auxiliary lemma related fexprD and eval_NowTerm *)
+
+(*
 Lemma fexpr_NowTerm_related_eval :
-  forall ivs st st',
+  forall ivs fst stf,
     var_spec_valid' ivs ->
-    vmodels ivs st st' ->
-    related (statef_to_fstate ivs st') st ->
+    fstate_statef ivs fst stf ->
     forall fx f,
     varmap_check_fexpr ivs fx ->
-    fexprD fx st' = Some f ->
-    eval_NowTerm (statef_to_fstate ivs st')
-                 (fexpr_to_NowTerm fx ivs) = Some f. 
+    fexprD fx stf = Some f ->
+    eval_NowTerm fst (fexpr_to_NowTerm fx ivs) = Some f.
+ *)
+
+Print varmap_check_fexpr.
+
+Lemma fexpr_NowTerm_related_eval :
+  forall ivs fst,
+    var_spec_valid' ivs ->
+    forall fx f,
+    varmap_check_fexpr ivs fx ->
+    fexprD fx fst = Some f ->
+    eval_NowTerm fst (fexpr_to_NowTerm fx ivs) = Some f.
 Proof.
   induction fx; eauto;
   try (intros; simpl; simpl in *; fwd;
     unfold lift2 in *;
-    consider (fexprD fx1 st'); intros; try congruence;
-    consider (fexprD fx2 st'); intros; try congruence;
+    consider (fexprD fx1 fst); intros; try congruence;
+    consider (fexprD fx2 fst); intros; try congruence;
     erewrite IHfx1; eauto;
     erewrite IHfx2; eauto). (* take care of plus, minus *)
 
+  (* (* used to be necessary; we've changed how we do variable translation now *)
   - simpl. intros. fwd.
-    rewrite <- H3.
-    eapply related_vmodels_lookup; eauto.
+    rewrite <- H1.
     generalize dependent x.
     induction ivs.
     + simpl in *. contradiction.
     + simpl. destruct a. simpl in *. intros. fwd.
-      destruct H2.
-      { inversion H2; subst; clear H2. left. rewrite RelDec.rel_dec_eq_true; eauto with typeclass_instances. }
-      { right. consider (v ?[eq] v1); intros.
-        - subst. 
-          eapply Forall_forall in H; eauto.
-          inversion H. congruence.
-        - eapply IHivs; eauto.
-          unfold realify_state in H0.
-          consider (st' v1); intros.
-          + apply related_vmodels; auto. 
-          + auto. }
+      destruct H0.
+      { inversion H0; subst; clear H0. rewrite RelDec.rel_dec_eq_true; eauto with typeclass_instances. }
+      { consider (v ?[eq] v1); intros.
+        - subst. eapply Forall_forall in H; eauto.
+        - eapply IHivs; eauto. }
+   *)
 Qed.
 
 
 (* THE correctness lemma for bound_fexpr (that we use) *)
+(*
 Lemma bound_fexpr_sound : forall ivs fx sbts,
     bound_fexpr fx ivs = sbts ->
     var_spec_valid' ivs ->
@@ -775,27 +836,35 @@ Lemma bound_fexpr_sound : forall ivs fx sbts,
                                   /\ exists val,
                                     F2OR fval = Some val /\ Pr val)%type
            sbts.
+ *)
+
+(* TODO - need another hypothesis linking fst to var map ? *)
+Lemma bound_fexpr_sound : forall ivs fx sbts,
+    bound_fexpr fx ivs = sbts ->
+    var_spec_valid' ivs ->
+    varmap_check_fexpr ivs fx ->
+    List.Forall (fun sbt =>
+              forall (fst : fstate) f,
+                fexprD fx fst = Some f ->
+                (*fstate_statef ivs fst stf ->*)
+                let '(P,Pr) := bounds_to_formula sbt fst in
+                P -> exists fval, fexprD fx fst = Some fval
+                                  /\ exists val,
+                                    F2OR fval = Some val /\ Pr val)%type
+                sbts.
 Proof.
   intros.
   generalize (bound_proof'). intro Hbp.
-  generalize (related_vmodels). intro Hrvm.
-  generalize (related_vmodels_lookup). intro Hrvml.
-  generalize (fexpr_NowTerm_related_eval). intro Hfntre.
   apply Forall_forall. intros.
-  specialize (fun v1 v2 => Hrvml ivs v1 v2 H0).
-  specialize (Hbp st (fexpr_to_NowTerm fx ivs)).
-  specialize (Hfntre ivs st st' H0 H4).
-  specialize (Hrvm ivs st st' H0 H4).
-  fwd.
-  specialize (Hbp _ Hrvm).
+  specialize (Hbp (fexpr_to_NowTerm fx ivs) fst).
   fwd. intros.
-  unfold bounds_to_formula, denote_singleBoundTermNew in H5.  simpl in H5.
-  inversion H5; subst; clear H5.
+  unfold bounds_to_formula, denote_singleBoundTermNew in H4.  simpl in H4.
+  inversion H4; subst; clear H4.
   exists f.
   split; auto.
   unfold boundDef' in Hbp. simpl in Hbp.
-  specialize (Hfntre fx f H1 H3).
-  rewrite Hfntre in Hbp.
+  generalize (fexpr_NowTerm_related_eval ivs fst H0 fx f H1 H3); intro Hentfxd.
+  rewrite Hentfxd in Hbp.
   apply Forall_forall with (x := x) in Hbp.
   - consider (floatToReal f); intros.
     + exists r. split.
@@ -805,14 +874,12 @@ Proof.
   - unfold bound_fexpr in *; assumption.
 Qed.
 
-
+(* Useful prop combinator *)
 Fixpoint AnyOf (Ps : list Prop) : Prop :=
   match Ps with
     | nil => False
     | P :: Ps => P \/ AnyOf Ps
   end%type.
-
-
 
 (* perhaps unnecessary *)
 Fixpoint varmap_check_fcmd (ivs : list (Var * Var)) (c : fcmd) : Prop :=
@@ -828,14 +895,31 @@ Fixpoint varmap_check_fcmd (ivs : list (Var * Var)) (c : fcmd) : Prop :=
     | FFail        => True
   end%type.
 
+Lemma fstate_lookup_irrelevant_update :
+  forall fst v v' val,
+    v <> v' ->
+    fstate_lookup fst v = fstate_lookup (fstate_set fst v' val) v.
+Proof.
+  intros.
+  induction fst.
+  - simpl. rewrite rel_dec_neq_false; eauto with typeclass_instances.
+  - simpl. destruct a.
+    consider (v ?[eq] v0); intros; subst.
+    + rewrite rel_dec_neq_false; eauto with typeclass_instances.
+      simpl. rewrite rel_dec_eq_true; eauto with typeclass_instances.
+    + consider (v' ?[eq] v0); intros; subst.
+      * simpl. rewrite rel_dec_neq_false; eauto with typeclass_instances.
+      * simpl. rewrite rel_dec_neq_false; eauto with typeclass_instances.
+Qed.
+
 Lemma vmodels_irrelevant_update :
-  forall (ivs : list (Var * Var)) (v v' : Var) (s : statef)
+  forall (ivs : list (Var * Var)) (v v' : Var) (s : fstate)
          (x : Syntax.state) (x1 : R) (val : float),
     vmodels ivs x s ->
     List.Forall (fun (vv : (Var * Var)) =>
               let '(lv, rv) := vv in 
               lv <> v' /\ rv <> v)%type ivs ->
-    vmodels ivs (fupdate x v' x1) (fupdate s v (Some val)).
+    vmodels ivs (fupdate x v' x1) (fstate_set s v val).
 Proof.
   induction 2. 
   - simpl. constructor.
@@ -843,12 +927,12 @@ Proof.
     simpl.
     split.
     + unfold fupdate, realify_state.
-      do 2 (rewrite rel_dec_neq_false; eauto with typeclass_instances).
-      red in H. red in H. fwd. rewrite H. reflexivity.
-    + apply IHForall. inversion H. assumption.
+      rewrite rel_dec_neq_false; eauto with typeclass_instances.
+      simpl in H. fwd. rewrite H.
+      unfold fstate_lookupR.
+      erewrite fstate_lookup_irrelevant_update; eauto.
+    + apply IHForall. simpl in H. fwd. assumption.
 Qed.
-
-
 
 (* Lemmas aboutt Forall, needed for HoareA_ex_asn *)
 Lemma Forall_impl : forall T (P Q : T -> Prop) ls,
@@ -868,14 +952,27 @@ Proof.
   induction ls; simpl; intros; eauto.
 Qed.
 
+Lemma fstate_lookup_update_match :
+  forall fst v val,
+    Some val = fstate_lookup (fstate_set fst v val) v.
+Proof.
+  intros.
+  induction fst.
+  - simpl. rewrite rel_dec_eq_true; eauto with typeclass_instances.
+  - simpl. destruct a.
+    consider (v ?[eq] v0); intro; subst.
+    + simpl. rewrite rel_dec_eq_true; eauto with typeclass_instances.
+    + simpl. rewrite rel_dec_neq_false; eauto with typeclass_instances.
+Qed.
+
 Lemma vmodels_fupdate_match :
    forall (ivs : list (Var * Var)) (v v' : Var)
-          (sf : statef) (ss : Syntax.state) (r : R) (f : float),
+          (fst : fstate) (ss : Syntax.state) (r : R) (f : float),
    var_spec_valid' ivs ->
    In (v, v') ivs ->
-   vmodels ivs ss sf ->
+   vmodels ivs ss fst ->
    F2OR f = Some r ->
-   vmodels ivs (fupdate ss v r) (fupdate sf v' (Some f)).
+   vmodels ivs (fupdate ss v r) (fstate_set fst v' f).
 Proof.
   induction ivs.
   - simpl in *. constructor.
@@ -884,7 +981,9 @@ Proof.
     + simpl. fwd. intros. subst. split. 
       * unfold fupdate, realify_state.
         inversion H1; subst; clear H1; simpl.
-        do 2 (rewrite rel_dec_eq_true; eauto with typeclass_instances).
+        rewrite rel_dec_eq_true; eauto with typeclass_instances.
+        unfold fstate_lookupR. rewrite <- fstate_lookup_update_match.
+        auto.
       * clear IHivs. simpl in H3. fwd.
         inversion H1; subst; clear H1.
         apply vmodels_irrelevant_update; auto.
@@ -899,17 +998,18 @@ Proof.
       * eapply Forall_forall in H; eauto.
         simpl in H. fwd.
         unfold fupdate, realify_state.
-        do 2 (rewrite rel_dec_neq_false; eauto with typeclass_instances).
-        simpl in H1. fwd. rewrite H1. reflexivity.
+        rewrite rel_dec_neq_false; eauto with typeclass_instances.
+        simpl in H1. fwd. rewrite H1.
+        unfold fstate_lookupR. rewrite <- fstate_lookup_irrelevant_update; eauto.
       * simpl in H1. fwd. eauto. 
 Qed.
 
 Lemma varmap_check_contradiction :
   forall (ivs : list (Var * Var)) (fe : fexpr)
-         (sf : statef) (ss : Syntax.state),
+         (fst : fstate) (ss : Syntax.state),
     varmap_check_fexpr ivs fe ->
-    vmodels ivs ss sf ->
-    fexprD fe sf = None ->
+    vmodels ivs ss fst ->
+    fexprD fe fst = None ->
     False.
 Proof.
   intros.
@@ -918,8 +1018,8 @@ Proof.
     try (solve [
              simpl in *; unfold lift2 in *; 
              inversion H1; subst; clear H1;
-             destruct (fexprD fe1 sf); try congruence;
-             destruct (fexprD fe2 sf); try congruence;
+             destruct (fexprD fe1 fst); try congruence;
+             destruct (fexprD fe2 fst); try congruence;
              fwd;
              try (solve [apply IHfe1; eauto] ); try (solve [apply IHfe2; eauto]) ] ).
   - induction ivs.
@@ -927,12 +1027,12 @@ Proof.
     + intros. simpl in *. fwd. destruct a. fwd.
       destruct H.
       { inversion H; subst; clear H.
-        unfold realify_state in H0.
-        rewrite H1 in H0. congruence. }
+        unfold fstate_lookupR in H0. rewrite H1 in H0. congruence. }
       { eauto. } 
 Qed.
 
 (* Significant correctness lemma for HoareA/Abstractor as a whole *)
+(*
 Lemma HoareA_ex_asn :
   forall ivs (P : _ -> Prop) v v' e,
     var_spec_valid' ivs ->
@@ -947,7 +1047,29 @@ Lemma HoareA_ex_asn :
                          (bound_fexpr e ivs)))%type
       (FAsn v' e)
       P.
+ *)
+
+SearchAbout fstate state.
+
+Lemma HoareA_ex_asn :
+  forall ivs (P : _ -> Prop) v v' e,
+    var_spec_valid' ivs ->
+    varmap_check_fexpr ivs e ->
+    In (v, v') ivs ->
+    HoareA_ex ivs ivs
+              (fun ss : Syntax.state =>
+                 forall fs : fstate,
+                   vmodels ivs ss fs ->
+                   AnyOf (List.map (fun sbt =>
+                                      let '(pred,bound) := bounds_to_formula sbt fs in
+                                      pred /\ forall val : R,
+                                          bound val -> P (fupdate ss v val))
+                                   (bound_fexpr e ivs)))%type
+              (FAsn v' e)
+              P.
+SearchAbout oembed_fcmd HoareA_ex.
 Proof.
+  unfold HoareA_ex.
   red. red. red. intros.
   forward_reason.
   split.
@@ -963,19 +1085,24 @@ Proof.
     generalize (bound_fexpr_sound ivs e _ eq_refl). intro.
 
     induction (bound_fexpr e).
-    { simpl in *. contradiction. }
+    { simpl in *.
+      exfalso; eauto. }
     { simpl in *.
       fwd.
       inversion H4; subst; clear H4.
-      destruct H3; auto.
-      clear IHl H9.
-      fwd.
-      specialize (H8 _ _ _ H7 H2 H3). fwd.
-      exists (fupdate x v x1).
-      split; auto.
-      apply vmodels_fupdate_match; auto. 
-      rewrite H7 in H5. inversion H5; subst; clear H5.
-      assumption. } }
+      clear IHl.
+      specialize (H3 s H2).
+      destruct H3.
+      - fwd.
+        specialize (H8 _ _ H7 H3). fwd.
+        exists (fupdate x v x1).
+        split; auto.
+        apply vmodels_fupdate_match; auto.
+        rewrite H7 in H5. inversion H5; subst; clear H5.
+        assumption.
+      - simpl in H3.
+
+  } }
 Qed.
 
 Lemma Hoare__conseq :
@@ -1388,3 +1515,4 @@ Proof.
 Abort.
 *)
 (* TODO: Prove that predicates produced by fwp have SEMR property? *)
+

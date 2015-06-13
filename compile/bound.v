@@ -5023,16 +5023,14 @@ Proof.
     {
       intros.
       simpl in *.
-      unfold lofst in *.
-      unfold lpofst in *.
-      
-
       unfold Semantics.eval_comp in *.
       
-      simpl in H.
+      unfold lpofst in H.
       decompose [and] H.
-      clear H4.
-      clear H.
+Admitted.
+(*
+      (*clear H5.
+      clear H0.*)
       
       
 
@@ -5040,7 +5038,7 @@ Proof.
       
       pose proof conjoin2 as premise.
       
-      specialize (premise (floatMin <= INR n)%R (INR n >= 0)%R (INR n * (1 + error) < floatMax)%R H0 H2 H1).
+      specialize (premise (floatMin <= INR n)%R (INR n >= 0)%R (INR n * (1 + error) < floatMax)%R H1 H3 H2).
      
       intros.
       pose proof orExtra as orExtra1.
@@ -5054,7 +5052,7 @@ Proof.
       specialize (natRoundingTruth2 f r n Heqo0 Heqo natRoundingTruth).
 
       pose proof conjoin as premise2.
-      specialize (premise2 (floatMin <= INR n)%R (INR n >= 0)%R H0 H2).
+      specialize (premise2 (floatMin <= INR n)%R (INR n >= 0)%R H1 H3).
       pose proof orExtra as orExtra2.
       specialize (orExtra2 ((floatMin <= INR n)%R /\ (INR n >= 0)%R) 
                            ((floatMin <= 0 - INR n)%R /\ (INR n < 0)%R) premise2).
@@ -5065,8 +5063,8 @@ Proof.
       {
         inversion Heqo0.
         inversion Heqo.
-        unfold Fappli_IEEE_extra.b64_of_Z in H4.    
-        rewrite <- H4 in natRoundingTruth2 at 1.
+        unfold Fappli_IEEE_extra.b64_of_Z in H5.    
+        rewrite <- H5 in natRoundingTruth2 at 1.
         
         unfold B2R in natRoundingTruth2.
         
@@ -5075,7 +5073,7 @@ Proof.
         clear natRoundingTruth2.
         clear natRoundingTruth.
         
-        clear H1.
+        clear H2.
         pose proof relErrorTruthNat as relErrorTruthNat.
       
         specialize (relErrorTruthNat n orExtra2).
@@ -5087,9 +5085,9 @@ Proof.
                                  custom_prec) (round_mode mode_NE) 
                         (INR n)) as roundedValue.
         clear HeqroundedValue.
-        clear H4.
+        clear H5.
         clear premise premise2 orExtra2.
-        clear Heqo0 Heqo f_des orExtra1 H0 H3.
+        clear Heqo0 Heqo f_des orExtra1 H1 H4.
         unfold Rabs in *.
         
         pose proof errorGt0 as errorGt0.
@@ -5117,15 +5115,15 @@ Proof.
       {
         inversion Heqo0.
         inversion Heqo.
-        unfold Fappli_IEEE_extra.b64_of_Z in H4.    
-        rewrite <- H4 in natRoundingTruth2 at 1.
+        unfold Fappli_IEEE_extra.b64_of_Z in H5.    
+        rewrite <- H5 in natRoundingTruth2 at 1.
         unfold B2R in natRoundingTruth2.
         
         rewrite natRoundingTruth2.
         clear natRoundingTruth2.
         clear natRoundingTruth.
         
-        clear H1.
+        clear H2.
         pose proof relErrorTruthNat as relErrorTruthNat.
         specialize (relErrorTruthNat n orExtra2).
   
@@ -5135,9 +5133,9 @@ Proof.
                                  custom_prec) (round_mode mode_NE) 
                         (INR n)) as roundedValue.
         clear HeqroundedValue.
-        clear H4.
+        clear H5.
         clear premise premise2 orExtra2.
-        clear Heqo0 Heqo f_des e0 orExtra1 H0 H3.
+        clear Heqo0 Heqo f_des e0 orExtra1 H1 H4.
         unfold Rabs in *.
         
         pose proof errorGt0 as errorGt0.
@@ -5161,15 +5159,15 @@ Proof.
       intros.
       simpl in *.
       unfold Semantics.eval_comp in *.
-      unfold Semantics.eval_comp in H.
-      simpl in H.
-      unfold lpofst in *.
-      decompose [and] H.
-      clear H4.
-      clear H.
+      unfold Semantics.eval_comp in H0.
+      simpl in H0.
+      decompose [and] H0.
+      clear H5.
+      clear H0.
       intros. 
       pose proof conjoin2 as premise.
-      specialize (premise (floatMin <= 0 - INR n)%R  (INR n < 0)%R ((0 - INR n) * (1 + error) < floatMax)%R H0 H2 H1).
+      
+      specialize (premise (floatMin <= 0 - INR n)%R  (INR n < 0)%R ((0 - INR n) * (1 + error) < floatMax)%R H1 H3 H2).
       intros.
       
       pose proof orExtra2 as orExtra1.
@@ -5182,7 +5180,7 @@ Proof.
       pose proof natRoundingTruth2 as natRoundingTruth2.
       specialize (natRoundingTruth2 f r n Heqo0 Heqo natRoundingTruth).
       pose proof conjoin as premise2.
-      specialize (premise2 (floatMin <= 0 - INR n)%R (INR n < 0)%R H0 H2).
+      specialize (premise2 (floatMin <= 0 - INR n)%R (INR n < 0)%R H1 H3).
       pose proof orExtra2 as orExtra2.
       specialize (orExtra2 ((floatMin <= INR n)%R /\ (INR n >= 0)%R) 
                            ((floatMin <=0 - INR n)%R /\ (INR n < 0)%R) premise2).
@@ -5194,15 +5192,15 @@ Proof.
         inversion Heqo0.
         inversion Heqo.
 
-        unfold Fappli_IEEE_extra.b64_of_Z in H4.    
-        rewrite <- H4 in natRoundingTruth2 at 1.
+        unfold Fappli_IEEE_extra.b64_of_Z in H5.    
+        rewrite <- H5 in natRoundingTruth2 at 1.
         unfold B2R in natRoundingTruth2.
         
         rewrite natRoundingTruth2.
         clear natRoundingTruth2.
         clear natRoundingTruth.
         
-        clear H1.
+        clear H2.
         pose proof relErrorTruthNat as relErrorTruthNat.
        
         specialize (relErrorTruthNat n orExtra2).
@@ -5213,15 +5211,14 @@ Proof.
                                  custom_prec) (round_mode mode_NE) 
                         (INR n)) as roundedValue.
         clear HeqroundedValue.
-        clear H4.
+        clear H5.
         clear premise premise2 orExtra2.
-        clear Heqo0 Heqo f_des orExtra1 H0 H3.
+        clear Heqo0 Heqo f_des orExtra1 H1 H4.
         unfold Rabs in *.
         
         pose proof errorGt0 as errorGt0.
         pose proof errorLessThan1 as errorLessThan1.
         unfold error in *.
-        unfold lofst in *.
         destruct Rcase_abs;
           destruct Rcase_abs;
           repeat match goal with
@@ -5243,8 +5240,8 @@ Proof.
       {
         inversion Heqo0.
         inversion Heqo.
-        unfold Fappli_IEEE_extra.b64_of_Z in H4.    
-        rewrite <- H4 in natRoundingTruth2 at 1.
+        unfold Fappli_IEEE_extra.b64_of_Z in H5.    
+        rewrite <- H5 in natRoundingTruth2 at 1.
         
         unfold B2R in natRoundingTruth2.
         
@@ -5252,7 +5249,7 @@ Proof.
         clear natRoundingTruth2.
         clear natRoundingTruth.
         
-        clear H1.
+        clear H2.
         pose proof relErrorTruthNat as relErrorTruthNat.
         specialize (relErrorTruthNat n orExtra2).
 
@@ -5262,15 +5259,14 @@ Proof.
                                  custom_prec) (round_mode mode_NE) 
                         (INR n)) as roundedValue.
         clear HeqroundedValue.
-        clear H4.
+        clear H5.
         clear premise premise2 orExtra2.
-        clear Heqo0 Heqo f_des e0 orExtra1 H0 H3.
+        clear Heqo0 Heqo f_des e0 orExtra1 H1 H4.
         unfold Rabs in *.
         
         pose proof errorGt0 as errorGt0.
         pose proof errorLessThan1 as errorLessThan1.
         unfold error in *.
-        unfold lofst in *.
         destruct Rcase_abs;
           destruct Rcase_abs;
           repeat match goal with
@@ -5304,67 +5300,62 @@ Proof.
     apply resultImplicationsPlus in Heqo.
 
     simpl in Heqo.
-    forward_reason. destruct H1; destruct H2.
-    specialize (IHexpr1 _ _ H1 H).
-    specialize (IHexpr2 _ _ H2 H0).
+    forward_reason. destruct H2; destruct H3.
+    specialize (IHexpr1 _ _ H2 H0).
+    specialize (IHexpr2 _ _ H3 H1).
     2: eexists; eauto.
     eapply Forall_forall. intros.
-    revert H4.
-    eapply In_cross_In in H3.
-    simpl in H3.
+    revert H5.
+    eapply In_cross_In in H4.
+    simpl in H4.
     forward_reason.
     eapply Forall_forall in IHexpr1; eauto.
     eapply Forall_forall in IHexpr2; eauto.
     
     inversion Heqo'.
     unfold lift2 in Heqo'.
-    rewrite <- H in Heqo'.
     rewrite <- H0 in Heqo'.
+    rewrite <- H1 in Heqo'.
     inversion Heqo'.
     unfold floatToReal in Heqo0.
-    simpl in H3.
-    rewrite H8 in Heqo0.
+    simpl in H4.
+    rewrite H9 in Heqo0.
     unfold floatToReal in Heqo0.
     unfold denote_singleBoundTerm in *.
     destruct f eqn:f_des.
     {
-      rewrite <- H8 in Heqo0.
+      rewrite <- H9 in Heqo0.
       inversion Heqo0.
-      assert (plusResultStmt := H8).
-      assert (floatToRealRelationForExpr1:= H1).
-      assert (floatToRealRelationForExpr2:= H2).
-      clear f Heqo0 H H0 H8 f_des Heqo' H8 H9.
-      assert (floatToRealProof1:= H1).
-      assert (floatToRealProof2:= H2).
-      clear H1 H2.      
+      assert (plusResultStmt := H9).
+      assert (floatToRealRelationForExpr1:= H2).
+      assert (floatToRealRelationForExpr2:= H3).
+      clear H f Heqo0 H0 H1 H8 f_des Heqo' H9 H10 .
+      assert (floatToRealProof1:= H2).
+      assert (floatToRealProof2:= H3).
+      clear H2 H3.      
       
       unfold denote_singleBoundTerm in *.
       intros H.
-      simpl in H5.
+      simpl in H6.
       unfold simpleBound in *.
       unfold simpleBound4 in *.
-      destruct H5. 
+      destruct H6. 
       {
         rewrite <- H0 in H.
         simpl in H.
         rewrite <- H0.
-        destruct H.
-        destruct H1.
-        destruct H2.
-        destruct H5.
-        destruct H6.
-        clear H8.
-        assert (H8:= H6).
-        clear H6.
-        apply IHexpr1 in H.
-        apply IHexpr2 in H1.
-        assert (expr1Bound := H).
-        assert (expr2Bound := H1).
-        unfold lofst in *.
+        decompose [and] H.
+        clear H9.
+        assert (H8:= H7).
+        clear H7.
+        apply IHexpr1 in H1.
+        apply IHexpr2 in H3.
+        assert (expr1Bound := H1).
+        assert (expr2Bound := H3).
         assert (floatMinCase := H2).
-        assert (floatMaxBound1 := H5). 
+        assert (floatMaxBound1 := H6). 
         assert (resultGe0 := H8).
-        clear H3 H2 H H1 H4 H3 H0 H8 H5 IHexpr1 IHexpr2.
+        clear H4 H2 H1 H3 H H5  H0 H8 H6 IHexpr1 IHexpr2.
         unfold Semantics.eval_comp in *.
         unfold eval_term in .
         simpl in floatMinCase.
@@ -5373,10 +5364,10 @@ Proof.
         simpl in floatMaxBound1.
         simpl in resultGe0.
         simpl.
-        remember (lb x4 fState) as lb1.
-        remember (lb x5 fState) as lb2.
-        remember (ub x5 fState) as ub2.
-        remember (ub x4 fState) as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         
         
@@ -5431,7 +5422,7 @@ Proof.
 
         pose proof errorGt0.
         clear floatMinCase floatMaxBound1 floatMaxBound2 HeqroundedValue 
-              plusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 H7 fState b r.
+              plusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
         unfold error in *.
         unfold Rabs in *.
        
@@ -5451,30 +5442,21 @@ Proof.
       {
         destruct H0.
         {
-          
-          clear H7.
           rewrite <- H0 in H.
           simpl in H.
           rewrite <- H0.
-          destruct H.
-          destruct H1.
-          destruct H2.
-          destruct H5.
-          destruct H6.
+          decompose [and] H.
+          clear H9.
+          assert (H8:=H7).
           clear H7.
-          unfold lofst in *.
-          assert (H8:=H6).
-          clear H6.
-          apply IHexpr1 in H.
-          apply IHexpr2 in H1.
-          assert (expr1Bound := H).
-          assert (expr2Bound := H1).
-          unfold lofst in *.
+          apply IHexpr1 in H1.
+          apply IHexpr2 in H3.
+          assert (expr1Bound := H1).
+          assert (expr2Bound := H3).
           assert (floatMinCase := H2).
-          assert (floatMaxBound1 := H5). 
+          assert (floatMaxBound1 := H6). 
           assert (resultGe0 := H8).
-          clear H3 H2 H H1 H4 H3 H0 H8 H5 IHexpr1 IHexpr2.
-         
+          clear H4 H2 H1 H3 H H5 H0 H8 H6 IHexpr1 IHexpr2.
           unfold Semantics.eval_comp in *.
           simpl in floatMinCase.
           simpl in expr1Bound.
@@ -5482,10 +5464,10 @@ Proof.
           simpl in floatMaxBound1.
           simpl in resultGe0.
           simpl.
-          remember (lb x4 fState) as lb1.
-          remember (lb x5 fState) as lb2.
-          remember (ub x5 fState) as ub2.
-          remember (ub x4 fState) as ub1.
+          remember (eval_term (lb x4) st st) as lb1.
+          remember (eval_term (lb x5) st st) as lb2.
+          remember (eval_term (ub x5) st st) as ub2.
+          remember (eval_term (ub x4) st st) as ub1.
           clear Hequb1 Hequb2 Heqlb1 Heqlb2.
           pose proof relErrorBasedOnFloatMinTruthPlus as relErrorBasedOnFloatMinTruthPlus.
           specialize (relErrorBasedOnFloatMinTruthPlus x1 x2 lb1 lb2 ub1 ub2).
@@ -5540,7 +5522,7 @@ Proof.
 
           pose proof errorGt0.
           clear floatMinCase floatMaxBound1 floatMaxBound2 HeqroundedValue 
-                plusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 x3 x4 x4 x5 x x0 expr1 expr2  fState r.
+                plusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 x3 x4 x4 x5 x x0 expr1 expr2 tr fState r.
           unfold error in *.
           unfold Rabs in *.
           pose proof errorLessThan1 as errorLessThan1.
@@ -5550,25 +5532,10 @@ Proof.
         {
                     destruct H0.
           {
-            clear H7.
-            assert (H5:=H4).
-            clear H4.
-            assert (H4:=H3).
             rewrite <- H0 in H.
             simpl in H.
             rewrite <- H0.
-            destruct H.
-            destruct H1.
-            destruct H2.
-            destruct H6.
-            destruct H7.
-            destruct H8.
-            assert (H10 :=H9).
-            clear H3.
-            assert (H3:=H1).
-            clear H1.
-            assert (H1:=H).
-            clear H9.
+            decompose [and] H.
             clear H10.
             assert (H9:=H8).
             apply IHexpr1 in H1.
@@ -5588,10 +5555,10 @@ Proof.
             simpl in floatMaxBound1.
             simpl in resultGe0.
             simpl.
-            remember (lb x4 fState) as lb1.
-            remember (lb x5 fState) as lb2.
-            remember (ub x5 fState) as ub2.
-            remember (ub x4 fState) as ub1.
+            remember (eval_term (lb x4) st st) as lb1.
+            remember (eval_term (lb x5) st st) as lb2.
+            remember (eval_term (ub x5) st st) as ub2.
+            remember (eval_term (ub x4) st st) as ub1.
             clear Hequb1 Hequb2 Heqlb1 Heqlb2.
             destruct (Rge_dec (x1+x2)%R floatMin).
             {
@@ -5721,17 +5688,13 @@ Proof.
                     pose proof bpow_gt_0 as bpowGt0_1.
                     specialize (bpowGt0_1 radix2 (- prec + 1)%Z)%R.
                     clear H H2 H1 l customEminMinValue ln_beta_premise floatToRealProof1 floatToRealProof2 absImp posResInf.
-                    unfold lofst in *.
                     split.
                     pose proof bpow_gt_0 as bpow_gt_0_2.
                     specialize (bpow_gt_0_2 radix2 (3-emax-prec)%Z).
-                   
                     psatz R.
                     psatz R.
                   }
                   {
-                    assert (g:=g0).
-                    clear g0.
                     pose proof zMaxProof as zMaxProof.
                     
                     intros.
@@ -5754,7 +5717,6 @@ Proof.
                     pose proof bpow_gt_0.
                     specialize (H6 radix2 (- prec +1)%Z).
                     unfold floatMin, error, custom_emin,custom_emax, custom_prec in *.
-                    unfold lofst in *.
                     psatz R.
                     
                   }
@@ -5768,7 +5730,6 @@ Proof.
                     unfold error in *.
                     pose proof bpow_gt_0.
                     specialize (H4 radix2 (-custom_prec +1)%Z).
-                    unfold lofst in *.
                     psatz R.
                   }
                   {
@@ -5782,7 +5743,6 @@ Proof.
                     specialize (H5 radix2 (ex -1 )%Z).
                     pose proof bpow_gt_0.
                     specialize (H6 radix2 (ex)%Z ).
-                    unfold lofst in *.
                     psatz R.
                   }
                 }
@@ -5806,7 +5766,6 @@ Proof.
                 pose proof bpow_gt_0.
                 specialize (H1 radix2 custom_emin).
                 pose proof errorGt0.
-                unfold lofst in *.
                 psatz R.
               }
             }
@@ -5814,31 +5773,13 @@ Proof.
           {
             destruct H0.
             {
-              assert (H5:=H4).
-              clear H4.
-              assert (H4:=H3).
-              clear H3.
               rewrite <- H0 in H.
               simpl in H.
               rewrite <- H0.
-              destruct H.
-              destruct H1.
-              destruct H2.
-              destruct H3.
-              destruct H6.
-              assert (H9:=H8).
-              clear H8.
-              assert (H8:=H6).
-              clear H6.
-              assert (H6:=H3).
-              clear H3.
-              assert (H3:=H1).
-              clear H1.
-              assert (H1:=H).
-              clear H.
+              decompose [and] H.
               clear H9.
-              
-            
+              assert (H8:=H7).
+              clear H7.
               apply IHexpr1 in H1.
               apply IHexpr2 in H3.
               assert (expr1Bound := H1).
@@ -5846,18 +5787,16 @@ Proof.
               assert (floatMinCase1 := H2).
               assert (floatMaxBound1 := H6).
               assert (resultGe0 := H8).
-              clear H1 H2 H3 H6 H8  IHexpr1 IHexpr2.
+              clear H1 H2 H3 H6 H8 H IHexpr1 IHexpr2.
               unfold Semantics.eval_comp in *.
               simpl in *.
-              remember (lb x4 fState) as lb1.
-              remember (lb x5 fState) as lb2.
-              remember (ub x5 fState)  as ub2.
-              remember (ub x4 fState) as ub1.
+              remember (eval_term (lb x4) st st) as lb1.
+              remember (eval_term (lb x5) st st) as lb2.
+              remember (eval_term (ub x5) st st) as ub2.
+              remember (eval_term (ub x4) st st) as ub1.
               clear Hequb1 Hequb2 Heqlb1 Heqlb2.
-              unfold lofst in *.
               destruct (Rle_dec floatMin (x1+x2)%R).
               {
-                
                 psatz R.
               }
               {
@@ -5906,7 +5845,7 @@ Proof.
                     specialize (H6 ex subNormalProof).
                     unfold FLT_exp in H6.
                     pose proof bpow_gt_0.
-                    specialize (H8 radix2 (Z.max (ex - custom_prec) (3 - custom_emax - custom_prec))).
+                    specialize (H7 radix2 (Z.max (ex - custom_prec) (3 - custom_emax - custom_prec))).
                     psatz R.
                   }  
                   {
@@ -5921,7 +5860,7 @@ Proof.
                       pose proof bpow_le.
                       specialize (H6 radix2 ex custom_emin subNormalProof).
                       pose proof bpow_gt_0.
-                      specialize (H8 radix2 (ex-1)%Z).
+                      specialize (H7 radix2 (ex-1)%Z).
                       unfold floatMin.
                       psatz R.
                     }
@@ -5947,43 +5886,21 @@ Proof.
     }
     
     {
-      rewrite <- H8 in Heqo0.
+      rewrite <- H9 in Heqo0.
       inversion Heqo0.
     }
     {
-      rewrite <- H8 in Heqo0.
+      rewrite <- H9 in Heqo0.
       inversion Heqo0.
     }
     
     {
-      assert(H9:=H8).
-      clear H8.
-      assert(H8:=H7).
-      clear H7.
-      assert(H6:=H5).
-      clear H5.
-      assert(H5:=H4).
-      clear H4.
-      assert(H4:=H3).
-      clear H3.
-      assert(H3:=H2).
-      clear H2.
-      assert(H2:=H1).
-      clear H1.
-      assert(H1:=H0).
-      clear H0.
-      assert (H0:=H).
-      clear H.
-      
-      
       rewrite <- H9 in Heqo0.
       inversion Heqo0.
-      assert(H10:=H7).
-      clear H7.
       assert (plusResultStmt := H9).
       assert (floatToRealRelationForExpr1:= H2).
       assert (floatToRealRelationForExpr2:= H3).
-      clear  f Heqo0 H0 H1 H8 f_des Heqo' H9 H10 .
+      clear H f Heqo0 H0 H1 H8 f_des Heqo' H9 H10 .
       assert (floatToRealProof1:= H2).
       assert (floatToRealProof2:= H3).
       clear H2 H3.
@@ -5997,30 +5914,12 @@ Proof.
       destruct H6.
       
       {
-
-        
-         
         rewrite <- H0 in H.
         simpl in H.
 
         rewrite <- H0.
         decompose [and] H.
-
-   destruct H.
-            destruct H1.
-            destruct H2.
-            destruct H3.
-            destruct H6.
-            assert (H9:=H7).
-            clear H7.
-            assert(H7:=H6).
-            clear H6.
-            assert (H6:=H3).
-            clear H3.
-            assert (H3:=H1).
-            clear H1.
-            assert(H1:=H).
-            clear H9.
+        clear H9.
         apply IHexpr1 in H1.
         apply IHexpr2 in H3.
         assert (expr1Bound := H1).
@@ -6036,10 +5935,10 @@ Proof.
         simpl in floatMaxBound1.
         simpl in resultGe0.
         simpl.
-        remember (lb x4 fState) as lb1.
-        remember (lb x5 fState) as lb2.
-        remember (ub x5 fState) as ub2.
-        remember (ub x4 fState) as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         pose proof relErrorBasedOnFloatMinTruthPlus as relErrorBasedOnFloatMinTruthPlus.
         specialize (relErrorBasedOnFloatMinTruthPlus x1 x2 lb1 lb2 ub1 ub2).
@@ -6087,12 +5986,11 @@ Proof.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
         clear floatMinCase floatMaxBound1 floatMaxBound2 HeqroundedValue
-              plusRoundingTruth2 H9 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 x3 x4 x4 x5 x x0 expr1 expr2  b r.
+              plusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
         unfold error in *.
         unfold Rabs in *.
         pose proof errorLessThan1 as errorLessThan1.
         unfold error in *.
-        unfold lofst in *.
         destruct Rcase_abs; destruct Rcase_abs;
         repeat match goal with
                  | H : @eq R _ _ |- _ => revert H
@@ -6315,25 +6213,7 @@ clear H1. psatz R. Qed.
           rewrite <- H0 in H.
           simpl in H.
           rewrite <- H0.
-          
-          destruct H.
-          destruct H1.
-          destruct H2.
-          destruct H3.
-          destruct H6.
-
-          
-          assert (H9:=H7).
-          clear H7.
-          assert (H7:=H6).
-          clear H6.
-          assert (H6:=H3).
-          clear H3.
-          assert (H3:=H1).
-          clear H1.
-          assert (H1:=H).
-
-
+          decompose [and] H.
           apply IHexpr1 in H1.
           apply IHexpr2 in H3.
           assert (expr1Bound := H1).
@@ -6349,10 +6229,10 @@ clear H1. psatz R. Qed.
           simpl in floatMaxBound1.
           simpl in resultGe0.
           simpl.
-          remember (lb x4 fState) as lb1.
-          remember (lb x5 fState) as lb2.
-          remember (ub x5 fState) as ub2.
-          remember (ub x4 fState) as ub1.
+          remember (eval_term (lb x4) st st) as lb1.
+          remember (eval_term (lb x5) st st) as lb2.
+          remember (eval_term (ub x5) st st) as ub2.
+          remember (eval_term (ub x4) st st) as ub1.
           clear Hequb1 Hequb2 Heqlb1 Heqlb2.
           pose proof relErrorBasedOnFloatMinTruthPlus as relErrorBasedOnFloatMinTruthPlus.
           specialize (relErrorBasedOnFloatMinTruthPlus x1 x2 lb1 lb2 ub1 ub2).
@@ -6407,11 +6287,10 @@ clear H1. psatz R. Qed.
 
           pose proof errorGt0.
           clear floatMinCase floatMaxBound1 floatMaxBound2 HeqroundedValue 
-                plusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 e0 e x3 x4 x4 x5 x x0 expr1 expr2 b m r.
+                plusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 e0 e x3 x4 x4 x5 x x0 expr1 expr2 tr fState b m r.
           pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
-          unfold lofst in *.
           destruct Rcase_abs;  destruct Rcase_abs;
           psatz R.
         }
@@ -6421,29 +6300,7 @@ clear H1. psatz R. Qed.
             rewrite <- H0 in H.
             simpl in H.
             rewrite <- H0.
-            
-              
-            destruct H.
-            destruct H1.
-            destruct H2.
-            destruct H3.
-            destruct H6.
-            destruct H7.
-            
-            assert (H10:=H8).
-            clear H8.
-            assert (H8:=H7).
-            clear H7.
-            assert (H7:=H6).
-            clear H6.
-            assert (H6:=H3).
-            clear H3.
-            assert (H3:=H1).
-            clear H1.
-            assert (H1:=H).
-            clear H.
-            
-
+            decompose [and] H.
             apply IHexpr1 in H1.
             apply IHexpr2 in H3.
             assert (expr1Bound := H1).
@@ -6452,7 +6309,7 @@ clear H1. psatz R. Qed.
             assert (floatMinCase2 := H6).
             assert (floatMaxBound1 := H7).
             assert (resultGe0 := H8).
-            clear H4 H2 H1 H3 H5 H0 H7 H8 H10 H6 IHexpr1 IHexpr2.
+            clear H4 H2 H1 H3 H H5 H0 H7 H8 H10 H6 IHexpr1 IHexpr2.
             unfold Semantics.eval_comp in *.
             simpl in floatMinCase1.
             simpl in floatMinCase2.
@@ -6461,10 +6318,10 @@ clear H1. psatz R. Qed.
             simpl in floatMaxBound1.
             simpl in resultGe0.
             simpl.
-            remember (lb x4 fState) as lb1.
-            remember (lb x5 fState) as lb2.
-            remember (ub x5 fState) as ub2.
-            remember (ub x4 fState) as ub1.
+            remember (eval_term (lb x4) st st) as lb1.
+            remember (eval_term (lb x5) st st) as lb2.
+            remember (eval_term (ub x5) st st) as ub2.
+            remember (eval_term (ub x4) st st) as ub1.
             clear Hequb1 Hequb2 Heqlb1 Heqlb2.
             destruct (Rge_dec (x1+x2)%R floatMin).
             {
@@ -6598,7 +6455,6 @@ clear H1. psatz R. Qed.
                     pose proof bpow_gt_0 as bpowGt0_1.
                     specialize (bpowGt0_1 radix2 (- prec + 1)%Z)%R.
                     clear H H2 H1 l customEminMinValue ln_beta_premise floatToRealProof1 floatToRealProof2 absImp posResInf.
-                    unfold lofst in *.
                     split.
                     pose proof bpow_gt_0 as bpow_gt_0_2.
                     specialize (bpow_gt_0_2 radix2 (3-emax-prec)%Z).
@@ -6608,8 +6464,6 @@ clear H1. psatz R. Qed.
                   {
                     pose proof zMaxProof as zMaxProof.
                     intros.
-                    assert (g:=g0).
-                    clear g0.
                     apply zlt_le in g.
                     apply Z.ge_le in g.
                     specialize (zMaxProof (3 - custom_emax - custom_prec)%Z (ex - custom_prec)%Z g).
@@ -6628,7 +6482,6 @@ clear H1. psatz R. Qed.
                     pose proof bpow_gt_0.
                     specialize (H6 radix2 (- prec +1)%Z).
                     unfold floatMin, error, custom_emin,custom_emax, custom_prec in *.
-                    unfold lofst in *.
                     psatz R.
                     
                   }
@@ -6636,7 +6489,6 @@ clear H1. psatz R. Qed.
                 {
                   destruct H0.
                   {
-                    unfold lofst in *.
                     unfold floatMin in *.
                     pose proof bpow_gt_0.
                     specialize (H3 radix2 custom_emin).
@@ -6646,7 +6498,6 @@ clear H1. psatz R. Qed.
                     psatz R.
                   }
                   {
-                    unfold lofst in *.
                     unfold floatMin in *.
                     pose proof bpow_gt_0.
                     specialize (H3 radix2 custom_emin).
@@ -6662,7 +6513,6 @@ clear H1. psatz R. Qed.
                 }
               }
               {
-                unfold lofst in *.
                 pose proof plusRoundingTruth2.
                 pose proof round_0 as round_0.
                 specialize (round_0 radix2 (FLT_exp (3 - custom_emax - custom_prec) custom_prec) (round_mode mode_NE) (valid_rnd_N choiceDef)).
@@ -6697,29 +6547,10 @@ clear H1. psatz R. Qed.
           {
             destruct H0.
           {
-           
             rewrite <- H0 in H.
             simpl in H.
             rewrite <- H0.
-
-            destruct H.
-            destruct H1.
-            destruct H2.
-            destruct H3.
-            destruct H6.
-            
-            assert (H9:=H7).
-            clear H7.
-            assert (H7:=H6).
-            clear H6.
-            assert (H6:=H3).
-            clear H3.
-            assert (H3:=H1).
-            clear H1.
-            assert (H1:=H).
-            clear H.
-
-            
+            decompose [and] H.
             apply IHexpr1 in H1.
             apply IHexpr2 in H3.
             assert (expr1Bound := H1).
@@ -6727,15 +6558,14 @@ clear H1. psatz R. Qed.
             assert (floatMinCase1 := H2).
             assert (floatMaxBound1 := H6).
             assert (resultGe0 := H7).
-            clear H1 H2 H3 H6 H7 H9 IHexpr1 IHexpr2.
+            clear H1 H2 H3 H6 H7 H9 H IHexpr1 IHexpr2.
             unfold Semantics.eval_comp in *.
             simpl in *.
-            remember (lb x4 fState) as lb1.
-            remember (lb x5 fState)  as lb2.
-            remember (ub x5 fState) as ub2.
-            remember (ub x4 fState) as ub1.
+            remember (eval_term (lb x4) st st) as lb1.
+            remember (eval_term (lb x5) st st) as lb2.
+            remember (eval_term (ub x5) st st) as ub2.
+            remember (eval_term (ub x4) st st) as ub1.
             clear Hequb1 Hequb2 Heqlb1 Heqlb2.
-            unfold lofst in *.
             destruct (Rle_dec floatMin (x1+x2)%R).
             {
               psatz R.
@@ -6854,7 +6684,6 @@ clear H1. psatz R. Qed.
     assert (Heqo':=Heqo).
     apply resultImplicationsMinus in Heqo.
     simpl in Heqo.
-    assert (H:=Heqo0).
     forward_reason. destruct H2; destruct H3.
     specialize (IHexpr1 _ _ H2 H0).
     specialize (IHexpr2 _ _ H3 H1).
@@ -6896,27 +6725,7 @@ clear H1. psatz R. Qed.
         rewrite <- H0 in H.
         simpl in H.
         rewrite <- H0.
-    
-        
-        
-        destruct H.
-        destruct H1.
-        destruct H2.
-        destruct H3.
-        destruct H6.
-        
-        assert (H9:=H7).
-        clear H7.
-        assert (H7:=H6).
-        clear H6.
-        assert (H6:=H3).
-        clear H3.
-        assert (H3:=H1).
-        clear H1.
-        assert (H1:=H).
-        clear H.
-
-        
+        decompose [and] H.
         apply IHexpr1 in H1.
         apply IHexpr2 in H3.
         assert (expr1Bound := H1).
@@ -6924,7 +6733,7 @@ clear H1. psatz R. Qed.
         assert (floatMinCase := H6).
         assert (floatMaxBound1 := H7).
         assert (resultGe0 := H2).
-        clear H4 H2 H1 H3 H5  H0 H9 H6 IHexpr1 IHexpr2.
+        clear H4 H2 H1 H3 H H5  H0 H9 H6 IHexpr1 IHexpr2.
         unfold Semantics.eval_comp in *.
         simpl in floatMinCase.
         simpl in expr1Bound.
@@ -6932,10 +6741,10 @@ clear H1. psatz R. Qed.
         simpl in floatMaxBound1.
         simpl in resultGe0.
         simpl.
-        remember  (lb x4 fState)  as lb1.
-        remember (lb x5 fState)  as lb2.
-        remember  (ub x5 fState)  as ub2.
-        remember (ub x4 fState)  as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         pose proof relErrorBasedOnFloatMinTruthMinus as relErrorBasedOnFloatMinTruthMinus.
         specialize (relErrorBasedOnFloatMinTruthMinus x1 x2 lb1 lb2 ub1 ub2).
@@ -7007,7 +6816,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear  floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  H7  x3 x4 x4 x5 x x0 expr1 expr2  b r.
+        clear  floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  H7  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
         pose proof errorLessThan1.
         unfold error in *.
         unfold Rabs in *.
@@ -7089,24 +6898,6 @@ clear H1. psatz R. Qed.
         simpl in H.
         rewrite <- H0.
         decompose [and] H.
-        
-            destruct H.
-            destruct H1.
-            destruct H2.
-            destruct H3.
-            destruct H6.
-            
-            assert (H9:=H7).
-            clear H7.
-            assert (H7:=H6).
-            clear H6.
-            assert (H6:=H3).
-            clear H3.
-            assert (H3:=H1).
-            clear H1.
-            assert (H1:=H).
-            clear H.
-
         apply IHexpr1 in H1.
         apply IHexpr2 in H3.
         assert (expr1Bound := H1).
@@ -7114,7 +6905,7 @@ clear H1. psatz R. Qed.
         assert (floatMinCase := H6).
         assert (floatMaxBound1 := H7).
         assert (resultGe0 := H2).
-         clear H4 H2 H1 H3 H5  H0 H9 H6 IHexpr1 IHexpr2.
+         clear H4 H2 H1 H3 H H5  H0 H9 H6 IHexpr1 IHexpr2.
        unfold Semantics.eval_comp in *.
          simpl in floatMinCase.
         simpl in expr1Bound.
@@ -7122,10 +6913,10 @@ clear H1. psatz R. Qed.
         simpl in floatMaxBound1.
         simpl in resultGe0.
         simpl.
-        remember (lb x4 fState) as lb1.
-        remember (lb x5 fState) as lb2.
-        remember (ub x5 fState) as ub2.
-        remember (ub x4 fState) as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         pose proof relErrorBasedOnFloatMinTruthMinus as relErrorBasedOnFloatMinTruthMinus.
         specialize (relErrorBasedOnFloatMinTruthMinus x1 x2 lb1 lb2 ub1 ub2).
@@ -7196,7 +6987,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear  floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  H7  x3 x4 x4 x5 x x0 expr1 expr2  fState b r.
+        clear  floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  H7  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
         pose proof errorLessThan1.
         unfold error in *.
         unfold Rabs in *.
@@ -7351,24 +7142,6 @@ clear H1. psatz R. Qed.
         simpl in H.
         rewrite <- H0.
         decompose [and] H.
-        
-            destruct H.
-            destruct H1.
-            destruct H2.
-            destruct H3.
-            destruct H6.
-            
-            assert (H9:=H7).
-            clear H7.
-            assert (H7:=H6).
-            clear H6.
-            assert (H6:=H3).
-            clear H3.
-            assert (H3:=H1).
-            clear H1.
-            assert (H1:=H).
-            clear H.
-
         apply IHexpr1 in H1.
         apply IHexpr2 in H3.
         assert (expr1Bound := H1).
@@ -7376,7 +7149,7 @@ clear H1. psatz R. Qed.
         assert (floatMinCase := H6).
         assert (floatMaxBound1 := H7).
         assert (resultGe0 := H2).
-        clear H4 H2 H1 H3 H5 H0 H6 H7 IHexpr1 IHexpr2.
+        clear H4 H2 H1 H3 H H5 H0 H6 H7 IHexpr1 IHexpr2.
         unfold Semantics.eval_comp in *.
         simpl in floatMinCase.
         simpl in expr1Bound.
@@ -7384,10 +7157,10 @@ clear H1. psatz R. Qed.
         simpl in floatMaxBound1.
         simpl in resultGe0.
         simpl.
-        remember  (lb x4 fState) as lb1.
-        remember  (lb x5 fState)  as lb2.
-        remember (ub x5 fState)  as ub2.
-        remember (ub x4 fState) as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         pose proof relErrorBasedOnFloatMinTruthMinus as relErrorBasedOnFloatMinTruthMinus.
         specialize (relErrorBasedOnFloatMinTruthMinus x1 x2 lb1 lb2 ub1 ub2).
@@ -7454,7 +7227,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 H9 x3 x4 x4 x5 x x0 expr1 expr2  fState b r.
+        clear floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 H9 x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
         pose proof errorLessThan1.
         unfold error in *.
         unfold Rabs in *.
@@ -7560,24 +7333,6 @@ clear H1. psatz R. Qed.
           simpl in H.
           rewrite <- H0.
           decompose [and] H.
-          
-            destruct H.
-            destruct H1.
-            destruct H2.
-            destruct H3.
-            destruct H6.
-            
-            assert (H9:=H7).
-            clear H7.
-            assert (H7:=H6).
-            clear H6.
-            assert (H6:=H3).
-            clear H3.
-            assert (H3:=H1).
-            clear H1.
-            assert (H1:=H).
-            clear H.
-
           apply IHexpr1 in H1.
           apply IHexpr2 in H3.
           assert (expr1Bound := H1).
@@ -7585,7 +7340,7 @@ clear H1. psatz R. Qed.
           assert (floatMinCase := H6).
           assert (floatMaxBound1 := H7).
           assert (resultGe0 := H2).
-          clear H4 H2 H1 H3  H5 H0 H6 H9 IHexpr1 IHexpr2.
+          clear H4 H2 H1 H3 H H5 H0 H6 H9 IHexpr1 IHexpr2.
           unfold Semantics.eval_comp in *.
           simpl in floatMinCase.
           simpl in expr1Bound.
@@ -7593,10 +7348,10 @@ clear H1. psatz R. Qed.
           simpl in floatMaxBound1.
           simpl in resultGe0.
           simpl.
-          remember  (lb x4 fState) as lb1.
-        remember  (lb x5 fState)  as lb2.
-        remember (ub x5 fState)  as ub2.
-        remember (ub x4 fState) as ub1.
+          remember (eval_term (lb x4) st st) as lb1.
+          remember (eval_term (lb x5) st st) as lb2.
+          remember (eval_term (ub x5) st st) as ub2.
+          remember (eval_term (ub x4) st st) as ub1.
           clear Hequb1 Hequb2 Heqlb1 Heqlb2.
           pose proof relErrorBasedOnFloatMinTruthMinus as relErrorBasedOnFloatMinTruthMinus.
           specialize (relErrorBasedOnFloatMinTruthMinus x1 x2 lb1 lb2 ub1 ub2).
@@ -7661,7 +7416,7 @@ clear H1. psatz R. Qed.
           rewrite <- floatToRealProof2 in HeqroundedValue.
           rewrite <- floatToRealProof1 in HeqroundedValue.
           pose proof errorGt0.
-          clear floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 H7 x3 x4 x4 x5 x x0 expr1 expr2 fState b r.
+          clear floatMinCase floatMaxBound1 HeqroundedValue minusRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2 H7 x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
           pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
@@ -7792,7 +7547,6 @@ clear H1. psatz R. Qed.
     assert (Heqo':=Heqo).
     apply resultImplicationsMult in Heqo.
     simpl in Heqo.
-    assert (H:=Heqo0).
     forward_reason.  destruct H2; destruct H3.
     specialize (IHexpr1 _ _ H2 H0).
     specialize (IHexpr2 _ _ H3 H1).
@@ -7812,7 +7566,6 @@ clear H1. psatz R. Qed.
     unfold floatToReal in Heqo0.
     rewrite H9 in Heqo0.
     unfold floatToReal in Heqo0.
-    unfold lofst in *.
     destruct f eqn:f_des.
     {
       rewrite <- H9 in Heqo0.
@@ -7834,26 +7587,7 @@ clear H1. psatz R. Qed.
         rewrite <- H0 in H.
         simpl in H.
         rewrite <- H0.
-        
-        destruct H.
-        destruct H1.
-        destruct H2.
-        destruct H3.
-        destruct H6.
-        destruct H7.
-        
-        assert (H10:=H8).
-        clear H8.
-        assert (H8:=H7).
-        clear H7.
-        assert (H7:=H6).
-        clear H6.
-        assert (H6:=H3).
-        clear H3.
-        assert (H3:=H1).
-        clear H1.
-        assert (H1:=H).
-        clear H.
+        decompose [and] H.
         apply IHexpr1 in H1.
         apply IHexpr2 in H3.
         assert (expr1Bound := H1).
@@ -7862,7 +7596,7 @@ clear H1. psatz R. Qed.
         assert (floatMaxBound1 := H6).
         assert (resultGe1 := H7).
         assert (resultGe2 := H8).
-        clear H4 H2 H1 H3 H5 H0 H10 H6 IHexpr1 IHexpr2.
+        clear H4 H2 H1 H3 H H5 H0 H10 H6 IHexpr1 IHexpr2.
         unfold Semantics.eval_comp in *.
         simpl in floatMinCase.
         simpl in expr1Bound.
@@ -7871,10 +7605,10 @@ clear H1. psatz R. Qed.
         simpl in resultGe1.
         simpl in resultGe2.
         simpl.
-          remember  (lb x4 fState) as lb1.
-        remember  (lb x5 fState)  as lb2.
-        remember (ub x5 fState)  as ub2.
-        remember (ub x4 fState) as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
         specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -7965,7 +7699,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 b r.
+        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
           pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
@@ -8080,26 +7814,6 @@ clear H1. psatz R. Qed.
            simpl in H.
            rewrite <- H0.
            decompose [and] H.
-           
-           destruct H.
-           destruct H1.
-           destruct H2.
-           destruct H3.
-           destruct H6.
-           destruct H7.
-           
-           assert (H10:=H8).
-           clear H8.
-           assert (H8:=H7).
-           clear H7.
-           assert (H7:=H6).
-           clear H6.
-           assert (H6:=H3).
-           clear H3.
-           assert (H3:=H1).
-           clear H1.
-           assert (H1:=H).
-           clear H.
            apply IHexpr1 in H1.
            apply IHexpr2 in H3.
            assert (expr1Bound := H1).
@@ -8108,7 +7822,7 @@ clear H1. psatz R. Qed.
            assert (floatMaxBound1 := H6).
            assert (resultGe1 := H7).
            assert (resultGe2 := H8).
-           clear H4 H2 H1 H3 H5 H10 H0 H6 IHexpr1 IHexpr2.
+           clear H4 H2 H1 H3 H H5 H10 H0 H6 IHexpr1 IHexpr2.
            unfold Semantics.eval_comp in *.
            simpl in floatMinCase.
            simpl in expr1Bound.
@@ -8117,10 +7831,10 @@ clear H1. psatz R. Qed.
            simpl in resultGe1.
            simpl in resultGe2.
            simpl.
-           remember  (lb x4 fState) as lb1.
-           remember  (lb x5 fState)  as lb2.
-           remember (ub x5 fState)  as ub2.
-           remember (ub x4 fState) as ub1.
+           remember (eval_term (lb x4) st st) as lb1.
+           remember (eval_term (lb x5) st st) as lb2.
+           remember (eval_term (ub x5) st st) as ub2.
+           remember (eval_term (ub x4) st st) as ub1.
            clear Hequb1 Hequb2 Heqlb1 Heqlb2.
            pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
            specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -8216,7 +7930,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 b r.
+        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
           pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
@@ -8325,26 +8039,6 @@ clear H1. psatz R. Qed.
            simpl in H.
            rewrite <- H0.
            decompose [and] H.
-           destruct H.
-           destruct H1.
-           destruct H2.
-           destruct H3.
-           destruct H6.
-           destruct H7.
-           
-           assert (H10:=H8).
-           clear H8.
-           assert (H8:=H7).
-           clear H7.
-           assert (H7:=H6).
-           clear H6.
-           assert (H6:=H3).
-           clear H3.
-           assert (H3:=H1).
-           clear H1.
-           assert (H1:=H).
-           clear H.
-
            apply IHexpr1 in H1.
            apply IHexpr2 in H3.
            assert (expr1Bound := H1).
@@ -8353,7 +8047,7 @@ clear H1. psatz R. Qed.
            assert (floatMaxBound1 := H6).
            assert (resultGe1 := H7).
            assert (resultGe2 := H8).
-           clear H4 H2 H1 H3 H5 H10 H0 H6 IHexpr1 IHexpr2.
+           clear H4 H2 H1 H3 H H5 H10 H0 H6 IHexpr1 IHexpr2.
            unfold Semantics.eval_comp in *.
            simpl in floatMinCase.
            simpl in expr1Bound.
@@ -8362,10 +8056,10 @@ clear H1. psatz R. Qed.
            simpl in resultGe1.
            simpl in resultGe2.
            simpl.
-           remember  (lb x4 fState) as lb1.
-           remember  (lb x5 fState)  as lb2.
-           remember (ub x5 fState)  as ub2.
-           remember (ub x4 fState) as ub1.
+           remember (eval_term (lb x4) st st) as lb1.
+           remember (eval_term (lb x5) st st) as lb2.
+           remember (eval_term (ub x5) st st) as ub2.
+           remember (eval_term (ub x4) st st) as ub1.
            clear Hequb1 Hequb2 Heqlb1 Heqlb2.
            pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
            specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -8447,7 +8141,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 b r.
+        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
           pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
@@ -8555,25 +8249,6 @@ clear H1. psatz R. Qed.
            simpl in H.
            rewrite <- H0.
            decompose [and] H.
-           destruct H.
-           destruct H1.
-           destruct H2.
-           destruct H3.
-           destruct H6.
-           destruct H7.
-           
-           assert (H10:=H8).
-           clear H8.
-           assert (H8:=H7).
-           clear H7.
-           assert (H7:=H6).
-           clear H6.
-           assert (H6:=H3).
-           clear H3.
-           assert (H3:=H1).
-           clear H1.
-           assert (H1:=H).
-           clear H.
            apply IHexpr1 in H1.
            apply IHexpr2 in H3.
            assert (expr1Bound := H1).
@@ -8582,7 +8257,7 @@ clear H1. psatz R. Qed.
            assert (floatMaxBound1 := H6).
            assert (resultGe1 := H7).
            assert (resultGe2 := H8).
-           clear H4 H2 H1 H3 H5 H10 H0 H6 IHexpr1 IHexpr2.
+           clear H4 H2 H1 H3 H H5 H10 H0 H6 IHexpr1 IHexpr2.
            unfold Semantics.eval_comp in *.
            simpl in floatMinCase.
            simpl in expr1Bound.
@@ -8591,10 +8266,10 @@ clear H1. psatz R. Qed.
            simpl in resultGe1.
            simpl in resultGe2.
            simpl.
-           remember  (lb x4 fState) as lb1.
-           remember  (lb x5 fState)  as lb2.
-           remember (ub x5 fState)  as ub2.
-           remember (ub x4 fState) as ub1.
+           remember (eval_term (lb x4) st st) as lb1.
+           remember (eval_term (lb x5) st st) as lb2.
+           remember (eval_term (ub x5) st st) as ub2.
+           remember (eval_term (ub x4) st st) as ub1.
            clear Hequb1 Hequb2 Heqlb1 Heqlb2.
            pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
            specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -8677,7 +8352,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 b r.
+        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
           pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
@@ -8815,26 +8490,6 @@ clear H1. psatz R. Qed.
         simpl in H.
         rewrite <- H0.
         decompose [and] H.
-        destruct H.
-        destruct H1.
-        destruct H2.
-        destruct H3.
-        destruct H6.
-        destruct H7.
-        
-        assert (H10:=H8).
-        clear H8.
-        assert (H8:=H7).
-        clear H7.
-        assert (H7:=H6).
-        clear H6.
-        assert (H6:=H3).
-        clear H3.
-        assert (H3:=H1).
-        clear H1.
-        assert (H1:=H).
-        clear H.
-
         apply IHexpr1 in H1.
         apply IHexpr2 in H3.
         assert (expr1Bound := H1).
@@ -8843,7 +8498,7 @@ clear H1. psatz R. Qed.
         assert (floatMaxBound1 := H6).
         assert (resultGe1 := H7).
         assert (resultGe2 := H8).
-        clear H4 H2 H1 H3 H5 H0 H10 H6 IHexpr1 IHexpr2.
+        clear H4 H2 H1 H3 H H5 H0 H10 H6 IHexpr1 IHexpr2.
         unfold Semantics.eval_comp in *.
         simpl in floatMinCase.
         simpl in expr1Bound.
@@ -8852,10 +8507,10 @@ clear H1. psatz R. Qed.
         simpl in resultGe1.
         simpl in resultGe2.
         simpl.
-        remember  (lb x4 fState) as lb1.
-        remember  (lb x5 fState)  as lb2.
-        remember (ub x5 fState)  as ub2.
-        remember (ub x4 fState) as ub1.
+        remember (eval_term (lb x4) st st) as lb1.
+        remember (eval_term (lb x5) st st) as lb2.
+        remember (eval_term (ub x5) st st) as ub2.
+        remember (eval_term (ub x4) st st) as ub1.
         clear Hequb1 Hequb2 Heqlb1 Heqlb2.
         pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
         specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -8933,7 +8588,7 @@ clear H1. psatz R. Qed.
         rewrite <- floatToRealProof2 in HeqroundedValue.
         rewrite <- floatToRealProof1 in HeqroundedValue.
         pose proof errorGt0.
-        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 b r.
+        clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
         pose proof errorLessThan1.
         unfold error in *.
         unfold Rabs in *.
@@ -9048,27 +8703,6 @@ clear H1. psatz R. Qed.
           simpl in H.
           rewrite <- H0.
           decompose [and] H.
-          destruct H.
-          destruct H1.
-          destruct H2.
-          destruct H3.
-          destruct H6.
-          destruct H7.
-          
-          assert (H10:=H8).
-          clear H8.
-          assert (H8:=H7).
-          clear H7.
-          assert (H7:=H6).
-          clear H6.
-          assert (H6:=H3).
-          clear H3.
-          assert (H3:=H1).
-          clear H1.
-          assert (H1:=H).
-          clear H.
-
-
           apply IHexpr1 in H1.
           apply IHexpr2 in H3.
           assert (expr1Bound := H1).
@@ -9077,7 +8711,7 @@ clear H1. psatz R. Qed.
           assert (floatMaxBound1 := H6).
           assert (resultGe1 := H7).
           assert (resultGe2 := H8).
-          clear H4 H2 H1 H3 H5 H10 H0 H6 IHexpr1 IHexpr2.
+          clear H4 H2 H1 H3 H H5 H10 H0 H6 IHexpr1 IHexpr2.
           unfold Semantics.eval_comp in *.
           simpl in floatMinCase.
           simpl in expr1Bound.
@@ -9086,10 +8720,10 @@ clear H1. psatz R. Qed.
           simpl in resultGe1.
           simpl in resultGe2.
           simpl.
-          remember  (lb x4 fState) as lb1.
-          remember  (lb x5 fState)  as lb2.
-          remember (ub x5 fState)  as ub2.
-          remember (ub x4 fState) as ub1.
+          remember (eval_term (lb x4) st st) as lb1.
+          remember (eval_term (lb x5) st st) as lb2.
+          remember (eval_term (ub x5) st st) as ub2.
+          remember (eval_term (ub x4) st st) as ub1.
           clear Hequb1 Hequb2 Heqlb1 Heqlb2.
           pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
           specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -9184,7 +8818,7 @@ clear H1. psatz R. Qed.
           rewrite <- floatToRealProof2 in HeqroundedValue.
           rewrite <- floatToRealProof1 in HeqroundedValue.
           pose proof errorGt0.
-          clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 b r.
+          clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
           pose proof errorLessThan1.
           unfold error in *.
           unfold Rabs in *.
@@ -9293,25 +8927,6 @@ clear H1. psatz R. Qed.
             simpl in H.
             rewrite <- H0.
             decompose [and] H.
-            destruct H.
-            destruct H1.
-            destruct H2.
-            destruct H3.
-            destruct H6.
-            destruct H7.
-            
-            assert (H10:=H8).
-            clear H8.
-            assert (H8:=H7).
-            clear H7.
-            assert (H7:=H6).
-            clear H6.
-            assert (H6:=H3).
-            clear H3.
-            assert (H3:=H1).
-            clear H1.
-            assert (H1:=H).
-            clear H.
             apply IHexpr1 in H1.
             apply IHexpr2 in H3.
             assert (expr1Bound := H1).
@@ -9320,7 +8935,7 @@ clear H1. psatz R. Qed.
             assert (floatMaxBound1 := H6).
             assert (resultGe1 := H7).
             assert (resultGe2 := H8).
-            clear H4 H2 H1 H3 H5 H10 H0 H6 IHexpr1 IHexpr2.
+            clear H4 H2 H1 H3 H H5 H10 H0 H6 IHexpr1 IHexpr2.
             unfold Semantics.eval_comp in *.
             simpl in floatMinCase.
             simpl in expr1Bound.
@@ -9329,10 +8944,10 @@ clear H1. psatz R. Qed.
             simpl in resultGe1.
             simpl in resultGe2.
             simpl.
-            remember  (lb x4 fState) as lb1.
-            remember  (lb x5 fState)  as lb2.
-            remember (ub x5 fState)  as ub2.
-            remember (ub x4 fState) as ub1.
+            remember (eval_term (lb x4) st st) as lb1.
+            remember (eval_term (lb x5) st st) as lb2.
+            remember (eval_term (ub x5) st st) as ub2.
+            remember (eval_term (ub x4) st st) as ub1.
             clear Hequb1 Hequb2 Heqlb1 Heqlb2.
             pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
             specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -9413,7 +9028,7 @@ clear H1. psatz R. Qed.
             rewrite <- floatToRealProof2 in HeqroundedValue.
             rewrite <- floatToRealProof1 in HeqroundedValue.
             pose proof errorGt0.
-            clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2  b r.
+            clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
             pose proof errorLessThan1.
             unfold error in *.
             unfold Rabs in *.
@@ -9521,25 +9136,6 @@ clear H1. psatz R. Qed.
               simpl in H.
               rewrite <- H0.
               decompose [and] H.
-              destruct H.
-              destruct H1.
-              destruct H2.
-              destruct H3.
-              destruct H6.
-              destruct H7.
-              
-              assert (H10:=H8).
-              clear H8.
-              assert (H8:=H7).
-              clear H7.
-              assert (H7:=H6).
-              clear H6.
-              assert (H6:=H3).
-              clear H3.
-              assert (H3:=H1).
-              clear H1.
-              assert (H1:=H).
-              clear H.
               apply IHexpr1 in H1.
               apply IHexpr2 in H3.
               assert (expr1Bound := H1).
@@ -9548,7 +9144,7 @@ clear H1. psatz R. Qed.
               assert (floatMaxBound1 := H6).
               assert (resultGe1 := H7).
               assert (resultGe2 := H8).
-              clear H4 H2 H1 H3 H5 H10 H0 H6 IHexpr1 IHexpr2.
+              clear H4 H2 H1 H3 H H5 H10 H0 H6 IHexpr1 IHexpr2.
               unfold Semantics.eval_comp in *.
               simpl in floatMinCase.
               simpl in expr1Bound.
@@ -9557,10 +9153,10 @@ clear H1. psatz R. Qed.
               simpl in resultGe1.
               simpl in resultGe2.
               simpl.
-              remember  (lb x4 fState) as lb1.
-              remember  (lb x5 fState)  as lb2.
-              remember (ub x5 fState)  as ub2.
-              remember (ub x4 fState) as ub1.
+              remember (eval_term (lb x4) st st) as lb1.
+              remember (eval_term (lb x5) st st) as lb2.
+              remember (eval_term (ub x5) st st) as ub2.
+              remember (eval_term (ub x4) st st) as ub1.
               clear Hequb1 Hequb2 Heqlb1 Heqlb2.
               pose proof relErrorBasedOnFloatMinTruthMult as relErrorBasedOnFloatMinTruthMult.
               specialize (relErrorBasedOnFloatMinTruthMult x1 x2 lb1 lb2 ub1 ub2).
@@ -9641,7 +9237,7 @@ clear H1. psatz R. Qed.
               rewrite <- floatToRealProof2 in HeqroundedValue.
               rewrite <- floatToRealProof1 in HeqroundedValue.
               pose proof errorGt0.
-              clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 b r.
+              clear H7 H8 floatMinCase floatMaxBound1 HeqroundedValue multRoundingTruth2 floatToRealRelationForExpr1 floatToRealRelationForExpr2 floatToRealProof1 floatToRealProof2  x3 x4 x4 x5 x x0 expr1 expr2 tr fState b r.
               pose proof errorLessThan1.
               unfold error in *.
               unfold Rabs in *.
@@ -9752,55 +9348,43 @@ clear H1. psatz R. Qed.
     }
   }
   {
-    apply Forall_forall.
-    intros.
-    unfold denote_singleBoundTermNew. 
-    intuition.
-    destruct expr. 
+
+   apply Forall_forall.
+  intros.
+  unfold denote_singleBoundTermNew. 
+  intuition.
+  destruct expr. 
+  {
+    unfold bound_term in *.
+    simpl in *.
+    destruct H0.
     {
-      unfold bound_term in *.
-      simpl in *.
-      assert (H1:=H0).
-      clear H0.
-      assert (H0:=H).
-      clear H.
-      destruct H0.
-      {
-        assert (H0:=H).
-        clear H.
-        rewrite <-H0 in H1.
-        simpl in H1.
-        unfold isVarValid in H1.
-        rewrite <- Heqo in H1.
-        revert H1 Heqo0.
-        apply floatConstValidityProof.
-      }   
-      {
-        intuition.
+      rewrite <-H0 in H1.
+      simpl in H1.
+      unfold isVarValid in H1.
+      specialize (H1 fState).
+      rewrite <- Heqo in H1.
+      revert H1 Heqo0.
+      apply floatConstValidityProof.
+    }   
+    {
+      intuition.
     }
   }
   {
     unfold bound_term in *.
     simpl in *.
-    assert (H1:=H0).
-    clear H0.
-    unfold lofst in *.
-    unfold lpofst in *.
-    assert (H0:=H).
-    clear H.
     destruct H0.
     {
       subst.
       simpl in *.
       decompose [and] H1.
       inversion Heqo.
-      rewrite <-H5 in H4.
-      revert H4 Heqo0.
+      rewrite <-H6 in H5.
+      revert H5 Heqo0.
       apply floatConstValidityProof.
     }
     {
-      assert (H0:=H).
-      clear H.
       destruct H0. 
       {
         subst.
@@ -9809,8 +9393,8 @@ clear H1. psatz R. Qed.
         simpl in *.
         decompose [and] H1.
       inversion Heqo.
-      rewrite <-H5 in H4.
-      revert H4 Heqo0.
+      rewrite <-H6 in H5.
+      revert H5 Heqo0.
       apply floatConstValidityProof.
      
     }
@@ -9822,13 +9406,13 @@ clear H1. psatz R. Qed.
   {
     unfold bound_term in *.
     simpl in *.
-    destruct H.
+    destruct H0.
     {
       subst.
       simpl in *.
       inversion Heqo.
-      rewrite <- H1 in H0.
-      revert H0 Heqo0.
+      rewrite <- H2 in H1.
+      revert H1 Heqo0.
       apply floatConstValidityProof.
      
 
@@ -9839,69 +9423,47 @@ clear H1. psatz R. Qed.
   }
   {
        simpl in *.    
-       assert (H1:=H0).
-       clear H0.
-       assert (H0:=H).
-       clear H.
        eapply In_cross_In in H0.
        simpl in H0.
        forward_reason.
        simpl in *.
-       destruct H2.
+       destruct H3.
        {
          unfold simpleBound in *.
          subst.
          simpl in *.
-         destruct H1.
-         destruct H2.
-         destruct H3.
-         destruct H4.
-         destruct H5.
-         revert H6 Heqo Heqo0.
+         decompose [and] H1.
+         revert H9 Heqo Heqo0.
          apply plusResultValidityProof.  
        }
        {
-         destruct H2.
+         destruct H3.
          {
            unfold simpleBound4 in *.
            subst.
            simpl in *.
-           destruct H1.
-           destruct H2.
-           destruct H3.
-           destruct H4.
-           destruct H5.
-           revert H6 Heqo Heqo0.
+           decompose [and] H1.
+           revert H9 Heqo Heqo0.
            apply plusResultValidityProof.  
          }
          {
-           destruct H2.
+           destruct H3.
            {
              unfold simpleBound9 in *.
              subst.
              simpl in *.
-             destruct H1.
-             destruct H2.
-             destruct H3.
-             destruct H4.
-             destruct H5.
-             destruct H6.
-             revert H7 Heqo Heqo0.
+             decompose [and] H1.
+             revert H10 Heqo Heqo0.
              apply plusResultValidityProof.  
            }
            {
-             destruct H2.
+             destruct H3.
              {
                unfold simpleBound10 in *.
                subst.
                simpl in *.
                decompose [and] H1.
-               destruct H1.
-               destruct H2.
-               destruct H3.
-               destruct H4.
-               destruct H5.
-               revert H6 Heqo Heqo0.
+               revert H9 Heqo Heqo0.
                apply plusResultValidityProof.  
              }
              {
@@ -9913,9 +9475,6 @@ clear H1. psatz R. Qed.
   }
   {
      simpl in *.    
-     assert (H1:=H0).
-     clear H0.
-     assert (H0:=H).
        eapply In_cross_In in H0.
        simpl in H0.
        forward_reason.
@@ -9925,12 +9484,7 @@ clear H1. psatz R. Qed.
          subst.
          simpl in *.
          decompose [and] H1.
-         destruct H1.
-         destruct H3.
-         destruct H4.
-         destruct H5.
-         destruct H6.
-         revert H7 Heqo Heqo0.
+         revert H9 Heqo Heqo0.
          apply minusResultValidityProof.  
        }
        {
@@ -9939,12 +9493,7 @@ clear H1. psatz R. Qed.
            subst.
            simpl in *.
            decompose [and] H1.
-           destruct H1.
-           destruct H3.
-           destruct H4.
-           destruct H5.
-           destruct H6.
-           revert H7 Heqo Heqo0.
+           revert H9 Heqo Heqo0.
            apply minusResultValidityProof.  
          }
          {
@@ -9953,10 +9502,7 @@ clear H1. psatz R. Qed.
        }
   }
   {
-    simpl in *.
-     assert (H1:=H0).
-     clear H0.
-     assert (H0:=H).
+    simpl in *.    
        eapply In_cross_In in H0.
        simpl in H0.
        forward_reason.
@@ -9967,13 +9513,7 @@ clear H1. psatz R. Qed.
          subst.
          simpl in *.
          decompose [and] H1.
-         destruct H1.
-         destruct H3.
-         destruct H4.
-         destruct H5.
-         destruct H6.
-         destruct H7.
-         revert H8 Heqo Heqo0.
+         revert H10 Heqo Heqo0.
          apply multResultValidityProof.  
        }
        {
@@ -9982,14 +9522,8 @@ clear H1. psatz R. Qed.
            subst.
            simpl in *.
            decompose [and] H1.
-            destruct H1.
-            destruct H3.
-            destruct H4.
-            destruct H5.
-            destruct H6.
-            destruct H7.
-            revert H8 Heqo Heqo0.
-            apply multResultValidityProof.  
+           revert H10 Heqo Heqo0.
+           apply multResultValidityProof.  
          }
          {
             destruct H3.
@@ -9997,13 +9531,7 @@ clear H1. psatz R. Qed.
          subst.
          simpl in *.
          decompose [and] H1.
-         destruct H1.
-         destruct H3.
-         destruct H4.
-         destruct H5.
-         destruct H6.
-         destruct H7.
-         revert H8 Heqo Heqo0.
+         revert H10 Heqo Heqo0.
          apply multResultValidityProof.  
        }
        {
@@ -10012,13 +9540,7 @@ clear H1. psatz R. Qed.
            subst.
            simpl in *.
            decompose [and] H1.
-           destruct H1.
-           destruct H3.
-           destruct H4.
-           destruct H5.
-           destruct H6.
-           destruct H7.
-           revert H7 Heqo Heqo0.
+           revert H10 Heqo Heqo0.
            apply multResultValidityProof.  
          }  
          { intuition. }
@@ -10029,3 +9551,5 @@ clear H1. psatz R. Qed.
        }
 
 Qed.
+
+*)
