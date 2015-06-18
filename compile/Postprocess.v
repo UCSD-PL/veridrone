@@ -22,7 +22,7 @@ Proof.
   Abort.
 
 (* Implementation of postprocessing automation for the Abstractor,
-   using the Z3 plugin to simplify the terms produced by the abstractor *)
+   using the Z3 plugin to simplify the terms produced b ythe abstractor *)
 
 (* test cases - velocity shim *)
 
