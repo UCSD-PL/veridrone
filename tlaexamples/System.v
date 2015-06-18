@@ -930,6 +930,174 @@ Proof.
     { charge_exfalso. charge_tauto. }
 Qed.
 
+Definition Inductively (P I : Formula) : Formula :=
+  P //\\ [](P //\\ I -->> next P).
+
+Lemma InductivelyCompose : forall P Q E,
+    Inductively P (Q //\\ E) //\\
+    Inductively Q (P //\\ E)
+    |-- Inductively (P //\\ Q) E.
+Proof.
+  unfold Inductively.
+  intros. charge_split; try charge_tauto.
+  intros.
+  transitivity
+    ([](P //\\ (Q //\\ E) -->> next P) //\\
+       [](Q //\\ (P //\\ E) -->> next Q)).
+  - charge_tauto.
+  - rewrite Always_and.
+    tlaRevert. eapply BasicProofRules.always_imp.
+    charge_tauto.
+Qed.
+
+(*
+Lemma And_Inductively_discr : forall P Q,
+  Inductively P //\\ Inductively Q |-- Inductively (P //\\ Q).
+Proof.
+  unfold Inductively. intros.
+  charge_split; try charge_tauto.
+  transitivity ([](P -->> next P) //\\ [](Q -->> next Q)).
+  charge_tauto.
+  rewrite Always_and. tlaRevert.
+  apply BasicProofRules.always_imp.
+  charge_tauto.
+Qed.
+*)
+
+(*
+Definition InductiveSysInvariant (F I G : Formula) (s : SysRec) :=
+  G //\\ s.(Init) |-- F /\
+  I //\\ F //\\ TimeBound s.(maxTime) //\\
+  next (TimeBound s.(maxTime)) //\\
+  Next_or_stuck s.(Prog) s.(world) s.(unch) s.(maxTime)
+    |-- next F.
+*)
+
+Lemma World_Compose : forall a b,
+  World (world (SysCompose a b)) |--
+  World a.(world) //\\ World b.(world).
+Proof.
+  intros. charge_split;
+  (rewrite World_weaken;
+   [ charge_assumption |
+     simpl; restoreAbstraction;
+     intros; charge_tauto ]).
+Qed.
+
+Theorem Compose2 (a b : SysRec) P Q G :
+  forall (Hsafe :
+            P //\\ Q |--
+              Enabled (Discr (a.(Prog) //\\ b.(Prog))
+                             (Rmin a.(maxTime) b.(maxTime))))
+         (Hst : is_st_formula (P //\\ Q)),
+  G |-- SysD a -->> Inductively P Q ->
+  G |-- SysD b -->> Inductively Q P ->
+  G |-- SysD (SysCompose a b) -->> Inductively (P //\\ Q) ltrue.
+Proof.
+  intros. charge_intros. rewrite <- InductivelyCompose.
+  
+
+Theorem Compose2 (a b : SysRec) P Q G :
+  forall (Hsafe :
+            P //\\ Q |--
+              Enabled (Discr (a.(Prog) //\\ b.(Prog))
+                             (Rmin a.(maxTime) b.(maxTime))))
+         (Hst : is_st_formula (P //\\ Q)),
+  InductiveSysInvariant P Q G a ->
+  InductiveSysInvariant Q P G b ->
+  G |-- SysD (SysCompose a b) -->> [](P //\\ Q).
+Proof.
+  intros Hsafe Hst Ha Hb.
+  charge_intros.
+  destruct Ha as [HaInit HaNext].
+  destruct Hb as [HbInit HbNext].
+  tlaAssert ([](0 <= "t" //\\ next (0 <= "t"))).
+  { rewrite <- always_st.
+    { unfold SysD, sysD, Next.
+      repeat rewrite <- Always_and. charge_assumption. }
+    { tlaIntuition. } }
+  charge_intros.
+  transitivity
+    ([](P //\\ Q //\\ TimeBound (maxTime (SysCompose a b)))).
+  eapply discr_indX.
+  - tlaIntuition.
+  - unfold SysD, sysD. rewrite Always_and. charge_assumption.
+  - unfold SysD, sysD.
+    rewrite <- HaInit. rewrite <- HbInit.
+    unfold TimeBound. simpl. restoreAbstraction.
+    repeat rewrite <- Always_and.
+    tlaAssert (0<="t").
+    + apply BasicProofRules.Always_now; charge_assumption.
+    + charge_tauto.
+  - simpl next. restoreAbstraction.
+    rewrite <- HaNext. rewrite <- HbNext.
+    repeat charge_split.
+    + charge_assumption.
+    + charge_assumption.
+    + unfold TimeBound. simpl. restoreAbstraction.
+      unfold Rmin.
+      destruct (RIneq.Rle_dec (maxTime a));
+        try charge_assumption; solve_linear.
+    + 
+    + unfold Next, Next_or_stuck.
+      rewrite <- Hsafe. rewrite World_Compose.
+      unfold Discr. simpl Prog. restoreAbstraction.
+      rewrite UnchangedT_weaken.
+      * decompose_hyps.
+        { charge_tauto. }
+        { charge_left. charge_right.
+          charge_split.
+          { charge_tauto. }
+          { simpl. unfold Rmin.
+            destruct (RIneq.Rle_dec (maxTime a) (maxTime b));
+            solve_linear. } }
+        { charge_exfalso. charge_tauto. }
+        { charge_tauto. }
+      * simpl. unfold all_in. intros.
+        simpl in H. destruct H; try subst; simpl; auto.
+        right. apply List.in_or_app. auto.
+    + charge_assumption.
+    + charge_assumption.
+    + unfold Next, Next_or_stuck.
+      rewrite <- Hsafe. rewrite World_Compose.
+      unfold Discr. simpl Prog. restoreAbstraction.
+      rewrite UnchangedT_weaken.
+      * decompose_hyps.
+        { charge_tauto. }
+        { charge_left. charge_right.
+          charge_split.
+          { charge_tauto. }
+          { simpl. unfold Rmin.
+            destruct (RIneq.Rle_dec (maxTime a) (maxTime b));
+            solve_linear. } }
+        { charge_exfalso. charge_tauto. }
+        { charge_tauto. }
+      * simpl. unfold all_in. intros.
+        simpl in H. destruct H; try subst; simpl; auto.
+        right. apply List.in_or_app. auto.
+Qed.
+
+Theorem Sys_by_induction2 :
+  forall P A Init Prog IndInv w unch (d:R),
+  is_st_formula IndInv ->
+  P |-- SysD (Sys Init Prog w unch d) ->
+  (forall st', is_st_formula (w st')) ->
+  P //\\ Init |-- IndInv ->
+  P |-- [] A ->
+  InvariantUnder (("t":Term)::unch)%list IndInv ->
+  A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
+    //\\ World w |-- next IndInv ->
+  A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
+          //\\ Discr Prog d |-- next IndInv ->
+  InductiveSysInvariant IndInv A P (Sys Init Prog w unch d).
+Proof.
+  intros. unfold InductiveSysInvariant.
+  simpl. restoreAbstraction.
+  split.
+  - auto.
+  - unfold Next_or_stuck. decompose_hyps.
+    + rewr
+
 (*
 Lemma VarRenameMap_rw : forall m st x,
   subst (VarRenameMap m) st x =
