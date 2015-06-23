@@ -187,19 +187,6 @@ end
 module Z3Tactic =
 struct
 
-  let read_process command =
-    let buffer_size = 2048 in
-    let buffer = Buffer.create buffer_size in
-    let string = String.create buffer_size in
-    let in_channel = Unix.open_process_in command in
-    let chars_read = ref 1 in
-    while !chars_read <> 0 do
-      chars_read := input in_channel string 0 buffer_size;
-      Buffer.add_substring buffer string 0 !chars_read
-    done;
-    ignore (Unix.close_process_in in_channel);
-    Buffer.contents buffer
-
   let contrib_name = "z3-check"
 
   let debug = ref false
@@ -329,11 +316,11 @@ struct
 		   pr_decls tbl
 		   (pr_list sep print_r_assert) stmts
 
-  let ptrn_success = Str.regexp "^unsat\n(\([^)]*\))"
-  let ptrn_failure = Str.regexp "^sat\n\([^)]*\)\n\(model(.+)^\)"
+  let ptrn_success = Str.regexp "^unsat(\\([^)]*\\))"
+  let ptrn_failure = Str.regexp "^sat ([^)]*) (model\\(.+\\)) ?$"
   let ptrn_split = Str.regexp " "
 
-  let ptrn_def = Str.regexp "(define-fun x\([0-9]+\) () Real[ \n\r\t]+\([0-9\.]+\))"
+  let ptrn_def = Str.regexp "(define-fun x\\([0-9]+\\) () Real[ \n\r\t]+\\([0-9]*.[0-9]*\\))"
 
   type z3_result =
       Sat of (int * float) list
@@ -355,32 +342,44 @@ struct
       debug (fun _ ->
 	     Pp.msg_debug (Pp.str ("Z3 output\n" ^ result)))
     in
+    let result = Str.global_replace (Str.regexp (Str.quote "\n")) " " result in
+    let result = Str.global_replace (Str.regexp (Str.quote "\r")) "" result in
     if Str.string_partial_match ptrn_success result 0 then
       let lst = Str.matched_group 1 result in
       Unsat (List.map Names.id_of_string (Str.split ptrn_split lst))
     else
       if Str.string_match ptrn_failure result 0 then
-	let start = 1 + Str.group_end 1 in
-	Sat (extract_model start result)
+	let result = Str.matched_group 1 result in
+	Sat (extract_model 0 result)
       else
 	let _ = Format.eprintf "Bad Z3 output:\n%s" result in
 	assert false
 
   let runZ3 tbl stmts =
-    let file = Filename.temp_file "z3-" ".smt2" in
-    let out = open_out file in
+    let (in_channel,out_channel) = Unix.open_process "z3 -in -smt2" in
     let _ =
       begin
-	let fmt = Format.formatter_of_out_channel out in
+	let fmt = Format.formatter_of_out_channel out_channel in
 	Format.fprintf fmt "(set-option :produce-unsat-cores true)\n" ;
 	Format.fprintf fmt "(set-option :produce-models true)\n" ;
 	Format.fprintf fmt "%a" (pr_smt2 "") (tbl, stmts) ;
 	Format.fprintf fmt "(check-sat)\n(get-unsat-core)\n(get-model)" ;
-	close_out out
+	Format.pp_print_flush fmt () ;
+	flush out_channel ;
+	close_out out_channel
       end
     in
-    let command = Format.sprintf "z3 -smt2 -- %s" file  in
-    parse_Z3_result (read_process command)
+    let buffer_size = 2048 in
+    let buffer = Buffer.create buffer_size in
+    let string = String.create buffer_size in
+    let chars_read = ref 1 in
+    while !chars_read <> 0 do
+      chars_read := input in_channel string 0 buffer_size;
+      Buffer.add_substring buffer string 0 !chars_read
+    done;
+    ignore (Unix.close_process (in_channel, out_channel));
+    let result = Buffer.contents buffer in
+    parse_Z3_result result
 
   let parse_uop recur constr op =
     (Term_match.apps (Term_match.EGlob constr)
