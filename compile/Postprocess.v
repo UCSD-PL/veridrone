@@ -367,6 +367,11 @@ Definition simple_prog : fcmd :=
 Definition simple_prog_ivs : list (Var * Var) :=
   [("x", "x")].
 
+Eval compute in float_one.
+
+Definition simpler_prog : fcmd :=
+  FAsn "x" (FConst float_one).
+
 Lemma PropF_revert :
   forall (P : Prop) (G Q : Syntax.Formula),
     (P -> G |-- Q) ->
@@ -384,25 +389,136 @@ Proof.
   tlaIntuition.
 Qed.
 
+Require Import bound.
+Require Import source.
+Definition FP2RP (ivs : list (Var * Var)) (P : fstate -> Prop) : state -> Prop :=
+  (fun st =>
+     exists (fst : fstate), vmodels ivs st fst /\ P fst).
+
 (* Version of HoareA_embed_ex we can use for rewriting. *)
-Lemma HoareA_embed_ex_rw :
+Require Import source.
+(*
+Lemma Hoare__embed_rw :
   forall (c : fcmd)
          (vs1 : list (Var * Var)),
     var_spec_valid' vs1 ->
     varmap_check_fcmd vs1 c ->
     oembed_fcmd vs1 vs1 c |--
-                Forall Q : state -> Prop,
-  let P := fwp c Q vs1 in
-  PropF (SEMR vs1 Q) -->> Embed (fun st st' : state => P st -> Q st').
+                Forall Q : fstate -> Prop,
+  let P := fwp c Q in
+  Embed (fun st st' : state =>
+           (exists fst : fstate,
+             vmodels vs1 st fst /\
+             P fst) -> exists fst' : fstate, vmodels vs1 st' fst' /\ Q fst').
+ *)
+(*
+Lemma Hoare__embed_rw :
+  forall (c : fcmd)
+         (vs1 : list (Var * Var)),
+    var_spec_valid' vs1 ->
+    varmap_check_fcmd vs1 c ->
+    oembed_fcmd vs1 vs1 c |--
+                Forall Q : fstate -> Prop,
+  let P := fwp c Q in
+  Embed (fun st st' : state =>
+           FP2RP vs1 P st -> FP2RP vs1 Q st').
 Proof.
   intros. apply lforallR.
   intro. simpl. restoreAbstraction.
-  apply PropF_revert. intro.
   tlaRevert.
-  apply HoareA_embed_ex; auto.
-  apply fwp_correct; auto.
+  unfold FP2RP.
+  breakAbstraction.
+  intros.
+  fwd.
+  destruct H5.
+  unfold vmodels in *.
+  exists x0. split; eauto.
+  
+  intros.
+  fwd.
+  destruct H5.
+  { inversion H5; subst; clear H5; try congruence.
+    { simpl in H4.
+    - 
+  }
+  
+  {
+  split.
+
+  apply fwp_correct in H4. fwd.
+  destruct x2; try congruence.
+  specialize (H7 _ H4).
+  exists f.
+  split; auto.
+  destruct H5.
+  unfold limpl.
+  simpl.
+  unfold tlaEntails.
+  intros.
+  simpl.
+  shatterAbstraction.
+  intros.
+  eexists. intros.
+  simpl.
+  eapply Hoare__embed.
+  Check Hoare__embed.
+  (*fix this later *)
+Admitted.
+*)
+
+Require Import ExtLib.Tactics.
+Lemma Hoare__embed_rw :
+  forall (c : fcmd)
+         (vs1 : list (Var * Var)),
+    var_spec_valid' vs1 ->
+    varmap_check_fcmd vs1 c ->
+    oembed_fcmd vs1 vs1 c |--
+                Forall Q : fstate -> Prop,
+  let P := fwp c Q in
+  Embed (fun st st' : state =>
+           (exists fst : fstate,
+             vmodels vs1 st fst /\
+             (P fst -> exists fst' : fstate, vmodels vs1 st' fst' /\ Q fst'))).
+Proof.
+  intros.
+  breakAbstraction.
+  intros.
+  fwd.
+  exists x0.
+  split; auto.
+  intros.
+  eapply fwp_correct in H3.
+  fwd.
+  destruct H2; try congruence.
+  fwd.
+  consider x1; intros; try congruence; subst.
+  exists x2.
+  split; auto.
 Qed.
 
+Require Import source.
+Definition FP2RP' (ivs : list (Var * Var)) (P : fstate -> Prop) (Q : Prop) : state -> Prop :=
+  (fun st =>
+     exists (fst : fstate), vmodels ivs st fst /\ (P fst -> Q)).
+
+Lemma Hoare__embed_rw' :
+  forall (c : fcmd)
+         (vs1 : list (Var * Var)),
+    var_spec_valid' vs1 ->
+    varmap_check_fcmd vs1 c ->
+    oembed_fcmd vs1 vs1 c |--
+                Forall Q : fstate -> Prop,
+  let P := fwp c Q in
+  Embed (fun st st' : state =>
+           FP2RP' vs1 P (exists fst' : fstate, vmodels vs1 st' fst' /\ Q fst') st).
+Proof.
+  generalize (Hoare__embed_rw); intro HHer.
+  simpl in HHer.
+  simpl.
+  unfold FP2RP'.
+  eapply HHer.
+Qed.
+  
 Axiom Always_proper : Proper (lentails ==> lentails) Syntax.Always.
 Existing Instance Always_proper.
 
@@ -411,25 +527,50 @@ Lemma lequiv_rewrite_left :
   forall (A B C : Formula),
     A -|- C -> C |-- B -> A |-- B.
 Proof.
-  shatterAbstraction. intuition.
+  shatterAbstraction. intuition.  
 Qed.
 
-Fact fwp_simple : |-- "x" > 0 //\\ [](oembed_fcmd simple_prog_ivs simple_prog_ivs simple_prog) -->> []("x" > 0).
+(* Convert a predicate over float states to a predicate over real states *)
+Check fstate_lookup.
+(*
+Definition FP2RP (P : fstate -> Prop) : state -> Prop :=
+  (fun st =>
+     exists (fst : fstate),
+       (forall (v : Var) (f : float), fstate_lookup fst v = Some f ->
+                                      exists r, F2OR f = Some r /\ st v = r) /\
+       P fst).
+ *)
+
+(* Here is the thing I am trying to figure out *)
+(*
+Lemma FP2RP_rewrite :
+  forall ivs,
+  _ /\ (isFloat ivs _) -|- FP2RP ivs (fun st => ... (F2R x...)).
+*)
+
+(* this theorem is not true so try something that is, like always set x to 5; need invariant that x is float
+   simple_prog_ivs will be given to is_float
+ *)
+
+Check isVarValid.
+
+(*Fact fwp_simple : |-- "x" > 0 //\\ [](oembed_fcmd simple_prog_ivs simple_prog_ivs simple_prog) -->> []("x" > 0).*)
+Fact fwp_simpler : |-- "x" > 0 //\\ [](oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog) -->> []("x" > 0).
 Proof.
-  erewrite -> HoareA_embed_ex_rw; [| solve [simpl; intuition] | solve [simpl; intuition; eauto]].
+  erewrite -> Hoare__embed_rw'; [| solve [simpl; intuition] | solve [simpl; intuition; eauto]].
   charge_intros.
   eapply discr_indX.
   { red; intuition. }
   { charge_assumption. }
   { charge_assumption. }
-  { SearchAbout land lentails.
-    SearchAbout Proper land.
-    Print ILogic.
+  {
     (* rhs *)
-    rewrite landforallDL. eapply lforallL. instantiate (1 := (fun st => st "x" > 0)%R).
-    tlaRevert. apply PropF_pull.
-    - unfold SEMR. intros. SearchAbout vmodels. admit (* prove a lemma *).
-    - simpl fwp.
+    rewrite landforallDL. eapply lforallL.
+    instantiate (1 := (fun fst => exists f, fstate_lookup fst "x" = Some f /\ exists r, F2OR f = Some r /\ (r > 0)%R)).
+    tlaRevert.
+    (*apply PropF_pull.
+    - unfold SEMR. intros. SearchAbout vmodels. admit (* prove a lemma *). *)
+    simpl fwp.
       (*rewrite_strat (topdown (terms embed_push_Eq)).
       rewrite_strat (topdown (old_hints embed_push)).*)
       (*
@@ -455,12 +596,13 @@ Proof.
            arith_push_fupdate_eq arith_push_fupdate_neq
         : arith_push.
 
-      {
+      { 
         progress repeat
             match goal with
-            | |- Embed (fun x y => _ /\ _) -|- _ => eapply embed_push_And
+            | |- Embed (fun x y => vmodels _ _ _) -|- _ => reflexivity
             | |- Embed (fun x y => _ -> _) -|- _ => eapply embed_push_Imp
             | |- Embed (fun x y => _ \/ _) -|- _ => eapply embed_push_Or
+            | |- Embed (fun x y => _ /\ _) -|- _ => eapply embed_push_And
             | |- Embed (fun x y => exists z, _) -|- _ => eapply embed_push_Exists; intro
             | |- Embed (fun x y => forall z, _) -|- _ => eapply embed_push_Forall; intro
             | |- Embed (fun x y => _ = _) -|- _ => eapply embed_push_Eq; eauto with arith_push
@@ -479,6 +621,21 @@ Proof.
       Proof.
         intros. breakAbstraction. intuition.
       Qed.
+
+      eapply lentail_cut1.
+      
+      shatterAbstraction.
+      split.
+    - intros.
+      fwd.
+      inversion H1; subst; clear H1.
+      destruct H2; try contradiction.
+      fwd.
+      eexists. split.
+      + split; auto.
+        
+
+      
                
 
       idtac.

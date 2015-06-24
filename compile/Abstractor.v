@@ -626,21 +626,21 @@ Fixpoint var_spec_valid' {T U : Type} (vs : list (T * U)) : Prop :=
 
 (* Calculating bounds for expressions *)
 (* TODO: removing vtrans here may be the wrong call *)
-Fixpoint fexpr_to_NowTerm (fx : fexpr) (ivs : list (Var * Var)) : NowTerm :=
+Fixpoint fexpr_to_NowTerm (fx : fexpr) : NowTerm :=
   match fx with
   (*| FVar v   => VarNowN (vtrans_flt2tla ivs v)*)
   | FVar v => VarNowN v
   | FConst f => FloatN f
   | FPlus fx1 fx2 =>
-    PlusN (fexpr_to_NowTerm fx1 ivs) (fexpr_to_NowTerm fx2 ivs)
+    PlusN (fexpr_to_NowTerm fx1) (fexpr_to_NowTerm fx2)
   | FMinus fx1 fx2 =>
-    MinusN (fexpr_to_NowTerm fx1 ivs) (fexpr_to_NowTerm fx2 ivs)
+    MinusN (fexpr_to_NowTerm fx1) (fexpr_to_NowTerm fx2)
   | FMult fx1 fx2 =>
-    MultN (fexpr_to_NowTerm fx1 ivs) (fexpr_to_NowTerm fx2 ivs)
+    MultN (fexpr_to_NowTerm fx1) (fexpr_to_NowTerm fx2)
   end.
 
-Definition bound_fexpr (fx : fexpr) (ivs : list (Var * Var)) : list singleBoundTerm :=
-  bound_term (fexpr_to_NowTerm fx ivs).
+Definition bound_fexpr (fx : fexpr) : list singleBoundTerm :=
+  bound_term (fexpr_to_NowTerm fx).
 
 Definition bounds_to_formula (sbt : singleBoundTerm) (fs : fstate) : (Prop * (R -> Prop)) :=
   denote_singleBoundTermNew fs sbt.
@@ -786,16 +786,11 @@ Lemma fexpr_NowTerm_related_eval :
     fexprD fx stf = Some f ->
     eval_NowTerm fst (fexpr_to_NowTerm fx ivs) = Some f.
  *)
-
-Print varmap_check_fexpr.
-
 Lemma fexpr_NowTerm_related_eval :
-  forall ivs fst,
-    var_spec_valid' ivs ->
+  forall fst,
     forall fx f,
-    varmap_check_fexpr ivs fx ->
     fexprD fx fst = Some f ->
-    eval_NowTerm fst (fexpr_to_NowTerm fx ivs) = Some f.
+    eval_NowTerm fst (fexpr_to_NowTerm fx) = Some f.
 Proof.
   induction fx; eauto;
   try (intros; simpl; simpl in *; fwd;
@@ -803,23 +798,8 @@ Proof.
     consider (fexprD fx1 fst); intros; try congruence;
     consider (fexprD fx2 fst); intros; try congruence;
     erewrite IHfx1; eauto;
-    erewrite IHfx2; eauto). (* take care of plus, minus *)
-
-  (* (* used to be necessary; we've changed how we do variable translation now *)
-  - simpl. intros. fwd.
-    rewrite <- H1.
-    generalize dependent x.
-    induction ivs.
-    + simpl in *. contradiction.
-    + simpl. destruct a. simpl in *. intros. fwd.
-      destruct H0.
-      { inversion H0; subst; clear H0. rewrite RelDec.rel_dec_eq_true; eauto with typeclass_instances. }
-      { consider (v ?[eq] v1); intros.
-        - subst. eapply Forall_forall in H; eauto.
-        - eapply IHivs; eauto. }
-   *)
+    erewrite IHfx2; eauto).
 Qed.
-
 
 (* THE correctness lemma for bound_fexpr (that we use) *)
 (*
@@ -839,14 +819,12 @@ Lemma bound_fexpr_sound : forall ivs fx sbts,
  *)
 
 (* TODO - need another hypothesis linking fst to var map ? *)
-Lemma bound_fexpr_sound : forall ivs fx sbts,
-    bound_fexpr fx ivs = sbts ->
-    var_spec_valid' ivs ->
-    varmap_check_fexpr ivs fx ->
+Lemma bound_fexpr_sound : forall fx sbts,
+    bound_fexpr fx = sbts ->
+    (*varmap_check_fexpr ivs fx ->*)
     List.Forall (fun sbt =>
               forall (fst : fstate) f,
                 fexprD fx fst = Some f ->
-                (*fstate_statef ivs fst stf ->*)
                 let '(P,Pr) := bounds_to_formula sbt fst in
                 P -> exists fval, fexprD fx fst = Some fval
                                   /\ exists val,
@@ -856,14 +834,15 @@ Proof.
   intros.
   generalize (bound_proof'). intro Hbp.
   apply Forall_forall. intros.
-  specialize (Hbp (fexpr_to_NowTerm fx ivs) fst).
+  specialize (Hbp (fexpr_to_NowTerm fx) fst).
   fwd. intros.
-  unfold bounds_to_formula, denote_singleBoundTermNew in H4.  simpl in H4.
-  inversion H4; subst; clear H4.
+  unfold bounds_to_formula, denote_singleBoundTermNew in H2.  simpl in H2.
+  inversion H2; subst; clear H2.
   exists f.
   split; auto.
   unfold boundDef' in Hbp. simpl in Hbp.
-  generalize (fexpr_NowTerm_related_eval ivs fst H0 fx f H1 H3); intro Hentfxd.
+  Check fexpr_NowTerm_related_eval.
+  generalize (fexpr_NowTerm_related_eval _ _ _ H1); intro Hentfxd.
   rewrite Hentfxd in Hbp.
   apply Forall_forall with (x := x) in Hbp.
   - consider (floatToReal f); intros.
@@ -1098,23 +1077,25 @@ Proof.
     eexists. reflexivity.
 Qed.
 
+Print fexprD.
+
 (* to do: what notion of float -> R to use?? *)
 (* to do: is left or right var fstate? *)
 Lemma Hoare__bound_asn :
-  forall ivs (P : _ -> Prop) v v' e,
-    var_spec_valid' ivs ->
+  forall (P : _ -> Prop) v e,
+    (*var_spec_valid' ivs ->
     varmap_check_fexpr ivs e ->
-    In (v, v') ivs ->
+    In (v, v') ivs ->*)
     Hoare_ (fun fst : fstate =>
-              varmap_check_fstate ivs fst /\
+              exists res, fexprD e fst = Some res /\
               AnyOf (List.map (fun sbt =>
                                  let '(pred,bound) := bounds_to_formula sbt fst in
                                  pred /\ forall (val : float) (r : R),
                                      F2OR val = Some r ->
                                      bound r ->
-                                     P (fstate_set fst v' val))
-                              (bound_fexpr e ivs)))%type
-           (FAsn v' e)
+                                     P (fstate_set fst v val))
+                              (bound_fexpr e)))%type
+           (FAsn v e)
            P.
 Proof.
   intros. red; red. intros.
@@ -1124,25 +1105,26 @@ Proof.
     - eexists. econstructor. eassumption.
     - eexists. eapply FEAsnN. eassumption. }
   split.
-  { intro. inversion H4; subst; clear H4.
-    generalize (varmap_check_contra' _ _ _ H0 H2); intro Hvcc.
-    fwd. congruence. }
+  { intro. inversion H1; subst; clear H1.
+    congruence. }
   { intros.
-    inversion H4; subst; clear H4.
-    generalize (bound_fexpr_sound ivs e _ eq_refl H H0). intro Hbfs.
-    induction (bound_fexpr e ivs).
+    inversion H1; subst; clear H1.
+    Check bound_fexpr_sound.
+    generalize (bound_fexpr_sound e _ eq_refl). intro Hbfs.
+    induction (bound_fexpr e).
     { simpl in *. contradiction. }
-    { simpl in *. destruct H3.
+    { simpl in *. destruct H0.
       { clear IHl.
         inversion Hbfs. fwd.
         subst.
-        specialize (H6 _ _ H7 H3). fwd.
-        rewrite H4 in H7. inversion H7; subst; clear H7.
-        eapply H9; eauto. }
+        specialize (H3 _ _ H4 H0). fwd.
+        rewrite H1 in H. inversion H; subst; clear H.
+        eapply H6.
+        - rewrite H1 in H4. inversion H4; subst; clear H4. eassumption.
+        - lra. }
       { inversion Hbfs; subst; clear Hbfs.
         eapply IHl; eauto. } } }
 Qed.
-  
 (*
 Lemma HoareA_ex_asn :
   forall ivs (P : _ -> Prop) v v' e,
@@ -1405,21 +1387,13 @@ Proof.
   intros. unfold float_lt, float_ge in H. lra.
 Qed.
 
-Check Hoare_.
-Check Hoare__bound_asn.
-Check bound_fexpr.
-
-Check Hoare__bound_asn.
-
 Lemma Hoare__bound_ite :
-  forall ex ivs (P Q1 Q2 : _ -> Prop) c1 c2,
-    var_spec_valid' ivs ->
-    varmap_check_fexpr ivs ex ->
+  forall ex (P Q1 Q2 : _ -> Prop) c1 c2,
     Hoare_ Q1 c1 P ->
     Hoare_ Q2 c2 P ->
     Hoare_ (fun fst =>
-              varmap_check_fstate ivs fst /\
-              let bs := bound_fexpr ex ivs in
+              exists res, fexprD ex fst = Some res /\
+              let bs := bound_fexpr ex in
               (maybe_lt0 bs fst -> Q1 fst) /\
               (maybe_ge0 bs fst -> Q2 fst) /\
               (AnyOf (List.map
@@ -1427,6 +1401,9 @@ Lemma Hoare__bound_ite :
                         bs)))%type
            (FIte ex c1 c2)
            P.
+Admitted.
+(* re-prove later. *)
+(*
 Proof.
   intros.
   generalize (bound_fexpr_sound ivs ex _ eq_refl H H0).
@@ -1516,117 +1493,16 @@ Proof.
             lra.
           - eassumption. } } } }
 Qed.
-
-(*
-Lemma HoareA_ex_ite :
-  forall ex ivs (P Q1 Q2: _ -> Prop) c1 c2,
-    var_spec_valid' ivs ->
-    varmap_check_fexpr ivs ex ->
-    HoareA_ex ivs ivs Q1 c1 P ->
-    HoareA_ex ivs ivs Q2 c2 P ->
-    HoareA_ex ivs ivs
-    (fun ss => let bs := bound_fexpr ex ivs in
-               (maybe_lt0 bs ss -> Q1 ss) /\
-               (maybe_ge0 bs ss -> Q2 ss) /\
-               (AnyOf (List.map (fun sbt => fst (denote_singleBoundTermNew ss sbt)) bs)))%type
-    (FIte ex c1 c2)
-    P.
-Proof.
-  intros.
-  generalize (bound_fexpr_sound ivs ex _ eq_refl H H0).
-  induction 1.
-  { simpl. eapply HoareA_conseq.
-    3: eapply HoareA_ex_False.
-    simpl. tauto.
-    exact (fun _ x => x). }
-  { simpl. eapply HoareA_conseq.
-    2: exact (fun _ x => x).
-    unfold maybe_lt0. unfold maybe_ge0.
-    simpl. intros.
-    repeat rewrite or_distrib_imp in H5.
-    repeat rewrite and_distrib_or in H5.
-    eapply H5.
-    eapply HoareA_conseq.
-    2: exact (fun _ x => x).
-    2: eapply HoareA_ex_or.
-    3: eapply IHForall.
-    simpl.
-    intros.
-    destruct H5.
-    { fwd.
-      left. exact (conj H5 (conj H6 H7)). }
-    { right. tauto. }
-    clear IHForall H4.
-    do 3 red.
-    intros. fwd.
-    generalize (varmap_check_contradiction ivs ex s x0 H0 H4); intro Hvmcc.
-    consider (fexprD ex s); intros; try congruence.
-    clear Hvmcc.
-    do 3 red in H1, H2.
-    specialize (H1 s). specialize (H2 s).
-    destruct (float_lt_ge_trichotomy f fzero).
-    { destruct H1.
-      { eexists; split; eauto. eapply H5.
-        specialize (H3 _ _ _ H8 H4 H7).
-        forward_reason.
-        unfold traceFromState in *; simpl in *.
-        rewrite H1 in *; inv_all; subst.
-        split; auto.
-        destruct f; simpl in H3; try congruence.
-        - unfold float_lt in H9. simpl in H9. lra.
-        - inversion H3; subst; clear H3.
-          unfold float_lt in H9. simpl in H9. lra. }
-      forward_reason. split.
-      { eexists; eapply FEIteT; eauto. }
-      split.
-      { intro. inversion H12; clear H12; subst; eauto; try congruence.
-        rewrite H8 in H17. inv_all. subst.
-        unfold float_ge in H19. unfold float_lt in H9.
-        lra. }
-      intros.
-      inversion H12; clear H12; subst; eauto.
-      rewrite H8 in *. inv_all; subst. 
-      exfalso. eapply float_lt_ge_trichotomy_contra; eauto. }
-    { destruct H2.
-      { eexists; split; eauto. apply H6.
-        specialize (H3 _ _ _ H8 H4 H7).
-        fwd.
-        unfold traceFromState in *; simpl in *.
-        rewrite H2 in *; inv_all; subst.
-        split; auto.
-        destruct f; simpl in H3; try congruence.
-        - inversion H3; subst; clear H3.
-          lra.
-        - inversion H3; subst; clear H3. 
-          unfold float_ge in H9. simpl in H9.
-          lra. }
-      { fwd.
-        split.
-        { eexists; eapply FEIteF; eauto. }
-        split.
-        { intro. inversion H12; subst; clear H12; eauto; try congruence.
-          rewrite H8 in H17. inversion H17; subst; clear H17.
-          eapply float_lt_ge_trichotomy_contra; eauto. }
-        intros. inversion H12; subst; clear H12; auto.
-        rewrite H8 in H17. inversion H17; subst; clear H17.
-        exfalso; eapply float_lt_ge_trichotomy_contra; eauto. } } }
-Qed.
  *)
 
 (* Weakest-precondition calcluation function for fcmd language *)
-Check varmap_check_fstate.
-Print sig.
-Fixpoint fwp (ivs : list (Var * Var)) (c : fcmd)
+Fixpoint fwp (c : fcmd)
          (P : fstate  -> Prop) : fstate -> Prop :=
   match c with
   | FSkip => P
-  | FSeq c1 c2 => fwp ivs c1 (fwp ivs c2 P)
+  | FSeq c1 c2 => fwp c1 (fwp c2 P)
   | FAsn v e => (fun fst  =>
-                   var_spec_valid' ivs /\
-                   varmap_check_fexpr ivs e /\
-                   varmap_check_fstate ivs fst /\                   
-                   exists v',
-                     In (v, v') ivs /\                        
+                   exists res, fexprD e fst = Some res /\
                      AnyOf
                        (map
                           (fun sbt : singleBoundTerm =>
@@ -1634,17 +1510,15 @@ Fixpoint fwp (ivs : list (Var * Var)) (c : fcmd)
                              pred /\
                              (forall (val : float) (r : R),
                                  F2OR val = Some r ->
-                                 bound r -> P (fstate_set fst v' val)))
-                          (bound_fexpr e ivs)))
+                                 bound r -> P (fstate_set fst v val)))
+                          (bound_fexpr e)))
   | FFail => fun fst => False
   | FHavoc v => fun fst => False
-  | FIte ex c1 c2 => (fun fst =>
-                        var_spec_valid' ivs /\
-                        varmap_check_fexpr ivs ex /\
-                        varmap_check_fstate ivs fst /\                   
-                        (let bs := bound_fexpr ex ivs in
-                         (maybe_lt0 bs fst -> fwp ivs c1 P fst) /\
-                         (maybe_ge0 bs fst -> fwp ivs c2 P fst) /\
+  | FIte e c1 c2 => (fun fst =>
+                        exists res, fexprD e fst = Some res /\
+                        (let bs := bound_fexpr e in
+                         (maybe_lt0 bs fst -> fwp c1 P fst) /\
+                         (maybe_ge0 bs fst -> fwp c2 P fst) /\
                          AnyOf
                            (map
                               (fun sbt : singleBoundTerm =>
@@ -1691,38 +1565,30 @@ Fixpoint fwp (ivs : list (Var * Var)) (c : fcmd)
                               bs)))
   end.
  *)
+
 Lemma fwp_correct :
-  forall c ivs P,
-    var_spec_valid' ivs ->
-    varmap_check_fcmd ivs c ->
-    Hoare_ (fun fst =>
-              varmap_check_fstate ivs fst /\
-              fwp ivs c P fst)
+  forall c P,
+    Hoare_ (fwp c P)
            c
            P.
 Proof.
   intros c.
   induction c; intros; eauto using Hoare__False.
   { eapply Hoare__seq.
-    - eapply IHc1. 
-      + assumption.
-      + simpl in H0; fwd; assumption.
-    - eapply IHc2. 
-      + eassumption. 
-      + simpl in H0; fwd; assumption.
-      +
+    Focus 2.
+    eapply IHc2; eauto.
+    simpl.
+    eapply Hoare__conseq.
+    3: eapply IHc1; eauto.
+    2: exact (fun _ x => x).
+    intros; eassumption.
   }
   { eapply Hoare__skip. }
-  { eapply Hoare__asn. simpl in H0. fwd.
-    Check varmap_check_contra'.
-    generalize (varmap_check_contra' _ _ _ H1 H1).
-    assumption. }
-  { simpl in *. forward_reason.
-    simpl. eapply HoareA_ex_ite; eauto. }
+  { eapply Hoare__bound_asn. }
+  { eapply Hoare__bound_ite; eauto. }
 Qed.
 
 (* test case - velocity shim *)
-
 Definition velshim : fcmd :=
   FIte (FMinus (FVar "ub") (FPlus (FMult (FVar "a") (FVar "d")) (FVar "vmax")))
        (FAsn "a" (FVar "a"))
