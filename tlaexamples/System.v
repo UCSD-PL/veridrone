@@ -930,6 +930,7 @@ Proof.
     { charge_exfalso. charge_tauto. }
 Qed.
 
+(*
 Definition Inductively (P I : Formula) : Formula :=
   P //\\ [](P //\\ I -->> next P).
 
@@ -949,7 +950,7 @@ Proof.
     tlaRevert. eapply BasicProofRules.always_imp.
     charge_tauto.
 Qed.
-
+*)
 (*
 Lemma And_Inductively_discr : forall P Q,
   Inductively P //\\ Inductively Q |-- Inductively (P //\\ Q).
@@ -983,7 +984,7 @@ Proof.
      simpl; restoreAbstraction;
      intros; charge_tauto ]).
 Qed.
-
+(*
 Theorem Compose2 (a b : SysRec) P Q G :
   forall (Hsafe :
             P //\\ Q |--
@@ -1097,7 +1098,7 @@ Proof.
   - auto.
   - unfold Next_or_stuck. decompose_hyps.
     + rewr
-
+*)
 (*
 Lemma VarRenameMap_rw : forall m st x,
   subst (VarRenameMap m) st x =
