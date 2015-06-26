@@ -56,7 +56,7 @@ Module UpperLower (P : UpperLowerParams).
                           Monitor.SpecR).
 
   Lemma UpperLower_ok :
-    []"v" <= Params.ubv
+    []"v" <= Params.ubv //\\ []"v" >= --Params.ubv
     |-- SysD SpecUpperLower -->> []("y" <= Params.ub //\\
                                     --Params.ub <= "y").
   Proof.
