@@ -23,6 +23,8 @@ Module Type SecondDerivShimParams <: SdistParams.
   Parameter amin : R.
   Parameter amin_lt_0 : (amin < 0)%R.
 
+  Parameter ubv : R.
+
 End SecondDerivShimParams.
 
 Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
@@ -43,64 +45,8 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
            <= ub).
 
   Definition Ctrl : Formula :=
-    SafeAcc "a"! \\// "a"! <= amin.
-(*
-Definition SafeRegion (ubv:R) : Formula :=
-  "y" + tdist ubv 0 d + sdist ubv <= ub.
-
-Lemma vel_bound_acc : forall ubv,
-  []"v" <= ubv //\\
-  [](World w \\// Unchanged ("v"::"y"::nil)%list)
-  |-- []("v" + "a"!*d <= ubv).
-Admitted.
-
-Lemma safe_region_ok : forall (ubv:R),
-  (0 <= ubv)%R ->
-  []"v" <= ubv //\\
-  [](World w \\// Unchanged ("v"::"y"::nil)%list)
-  |-- [](SafeRegion ubv -->> SafeAcc "a"!).
-Proof.
-  intros. pose proof d_gt_0. pose proof amin_lt_0.
-  tlaAssert ([]"v" + "a"!*d <= ubv);
-    [ charge_apply (vel_bound_acc ubv); charge_tauto |
-      charge_intros ].
-  repeat rewrite Always_and. tlaRevert.
-  apply always_imp. charge_intros. repeat decompose_hyps.
-  - unfold SafeRegion, SafeAcc, Max.
-    repeat (charge_split; charge_intros).
-    + reason_action_tac. revert H2. rewrite_real_zeros.
-      intuition. clear H8.
-      eapply Rle_trans; eauto.
-      assert (/amin < 0)%R by solve_linear.
-      assert (0 - / 2 < 0)%R by solve_linear.
-      generalize dependent (/amin)%R.
-      generalize dependent (0 - / 2)%R.
-      intros. clear H3.
-Abort.
-*)
-(*
-If safe regions of two shims are disjoint
-then they compose, i.e. their conjunction
-is always enabled.
-
-If safe regions are not disjoint, then you
-must show that their default actions are
-consistent.
-
-These are two domain specific composition
-theorems. The idea is that you have to
-prove the above theorem for a shims safe
-region and safey check and then you can
-use the above domain specific composition
-theorems.
-
-We may be able to state a theorem how much
-the monitor must know about the state and
-then relate this to sensor error. In particular,
-the monitor must know that he is not in
-two safe regions with inconsistent default
-actions.
- *)
+    SafeAcc "a"! \\//
+    ("y" > 0 -->> "a"! <= amin).
 
   Definition History : Formula :=
     "Y"! = "y" //\\ "V"! = "v" //\\ "T"! = "t"!.
@@ -125,7 +71,8 @@ actions.
 
   Definition SpecR : SysRec :=
     {| Init := I;
-       Prog := Ctrl //\\ History //\\ Unchanged ("v"::"y"::nil)%list;
+       Prog := Ctrl //\\ History //\\
+               Unchanged ("v"::"y"::nil)%list;
        world := w;
        unch := (("a":Term)::("Y":Term)::("V":Term)::
                 ("T":Term)::("v":Term)::("y":Term)::nil)%list;
@@ -133,11 +80,64 @@ actions.
 
   Definition Spec := SysD SpecR.
 
+(*
+  Definition AnyDiscrete : SysRec :=
+    {| Init := "v" <= ubv //\\ "v" + "a"*d <= ubv;
+       Prog := History //\\ Unchanged ("v"::"y"::nil)%list;
+       world := w;
+       unch := (("a":Term)::("Y":Term)::("V":Term)::
+                ("T":Term)::("v":Term)::("y":Term)::nil)%list;
+       maxTime := d |}.
+
+  Definition IndInv_AnyDiscrete : Formula :=
+         ("a" <  0 -->> "v" <= ubv)
+    //\\ ("a" >= 0 -->> "v" + "a"*"t" <= ubv).
+
+  Lemma vel_bound_acc_bound :
+    []"v" <= ubv
+    |-- SysD AnyDiscrete -->> []"V" + "a"*tdiff <= ubv.
+  Proof.
+    pose proof d_gt_0.
+    charge_intros.
+    eapply Sys_by_induction
+    with (IndInv:=IndInv_AnyDiscrete) (A:="v" <= ubv).
+    - tlaIntuition.
+    - unfold Spec, SpecR, AnyDiscrete. charge_tauto.
+    - simpl. tauto.
+    - apply SysSafe_rule. apply Lemmas.forget_prem.
+      apply always_tauto. enable_ex_st. repeat eexists.
+      reflexivity.
+    - solve_nonlinear.
+    - charge_tauto.
+    - solve_nonlinear.
+    - unfold InvariantUnder. solve_linear.
+      rewrite_next_st. solve_linear.
+    - eapply diff_ind with (Hyps:=TRUE).
+      + tlaIntuition.
+      + tlaIntuition.
+      + unfold World. tlaAssume.
+      + tlaIntuition.
+      + tlaAssume.
+      + tlaIntuition.
+      + restoreAbstraction. charge_tauto.
+      + charge_intros; repeat charge_split; charge_intros;
+        try solve [solve_linear |
+                   eapply zero_deriv with (x:="a");
+                     [ charge_tauto | tlaIntuition | ]
+                   solve_linear.
+            eapply zero_deriv with (x:="V");
+              [ charge_tauto | tlaIntuition | ].
+            
+                   charge_intros; eapply unchanged_continuous.
+                     [ tlaAssume | solve_linear ] ].
+    - solve_nonlinear.
+*)
+
   Definition IndInv : Formula :=
     "y" - "Y" <= tdist "V" "a" tdiff //\\
-    "v" - "V" <= "a"*tdiff //\\
+    "v" - "V" = "a"*tdiff //\\
     Syntax.Forall R
-           (fun t =>
+           (fun t => "V" + "a"*t <= ubv -->>
               ((0 <= t <= d //\\ 0 <= "V" + "a"*t) -->>
                     "Y" + (tdist "V" "a" t) +
                     (sdist ("V" + "a"*t)) <= ub) //\\
@@ -161,17 +161,22 @@ actions.
   (* A proof that the inductive safety condition
      Inv implies the safety contition
      we actually care about, Safe. *)
-  Lemma inv_safe : IndInv //\\ TimeBound d |-- Safe.
+  Lemma inv_safe :
+    "v" <= ubv //\\ IndInv //\\ TimeBound d |-- Safe.
   Proof.
     pose proof amin_lt_0.
     pose proof d_gt_0.
     tlaAssert (0 <= tdiff <= d);
     [ solve_linear | tlaIntro ].
-    breakAbstraction; simpl; unfold eval_comp; simpl; intros.
+    tlaAssert ("V" + "a"*tdiff <= ubv \\//
+               "V" + "a"*tdiff > ubv);
+    [ solve_linear | tlaIntro ].
+    decompose_hyps.
+    { breakAbstraction; simpl; unfold eval_comp; simpl; intros.
     repeat match goal with
            | H : _ /\ _ |- _ => destruct H
            end.
-    specialize (H7 ((Stream.hd tr) "T" - (Stream.hd tr) "t"))%R.
+    specialize (H9 ((Stream.hd tr) "T" - (Stream.hd tr) "t"))%R.
     destruct (Rle_dec R0
                       ((Stream.hd tr) "V"+
                        (Stream.hd tr) "a"*
@@ -192,7 +197,8 @@ actions.
           ((Stream.hd tr) "T" - (Stream.hd tr) "t") < 0)%R)
         by solve_linear.
       eapply Rle_trans; eauto.
-      solve_linear.
+      solve_linear. }
+    { solve_linear. }
   Qed.
 
   Lemma SysSafe_ctrl : forall P, P |-- SysSafe SpecR.
@@ -203,13 +209,13 @@ actions.
   Qed.
 
   Theorem ctrl_safe :
-    |-- Spec -->> []Safe.
+   []"v" <= ubv |-- Spec -->> []Safe.
   Proof.
     pose proof amin_lt_0 as amin_lt_0.
     pose proof d_gt_0 as d_gt_0.
     tlaIntro.
     eapply Sys_by_induction
-    with (IndInv:=IndInv) (A:=ltrue).
+    with (IndInv:=IndInv) (A:="v" <= ubv).
     - tlaIntuition.
     - unfold Spec, SpecR. tlaAssume.
     - tlaIntuition.
@@ -253,25 +259,53 @@ actions.
         - unfold IndInv;
           simpl; restoreAbstraction; unfold tdist, sdist;
           solve_linear; rewrite_next_st; solve_linear;
-          specialize (H4 x); solve_linear.
+          specialize (H5 x); solve_linear.
         - simpl deriv_formula. restoreAbstraction.
           charge_intros; repeat charge_split;
-          charge_intros.
+          charge_intros; repeat charge_split.
           { eapply zero_deriv with (x:="a");
             [ charge_tauto | tlaIntuition | ].
             eapply zero_deriv with (x:="V");
               [ charge_tauto | tlaIntuition | ].
             solve_linear; rewrite_next_st;
             solve_linear. }
-          { solve_linear. rewrite H6. rewrite H4. rewrite H7.
-            solve_linear. }
           { eapply zero_deriv with (x:="a");
             [ charge_tauto | tlaIntuition | ].
             eapply zero_deriv with (x:="V");
               [ charge_tauto | tlaIntuition | ].
             solve_linear; rewrite_next_st;
             solve_linear. }
-          { solve_linear. rewrite H6. rewrite H4. rewrite H7.
+          { charge_intros; repeat charge_split;
+            charge_intros.
+            { eapply zero_deriv with (x:="a");
+              [ charge_tauto | tlaIntuition | ].
+              eapply zero_deriv with (x:="V");
+                [ charge_tauto | tlaIntuition | ].
+              solve_linear; rewrite_next_st;
+              solve_linear. }
+            { eapply zero_deriv with (x:="a");
+              [ charge_tauto | tlaIntuition | ].
+              eapply zero_deriv with (x:="V");
+                [ charge_tauto | tlaIntuition | ].
+              solve_linear; rewrite_next_st;
+              solve_linear. } }
+          { solve_linear. rewrite H6. rewrite H8. rewrite H7.
+            solve_linear. }
+          { charge_intros; repeat charge_split;
+            charge_intros.
+            { eapply zero_deriv with (x:="a");
+              [ charge_tauto | tlaIntuition | ].
+              eapply zero_deriv with (x:="V");
+                [ charge_tauto | tlaIntuition | ].
+              solve_linear; rewrite_next_st;
+              solve_linear. }
+            { eapply zero_deriv with (x:="a");
+              [ charge_tauto | tlaIntuition | ].
+              eapply zero_deriv with (x:="V");
+                [ charge_tauto | tlaIntuition | ].
+              solve_linear; rewrite_next_st;
+              solve_linear. } }
+          { solve_linear. rewrite H6. rewrite H8. rewrite H7.
             solve_linear. } }
       { match goal with
           |- _ |-- ?GG => eapply diff_ind
@@ -290,9 +324,9 @@ actions.
         decompose_hyps.
         { tlaAssert ("a"! <= 0 \\// "a"! >= 0);
           [ solve_linear | tlaIntro ].
-          repeat decompose_hyps.
           apply lforallR. intro x.
-          charge_split.
+          simpl next. restoreAbstraction. charge_intros.
+          charge_split; repeat decompose_hyps.
           - simpl. restoreAbstraction. charge_intros.
             tlaAssert (tdist "V"! "a"! x +
                        (sdist ("V"! + "a"!*x)) <=
@@ -300,6 +334,8 @@ actions.
             + pose proof (tdist_sdist_incr "V"! "v" "a"! 0 x d).
               charge_apply H. solve_linear.
             + solve_linear.
+Admitted.
+(*
           - simpl. restoreAbstraction. charge_intros.
             tlaAssert ("v" >= 0 \\// "v" <= 0);
               [ solve_linear | tlaIntro ].
@@ -455,7 +491,7 @@ actions.
       { solve_linear. }
       { solve_linear. }
   Qed.
-
+*)
 
 (* This was an idea for showing that the system
    is a refinement of another system that does not have

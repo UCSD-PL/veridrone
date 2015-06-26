@@ -84,6 +84,20 @@ Proof.
   - solve_nonlinear.
 Qed.
 
+Lemma tdist_pos :
+  forall v a t,
+    |-- 0 <= v -->>
+        0 <= a -->>
+        0 <= t -->>
+        0 <= tdist v a t.
+Proof. solve_nonlinear. Qed.
+
+Lemma tdist_incr_acc :
+  forall a1 a2 v t,
+    |-- a1 <= a2 -->>
+        tdist v a1 t <= tdist v a2 t.
+Proof. solve_nonlinear. Qed.
+
 (* Generic parameters of the height shims. *)
 Module Type SdistParams.
 
@@ -173,6 +187,18 @@ Module SdistUtil (Import Params : SdistParams).
     - assert (/ amin < 0)%R by solve_linear.
       solve_linear.
     - apply Rmult_le_compat; solve_linear.
+  Qed.
+
+  Lemma sdist_gt_0 :
+    forall v, |-- 0 <= sdist v.
+  Proof.
+    breakAbstraction. intros.
+    pose proof amin_lt_0.
+    assert (/amin < 0)%R by solve_linear.
+    assert (0 - / 2 < 0)%R by solve_linear.
+    generalize dependent (/amin)%R.
+    generalize dependent (0 - / 2)%R.
+    clear H0. solve_nonlinear.
   Qed.
 
 End SdistUtil.

@@ -751,13 +751,13 @@ Proof.
   eauto.
 Qed.
 
-Theorem ComposeRefine (a b : SysRec) :
-  forall Hsafe : |-- SysSafe (SysCompose a b),
-  SysD (SysCompose a b) |-- SysD a.
+Theorem ComposeRefine (a b : SysRec) G :
+  forall Hsafe : G |-- SysSafe (SysCompose a b),
+  G //\\ SysD (SysCompose a b) |-- SysD a.
 Proof.
   intro.
   unfold SysSafe in Hsafe. apply landAdj in Hsafe.
-  rewrite landtrueL in Hsafe. rewrite Hsafe.
+  rewrite Hsafe.
   unfold SysCompose, SysD_or_stuck, SysD, sysD_or_stuck,
   sysD, Next_or_stuck, Next.
   simpl. restoreAbstraction.
@@ -877,7 +877,7 @@ Proof.
 Qed.
 
 Theorem Compose (a b : SysRec) P Q G :
-  forall Hsafe : |-- SysSafe (SysCompose a b),
+  forall Hsafe : G |-- SysSafe (SysCompose a b),
   G |-- SysD a -->> [] P ->
   G //\\ [] P |-- SysD b -->> [] Q ->
   G |-- SysD (SysCompose a b) -->> [](P //\\ Q).
@@ -885,7 +885,9 @@ Proof.
   intros Hsafe Ha Hb.
   rewrite <- Always_and.
   tlaIntro. tlaAssert ([]P).
-  - charge_apply Ha. rewrite ComposeRefine.
+  - charge_apply Ha.
+    tlaAssert G; [ charge_tauto | charge_intros ].
+    rewrite ComposeRefine.
     charge_tauto. auto.
   - tlaAssert (SysD b).
     + rewrite ComposeComm; rewrite ComposeRefine.
@@ -930,7 +932,6 @@ Proof.
     { charge_exfalso. charge_tauto. }
 Qed.
 
-(*
 Definition Inductively (P I : Formula) : Formula :=
   P //\\ [](P //\\ I -->> next P).
 
@@ -950,9 +951,9 @@ Proof.
     tlaRevert. eapply BasicProofRules.always_imp.
     charge_tauto.
 Qed.
-*)
+
 (*
-Lemma And_Inductively_discr : forall P Q,
+Lemma And_Inductively_distr : forall P Q,
   Inductively P //\\ Inductively Q |-- Inductively (P //\\ Q).
 Proof.
   unfold Inductively. intros.
@@ -974,6 +975,16 @@ Definition InductiveSysInvariant (F I G : Formula) (s : SysRec) :=
     |-- next F.
 *)
 
+(*
+Lemma thing : forall A B P Q,
+  []P |-- A -->> B ->
+      |-- B -->> Inductively P Q ->
+      |-- A -->> Inductively P Q.
+Proof.
+  unfold Inductively. intros. charge_intros.
+Check discr_indX
+*)
+
 Lemma World_Compose : forall a b,
   World (world (SysCompose a b)) |--
   World a.(world) //\\ World b.(world).
@@ -984,18 +995,22 @@ Proof.
      simpl; restoreAbstraction;
      intros; charge_tauto ]).
 Qed.
+
 (*
-Theorem Compose2 (a b : SysRec) P Q G :
+Theorem Compose2 (a b : SysRec) P Q R G :
   forall (Hsafe :
             P //\\ Q |--
               Enabled (Discr (a.(Prog) //\\ b.(Prog))
                              (Rmin a.(maxTime) b.(maxTime))))
          (Hst : is_st_formula (P //\\ Q)),
-  G |-- SysD a -->> Inductively P Q ->
-  G |-- SysD b -->> Inductively Q P ->
-  G |-- SysD (SysCompose a b) -->> Inductively (P //\\ Q) ltrue.
+  G |-- SysD a -->> Inductively P (Q //\\ R) ->
+  G |-- SysD b -->> Inductively Q (P //\\ R) ->
+  G |-- SysD (SysCompose a b) -->>
+        Inductively (P //\\ Q) R.
 Proof.
-  intros. charge_intros. rewrite <- InductivelyCompose.
+  intros. charge_intros.
+  charge_split.
+  - charge_apply H.
   
 
 Theorem Compose2 (a b : SysRec) P Q G :

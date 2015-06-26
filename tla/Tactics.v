@@ -127,6 +127,20 @@ Ltac solve_nonlinear :=
   breakAbstraction; intros; unfold eval_comp in *;
   simpl in *; intuition; try psatz R.
 
+Ltac specialize_arith_hyp H :=
+  repeat match type of H with
+         | ?G -> _ =>
+           let HH := fresh "H" in
+           assert G as HH by solve_linear;
+             specialize (H HH); clear HH
+         end.
+
+Ltac specialize_arith :=
+  repeat match goal with
+         | [ H : ?G -> _ |- _ ] =>
+           specialize_arith_hyp H
+         end.
+
 (* This simplifies real arithmetic goals.
    It sometimes is useful to run this before
    sending things to solve_nonlinear. *)

@@ -12,9 +12,12 @@ SensorWithDelay.v
 SensorWithDelayRange.v
 FirstDerivShim.v
 SecondDerivShimCtrl.v
+SecondDerivShimCtrl2.v
+SecondDerivShimCtrl3.v
+SecondDerivShimCtrlToMiddle.v
 SecondDerivUtil.v
 SensorWithDelayRangeSndOrder.v
-SecondDerivShim.v
+
 ListProps.v
 
 # AbstractIndAccCtrl.v

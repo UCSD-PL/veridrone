@@ -141,3 +141,25 @@ Instance Reflexive_Rle : Reflexive Rle.
 Proof.
   red. intro. apply Req_ge. reflexivity.
 Qed.
+
+Require Import Setoid Relation_Definitions Reals.
+Open Scope R.
+
+Add Parametric Relation : R Rle
+reflexivity proved by Rle_refl
+transitivity proved by Rle_trans
+as Rle_setoid_relation.
+
+Add Parametric Morphism : Rplus with
+signature Rle ++> Rle ++> Rle as Rplus_Rle_mor.
+intros ; apply Rplus_le_compat ; assumption.
+Qed.
+
+Add Parametric Morphism : Rminus with
+signature Rle ++> Rle --> Rle as Rminus_Rle_mor.
+intros ; unfold Rminus ;
+apply Rplus_le_compat;
+[assumption | apply Ropp_le_contravar ; assumption].
+Qed.
+
+Close Scope R.

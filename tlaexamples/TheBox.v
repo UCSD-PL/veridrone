@@ -1,14 +1,195 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
 Require Import Examples.System.
-Require Import Examples.SecondDerivShimCtrl.
+Require Import Examples.SecondDerivShimCtrlToMiddle.
 Require Import ChargeTactics.Lemmas.
 Require Import TLA.DifferentialInduction.
 Require Import Coq.Reals.R_sqrt.
 Require Import Coq.Reals.Ratan.
+Require Import Coq.Strings.String.
+Local Open Scope string_scope.
+
+Require Import BasicProofRules.
+Require Import Coq.Lists.List.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+
+Module Type UpperLowerParams.
+  Parameter ub : R.
+  Parameter d : R.
+  Axiom d_gt_0 : (d > 0)%R.
+
+  Parameter amin : R.
+  Axiom amin_lt_0 : (amin < 0)%R.
+
+  Parameter ubv : R.
+
+(*
+  Parameter amax : R.
+  Axiom amax_gt_0 : (amax > 0)%R.
+
+  Axiom amax_gt_neg_amin : (-amin < amax)%R.
+*)
+End UpperLowerParams.
+
+Module UpperLower (P : UpperLowerParams).
+  Module Params <: SecondDerivShimParams.
+    Definition ub := P.ub.
+    Definition d := P.d.
+    Definition d_gt_0 := P.d_gt_0.
+    Definition amin := P.amin.
+    Definition amin_lt_0 := P.amin_lt_0.
+    Definition ubv := P.ubv.
+  End Params.
+
+  Module Monitor := SecondDerivShimCtrl Params.
+
+  Let mirror :=
+    (("y",--"y")::("v",--"v")::("a",--"a")::
+     ("Y",--"Y")::("V",--"V")::nil).
+
+  Definition SpecUpperLower :=
+    SysCompose Monitor.SpecR
+               (SysRename (to_RenameMap mirror)
+                          (deriv_term_RenameList mirror)
+                          Monitor.SpecR).
+
+  Lemma UpperLower_ok :
+    []"v" <= Params.ubv
+    |-- SysD SpecUpperLower -->> []("y" <= Params.ub //\\
+                                    --Params.ub <= "y").
+  Proof.
+    intros.
+    pose proof P.amin_lt_0. pose proof P.d_gt_0.
+    apply Compose.
+    - apply SysSafe_rule. apply always_tauto.
+      unfold Discr. simpl.
+      unfold Monitor.Ctrl, Monitor.History, Max.
+      simpl. restoreAbstraction.
+      rewrite <- Rename_ok
+        by (simpl; intuition; is_st_term_list);
+        simpl rename_formula; unfold RenameMap_compose;
+        simpl rename_term; restoreAbstraction.
+      enable_ex_st.
+      destruct (RIneq.Rge_dec (st "y") R0).
+      { repeat match goal with
+                 |- exists x, _ => eexists
+               end. solve_linear. }
+      { repeat match goal with
+                 |- exists x, _ => eexists
+               end.
+        repeat split.
+        { right. intros. apply RIneq.Rgt_ge in H1.
+          contradiction. }
+        { right. instantiate (1:=(-Params.amin)%R).
+          solve_linear. }
+        { reflexivity. } }
+    - charge_intros. pose proof Monitor.ctrl_safe.
+      unfold Monitor.Safe in *.
+      charge_apply H1. charge_tauto.
+    - charge_intros.
+      apply lcut with (R:=[]--"y" <= Params.ub).
+      { pose proof Monitor.ctrl_safe.
+        unfold Monitor.Safe in *.
+        apply (Proper_Rename (to_RenameMap mirror)
+                             (to_RenameMap mirror)) in H1;
+          [ | reflexivity ]. 
+        rewrite <- Rename_ok in H1 by is_st_term_list.
+        rewrite <- Rename_ok in H1
+                             by (is_st_term_list; tauto).
+        simpl rename_formula in *. restoreAbstraction.
+        (* should be able to charge_apply H1 here.
+           not sure what the problem is. *)
+        admit. }
+      { apply forget_prem. apply always_imp. solve_linear. }
+Qed.
+
+(*
+  Lemma UpperLower_ok :
+    (/2* P.amax*P.d*P.d +
+     (P.amax*P.d)*(P.amax*P.d)*(-/2)*(/P.amin)
+     <= P.ub)%R ->
+    |-- SysD SpecUpperLower -->> []--P.ub <= "y" <= P.ub.
+  Proof.
+    intros.
+    pose proof P.amin_lt_0. pose proof P.d_gt_0.
+    pose proof P.amax_gt_neg_amin.
+    apply Compose.
+    - apply SysSafe_rule. apply always_tauto.
+      unfold Discr. simpl.
+      unfold Monitor.Ctrl, Monitor.History, Monitor.AnyAccOk,
+      Max.
+      simpl. restoreAbstraction.
+      rewrite <- Rename_ok
+        by (simpl; intuition; is_st_term_list);
+        simpl rename_formula; unfold RenameMap_compose;
+        simpl rename_term; restoreAbstraction.
+        enable_ex_st.
+        rewrite_real_zeros.
+        unfold Params.amax, Params.amin in *.
+        destruct (RIneq.Rle_dec
+                    (st "y" +
+       (st "v" * Params.d + / 2 * P.amax * (Params.d * (Params.d * 1))) +
+       (st "v" + P.amax * Params.d) *
+       ((st "v" + P.amax * Params.d) * 1) * (0 - / 2) * 
+       / P.amin) Params.ub).
+        { repeat match goal with
+                   |- exists x, _ => eexists
+                 end. solve_linear. }
+        { repeat match goal with
+                   |- exists x, _ => eexists
+                 end. solve_linear.
+          left. solve_linear.
+          apply RIneq.Rnot_le_gt in n.
+          z3_solve.
+
+          
+
+          
+
+ repeat split.
+        3: reflexivity.
+        { match goal with
+            |- ((Rle ?e1 ?e2) /\ _) \/ _
+            => destruct (RIneq.Rle_dec e1 e2)
+          end.
+          { solve_linear. }
+          { 
+        solve_linear.
+        split. split.
+        match goal with
+        |- (_ \/ _) /\ (_ \/ _)
+        => idtac
+        end.
+        repeat split.
+        3: reflexivity.
+        solve_linear.
+      solve_linear.
+
+
+Require Import Coq.Lists.List.
+Definition MirrorRename : RenameMap :=
+  to_RenameMap (("y",--"y")::("v",--"v")::("a",--"a")::nil).
+
+Lemma compose_anyacc_ok :
+  (-amin < amax)%R ->
+  tdist 0 amax d + sdist (amax*d) < ub
+  |-- (Rename MirrorRename (AnyAccOk -->> FALSE)) -->>
+      AnyAccOk.
+Proof.
+  pose proof d_gt_0.
+  pose proof amin_lt_0.
+  pose proof amax_gt_0.
+  rewrite <- Rename_ok
+    by (unfold MirrorRename; is_st_term_list; tauto).
+  unfold MirrorRename. simpl rename_formula.
+  breakAbstraction. intros. z3_solve.
+y + v*d + 1/2*(-amax)*d^2 + < -ub ->
+y + v*d + 1/2*amax*d^2 >= ub
+z3_solve.
+*)
+      
 
 Module Type CornerParams.
   Parameter ub_X : R.
@@ -47,12 +228,6 @@ Module Corner (P : CornerParams).
 
   Module SDSP_X := SecondDerivShimCtrl X.
   Module SDSP_Y := SecondDerivShimCtrl Y.
-
-  Require Import Coq.Strings.String.
-  Local Open Scope string_scope.
-
-  Require Import BasicProofRules.
-  Require Import Coq.Lists.List.
 
   Let rename_y :=
     RenameListC (("A","Ay")::("V","Vy")::("Y","Y")::("y","y")::
