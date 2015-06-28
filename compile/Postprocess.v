@@ -695,12 +695,91 @@ Proof.
   }
 Qed.
 
-Fact fwp_simpler_full : "x" > 0 //\\
+(*
+Definition varValidPre (v : Var) : Syntax.Formula :=
+  Embed (fun pre _ =>
+           exists (f : float), (eq (F2OR f) (Some (pre v)))).
+
+Definition varValidPost (v : Var) : Syntax.Formula :=
+  Embed (fun _ post =>
+           exists (f : float), (eq (F2OR f) (Some (post v)))).
+
+Definition varValidBoth (v : Var) : Syntax.Formula :=
+  varValidPre v //\\ varValidPost v.           
+ *)
+
+(* Embed (...) can't be a state formula, so here are versions that
+   do not use it. *)
+Print Syntax.Formula.
+Print Syntax.Term.
+
+Print oembed_fcmd.
+Print oembedStep_maybenone.
+Print is_st_formula.
+
+(* TODO: we can't encode these definitions in the current version of RTLA, I think. *)
+Definition varValidPre (v : Var) : Syntax.Formula :=
+  Embed (fun pre _ =>
+           exists (f : float), (eq (F2OR f) (Some (pre v)))).
+
+Definition varValidPost (v : Var) : Syntax.Formula :=
+  Embed (fun _ post =>
+           exists (f : float), (eq (F2OR f) (Some (post v)))).
+
+Definition varValidBoth (v : Var) : Syntax.Formula :=
+  varValidPre v //\\ varValidPost v.           
+
+Fact fwp_simpler_full : varValidPre "x" //\\ "x" > 0 //\\
                                 [](oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog \\//
-                                               Enabled (oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog) -->> lfalse)
-                                |-- []("x" > 0).
+                                               (Enabled (oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog) -->> lfalse))
+                                |-- []("x" > 0 //\\ varValidPre "x").
 Proof.
-  tlaRevert. tlaRevert.
+  eapply discr_indX.
+  { red. simpl. red; intuition. }
+  { charge_assumption. }
+  { charge_assumption. }
+
+  tlaRevert.
+
+  eapply lorL.
+
+  {
+    admit. (* same as last proof *)
+    (*
+    erewrite -> Hoare__embed_rw; [| solve [simpl; intuition] | solve [simpl; intuition; eauto]].
+    eapply lforallL.
+    (* rhs *)
+    tlaRevert.
+    simpl fwp.
+    eapply lequiv_rewrite_left.
+
+    {
+      crunch_embeds.
+    }
+    *)
+  }
+  {
+    breakAbstraction.
+    intros.
+    destruct H.
+    Check Embed.
+    eexists. eexists.
+    split.
+    - split; auto.
+      reflexivity.
+    erewrite -> Hoare__embed_rw; [| solve [simpl; intuition] | solve [simpl; intuition; eauto]].
+
+  }
+  
+  eapply land_comm_left.
+  
+
+
+  SearchAbout Always.
+
+  eapply lorL.
+
+  tlaRevert.
 
   Lemma limpl_limpl_land :
     forall (A B C : Syntax.Formula),
@@ -713,6 +792,8 @@ Proof.
   idtac.
 
   eapply limpl_limpl_land.
+
+  Print ILogic.
 
   Check fwp_simpler.
   Check Hoare__embed_rw.
