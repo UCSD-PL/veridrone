@@ -17,6 +17,7 @@ Set Strict Implicit.
 
 Module Type UpperLowerParams.
   Parameter ub : R.
+
   Parameter d : R.
   Axiom d_gt_0 : (d > 0)%R.
 
@@ -24,13 +25,6 @@ Module Type UpperLowerParams.
   Axiom amin_lt_0 : (amin < 0)%R.
 
   Parameter ubv : R.
-
-(*
-  Parameter amax : R.
-  Axiom amax_gt_0 : (amax > 0)%R.
-
-  Axiom amax_gt_neg_amin : (-amin < amax)%R.
-*)
 End UpperLowerParams.
 
 Module UpperLower (P : UpperLowerParams).
@@ -49,16 +43,18 @@ Module UpperLower (P : UpperLowerParams).
     (("y",--"y")::("v",--"v")::("a",--"a")::
      ("Y",--"Y")::("V",--"V")::nil).
 
-  Definition SpecUpperLower :=
+  Definition SpecR :=
     SysCompose Monitor.SpecR
                (SysRename (to_RenameMap mirror)
                           (deriv_term_RenameList mirror)
                           Monitor.SpecR).
 
+  Definition Safe :=
+    "y" <= Params.ub //\\ --Params.ub <= "y".
+
   Lemma UpperLower_ok :
     []"v" <= Params.ubv //\\ []"v" >= --Params.ubv
-    |-- SysD SpecUpperLower -->> []("y" <= Params.ub //\\
-                                    --Params.ub <= "y").
+    |-- SysD SpecR -->> []Safe.
   Proof.
     intros.
     pose proof P.amin_lt_0. pose proof P.d_gt_0.
@@ -124,129 +120,50 @@ Module UpperLower (P : UpperLowerParams).
       { apply forget_prem. apply always_imp. solve_linear. }
 Qed.
 
-(*
-  Lemma UpperLower_ok :
-    (/2* P.amax*P.d*P.d +
-     (P.amax*P.d)*(P.amax*P.d)*(-/2)*(/P.amin)
-     <= P.ub)%R ->
-    |-- SysD SpecUpperLower -->> []--P.ub <= "y" <= P.ub.
-  Proof.
-    intros.
-    pose proof P.amin_lt_0. pose proof P.d_gt_0.
-    pose proof P.amax_gt_neg_amin.
-    apply Compose.
-    - apply SysSafe_rule. apply always_tauto.
-      unfold Discr. simpl.
-      unfold Monitor.Ctrl, Monitor.History, Monitor.AnyAccOk,
-      Max.
-      simpl. restoreAbstraction.
-      rewrite <- Rename_ok
-        by (simpl; intuition; is_st_term_list);
-        simpl rename_formula; unfold RenameMap_compose;
-        simpl rename_term; restoreAbstraction.
-        enable_ex_st.
-        rewrite_real_zeros.
-        unfold Params.amax, Params.amin in *.
-        destruct (RIneq.Rle_dec
-                    (st "y" +
-       (st "v" * Params.d + / 2 * P.amax * (Params.d * (Params.d * 1))) +
-       (st "v" + P.amax * Params.d) *
-       ((st "v" + P.amax * Params.d) * 1) * (0 - / 2) * 
-       / P.amin) Params.ub).
-        { repeat match goal with
-                   |- exists x, _ => eexists
-                 end. solve_linear. }
-        { repeat match goal with
-                   |- exists x, _ => eexists
-                 end. solve_linear.
-          left. solve_linear.
-          apply RIneq.Rnot_le_gt in n.
-          z3_solve.
+End UpperLower.
 
-          
-
-          
-
- repeat split.
-        3: reflexivity.
-        { match goal with
-            |- ((Rle ?e1 ?e2) /\ _) \/ _
-            => destruct (RIneq.Rle_dec e1 e2)
-          end.
-          { solve_linear. }
-          { 
-        solve_linear.
-        split. split.
-        match goal with
-        |- (_ \/ _) /\ (_ \/ _)
-        => idtac
-        end.
-        repeat split.
-        3: reflexivity.
-        solve_linear.
-      solve_linear.
-
-
-Require Import Coq.Lists.List.
-Definition MirrorRename : RenameMap :=
-  to_RenameMap (("y",--"y")::("v",--"v")::("a",--"a")::nil).
-
-Lemma compose_anyacc_ok :
-  (-amin < amax)%R ->
-  tdist 0 amax d + sdist (amax*d) < ub
-  |-- (Rename MirrorRename (AnyAccOk -->> FALSE)) -->>
-      AnyAccOk.
-Proof.
-  pose proof d_gt_0.
-  pose proof amin_lt_0.
-  pose proof amax_gt_0.
-  rewrite <- Rename_ok
-    by (unfold MirrorRename; is_st_term_list; tauto).
-  unfold MirrorRename. simpl rename_formula.
-  breakAbstraction. intros. z3_solve.
-y + v*d + 1/2*(-amax)*d^2 + < -ub ->
-y + v*d + 1/2*amax*d^2 >= ub
-z3_solve.
-*)
-      
-
-Module Type CornerParams.
+Module Type BoxParams.
   Parameter ub_X : R.
+  Parameter ub_Y : R.
+
   Parameter d : R.
   Axiom d_gt_0 : (d > 0)%R.
 
-  Parameter amin_X : R.
-  Axiom amin_lt_0_X : (amin_X < 0)%R.
+  Parameter amin : R.
+  Axiom amin_lt_0 : (amin < 0)%R.
 
-  Parameter ub_Y : R.
+  Parameter ubv_X : R.
+  Parameter ubv_Y : R.
 
   Parameter theta_min : R.
   Parameter theta_max : R.
   Axiom theta_min_lt_theta_max : (theta_min <= theta_max)%R.
   Axiom theta_max_bound : (0 < theta_max < Rtrigo1.PI)%R.
-End CornerParams.
+End BoxParams.
 
-Module Corner (P : CornerParams).
-  Module X <: SecondDerivShimParams.
+Module Box (P : BoxParams).
+  Module X <: UpperLowerParams.
     Definition ub := P.ub_X.
     Definition d := P.d.
     Definition d_gt_0 := P.d_gt_0.
-    Definition amin := P.amin_X.
-    Definition amin_lt_0 := P.amin_lt_0_X.
+    Definition amin := P.amin.
+    Definition amin_lt_0 := P.amin_lt_0.
+    Definition ubv := P.ubv_X.
   End X.
 
-  Module Y <: SecondDerivShimParams.
+  Module Y <: UpperLowerParams.
     Definition ub := P.ub_Y.
     Definition d := P.d.
     Definition d_gt_0 := P.d_gt_0.
-    Definition amin : R :=
+    Definition amin :=
       (X.amin/Rtrigo1.tan (P.theta_max))%R.
     Theorem amin_lt_0 : (amin < 0)%R.
     Admitted.
+    Definition ubv := P.ubv_Y.
   End Y.
 
-  Module SDSP_X := SecondDerivShimCtrl X.
-  Module SDSP_Y := SecondDerivShimCtrl Y.
+  Module UpperLower_X := UpperLower X.
+  Module UpperLower_Y := UpperLower Y.
 
   Let rename_y :=
     RenameListC (("A","Ay")::("V","Vy")::("Y","Y")::("y","y")::
@@ -257,145 +174,266 @@ Module Corner (P : CornerParams).
                  ("v","vx")::("a","ax")::("Ymax","Xmax")::
                  ("Vmax","Vxmax")::nil).
 
-  Definition SpecRect :=
+  Definition SpecRectR :=
     SysCompose (SysRename (to_RenameMap rename_x)
                           (deriv_term_RenameList rename_x)
-                          SDSP_X.SpecR)
+                          UpperLower_X.SpecR)
                (SysRename (to_RenameMap rename_y)
                           (deriv_term_RenameList rename_y)
-                          SDSP_Y.SpecR).
+                          UpperLower_Y.SpecR).
 
   Let rename_polar : list (Var*Term) :=
     ("ax","a"*sin("theta"))::("ay","a"*cos("theta"))::nil.
 
-  Definition SpecPolar :=
+  Definition SpecPolarR :=
     SysRename (to_RenameMap rename_polar)
               (deriv_term_RenameList rename_polar)
-              SpecRect.
+              SpecRectR.
 
   Definition InputConstraint : Formula :=
     P.theta_min <= "theta" <= P.theta_max.
 
-  Definition InputConstraintSys : SysRec :=
+  Definition InputConstraintSysR : SysRec :=
     {| Init := InputConstraint;
        Prog := next InputConstraint;
        world := fun _ => TRUE;
        unch := nil;
        maxTime := P.d |}.
 
-  Definition SpecPolarConstrained :=
-    SysCompose SpecPolar InputConstraintSys.
+  Definition SpecPolarConstrainedR :=
+    SysCompose SpecPolarR InputConstraintSysR.
 
   Lemma constraints_ok :
-    |-- SysD SpecPolarConstrained -->> SysD SpecPolar.
+    |-- SysD SpecPolarConstrainedR -->> SysD SpecPolarR.
   Proof.
-    charge_intros. apply ComposeRefine.
+    pose proof P.theta_min_lt_theta_max.
+    charge_intros.
+    tlaAssert ltrue;
+      [ charge_tauto | charge_intros; rewrite landC ].
+    apply ComposeRefine.
     apply SysSafe_rule. apply always_tauto.
-    unfold Discr. simpl.
-    unfold SDSP_X.Ctrl, SDSP_X.History,
-    SDSP_Y.Ctrl, SDSP_Y.History, Max. simpl. restoreAbstraction.
+    unfold Discr. simpl. restoreAbstraction.
     rewrite <- Rename_ok
       by (simpl; intuition; is_st_term_list);
       simpl rename_formula; unfold RenameMap_compose;
       simpl rename_term; restoreAbstraction.
     setoid_rewrite <- lor_right2.
     enable_ex_st.
-    exists (Rbasic_fun.Rmin (Rbasic_fun.Rmin X.d Y.d) P.d).
+    eexists.
     exists P.theta_max.
     repeat match goal with
              |- exists x, _ => eexists
            end. solve_linear.
-    instantiate (1:=(- sqrt (X.amin*X.amin + Y.amin*Y.amin))%R).
+    instantiate
+      (1:=(- sqrt (X.amin*X.amin + Y.amin*Y.amin))%R).
     { unfold Y.amin. admit. }
     { unfold Y.amin. admit. }
-    { apply P.theta_min_lt_theta_max. }
+    { unfold Y.amin. admit. }
+    { unfold Y.amin. admit. }
   Qed.
 
-  Lemma rect_to_polar :
-    |-- SysD SpecPolar -->>
-        Rename (to_RenameMap rename_polar) (SysD SpecRect).
-  Proof.
-    unfold SpecPolar, SpecRect.
-    rewrite <- SysRename_sound.
-    { charge_tauto. }
-    { tlaIntuition; is_st_term_list. }
-    { apply deriv_term_list; reflexivity. }
-    { reflexivity. }
-    { apply forget_prem. unfold Discr. simpl.
-      unfold SDSP_X.Ctrl, SDSP_X.History,
-      SDSP_Y.Ctrl, SDSP_Y.History, Max. simpl. restoreAbstraction.
-      rewrite <- Rename_ok
-        by (simpl; intuition; is_st_term_list);
-        simpl rename_formula; unfold RenameMap_compose;
-        simpl rename_term; restoreAbstraction.
-      setoid_rewrite <- lor_right2.
-      enable_ex_st.
-      repeat match goal with
-               |- exists x, _ => eexists
-             end. solve_linear.
-      instantiate (2:=sqrt (X.amin*X.amin + Y.amin*Y.amin)).
-      instantiate (1:=atan (Y.amin/X.amin)).
-      rewrite sin_atan. admit.
-      rewrite cos_atan. admit. }
-  Qed.
+    Lemma rect_to_polar :
+    |-- SysD SpecPolarR -->>
+        Rename (to_RenameMap rename_polar) (SysD SpecRectR).
+    Proof.
+      unfold SpecPolarR, SpecRectR.
+      rewrite <- SysRename_sound.
+      { charge_tauto. }
+      { tlaIntuition; is_st_term_list. }
+      { apply deriv_term_list; reflexivity. }
+      { reflexivity. }
+      { apply forget_prem. unfold Discr. simpl.
+        restoreAbstraction.
+        rewrite <- Rename_ok
+          by (simpl; intuition; is_st_term_list);
+          simpl rename_formula; unfold RenameMap_compose;
+          simpl rename_term; restoreAbstraction.
+        setoid_rewrite <- lor_right2.
+        enable_ex_st.
+        repeat match goal with
+                 |- exists x, _ => eexists
+               end. solve_linear.
+        instantiate (2:=sqrt (X.amin*X.amin + Y.amin*Y.amin)).
+        instantiate (1:=atan (Y.amin/X.amin)).
+        rewrite ArithFacts.sin_atan. admit.
+        rewrite ArithFacts.sin_atan. admit.
+        rewrite ArithFacts.cos_atan. admit.
+        rewrite ArithFacts.cos_atan. admit. }
+    Qed.
 
-  Lemma the_box_rect
-  : |-- SysD SpecRect -->>
-        [](Rename (to_RenameMap rename_x) SDSP_X.Safe //\\
-           Rename (to_RenameMap rename_y) SDSP_Y.Safe).
-  Proof.
-    eapply Compose.
-    { apply SysSafe_rule; apply always_tauto.
-      unfold SDSP_X.SpecR, SDSP_X.Ctrl, SDSP_X.History,
-             SDSP_Y.SpecR, SDSP_Y.Ctrl, SDSP_Y.History.
-      simpl. restoreAbstraction.
-      unfold Max, Discr.
-      repeat rewrite <- Rename_ok by is_st_term_list.
-(* TODO: We should be able to make this more efficient with a [cbv] 
-      cbv beta iota zeta delta [ rename_formula rename_term find_term land lor limpl ILogicOps_Formula ltrue option_map find string_dec ].
-*)
-      Time simpl rename_formula; restoreAbstraction.
-      unfold Discr.
-      unfold X.d, Y.d.
-      enable_ex_st.
-      rewrite Rbasic_fun.Rmin_left by reflexivity.
-      exists P.d.
-      repeat match goal with
-             | |- exists x, _ => eexists
-             end.
-      solve_linear. }
-    { tlaIntro.
+    Lemma rect_safe
+      : []"vx" <= P.ubv_X //\\ []"vx" >= --P.ubv_X //\\
+        []"vy" <= P.ubv_Y //\\  []"vy" >= --P.ubv_Y
+        |-- SysD SpecRectR -->>
+            [](Rename (to_RenameMap rename_x)
+                      UpperLower_X.Safe //\\
+               Rename (to_RenameMap rename_y)
+                      UpperLower_Y.Safe).
+    Proof.
+      apply Compose.
+      { apply SysSafe_rule; apply always_tauto.
+        simpl. restoreAbstraction.
+        unfold UpperLower_Y.Monitor.Ctrl,
+        UpperLower_Y.Monitor.History, 
+        UpperLower_X.Monitor.Ctrl,
+        UpperLower_X.Monitor.History, Max, Discr.
+        simpl. restoreAbstraction.
+        rewrite <- Rename_ok by
+            (simpl; intuition; is_st_term_list).
+        simpl rename_formula. restoreAbstraction.
+        rewrite <- Rename_ok by
+            (simpl; intuition; is_st_term_list).
+        simpl rename_formula. restoreAbstraction.
+        unfold RenameMap_compose. simpl.
+        restoreAbstraction.
+        setoid_rewrite <- lor_right2.
+        enable_ex_st.
+        destruct (RIneq.Rgt_dec (st "x") R0);
+        destruct (RIneq.Rgt_dec (st "y") R0).
+        { repeat match goal with
+                 | |- exists x, _ => eexists
+                 end.
+          solve_linear. }
+        { repeat match goal with
+                 | |- exists x, _ => eexists
+                 end.
+          solve_linear.
+          instantiate (1:=(-UpperLower_Y.Params.amin)%R).
+          solve_linear. }
+        { repeat match goal with
+                 | |- exists x, _ => eexists
+                 end.
+          solve_linear.
+          instantiate (1:=(-UpperLower_X.Params.amin)%R).
+          solve_linear. }
+        { repeat match goal with
+                 | |- exists x, _ => eexists
+                 end.
+          solve_linear.
+          instantiate (1:=(-UpperLower_X.Params.amin)%R).
+          solve_linear.
+          instantiate (1:=(-UpperLower_Y.Params.amin)%R).
+          solve_linear. } }
+    { charge_intros.
       rewrite <- Rename_Always.
       unfold rename_x.
       rewrite SysRename_sound.
-      { eapply Proper_Rename.
-        { reflexivity. }
-        { pose proof SDSP_X.ctrl_safe.
-          charge_apply H. unfold SDSP_X.Spec.
-          charge_split; try charge_assumption. admit. } }
-      { compute. tauto. }
-      { intros. apply deriv_term_list; reflexivity. }
-      { reflexivity. }
-      { apply forget_prem. rewrite <- Rename_ok.
+      { pose proof UpperLower_X.UpperLower_ok.
+        apply (Proper_Rename (to_RenameMap rename_x)
+                             (to_RenameMap rename_x))
+          in H.
+        rewrite Rename_impl in H. unfold rename_x in *.
+        charge_apply H.
+        { charge_split.
+          { rewrite landC. tlaRevert.
+            apply forget_prem.
+            rewrite <- Rename_ok by (is_st_term_list; tauto).
+            simpl rename_formula. restoreAbstraction.
+            repeat rewrite Always_and. apply always_imp.
+            clear H. solve_linear. }
+          { charge_tauto. } }
+        { reflexivity. } }
+      { simpl; intuition; is_st_term_list. }
+      { simpl; intuition; is_st_term_list. }
+      { simpl; intuition; is_st_term_list. }
+      { apply forget_prem.
+        rewrite <- Rename_ok
+          by (simpl; intuition; is_st_term_list).
         simpl rename_formula. restoreAbstraction.
-        enable_ex_st. repeat eexists. solve_linear.
-        reflexivity. is_st_term_list. } }
-    { apply forget_prem. tlaIntro.
-      rewrite <- Rename_Always.
+        enable_ex_st.
+        destruct (RIneq.Rgt_dec (st "x") R0).
+        { repeat match goal with
+                 | |- exists x, _ => eexists
+                 end.
+          solve_linear. }
+        { repeat match goal with
+                 | |- exists x, _ => eexists
+                 end.
+          solve_linear.
+          instantiate (1:=(-UpperLower_X.Params.amin)%R).
+          solve_linear. } } }
+    { charge_intros.
+      repeat rewrite <- Rename_Always.
       unfold rename_y.
       rewrite SysRename_sound.
-      { eapply Proper_Rename.
-        { reflexivity. }
-        { pose proof SDSP_Y.ctrl_safe.
-          charge_apply H. unfold SDSP_Y.Spec.
-          charge_split; try charge_assumption. admit. } }
-      { compute. tauto. }
-      { intros. apply deriv_term_list; reflexivity. }
-      { reflexivity. }
-      { apply forget_prem. rewrite <- Rename_ok.
+      { pose proof UpperLower_Y.UpperLower_ok.
+        apply (Proper_Rename (to_RenameMap rename_y)
+                             (to_RenameMap rename_y))
+          in H.
+        rewrite Rename_impl in H. unfold rename_y in *.
+        charge_apply H.
+        { charge_split.
+          { tlaAssert
+              ((([]"vx" <= P.ubv_X //\\
+                 []"vx" >= -- (P.ubv_X) //\\
+                 []"vy" <= P.ubv_Y //\\
+                 []"vy" >= -- (P.ubv_Y))));
+            [ charge_tauto | ].
+            apply forget_prem.
+            rewrite <- Rename_ok by (is_st_term_list; tauto).
+            simpl rename_formula. restoreAbstraction.
+            repeat rewrite Always_and. apply always_imp.
+            clear H. solve_linear. }
+          { charge_tauto. } }
+        { reflexivity. } }
+      { simpl; intuition; is_st_term_list. }
+      { simpl; intuition; is_st_term_list. }
+      { simpl; intuition; is_st_term_list. }
+      { apply forget_prem.
+        rewrite <- Rename_ok
+          by (simpl; intuition; is_st_term_list).
         simpl rename_formula. restoreAbstraction.
-        enable_ex_st. repeat eexists. solve_linear.
-        reflexivity. is_st_term_list. } }
+        enable_ex_st.
+        destruct (RIneq.Rgt_dec (st "y") R0).
+        { repeat match goal with
+                 | |- exists x, _ => eexists
+                 end.
+          solve_linear. }
+        { repeat match goal with
+                 | |- exists x, _ => eexists
+                 end.
+          solve_linear.
+          instantiate (1:=(-UpperLower_Y.Params.amin)%R).
+          solve_linear. } } }
   Qed.
 
-End Corner.
+  Lemma box_safe_under_vel_bounds :
+    []"vx" <= P.ubv_X //\\ []"vx" >= --P.ubv_X //\\
+    []"vy" <= P.ubv_Y //\\  []"vy" >= --P.ubv_Y
+    |-- SysD SpecPolarConstrainedR -->>
+        [](--P.ub_X <= "x" <= P.ub_X //\\
+           --P.ub_Y <= "y" <= P.ub_Y).
+  Proof.
+    charge_intros.
+    pose proof rect_safe.
+    rewrite <- Rename_ok
+      in H by (simpl; intuition; is_st_term_list).
+    rewrite <- Rename_ok
+      in H by (simpl; intuition; is_st_term_list).
+    simpl rename_formula in H. restoreAbstraction.
+    match type of H with
+    | _ |-- _ -->> ?C => tlaAssert C
+    end.
+    { apply (Proper_Rename (to_RenameMap rename_polar)
+                           (to_RenameMap rename_polar))
+        in H; [ | reflexivity ].
+      rewrite <- Rename_ok
+        in H by (simpl; intuition; is_st_term_list).
+      rewrite Rename_impl in H.
+      rewrite <- (Rename_ok (Always _))
+        in H by (simpl; intuition; is_st_term_list).
+      simpl rename_formula in H. restoreAbstraction.
+      unfold ConstC, VarC in *.
+      charge_apply H. clear H.
+      charge_split; [ charge_tauto | ].
+      pose proof rect_to_polar.
+      charge_apply H. clear H.
+      pose proof constraints_ok.
+      charge_apply H. charge_tauto. }
+    { apply forget_prem. apply always_imp.
+      unfold UpperLower_X.Params.ub, UpperLower_Y.Params.ub.
+      unfold ConstC, VarC.
+      clear H. solve_linear. }
+  Qed.
+
+End Box.
