@@ -249,6 +249,9 @@ Module Box (P : BoxParams).
                SpecPolarConstrainedR.
 
   Lemma constraints_ok :
+    (** generalize with respect to the underlying system and add a premise
+     ** that says something about the arctan(x/y) is bounded by some theta.
+     **)
     |-- SysD SpecPolarConstrainedR -->> SysD SpecPolarR.
   Proof.
     pose proof P.theta_min_lt_theta_max.
@@ -278,6 +281,9 @@ Module Box (P : BoxParams).
   Qed.
 
     Lemma rect_to_polar :
+      (** this should generalize without any additional premises
+       ** it might require enabledness
+       **)
     |-- SysD SpecPolarR -->>
         Rename (to_RenameMap rename_polar) (SysD SpecRectR).
     Proof.
@@ -319,7 +325,7 @@ Module Box (P : BoxParams).
       { apply SysSafe_rule; apply always_tauto.
         simpl. restoreAbstraction.
         unfold UpperLower_Y.Monitor.Ctrl,
-        UpperLower_Y.Monitor.History, 
+        UpperLower_Y.Monitor.History,
         UpperLower_X.Monitor.Ctrl,
         UpperLower_X.Monitor.History, Max, Discr.
         simpl. restoreAbstraction.
@@ -677,7 +683,7 @@ Axiom amin_ubv_Y : (-P.amin*P.d <= P.ubv_Y)%R.
                  | |- exists x, _ => eexists
                  end.
           repeat split.
-          left. instantiate 
+          left. instantiate
           solve_linear.
 *)
       - charge_intros. pose proof velocity_safe.
@@ -709,5 +715,5 @@ Axiom amin_ubv_Y : (-P.amin*P.d <= P.ubv_Y)%R.
     { apply forget_prem. apply always_imp.
       solve_linear. }
   Qed.
-         
+
 End Box.
