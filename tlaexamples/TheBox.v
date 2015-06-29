@@ -94,14 +94,33 @@ Module UpperLower (P : UpperLowerParams).
         unfold Monitor.Safe in *.
         apply (Proper_Rename (to_RenameMap mirror)
                              (to_RenameMap mirror)) in H1;
-          [ | reflexivity ]. 
-        rewrite <- Rename_ok in H1 by is_st_term_list.
-        rewrite <- Rename_ok in H1
-                             by (is_st_term_list; tauto).
-        simpl rename_formula in *. restoreAbstraction.
-        (* should be able to charge_apply H1 here.
-           not sure what the problem is. *)
-        admit. }
+          [ | reflexivity ].
+        rewrite Rename_impl in H1.
+        rewrite <-
+                (SysRename_sound
+                   Monitor.SpecR
+                   (to_RenameMap mirror)
+                   (deriv_term_RenameList mirror)) in H1;
+          try solve [is_st_term_list; tauto].
+        { rewrite <- Rename_ok in H1 by is_st_term_list.
+          rewrite <- Rename_ok in H1
+                               by (is_st_term_list; tauto).
+          simpl rename_formula in *.
+          unfold ConstC. charge_apply H1. clear H1.
+          charge_split.
+          { tlaAssert ([]"v" >= -- (RealT Params.ubv));
+            [ charge_tauto | ].
+            apply forget_prem. apply always_imp.
+            solve_linear. }
+          { charge_tauto. } }
+        { apply forget_prem. clear H1.
+          rewrite <- Rename_ok by (is_st_term_list; tauto).
+          enable_ex_st.
+          repeat match goal with
+                 |- exists x, _ => eexists
+               end. solve_linear.
+          right. instantiate (1:=(-Params.amin)%R).
+          solve_linear. } }
       { apply forget_prem. apply always_imp. solve_linear. }
 Qed.
 
