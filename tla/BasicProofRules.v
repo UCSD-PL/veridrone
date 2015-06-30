@@ -429,6 +429,14 @@ Lemma lor_right2 : forall {P Q : Formula},
     Q |-- P \\// Q.
 Proof. intros. charge_tauto. Qed.
 
+Lemma trans_it : forall A B C D,
+    C |-- A ->
+    B |-- D ->
+    A -->> B |-- C -->> D.
+Proof.
+  intros. rewrite H. rewrite H0. reflexivity.
+Qed.
+
 Close Scope HP_scope.
 
 End in_context.
@@ -570,6 +578,8 @@ Fixpoint rename_term (m : RenameMap) (t:Term) :=
 
 Definition RenameMap_compose (m m' : RenameMap) : RenameMap :=
   fun x => rename_term m (m' x).
+
+Arguments RenameMap_compose _ _ _ /.
 
 Fixpoint rename_formula (m : RenameMap) (F:Formula) :=
   match F with
@@ -851,6 +861,23 @@ Proof.
     + unfold RenameMap_compose. simpl in Hst.
       destruct Hst. intros. apply rename_term_st_term; auto.
 Qed.
+
+Lemma is_st_term_to_RenameMap : forall ls (x : Var),
+    forallb (fun x => is_st_term (snd x)) ls = true ->
+    is_st_term (to_RenameMap ls x) = true.
+Proof.
+  induction ls.
+  { simpl in *. reflexivity. }
+  { simpl in *. intros.
+    eapply Bool.andb_true_iff in H.
+    destruct H.
+    destruct a; simpl in *.
+    destruct (String.string_dec x v); subst; auto. }
+Qed.
+
+Ltac rw_side_condition :=
+  repeat first [ split | intros ];
+  try solve [ apply is_st_term_to_RenameMap ; reflexivity ].
 
 Hint Rewrite Rename_True Rename_False Rename_Comp
      Rename_and Rename_or Rename_impl Rename_PropF

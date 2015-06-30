@@ -60,6 +60,11 @@ Ltac enable_ex_st :=
   end; try (eapply ex_state_any; (let st := fresh in
                                   intro st; clear st)).
 
+Ltac smart_repeat_eexists :=
+  repeat match goal with
+           |- exists x, _ => eexists
+         end.
+
 (* The old tactic, very slow. *)
 (*
 Ltac enable_ex_st :=
@@ -89,7 +94,7 @@ Ltac is_st_term_list :=
   repeat match goal with
            |- context [ String.string_dec ?e1 ?e2 ] =>
            destruct (String.string_dec e1 e2)
-         end; try reflexivity.
+         end; try reflexivity; try tauto.
 
 Lemma reason_action : forall P Q,
     (forall a b tr,

@@ -1411,3 +1411,51 @@ Proof.
   intros; Rename_rewrite.
   restoreAbstraction. split; charge_tauto.
 Qed.
+
+Definition Sys_rename_formula (m : RenameMap)
+           (m' : state->RenameMap) (s : SysRec)
+: SysRec :=
+{| Init := rename_formula m s.(Init)
+ ; Prog := rename_formula m s.(Prog)
+ ; world := fun st' : state =>
+          (Forall x : Var, st' x = m' st' x) //\\
+          rename_formula m (s.(world) (fun x : Var => st' x))
+ ; unch := List.map (rename_term m) s.(unch)
+ ; maxTime := s.(maxTime)
+ |}.
+
+Lemma SysRename_rename_formula_equiv :
+  forall m m' s,
+    st_term_renamings (Init s) ->
+    st_term_renamings (Prog s) ->
+    (forall x : Var, is_st_term (m x) = true) ->
+    (forall st', st_term_renamings (world s st')) ->
+    SysRec_equiv (SysRename m m' s)
+                 (Sys_rename_formula m m' s).
+Proof.
+  intros. unfold SysRec_equiv.
+  repeat split; try reflexivity; simpl in *;
+  restoreAbstraction;
+  try solve [rewrite Rename_ok; auto | intuition |
+             rewrite Rename_ok; simpl; intuition |
+             rewrite Rename_ok in *; intuition].
+Qed.
+
+Ltac discharge_Sys_rename_formula :=
+  match goal with
+    |- { _ : _ & _ |-- Rename (to_RenameMap ?m) (SysD ?s) }
+    => exists (Sys_rename_formula
+                 (to_RenameMap m)
+                 (deriv_term_RenameList m) s)
+  end;
+  rewrite <- SysRename_rename_formula_equiv
+    by rw_side_condition;
+  apply SysRename_sound;
+  match goal with
+  | [ |- context [ Enabled _ ] ] =>  idtac
+  | [ |- forall _ : state, is_st_formula _ ]
+    => tlaIntuition; abstract is_st_term_list
+  | [ |- NotRenamed _ _ ]
+    => reflexivity
+  | [ |- _ ] => apply deriv_term_list; reflexivity
+  end.

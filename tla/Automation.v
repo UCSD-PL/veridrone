@@ -55,6 +55,12 @@ Ltac tlaAssert H :=
 
 Ltac tlaRevert := first [ apply landAdj | apply Lemmas.lrevert ].
 
+Ltac tlaCutByHyp H :=
+  match type of H with
+  | _ |-- _ -->> ?C => tlaAssert C
+  | _ |-- ?C => tlaAssert C
+  end.
+
 (** Rewriting **)
 Section RW_Impl.
   Variable P : Formula.
