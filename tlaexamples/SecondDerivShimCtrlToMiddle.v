@@ -51,7 +51,6 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
   Definition Ctrl : Formula :=
     SafeAcc "a"! \\// Default.
 
-
   Definition History : Formula :=
     "Y"! = "y" //\\ "V"! = "v" //\\ "T"! = "t"!.
 
@@ -82,60 +81,17 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
                 ("T":Term)::("v":Term)::("y":Term)::nil)%list;
        maxTime := d |}.
 
-  Definition Spec := SysD SpecR.
+  Definition ProgRefined : Formula :=
+    Default //\\ History //\\ Unchanged ("v"::"y"::nil)%list.
 
-(*
-  Definition AnyDiscrete : SysRec :=
-    {| Init := "v" <= ubv //\\ "v" + "a"*d <= ubv;
-       Prog := History //\\ Unchanged ("v"::"y"::nil)%list;
-       world := w;
-       unch := (("a":Term)::("Y":Term)::("V":Term)::
-                ("T":Term)::("v":Term)::("y":Term)::nil)%list;
-       maxTime := d |}.
-
-  Definition IndInv_AnyDiscrete : Formula :=
-         ("a" <  0 -->> "v" <= ubv)
-    //\\ ("a" >= 0 -->> "v" + "a"*"t" <= ubv).
-
-  Lemma vel_bound_acc_bound :
-    []"v" <= ubv
-    |-- SysD AnyDiscrete -->> []"V" + "a"*tdiff <= ubv.
+  Lemma ProgRefined_ok :
+    ProgRefined |-- SpecR.(Prog).
   Proof.
-    pose proof d_gt_0.
-    charge_intros.
-    eapply Sys_by_induction
-    with (IndInv:=IndInv_AnyDiscrete) (A:="v" <= ubv).
-    - tlaIntuition.
-    - unfold Spec, SpecR, AnyDiscrete. charge_tauto.
-    - simpl. tauto.
-    - apply SysSafe_rule. apply Lemmas.forget_prem.
-      apply always_tauto. enable_ex_st. repeat eexists.
-      reflexivity.
-    - solve_nonlinear.
-    - charge_tauto.
-    - solve_nonlinear.
-    - unfold InvariantUnder. solve_linear.
-      rewrite_next_st. solve_linear.
-    - eapply diff_ind with (Hyps:=TRUE).
-      + tlaIntuition.
-      + tlaIntuition.
-      + unfold World. tlaAssume.
-      + tlaIntuition.
-      + tlaAssume.
-      + tlaIntuition.
-      + restoreAbstraction. charge_tauto.
-      + charge_intros; repeat charge_split; charge_intros;
-        try solve [solve_linear |
-                   eapply zero_deriv with (x:="a");
-                     [ charge_tauto | tlaIntuition | ]
-                   solve_linear.
-            eapply zero_deriv with (x:="V");
-              [ charge_tauto | tlaIntuition | ].
-            
-                   charge_intros; eapply unchanged_continuous.
-                     [ tlaAssume | solve_linear ] ].
-    - solve_nonlinear.
-*)
+    unfold ProgRefined. unfold SpecR, Ctrl.
+    simpl. restoreAbstraction. charge_tauto.
+  Qed.
+
+  Definition Spec := SysD SpecR.
 
   Definition IndInv : Formula :=
     "y" - "Y" <= tdist "V" "a" tdiff //\\

@@ -56,6 +56,20 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
   Definition SpecR :=
     SysCompose Monitor.SpecR (projT1 SpecMirrorR).
 
+  Definition ProgRefined :=
+    Monitor.ProgRefined //\\
+    rename_formula (to_RenameMap mirror) Monitor.ProgRefined.
+
+  Lemma ProgRefined_ok :
+    ProgRefined |-- SpecR.(Prog).
+  Proof.
+    unfold ProgRefined, SpecR, Monitor.ProgRefined.
+    Opaque Monitor.SafeAcc Monitor.Default.
+    simpl. restoreAbstraction. unfold Monitor.Ctrl.
+    charge_tauto.
+    Transparent Monitor.SafeAcc Monitor.Default.
+  Qed.
+
   Definition Safe :=
     "y" <= Params.ub //\\ --Params.ub <= "y".
 

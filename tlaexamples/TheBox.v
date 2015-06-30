@@ -107,6 +107,36 @@ Module Box (P : BoxParams).
     SysCompose (projT1 UpperLower_X_SpecR)
                (projT1 UpperLower_Y_SpecR).
 
+  Definition ProgRectRefined : Formula :=
+    rename_formula (to_RenameMap rename_x)
+                   UpperLower_X.ProgRefined //\\
+    rename_formula (to_RenameMap rename_y)
+                   UpperLower_Y.ProgRefined.
+
+  Lemma ProgRefined_ok :
+    ProgRectRefined |-- SpecRectR.(Prog).
+  Admitted.
+
+  Lemma RectEnabled :
+    |-- SysSafe SpecRectR.
+  Proof.
+    apply SysSafe_rule. apply always_tauto.
+    unfold Discr. rewrite <- ProgRefined_ok.
+    enable_ex_st.
+    pose proof UpperLower_X.Params.amin_lt_0.
+    pose proof UpperLower_Y.Params.amin_lt_0.
+    destruct (RIneq.Rgt_dec (st "x") R0);
+      destruct (RIneq.Rgt_dec (st "y") R0).
+    { smart_repeat_eexists; solve_linear. }
+    { do 6 eexists. exists (-UpperLower_Y.Params.amin)%R.
+      smart_repeat_eexists. solve_linear. }
+    { do 11 eexists. exists (-UpperLower_X.Params.amin)%R.
+      smart_repeat_eexists. solve_linear. }
+    { do 6 eexists. exists (-UpperLower_Y.Params.amin)%R.
+      do 4 eexists. exists (-UpperLower_X.Params.amin)%R.
+      smart_repeat_eexists. solve_linear. }
+  Qed.
+
   Let rename_polar : list (Var*Term) :=
     ("ax","a"*sin("theta"))::("ay","a"*cos("theta"))::nil.
 
@@ -251,22 +281,7 @@ Module Box (P : BoxParams).
                     UpperLower_Y.Safe).
   Proof.
     apply Compose.
-    { apply SysSafe_rule; apply always_tauto.
-      unfold Discr. simpl. restoreAbstraction.
-      setoid_rewrite <- lor_right2.
-      enable_ex_st.
-      pose proof UpperLower_X.Params.amin_lt_0.
-      pose proof UpperLower_Y.Params.amin_lt_0.
-      destruct (RIneq.Rgt_dec (st "x") R0);
-        destruct (RIneq.Rgt_dec (st "y") R0).
-      { smart_repeat_eexists; solve_linear. }
-      { do 6 eexists. exists (-UpperLower_Y.Params.amin)%R.
-        smart_repeat_eexists. solve_linear. }
-      { do 11 eexists. exists (-UpperLower_X.Params.amin)%R.
-        smart_repeat_eexists. solve_linear. }
-      { do 6 eexists. exists (-UpperLower_Y.Params.amin)%R.
-        do 4 eexists. exists (-UpperLower_X.Params.amin)%R.
-        smart_repeat_eexists. solve_linear. } }
+    { apply forget_prem. apply RectEnabled. }
     { charge_intros. pose proof UpperLower_X.UpperLower_ok.
       apply (Proper_Rename (to_RenameMap rename_x)
                            (to_RenameMap rename_x))
