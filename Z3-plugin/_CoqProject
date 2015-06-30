@@ -1,0 +1,5 @@
+-I src
+-R theories Z3
+
+src/z3Tactic.ml4
+theories/Tactic.v
