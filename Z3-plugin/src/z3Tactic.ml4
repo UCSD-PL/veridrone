@@ -192,10 +192,16 @@ struct
   let debug = ref false
 
   let with_debugging f g =
+    let copy = !debug in
     let _ = debug := true in
-    let result = f g in
-    let _ = debug := false in
-    result
+    try
+      let result = f g in
+      let _ = debug := copy in
+      result
+    with
+      f ->
+	let _ = debug := copy in
+	raise f
 
   let debug f = if !debug then f () else ()
 
@@ -225,6 +231,7 @@ struct
   let c_or = resolve_symbol logic_pkg "or"
   let c_True = resolve_symbol logic_pkg "True"
   let c_False = resolve_symbol logic_pkg "False"
+  let c_Not = resolve_symbol logic_pkg "not"
   let c_eq = resolve_symbol logic_pkg "eq"
   let c_Prop = Term.mkProp
 
@@ -316,11 +323,11 @@ struct
 		   pr_decls tbl
 		   (pr_list sep print_r_assert) stmts
 
-  let ptrn_success = Str.regexp "^unsat(\\([^)]*\\))"
+  let ptrn_success = Str.regexp "^unsat (\\([^)]*\\))"
   let ptrn_failure = Str.regexp "^sat ([^)]*) (model\\(.+\\)) ?$"
   let ptrn_split = Str.regexp " "
 
-  let ptrn_def = Str.regexp "(define-fun x\\([0-9]+\\) () Real[ \n\r\t]+\\([0-9]*.[0-9]*\\))"
+  let ptrn_def = Str.regexp "(define-fun x\\([0-9]+\\) () Real[ \n\r\t]+(?\\(-? [0-9]*.[0-9]*\\))?)"
 
   type z3_result =
       Sat of (int * float) list
@@ -332,7 +339,15 @@ struct
     try
       let _ = Str.search_forward ptrn_def result start in
       let num = int_of_string (Str.matched_group 1 result) in
-      let value = float_of_string (Str.matched_group 2 result) in
+      let value = Str.matched_group 2 result in
+      let value =
+	try
+	  let _ = String.index value '-' in
+	  "-" ^ String.sub value 2 (String.length value - 2)
+	with
+	  Not_found -> value
+      in
+      let value = float_of_string value in
       (num, value) :: extract_model (Str.match_end ()) result
     with
       Not_found -> []
@@ -433,6 +448,10 @@ struct
 	 (Req (l, r), tbl))
       ; parse_bop parse_prop c_and (fun a b -> Rand (a,b))
       ; parse_bop parse_prop c_or  (fun a b -> Ror (a,b))
+      ; (Term_match.apps (Term_match.EGlob c_Not)
+	   [Term_match.get 0], fun tbl bindings ->
+	     let (l,tbl) = parse_prop tbl (Hashtbl.find bindings 0) in
+	     (Rnot l, tbl))
       ; (Term_match.EGlob c_True, fun tbl _ -> (Rtrue, tbl))
       ; (Term_match.EGlob c_False, fun tbl _ -> (Rfalse, tbl))
       ; (Term_match.get 0,
@@ -467,9 +486,17 @@ struct
       | Some x -> x
     in
     let pp_assign (x,v) =
-      Pp.(++) (Printer.pr_constr (find x)) (str (Printf.sprintf " = %f" v))
+      let vv : float = v in
+      Pp.(   (Printer.pr_constr (find x))
+	  ++ (str (Printf.sprintf " = %f" vv)))
     in
-    pp_list pp_assign (fun _ -> Pp.str "\n")
+    begin
+    fun x ->
+      match x with
+      | [] -> assert false
+      | _ -> 
+	pp_list pp_assign Pp.fnl x
+    end
 
   let maybe_parse check tbl (name, decl, trm) =
     if check trm then
@@ -512,10 +539,10 @@ struct
        in
        match runZ3 tbl hyps with
          Sat model ->
-	 Printf.eprintf "%d" (List.length model) ;
 	 let msg =
-	   Pp.(++) (Pp.str "z3 failed to solve the goal.\n")
-		   (pr_model tbl model)
+	   Pp.(   (str "z3 failed to solve the goal.")
+               ++ (fnl ())
+	       ++ (pr_model tbl model))
 	 in
 	 Tacticals.tclFAIL 0 msg gl
        | Unsat core ->
