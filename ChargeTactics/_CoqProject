@@ -1,4 +1,0 @@
--I ../Charge/Charge!/bin
--R . ChargeTactics
-Lemmas.v
-Tactics.v

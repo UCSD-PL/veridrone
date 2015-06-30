@@ -1,0 +1,32 @@
+-I Z3-plugin/src
+-R Z3-plugin/theories Z3
+-R Charge/Charge!/bin/Charge Charge
+-R coq-ext-lib/theories ExtLib
+-R ChargeTactics ChargeTactics
+-R tla TLA
+-R tlaexamples Examples
+
+tla/Stream.v
+tla/Syntax.v
+tla/Semantics.v
+tla/Lib.v
+tla/BasicProofRules.v
+tla/DifferentialInduction.v
+tla/ContinuousProofRules.v
+tla/ProofRules.v
+tla/ArithFacts.v
+tla/Substitution.v
+tla/Tactics.v
+tla/Automation.v
+tla/TLA.v
+
+ChargeTactics/Tactics.v
+ChargeTactics/Lemmas.v
+
+tlaexamples/System.v
+tlaexamples/FirstDerivShimCtrl.v
+tlaexamples/SecondDerivShimCtrlToMiddle.v
+tlaexamples/SecondDerivUtil.v
+tlaexamples/UpperLowerSecond.v
+tlaexamples/UpperLowerFirst.v
+tlaexamples/TheBox.v

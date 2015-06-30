@@ -1,3 +1,5 @@
+coq-ext-lib
+Charge
 Makefile.coq
 *.glob
 *.v.d
@@ -9,3 +11,5 @@ Makefile.coq
 *.cmxs
 *.o
 *.d
+*.aux
+*/#*
