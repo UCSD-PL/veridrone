@@ -137,44 +137,6 @@ Module Box (P : BoxParams).
       smart_repeat_eexists. solve_linear. }
   Qed.
 
-  Let rename_polar : list (Var*Term) :=
-    ("ax","a"*sin("theta"))::("ay","a"*cos("theta"))::nil.
-
-  Definition SpecPolarR :
-    { x : SysRec &
-          SysD x |-- Rename (to_RenameMap rename_polar)
-                            (SysD SpecRectR) }.
-  Proof.
-    discharge_Sys_rename_formula.
-    apply forget_prem.
-    rewrite <- Rename_ok by is_st_term_list.
-    simpl; restoreAbstraction.
-    setoid_rewrite <- lor_right2.
-    enable_ex_st.
-    admit.
-    (* smart_repeat_eexists.
-    solve_linear.
-    instantiate (2:=sqrt (X.amin*X.amin + Y.amin*Y.amin)).
-    instantiate (1:=atan (Y.amin/X.amin)).
-    rewrite ArithFacts.sin_atan. admit.
-    rewrite ArithFacts.sin_atan. admit.
-    rewrite ArithFacts.cos_atan. admit.
-    rewrite ArithFacts.cos_atan. admit.*)
-  Defined.
-
-  Definition InputConstraint : Formula :=
-    P.theta_min <= "theta" <= P.theta_max.
-
-  Definition InputConstraintSysR : SysRec :=
-    {| Init := InputConstraint;
-       Prog := next InputConstraint;
-       world := fun _ => TRUE;
-       unch := nil;
-       maxTime := P.d |}.
-
-  Definition SpecPolarConstrainedR :=
-    SysCompose (projT1 SpecPolarR) InputConstraintSysR.
-
   Module VX <: UpperLowerFirstParams.
     Definition ub := P.ubv_X.
     Definition d := P.d.
@@ -218,22 +180,51 @@ Module Box (P : BoxParams).
     SysCompose (projT1 SpecVelocityR_X)
                (projT1 SpecVelocityR_Y).
 
-  Definition SpecVelocityR_Polar :
+  (* The velocity and position monitors
+     in rectangular coordinates without
+     constraints on control inputs. *)
+  Definition SpecRectVelocityR :=
+    SysCompose SpecVelocityR SpecRectR.
+
+  Let rename_polar : list (Var*Term) :=
+    ("ax","a"*sin("theta"))::("ay","a"*cos("theta"))::nil.
+
+  Definition SpecPolarR :
     { x : SysRec &
           SysD x |-- Rename (to_RenameMap rename_polar)
-                            (SysD SpecVelocityR) }.
+                            (SysD SpecRectVelocityR) }.
   Proof.
     discharge_Sys_rename_formula.
     apply forget_prem.
     rewrite <- Rename_ok by is_st_term_list.
+    simpl; restoreAbstraction.
+    setoid_rewrite <- lor_right2.
     enable_ex_st.
-    (* Trig stuff. *)
     admit.
+    (* smart_repeat_eexists.
+    solve_linear.
+    instantiate (2:=sqrt (X.amin*X.amin + Y.amin*Y.amin)).
+    instantiate (1:=atan (Y.amin/X.amin)).
+    rewrite ArithFacts.sin_atan. admit.
+    rewrite ArithFacts.sin_atan. admit.
+    rewrite ArithFacts.cos_atan. admit.
+    rewrite ArithFacts.cos_atan. admit.*)
   Defined.
 
-  Definition SpecR :=
-    SysCompose (projT1 SpecVelocityR_Polar)
-               SpecPolarConstrainedR.
+  Definition InputConstraint : Formula :=
+    P.theta_min <= "theta" <= P.theta_max.
+
+  Definition InputConstraintSysR : SysRec :=
+    {| Init := InputConstraint;
+       Prog := next InputConstraint;
+       world := fun _ => TRUE;
+       unch := nil;
+       maxTime := P.d |}.
+
+  (* The full system, in polar coordinates, with
+     control input constraints. *)
+  Definition SpecPolarConstrainedR :=
+    SysCompose (projT1 SpecPolarR) InputConstraintSysR.
 
   Lemma constraints_ok :
     (** generalize with respect to the underlying system and add a premise
@@ -266,7 +257,8 @@ Module Box (P : BoxParams).
      ** it might require enabledness
      **)
     SysD (projT1 SpecPolarR)
-    |-- Rename (to_RenameMap rename_polar) (SysD SpecRectR).
+    |-- Rename (to_RenameMap rename_polar)
+               (SysD SpecRectVelocityR).
   Proof.
     apply (projT2 SpecPolarR).
   Qed.
@@ -275,9 +267,9 @@ Module Box (P : BoxParams).
     : []"vx" <= P.ubv_X //\\ []"vx" >= --P.ubv_X //\\
       []"vy" <= P.ubv_Y //\\  []"vy" >= --P.ubv_Y
       |-- SysD SpecRectR -->>
-          [](Rename (to_RenameMap rename_x)
+          [](rename_formula (to_RenameMap rename_x)
                     UpperLower_X.Safe //\\
-             Rename (to_RenameMap rename_y)
+             rename_formula (to_RenameMap rename_y)
                     UpperLower_Y.Safe).
   Proof.
     apply Compose.
@@ -287,6 +279,7 @@ Module Box (P : BoxParams).
                            (to_RenameMap rename_x))
         in H; [ | reflexivity ].
       rewrite Rename_impl in H. rewrite Rename_Always in H.
+      rewrite Rename_ok by rw_side_condition.
       charge_apply H. clear.
       { charge_split.
         { rewrite landC. tlaRevert.
@@ -302,6 +295,7 @@ Module Box (P : BoxParams).
                            (to_RenameMap rename_y))
         in H; [ | reflexivity ].
       rewrite Rename_impl in H. rewrite Rename_Always in H.
+      repeat rewrite Rename_ok by rw_side_condition.
       charge_apply H. clear.
       { charge_split.
         { rewrite landC. tlaRevert.
@@ -312,33 +306,6 @@ Module Box (P : BoxParams).
           solve_linear. }
         { pose proof (projT2 UpperLower_Y_SpecR).
           cbv beta in H. charge_tauto. } } }
-  Qed.
-
-  Lemma box_safe_under_vel_bounds :
-    []"vx" <= P.ubv_X //\\ []"vx" >= --P.ubv_X //\\
-    []"vy" <= P.ubv_Y //\\  []"vy" >= --P.ubv_Y
-    |-- SysD SpecPolarConstrainedR -->>
-        [](--P.ub_X <= "x" <= P.ub_X //\\
-           --P.ub_Y <= "y" <= P.ub_Y).
-  Proof.
-    charge_intros.
-    rewrite constraints_ok.
-    rewrite rect_to_polar.
-    pose proof rect_safe.
-    eapply Proper_Rename in H. 2: reflexivity.
-    revert H. instantiate (1 := to_RenameMap rename_polar).
-    intro.
-    rewrite <- Rename_ok in H by rw_side_condition.
-    tlaRevert.
-    simpl rename_formula in H. restoreAbstraction.
-    rewrite H; clear.
-    rewrite Rename_impl.
-    eapply trans_it.
-    { reflexivity. }
-    { rewrite <- Rename_ok by rw_side_condition.
-      simpl; restoreAbstraction.
-      tlaRevert. apply always_imp.
-      solve_linear. }
   Qed.
 
   Lemma velocity_safe :
@@ -370,18 +337,14 @@ Module Box (P : BoxParams).
       apply always_imp. solve_linear.
   Qed.
 
-Axiom amin_ubv_X : (-P.amin*P.d <= P.ubv_X)%R.
-Axiom amin_ubv_Y : (-P.amin*P.d <= P.ubv_Y)%R.
-
-  Theorem box_safe :
-    |-- SysD SpecR -->>
+  Lemma rect_velocity_safe :
+    |-- SysD SpecRectVelocityR -->>
         []((("vx" <= VX.ub //\\ --"vx" <= VX.ub) //\\
-           ("vy" <= VY.ub //\\ --"vy" <= VY.ub)) //\\
-           (--P.ub_X <= "x" <= P.ub_X //\\
-            --P.ub_Y <= "y" <= P.ub_Y)).
+            ("vy" <= VY.ub //\\ --"vy" <= VY.ub)) //\\
+            (--P.ub_X <= "x" <= P.ub_X //\\
+             --P.ub_Y <= "y" <= P.ub_Y)).
   Proof.
-    charge_intros.
-    apply lrevert. apply Compose.
+    apply Compose.
     - apply SysSafe_rule. apply always_tauto.
       simpl. restoreAbstraction.
       admit.
@@ -403,25 +366,50 @@ Axiom amin_ubv_Y : (-P.amin*P.d <= P.ubv_Y)%R.
           left. instantiate
           solve_linear.
 *)
-    - charge_intros. pose proof (projT2 SpecVelocityR_Polar).
-      cbv beta in H. rewrite H. clear.
-      pose proof velocity_safe.
-      apply (Proper_Rename (to_RenameMap rename_polar)
-                           (to_RenameMap rename_polar))
-        in H; [ | reflexivity ].
-      rewrite Rename_True in H. rewrite Rename_impl in H.
-      restoreAbstraction. apply landAdj in H.
-      rewrite landtrueL in H. rewrite H. clear.
-      rewrite <- Rename_ok by rw_side_condition.
-      tlaRevert. apply always_imp. solve_linear.
-    - charge_intros.
-      pose proof box_safe_under_vel_bounds.
-      charge_apply H. clear. unfold VX.ub, VY.ub.
-      charge_split.
-      + rewrite landC. tlaRevert. apply forget_prem.
-        rewrite landtrueL. repeat rewrite Always_and.
-        apply always_imp. solve_linear.
-      + charge_tauto.
+    - apply velocity_safe.
+    - rewrite landtrueL. pose proof rect_safe.
+      simpl rename_formula in H. restoreAbstraction.
+      charge_intros.
+      tlaCutByHyp H.
+      { charge_apply H. charge_split.
+        { rewrite landC. tlaRevert. apply forget_prem.
+          repeat rewrite Always_and. apply always_imp.
+          clear. unfold VX.ub, VY.ub. solve_linear. }
+        { charge_tauto. } }
+      { apply forget_prem. apply always_imp. clear.
+        unfold UpperLower_Y.Params.ub,
+        UpperLower_X.Params.ub.
+        solve_linear. }
+  Qed.
+
+Axiom amin_ubv_X : (-P.amin*P.d <= P.ubv_X)%R.
+Axiom amin_ubv_Y : (-P.amin*P.d <= P.ubv_Y)%R.
+
+  Theorem box_safe :
+    |-- SysD SpecPolarConstrainedR -->>
+        []((("vx" <= VX.ub //\\ --"vx" <= VX.ub) //\\
+           ("vy" <= VY.ub //\\ --"vy" <= VY.ub)) //\\
+           (--P.ub_X <= "x" <= P.ub_X //\\
+            --P.ub_Y <= "y" <= P.ub_Y)).
+  Proof.
+    charge_intros.
+    rewrite constraints_ok.
+    rewrite rect_to_polar.
+    pose proof rect_velocity_safe.
+    eapply Proper_Rename in H. 2: reflexivity.
+    revert H. instantiate (1 := to_RenameMap rename_polar).
+    intro.
+    rewrite <- Rename_ok in H by rw_side_condition.
+    tlaRevert.
+    simpl rename_formula in H. restoreAbstraction.
+    rewrite H; clear.
+    rewrite Rename_impl.
+    eapply trans_it.
+    { reflexivity. }
+    { rewrite <- Rename_ok by rw_side_condition.
+      simpl; restoreAbstraction.
+      tlaRevert. apply always_imp.
+      solve_linear. }
   Qed.
 
 End Box.
