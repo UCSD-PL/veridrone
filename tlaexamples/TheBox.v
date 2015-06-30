@@ -271,10 +271,9 @@ Module Box (P : BoxParams).
     (** generalize with respect to the underlying system and add a premise
      ** that says something about the arctan(x/y) is bounded by some theta.
      **)
-    |-- SysD SpecPolarConstrainedR -->> SysD SpecPolarR.
+    SysD SpecPolarConstrainedR |-- SysD SpecPolarR.
   Proof.
     pose proof P.theta_min_lt_theta_max.
-    charge_intros.
     tlaAssert ltrue;
       [ charge_tauto | charge_intros; rewrite landC ].
     apply ComposeRefine.
@@ -302,8 +301,8 @@ Module Box (P : BoxParams).
     (** this should generalize without any additional premises
      ** it might require enabledness
      **)
-    |-- SysD SpecPolarR -->>
-        Rename (to_RenameMap rename_polar) (SysD SpecRectR).
+    SysD SpecPolarR
+    |-- Rename (to_RenameMap rename_polar) (SysD SpecRectR).
   Proof.
     unfold SpecPolarR, SpecRectR.
     rewrite <- SysRename_sound.
@@ -461,7 +460,15 @@ Module Box (P : BoxParams).
           solve_linear.
           instantiate (1:=(-UpperLower_Y.Params.amin)%R).
           solve_linear. } } }
-  Qed.
+    Qed.
+
+    Lemma trans_it : forall A B C D,
+        C |-- A ->
+        B |-- D ->
+        A -->> B |-- C -->> D.
+    Proof.
+      intros. rewrite H. rewrite H0. reflexivity.
+    Qed.
 
   Lemma box_safe_under_vel_bounds :
     []"vx" <= P.ubv_X //\\ []"vx" >= --P.ubv_X //\\
@@ -471,35 +478,26 @@ Module Box (P : BoxParams).
            --P.ub_Y <= "y" <= P.ub_Y).
   Proof.
     charge_intros.
-    pose proof rect_safe.
+    rewrite constraints_ok.
+    rewrite rect_to_polar.
+    generalize rect_safe. intro.
+    eapply Proper_Rename in H. 2: reflexivity.
+    revert H. instantiate (1 := to_RenameMap rename_polar).
+    intro.
     rewrite <- Rename_ok
       in H by (simpl; intuition; is_st_term_list).
-    rewrite <- Rename_ok
-      in H by (simpl; intuition; is_st_term_list).
+    tlaRevert.
     simpl rename_formula in H. restoreAbstraction.
-    match type of H with
-    | _ |-- _ -->> ?C => tlaAssert C
-    end.
-    { apply (Proper_Rename (to_RenameMap rename_polar)
-                           (to_RenameMap rename_polar))
-        in H; [ | reflexivity ].
-      rewrite <- Rename_ok
-        in H by (simpl; intuition; is_st_term_list).
-      rewrite Rename_impl in H.
-      rewrite <- (Rename_ok (Always _))
-        in H by (simpl; intuition; is_st_term_list).
-      simpl rename_formula in H. restoreAbstraction.
-      unfold ConstC, VarC in *.
-      charge_apply H. clear H.
-      charge_split; [ charge_tauto | ].
-      pose proof rect_to_polar.
-      charge_apply H. clear H.
-      pose proof constraints_ok.
-      charge_apply H. charge_tauto. }
-    { apply forget_prem. apply always_imp.
-      unfold UpperLower_X.Params.ub, UpperLower_Y.Params.ub.
-      unfold ConstC, VarC.
-      clear H. solve_linear. }
+    rewrite H; clear.
+    rewrite Rename_impl.
+    eapply trans_it.
+    { reflexivity. }
+    { rewrite <- Rename_ok
+        by (simpl; intuition; is_st_term_list).
+      simpl; restoreAbstraction.
+      apply Proper_Always.
+      eapply lequiv_to_iff. intro.
+      simpl. split; solve_linear. }
   Qed.
 
   Lemma velocity_safe :
