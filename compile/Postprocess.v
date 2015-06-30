@@ -718,6 +718,7 @@ Print oembedStep_maybenone.
 Print is_st_formula.
 
 (* TODO: we can't encode these definitions in the current version of RTLA, I think. *)
+(*
 Definition varValidPre (v : Var) : Syntax.Formula :=
   Embed (fun pre _ =>
            exists (f : float), (eq (F2OR f) (Some (pre v)))).
@@ -728,23 +729,57 @@ Definition varValidPost (v : Var) : Syntax.Formula :=
 
 Definition varValidBoth (v : Var) : Syntax.Formula :=
   varValidPre v //\\ varValidPost v.           
+ *)
 
-Fact fwp_simpler_full : varValidPre "x" //\\ "x" > 0 //\\
+Print Syntax.Formula.
+Print Syntax.Term.
+
+SearchAbout float R.
+
+(* Predicate capturing that the given variable is a float in the pre-state *)
+(* todo, possibly: lift to variable maps? *)
+Definition preVarIsFloat (v : Var) : Syntax.Formula :=
+  Syntax.Exists float (fun (f : float) =>
+                  Comp (RealT (FloatToR f)) (VarNowT v) Eq //\\
+                       PropF (exists (r : R), eq (F2OR f) (Some r))).
+
+Lemma sf_preVarIsFloat :
+  forall (v : Var),
+    is_st_formula (preVarIsFloat v).
+Proof.
+  intros.
+  simpl.
+  intuition.
+Qed.
+
+Lemma F2OR_FloatToR :
+  forall (f : float) (r r' : R),
+    F2OR f = Some r ->
+    FloatToR f = r' ->
+    r = r'.
+Proof.
+  intros.
+  unfold F2OR, FloatToR in *.
+  destruct f; try congruence.
+Qed.
+
+
+Fact fwp_simpler_full : preVarIsFloat "x" //\\ "x" > 0 //\\
                                 [](oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog \\//
                                                (Enabled (oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog) -->> lfalse))
-                                |-- []("x" > 0 //\\ varValidPre "x").
+                                |-- [](preVarIsFloat "x" //\\ "x" > 0).
 Proof.
   eapply discr_indX.
-  { red. simpl. red; intuition. }
+  { red. simpl. intuition. }
   { charge_assumption. }
-  { charge_assumption. }
+  { tlaIntuition. }
 
   tlaRevert.
 
   eapply lorL.
 
   {
-    admit. (* same as last proof *)
+    admit. (* should be similar to last proof *)
     (*
     erewrite -> Hoare__embed_rw; [| solve [simpl; intuition] | solve [simpl; intuition; eauto]].
     eapply lforallL.
@@ -759,10 +794,70 @@ Proof.
     *)
   }
   {
+    SearchAbout Enabled.
     breakAbstraction.
     intros.
     destruct H.
-    Check Embed.
+    fwd.
+    generalize (F2OR_FloatToR _ _ _ H1 H); intro HF2OR.
+    subst.
+    (*exists (Stream.tl tr).*)
+    eexists.
+    exists (fstate_set nil "x" x).
+    split.
+    - simpl.
+      split; auto.
+    - simpl.
+      unfold simpler_prog.
+      right.
+      eexists.
+      split.
+      * eapply FEAsnS.
+        simpl.
+        reflexivity.
+      * split; auto.
+        simpl.
+        unfold F2OR.
+        {
+          destruct float_one.
+          - simpl in *.
+            rewrite H0.
+            reflexivity.
+          - simpl in *.
+        
+      
+      consider (fexprD (FConst float_one) [("x",x)]); intros.
+      + right.
+        inversion H2.
+        inversion H2; subst; clear H2.
+        eexists.
+        split.
+        * econstructor.
+          reflexivity.
+        * split; auto.
+          simpl.
+
+      right.
+      eexists.
+      simpl.
+      split.
+      + econstructor.
+        simpl.
+        reflexivity.
+      + simpl.
+      split; auto.
+      exists (fstate_set [("x",x)] "x" x).
+      split; auto.
+      eapply FEAsnS.
+      simpl.
+
+      
+      rewrite <- H.
+      unfold F2OR.
+      
+
+
+
     eexists. eexists.
     split.
     - split; auto.
