@@ -149,6 +149,7 @@ Section RW_Impl.
 
 End RW_Impl.
 
+(* TODO: This automation is way too expensive!
 Class SimpleEntail (A B : Formula) : Prop :=
   slentails : lentails A B.
 
@@ -179,6 +180,7 @@ Proof.
   unfold RW_Impl, Basics.impl. intros.
   red in H. charge_tauto.
 Qed.
+*)
 
 Arguments rw_impl {P A B} _ _ _ _.
 

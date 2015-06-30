@@ -248,6 +248,25 @@ Module Box (P : BoxParams).
                           SpecVelocityR)
                SpecPolarConstrainedR.
 
+  Lemma is_st_term_to_RenameMap : forall ls (x : Var),
+      forallb (fun x => is_st_term (snd x)) ls = true ->
+      is_st_term (to_RenameMap ls x) = true.
+  Proof.
+    induction ls.
+    { simpl in *. reflexivity. }
+    { simpl in *. intros.
+      eapply Bool.andb_true_iff in H.
+      destruct H.
+      destruct a; simpl in *.
+      destruct (string_dec x v); subst; auto. }
+  Qed.
+
+  Ltac rw_side_condition :=
+    repeat first [ split | intros ];
+    try solve [ apply is_st_term_to_RenameMap ; reflexivity ].
+
+  Arguments RenameMap_compose _ _ _ /.
+
   Lemma constraints_ok :
     (** generalize with respect to the underlying system and add a premise
      ** that says something about the arctan(x/y) is bounded by some theta.
@@ -260,11 +279,10 @@ Module Box (P : BoxParams).
       [ charge_tauto | charge_intros; rewrite landC ].
     apply ComposeRefine.
     apply SysSafe_rule. apply always_tauto.
-    unfold Discr. simpl. restoreAbstraction.
+    Opaque to_RenameMap. simpl. restoreAbstraction. Transparent to_RenameMap.
     rewrite <- Rename_ok
-      by (simpl; intuition; is_st_term_list);
-      simpl rename_formula; unfold RenameMap_compose;
-      simpl rename_term; restoreAbstraction.
+         by rw_side_condition.
+    unfold Discr. simpl; restoreAbstraction.
     setoid_rewrite <- lor_right2.
     enable_ex_st.
     eexists.
@@ -280,36 +298,33 @@ Module Box (P : BoxParams).
     { unfold Y.amin. admit. }
   Qed.
 
-    Lemma rect_to_polar :
-      (** this should generalize without any additional premises
-       ** it might require enabledness
-       **)
+  Lemma rect_to_polar :
+    (** this should generalize without any additional premises
+     ** it might require enabledness
+     **)
     |-- SysD SpecPolarR -->>
         Rename (to_RenameMap rename_polar) (SysD SpecRectR).
-    Proof.
-      unfold SpecPolarR, SpecRectR.
-      rewrite <- SysRename_sound.
-      { charge_tauto. }
-      { tlaIntuition; is_st_term_list. }
-      { apply deriv_term_list; reflexivity. }
-      { reflexivity. }
-      { apply forget_prem. unfold Discr. simpl.
-        restoreAbstraction.
-        rewrite <- Rename_ok
-          by (simpl; intuition; is_st_term_list);
-          simpl rename_formula; unfold RenameMap_compose;
-          simpl rename_term; restoreAbstraction.
-        setoid_rewrite <- lor_right2.
-        enable_ex_st.
-        repeat match goal with
-                 |- exists x, _ => eexists
-               end. solve_linear.
-        instantiate (2:=sqrt (X.amin*X.amin + Y.amin*Y.amin)).
-        instantiate (1:=atan (Y.amin/X.amin)).
-        rewrite ArithFacts.sin_atan. admit.
-        rewrite ArithFacts.sin_atan. admit.
-        rewrite ArithFacts.cos_atan. admit.
-        rewrite ArithFacts.cos_atan. admit. }
+  Proof.
+    unfold SpecPolarR, SpecRectR.
+    rewrite <- SysRename_sound.
+    { charge_tauto. }
+    { tlaIntuition; abstract is_st_term_list. }
+    { apply deriv_term_list; reflexivity. }
+    { reflexivity. }
+    { apply forget_prem.
+      rewrite <- Rename_ok by rw_side_condition.
+      simpl; restoreAbstraction.
+      setoid_rewrite <- lor_right2.
+      enable_ex_st.
+      repeat match goal with
+               |- exists x, _ => eexists
+             end. solve_linear.
+      instantiate (2:=sqrt (X.amin*X.amin + Y.amin*Y.amin)).
+      instantiate (1:=atan (Y.amin/X.amin)).
+      rewrite ArithFacts.sin_atan. admit.
+      rewrite ArithFacts.sin_atan. admit.
+      rewrite ArithFacts.cos_atan. admit.
+      rewrite ArithFacts.cos_atan. admit. }
     Qed.
 
     Lemma rect_safe

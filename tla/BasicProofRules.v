@@ -159,7 +159,7 @@ Fixpoint is_st_term (t:Term) : bool :=
 Fixpoint is_st_formula (F:Formula) : Prop :=
   match F with
     | TRUE => True
-    | FALSE => False
+    | FALSE => True
     | Comp t1 t2 _ =>
       and (is_st_term t1 = true) (is_st_term t2 = true)
     | And F1 F2 =>
