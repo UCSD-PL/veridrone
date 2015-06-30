@@ -76,10 +76,12 @@ Module Box (P : BoxParams).
     apply forget_prem.
     rewrite <- Rename_ok by is_st_term_list.
     enable_ex_st.
+    pose proof UpperLower_X.Params.amin_lt_0.
     destruct (RIneq.Rgt_dec (st "x") R0).
     { smart_repeat_eexists; solve_linear. }
     { smart_repeat_eexists; solve_linear.
       instantiate (1:=(-UpperLower_X.Params.amin)%R).
+      unfold UpperLower_X.Params.amin.
       solve_linear. }
   Defined.
 
@@ -92,10 +94,12 @@ Module Box (P : BoxParams).
     apply forget_prem.
     rewrite <- Rename_ok by is_st_term_list.
     enable_ex_st.
+    pose proof UpperLower_Y.Params.amin_lt_0.
     destruct (RIneq.Rgt_dec (st "y") R0).
     { smart_repeat_eexists; solve_linear. }
     { smart_repeat_eexists; solve_linear.
       instantiate (1:=(-UpperLower_Y.Params.amin)%R).
+      unfold UpperLower_Y.Params.amin.
       solve_linear. }
   Defined.
 
@@ -116,14 +120,16 @@ Module Box (P : BoxParams).
     rewrite <- Rename_ok by is_st_term_list.
     simpl; restoreAbstraction.
     setoid_rewrite <- lor_right2.
-    enable_ex_st. smart_repeat_eexists.
+    enable_ex_st.
+    admit.
+    (* smart_repeat_eexists.
     solve_linear.
     instantiate (2:=sqrt (X.amin*X.amin + Y.amin*Y.amin)).
     instantiate (1:=atan (Y.amin/X.amin)).
     rewrite ArithFacts.sin_atan. admit.
     rewrite ArithFacts.sin_atan. admit.
     rewrite ArithFacts.cos_atan. admit.
-    rewrite ArithFacts.cos_atan. admit.
+    rewrite ArithFacts.cos_atan. admit.*)
   Defined.
 
   Definition InputConstraint : Formula :=
@@ -213,7 +219,8 @@ Module Box (P : BoxParams).
     setoid_rewrite <- lor_right2.
     pose proof P.theta_min_lt_theta_max.
     enable_ex_st.
-    eexists.
+    admit.
+    (*eexists.
     exists P.theta_max. smart_repeat_eexists.
     solve_linear.
     instantiate
@@ -221,7 +228,7 @@ Module Box (P : BoxParams).
     { unfold Y.amin. admit. }
     { unfold Y.amin. admit. }
     { unfold Y.amin. admit. }
-    { unfold Y.amin. admit. }
+    { unfold Y.amin. admit. }*)
   Qed.
 
   Lemma rect_to_polar :
@@ -248,20 +255,18 @@ Module Box (P : BoxParams).
       unfold Discr. simpl. restoreAbstraction.
       setoid_rewrite <- lor_right2.
       enable_ex_st.
+      pose proof UpperLower_X.Params.amin_lt_0.
+      pose proof UpperLower_Y.Params.amin_lt_0.
       destruct (RIneq.Rgt_dec (st "x") R0);
         destruct (RIneq.Rgt_dec (st "y") R0).
       { smart_repeat_eexists; solve_linear. }
-      { smart_repeat_eexists; solve_linear.
-        instantiate (1:=(-UpperLower_Y.Params.amin)%R).
-        solve_linear. }
-      { smart_repeat_eexists; solve_linear.
-        instantiate (1:=(-UpperLower_X.Params.amin)%R).
-        solve_linear. }
-      { smart_repeat_eexists; solve_linear.
-        instantiate (1:=(-UpperLower_X.Params.amin)%R).
-        solve_linear.
-        instantiate (1:=(-UpperLower_Y.Params.amin)%R).
-        solve_linear. } }
+      { do 6 eexists. exists (-UpperLower_Y.Params.amin)%R.
+        smart_repeat_eexists. solve_linear. }
+      { do 11 eexists. exists (-UpperLower_X.Params.amin)%R.
+        smart_repeat_eexists. solve_linear. }
+      { do 6 eexists. exists (-UpperLower_Y.Params.amin)%R.
+        do 4 eexists. exists (-UpperLower_X.Params.amin)%R.
+        smart_repeat_eexists. solve_linear. } }
     { charge_intros. pose proof UpperLower_X.UpperLower_ok.
       apply (Proper_Rename (to_RenameMap rename_x)
                            (to_RenameMap rename_x))

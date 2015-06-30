@@ -44,9 +44,13 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
            "y" + tdist "v" mxa d + sdist ("v" + mxa*d)
            <= ub).
 
+  Definition Default : Formula :=
+    "y" > 0 -->> (("v" > 0 -->> "a"! <= amin) //\\
+                  ("v" <= 0 -->> "a"! <= 0)).
+
   Definition Ctrl : Formula :=
-    SafeAcc "a"! \\//
-    ("y" > 0 -->> "a"! <= amin).
+    SafeAcc "a"! \\// Default.
+
 
   Definition History : Formula :=
     "Y"! = "y" //\\ "V"! = "v" //\\ "T"! = "t"!.
@@ -203,9 +207,10 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
 
   Lemma SysSafe_ctrl : forall P, P |-- SysSafe SpecR.
   Proof.
+    pose proof amin_lt_0.
     intros.
     apply SysSafe_rule; apply always_tauto.
-    enable_ex_st; repeat eexists; solve_linear.
+    enable_ex_st. repeat eexists; solve_linear.
   Qed.
 
   Theorem ctrl_safe :

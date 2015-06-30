@@ -44,6 +44,7 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
           SysD x |-- Rename (to_RenameMap mirror)
                             (SysD Monitor.SpecR) }.
   Proof.
+    pose proof P.amin_lt_0.
     discharge_Sys_rename_formula.
     apply forget_prem.
     rewrite <- Rename_ok by is_st_term_list.
