@@ -12,6 +12,9 @@ For now, do this instead:
 - Download a source distribution of CompCert from
   http://compcert.inria.fr/download.html
   (I used 2.4, the newest version at time of writing)
+  (2.5 has since come out, but seems to be slightly restructured;
+   2.5 doesn't work with our code currently as a result, but
+   we should fix this soon)
 
 - Make sure you have Menhir installed, as compcert needs it
   (the version in the Ubuntu repos is fine;

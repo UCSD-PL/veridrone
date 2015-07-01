@@ -763,6 +763,24 @@ Proof.
   destruct f; try congruence.
 Qed.
 
+(* generalized version of Enabled_action, needed to prove
+   enabledness goals *)
+Lemma Enabled_action_gen
+  : forall P Q : Syntax.Formula,
+    (forall (st : state) (tr : trace),
+        Semantics.eval_formula Q (Stream.Cons st tr) ->
+        exists st' : state,
+          Semantics.eval_formula P (Stream.Cons st (Stream.forever st'))) ->
+    Q |-- Enabled P.
+Proof.
+  tlaIntuition.
+  destruct tr.
+  eapply H in H0.
+  simpl.
+  fwd.
+  eauto.
+Qed.
+
 
 Fact fwp_simpler_full : preVarIsFloat "x" //\\ "x" > 0 //\\
                                 [](oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog \\//
@@ -794,8 +812,37 @@ Proof.
     *)
   }
   {
-    SearchAbout Enabled.
-    breakAbstraction.
+    (* enabledness tactic? *)
+    charge_intro.
+    transitivity lfalse; [| eapply lfalseL].
+    charge_use.
+    tlaRevert.
+    eapply Lemmas.forget_prem.
+    Require Import TLA.Tactics.
+    charge_intro.
+    eapply Enabled_action_gen.
+    simpl.
+    intros.
+    clear tr.
+    fwd.
+    eapply (ex_state "x").
+    eapply ex_state_any.
+    simpl.
+    intro st0; clear st0.
+    generalize (F2OR_FloatToR _ _ _ H1 H); intro HF2OR.
+    subst.
+
+
+    (* finish this proof, should be semi straightforward *)
+    Print Ltac enable_ex_st.
+    eapply (ex_state "x").
+    simpl.
+    apply ex_state_any; intro; clear.
+
+    exists 1%R.
+    exists (fstate_set nil "x" float_one).
+    simpl.
+    split.
     intros.
     destruct H.
     fwd.
@@ -824,8 +871,6 @@ Proof.
             rewrite H0.
             reflexivity.
           - simpl in *.
-        
-      
       consider (fexprD (FConst float_one) [("x",x)]); intros.
       + right.
         inversion H2.

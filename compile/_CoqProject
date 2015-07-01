@@ -8,7 +8,8 @@
 -R ./compcert/flocq/Appli compcert.flocq.Appli
 -R ./compcert/flocq/Prop compcert.flocq.Prop
 -R ../coq-ext-lib/theories ExtLib
--R ../Z3-plugin/src Z3
+-I ../Z3-plugin/src
+-R ../Z3-plugin/theories Z3
 -R ../Charge/Charge!/bin/Charge/Logics Charge.Logics
 -R ../Charge/Charge!/bin/Charge/Tactics Charge.Tactics
 -R ../Charge/Charge!/bin/Charge/Open Charge.Open
