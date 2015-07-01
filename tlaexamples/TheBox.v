@@ -69,38 +69,20 @@ Module Box (P : BoxParams).
 
   Definition UpperLower_X_SpecR :
     { x : SysRec &
-          SysD x |-- Rename (to_RenameMap rename_x)
-                            (SysD UpperLower_X.SpecR) }.
+          PartialSysD x |--
+            Rename (to_RenameMap rename_x)
+                   (PartialSysD UpperLower_X.SpecR) }.
   Proof.
-    discharge_Sys_rename_formula.
-    apply forget_prem.
-    rewrite <- Rename_ok by is_st_term_list.
-    enable_ex_st.
-    pose proof UpperLower_X.Params.amin_lt_0.
-    destruct (RIneq.Rgt_dec (st "x") R0).
-    { smart_repeat_eexists; solve_linear. }
-    { smart_repeat_eexists; solve_linear.
-      instantiate (1:=(-UpperLower_X.Params.amin)%R).
-      unfold UpperLower_X.Params.amin.
-      solve_linear. }
+    discharge_PartialSys_rename_formula.
   Defined.
 
   Definition UpperLower_Y_SpecR :
     { x : SysRec &
-          SysD x |-- Rename (to_RenameMap rename_y)
-                            (SysD UpperLower_Y.SpecR) }.
+          PartialSysD x |--
+            Rename (to_RenameMap rename_y)
+                   (PartialSysD UpperLower_Y.SpecR) }.
   Proof.
-    discharge_Sys_rename_formula.
-    apply forget_prem.
-    rewrite <- Rename_ok by is_st_term_list.
-    enable_ex_st.
-    pose proof UpperLower_Y.Params.amin_lt_0.
-    destruct (RIneq.Rgt_dec (st "y") R0).
-    { smart_repeat_eexists; solve_linear. }
-    { smart_repeat_eexists; solve_linear.
-      instantiate (1:=(-UpperLower_Y.Params.amin)%R).
-      unfold UpperLower_Y.Params.amin.
-      solve_linear. }
+    discharge_PartialSys_rename_formula.
   Defined.
 
   Definition SpecRectR :=
@@ -154,26 +136,18 @@ Module Box (P : BoxParams).
 
   Definition SpecVelocityR_X :
     { x : SysRec &
-          SysD x |-- Rename (to_RenameMap rename_x)
-                            (SysD VelX.SpecR) }.
+          PartialSysD x |-- Rename (to_RenameMap rename_x)
+                                   (PartialSysD VelX.SpecR) }.
   Proof.
-    discharge_Sys_rename_formula.
-    apply forget_prem.
-    rewrite <- Rename_ok by is_st_term_list.
-    enable_ex_st. smart_repeat_eexists.
-    solve_linear.
+    discharge_PartialSys_rename_formula.
   Defined.
 
   Definition SpecVelocityR_Y :
     { x : SysRec &
-          SysD x |-- Rename (to_RenameMap rename_y)
-                            (SysD VelY.SpecR) }.
+          PartialSysD x |-- Rename (to_RenameMap rename_y)
+                                   (PartialSysD VelY.SpecR) }.
   Proof.
-    discharge_Sys_rename_formula.
-    apply forget_prem.
-    rewrite <- Rename_ok by is_st_term_list.
-    enable_ex_st. smart_repeat_eexists.
-    solve_linear.
+    discharge_PartialSys_rename_formula.
   Defined.
 
   Definition SpecVelocityR :=
@@ -191,17 +165,18 @@ Module Box (P : BoxParams).
 
   Definition SpecPolarR :
     { x : SysRec &
-          SysD x |-- Rename (to_RenameMap rename_polar)
-                            (SysD SpecRectVelocityR) }.
+          PartialSysD x |--
+            Rename (to_RenameMap rename_polar)
+                   (PartialSysD SpecRectVelocityR) }.
   Proof.
-    discharge_Sys_rename_formula.
-    apply forget_prem.
+    discharge_PartialSys_rename_formula.
+  Defined.
+(*    apply forget_prem.
     rewrite <- Rename_ok by is_st_term_list.
     simpl; restoreAbstraction.
     setoid_rewrite <- lor_right2.
     enable_ex_st.
-    admit.
-    (* smart_repeat_eexists.
+    smart_repeat_eexists.
     solve_linear.
     instantiate (2:=sqrt (X.amin*X.amin + Y.amin*Y.amin)).
     instantiate (1:=atan (Y.amin/X.amin)).
@@ -209,7 +184,6 @@ Module Box (P : BoxParams).
     rewrite ArithFacts.sin_atan. admit.
     rewrite ArithFacts.cos_atan. admit.
     rewrite ArithFacts.cos_atan. admit.*)
-  Defined.
 
   Definition InputConstraint : Formula :=
     P.theta_min <= "theta" <= P.theta_max.
@@ -226,12 +200,15 @@ Module Box (P : BoxParams).
   Definition SpecPolarConstrainedR :=
     SysCompose (projT1 SpecPolarR) InputConstraintSysR.
 
+(*
   Lemma constraints_ok :
     (** generalize with respect to the underlying system and add a premise
      ** that says something about the arctan(x/y) is bounded by some theta.
      **)
-    SysD SpecPolarConstrainedR |-- SysD (projT1 SpecPolarR).
+    PartialSysD SpecPolarConstrainedR |--
+    PartialSysD (projT1 SpecPolarR).
   Proof.
+    apply PartialComposeRefine.
     tlaAssert ltrue;
       [ charge_tauto | charge_intros; rewrite landC ].
     apply ComposeRefine.
@@ -262,19 +239,19 @@ Module Box (P : BoxParams).
   Proof.
     apply (projT2 SpecPolarR).
   Qed.
+*)
 
   Lemma rect_safe
     : []"vx" <= P.ubv_X //\\ []"vx" >= --P.ubv_X //\\
       []"vy" <= P.ubv_Y //\\  []"vy" >= --P.ubv_Y
-      |-- SysD SpecRectR -->>
+      |-- PartialSysD SpecRectR -->>
           [](rename_formula (to_RenameMap rename_x)
                     UpperLower_X.Safe //\\
              rename_formula (to_RenameMap rename_y)
                     UpperLower_Y.Safe).
   Proof.
-    apply Compose.
-    { apply forget_prem. apply RectEnabled. }
-    { charge_intros. pose proof UpperLower_X.UpperLower_ok.
+    apply PartialCompose.
+    { charge_intros. pose proof UpperLower_X.UpperLower_safe.
       apply (Proper_Rename (to_RenameMap rename_x)
                            (to_RenameMap rename_x))
         in H; [ | reflexivity ].
@@ -290,7 +267,7 @@ Module Box (P : BoxParams).
           solve_linear. }
         { pose proof (projT2 UpperLower_X_SpecR).
           cbv beta in H. charge_tauto. } } }
-    { charge_intros. pose proof UpperLower_Y.UpperLower_ok.
+    { charge_intros. pose proof UpperLower_Y.UpperLower_safe.
       apply (Proper_Rename (to_RenameMap rename_y)
                            (to_RenameMap rename_y))
         in H; [ | reflexivity ].
@@ -309,14 +286,13 @@ Module Box (P : BoxParams).
   Qed.
 
   Lemma velocity_safe :
-    |-- SysD SpecVelocityR -->>
+    |-- PartialSysD SpecVelocityR -->>
         [](("vx" <= VX.ub //\\ -- ("vx") <= VX.ub) //\\
             "vy" <= VY.ub //\\ -- ("vy") <= VY.ub).
   Proof.
-    apply Compose.
-    - admit.
+    apply PartialCompose.
     - pose proof (projT2 SpecVelocityR_X). cbv beta in H.
-      rewrite H. clear. pose proof VelX.UpperLower_ok.
+      rewrite H. clear. pose proof VelX.UpperLower_safe.
       apply (Proper_Rename (to_RenameMap rename_x)
                            (to_RenameMap rename_x))
         in H; [ | reflexivity ].
@@ -326,7 +302,7 @@ Module Box (P : BoxParams).
       rewrite <- Rename_ok by rw_side_condition.
       apply always_imp. solve_linear.
     - pose proof (projT2 SpecVelocityR_Y). cbv beta in H.
-      rewrite H. clear. pose proof VelY.UpperLower_ok.
+      rewrite H. clear. pose proof VelY.UpperLower_safe.
       apply (Proper_Rename (to_RenameMap rename_y)
                            (to_RenameMap rename_y))
         in H; [ | reflexivity ].
@@ -338,34 +314,13 @@ Module Box (P : BoxParams).
   Qed.
 
   Lemma rect_velocity_safe :
-    |-- SysD SpecRectVelocityR -->>
+    |-- PartialSysD SpecRectVelocityR -->>
         []((("vx" <= VX.ub //\\ --"vx" <= VX.ub) //\\
             ("vy" <= VY.ub //\\ --"vy" <= VY.ub)) //\\
             (--P.ub_X <= "x" <= P.ub_X //\\
              --P.ub_Y <= "y" <= P.ub_Y)).
   Proof.
-    apply Compose.
-    - apply SysSafe_rule. apply always_tauto.
-      simpl. restoreAbstraction.
-      admit.
-(*
-        enable_ex_st.
-        pose proof P.theta_min_lt_theta_max.
-        pose proof P.amin_lt_0.
-        pose proof amin_ubv_X.
-        pose proof amin_ubv_Y.
-        pose proof P.d_gt_0.
-        destruct (RIneq.Rgt_dec (st "x") R0);
-        destruct (RIneq.Rgt_dec (st "y") R0);
-        destruct (RIneq.Rge_dec (st "vx") R0);
-        destruct (RIneq.Rge_dec (st "vy") R0).
-        { repeat match goal with
-                 | |- exists x, _ => eexists
-                 end.
-          repeat split.
-          left. instantiate
-          solve_linear.
-*)
+    apply PartialCompose.
     - apply velocity_safe.
     - rewrite landtrueL. pose proof rect_safe.
       simpl rename_formula in H. restoreAbstraction.
@@ -386,15 +341,17 @@ Axiom amin_ubv_X : (-P.amin*P.d <= P.ubv_X)%R.
 Axiom amin_ubv_Y : (-P.amin*P.d <= P.ubv_Y)%R.
 
   Theorem box_safe :
-    |-- SysD SpecPolarConstrainedR -->>
+    |-- PartialSysD SpecPolarConstrainedR -->>
         []((("vx" <= VX.ub //\\ --"vx" <= VX.ub) //\\
            ("vy" <= VY.ub //\\ --"vy" <= VY.ub)) //\\
            (--P.ub_X <= "x" <= P.ub_X //\\
             --P.ub_Y <= "y" <= P.ub_Y)).
   Proof.
     charge_intros.
-    rewrite constraints_ok.
-    rewrite rect_to_polar.
+    unfold SpecPolarConstrainedR.
+    rewrite PartialComposeRefine.
+    pose proof (projT2 SpecPolarR). cbv beta in H.
+    rewrite H. clear.
     pose proof rect_velocity_safe.
     eapply Proper_Rename in H. 2: reflexivity.
     revert H. instantiate (1 := to_RenameMap rename_polar).
@@ -411,5 +368,29 @@ Axiom amin_ubv_Y : (-P.amin*P.d <= P.ubv_Y)%R.
       tlaRevert. apply always_imp.
       solve_linear. }
   Qed.
+
+  Theorem box_enabled :
+    |-- SysSafe SpecPolarConstrainedR.
+(*
+    - apply SysSafe_rule. apply always_tauto.
+      simpl. restoreAbstraction.
+        enable_ex_st.
+        pose proof P.theta_min_lt_theta_max.
+        pose proof P.amin_lt_0.
+        pose proof amin_ubv_X.
+        pose proof amin_ubv_Y.
+        pose proof P.d_gt_0.
+        destruct (RIneq.Rgt_dec (st "x") R0);
+        destruct (RIneq.Rgt_dec (st "y") R0);
+        destruct (RIneq.Rge_dec (st "vx") R0);
+        destruct (RIneq.Rge_dec (st "vy") R0).
+        { repeat match goal with
+                 | |- exists x, _ => eexists
+                 end.
+          repeat split.
+          left. instantiate
+          solve_linear.
+*)
+  Admitted.
 
 End Box.

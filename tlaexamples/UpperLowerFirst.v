@@ -31,26 +31,19 @@ Module UpperLowerFirst (P : UpperLowerFirstParams).
 
   Definition SpecVelocityMirrorR :
     { x : SysRec &
-          SysD x |-- Rename (to_RenameMap mirror)
-                            (SysD Vel.SpecR) }.
+          PartialSysD x |-- Rename (to_RenameMap mirror)
+                            (PartialSysD Vel.SpecR) }.
   Proof.
-    discharge_Sys_rename_formula.
-    apply forget_prem.
-    rewrite <- Rename_ok by is_st_term_list.
-    enable_ex_st. smart_repeat_eexists.
-    solve_linear.
+    discharge_PartialSys_rename_formula.
   Defined.
 
   Definition SpecR :=
     SysCompose (projT1 SpecVelocityMirrorR) Vel.SpecR.
 
-  Lemma UpperLower_ok :
-    |-- SysD SpecR -->> []--P.ub <= "v" <= P.ub.
+  Lemma UpperLower_safe :
+    |-- PartialSysD SpecR -->> []--P.ub <= "v" <= P.ub.
   Proof.
-    apply Compose.
-    - apply SysSafe_rule. apply always_tauto.
-      simpl. restoreAbstraction.
-      enable_ex_st. smart_repeat_eexists. solve_linear.
+    apply PartialCompose.
     - charge_intros.
       pose proof (projT2 SpecVelocityMirrorR).
       cbv beta in H. rewrite H. clear.
@@ -66,6 +59,14 @@ Module UpperLowerFirst (P : UpperLowerFirstParams).
       solve_linear.
     - charge_intros. pose proof Vel.ctrl_safe.
       unfold V.ub in *. charge_apply H. charge_tauto. 
+  Qed.
+
+  Lemma UpperLower_enabled :
+    |-- SysSafe SpecR.
+  Proof.
+    apply SysSafe_rule. apply always_tauto.
+    simpl. restoreAbstraction.
+    enable_ex_st. smart_repeat_eexists. solve_linear.
   Qed.
 
 End UpperLowerFirst.

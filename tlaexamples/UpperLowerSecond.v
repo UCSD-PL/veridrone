@@ -41,16 +41,11 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
 
   Definition SpecMirrorR :
     { x : SysRec &
-          SysD x |-- Rename (to_RenameMap mirror)
-                            (SysD Monitor.SpecR) }.
+          PartialSysD x |--
+                      Rename (to_RenameMap mirror)
+                             (PartialSysD Monitor.SpecR) }.
   Proof.
-    pose proof P.amin_lt_0.
-    discharge_Sys_rename_formula.
-    apply forget_prem.
-    rewrite <- Rename_ok by is_st_term_list.
-    enable_ex_st; smart_repeat_eexists; solve_linear.
-    right. instantiate (1:=(-Params.amin)%R).
-    solve_linear.
+    discharge_PartialSys_rename_formula.
   Defined.
 
   Definition SpecR :=
@@ -73,24 +68,11 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
   Definition Safe :=
     "y" <= Params.ub //\\ --Params.ub <= "y".
 
-  Lemma UpperLower_ok :
+  Lemma UpperLower_safe :
     []"v" <= Params.ubv //\\ []"v" >= --Params.ubv
-    |-- SysD SpecR -->> []Safe.
+    |-- PartialSysD SpecR -->> []Safe.
   Proof.
-    apply Compose.
-    - apply SysSafe_rule. apply always_tauto.
-      simpl. restoreAbstraction.
-      enable_ex_st.
-      pose proof P.amin_lt_0. pose proof P.d_gt_0.
-      destruct (RIneq.Rge_dec (st "y") R0).
-      { smart_repeat_eexists; solve_linear. }
-      { smart_repeat_eexists;
-        repeat split.
-        { right. intros. apply RIneq.Rgt_ge in H1.
-          contradiction. }
-        { right. instantiate (1:=(-Params.amin)%R).
-          solve_linear. }
-        { reflexivity. } }
+    apply PartialCompose.
     - charge_intros. pose proof Monitor.ctrl_safe.
       unfold Monitor.Safe in *.
       charge_apply H. charge_tauto.
@@ -112,6 +94,24 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
         apply always_imp. solve_linear. }
       { clear. apply forget_prem. apply always_imp.
         solve_linear. }
+  Qed.
+
+  Lemma UpperLower_enabled :
+    |-- SysSafe SpecR.
+  Proof.
+    apply SysSafe_rule. apply always_tauto.
+    simpl. restoreAbstraction.
+    enable_ex_st.
+    pose proof P.amin_lt_0. pose proof P.d_gt_0.
+    destruct (RIneq.Rge_dec (st "y") R0).
+    { smart_repeat_eexists; solve_linear. }
+    { smart_repeat_eexists;
+      repeat split.
+      { right. intros. apply RIneq.Rgt_ge in H1.
+        contradiction. }
+      { right. instantiate (1:=(-Params.amin)%R).
+        solve_linear. }
+      { reflexivity. } }
   Qed.
 
 End UpperLowerSecond.

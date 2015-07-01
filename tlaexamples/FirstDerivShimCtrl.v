@@ -38,7 +38,7 @@ Module FirstDerivShim (P : FirstDerivShimParams).
        unch := (("a":Term)::("v":Term)::nil)%list;
        maxTime := d |}.
 
-  Definition Spec := SysD SpecR.
+  Definition Spec := PartialSysD SpecR.
 
   Definition IndInv : Formula :=
          ("a" <  0 -->> "v" <= ub)
@@ -55,12 +55,11 @@ Module FirstDerivShim (P : FirstDerivShimParams).
     |-- Spec -->> []"v" <= ub.
   Proof.
     charge_intros.
-    eapply Sys_by_induction
+    eapply PartialSys_by_induction
     with (IndInv:=IndInv) (A:=ltrue).
     - tlaIntuition.
     - unfold Spec, SpecR. charge_assumption.
     - tlaIntuition.
-    - apply SysSafe_ctrl.
     - solve_nonlinear.
     - apply Lemmas.forget_prem. apply always_tauto.
       charge_tauto.

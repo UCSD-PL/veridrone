@@ -91,7 +91,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     simpl. restoreAbstraction. charge_tauto.
   Qed.
 
-  Definition Spec := SysD SpecR.
+  Definition Spec := PartialSysD SpecR.
 
   Definition IndInv : Formula :=
     "y" - "Y" <= tdist "V" "a" tdiff //\\
@@ -175,12 +175,11 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     pose proof amin_lt_0 as amin_lt_0.
     pose proof d_gt_0 as d_gt_0.
     tlaIntro.
-    eapply Sys_by_induction
+    eapply PartialSys_by_induction
     with (IndInv:=IndInv) (A:="v" <= ubv).
     - tlaIntuition.
     - unfold Spec, SpecR. tlaAssume.
     - tlaIntuition.
-    - apply SysSafe_ctrl.
     - charge_apply ind_inv_init. charge_tauto.
     - tlaIntuition.
     - charge_apply inv_safe. charge_tauto.
