@@ -7,6 +7,11 @@ Require Import TLA.Semantics.
 Ltac breakAbstraction :=
   simpl in *; unfold tlaEntails in *; simpl in *.
 
+Ltac restoreCoercions :=
+  change NatT with NatC in *;
+  change RealT with ConstC in *;
+  change VarNowT with VarC in *.
+
 Ltac restoreAbstraction :=
   change And    with (@land Formula _) in *;
   change Imp    with (@limpl Formula _) in *;
@@ -16,7 +21,7 @@ Ltac restoreAbstraction :=
   change Syntax.Forall with (@lforall Formula _) in *;
   change Syntax.Exists with (@lexists Formula _) in *;
   change tlaEntails with (@lentails Formula _) in *;
-  fold eval_formula.
+  fold eval_formula; restoreCoercions.
 
 Lemma tlaRefl
 : forall G l o,
