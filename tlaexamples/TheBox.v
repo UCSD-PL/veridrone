@@ -88,6 +88,116 @@ Module Box (P : BoxParams).
     solve_linear.
   Qed.
 
+Require Import Coq.Classes.Morphisms.
+Global Instance Cons_Proper :
+  Proper (eq ==>
+          Stream.stream_eq eq ==> Stream.stream_eq eq)
+         (@Stream.Cons state).
+Proof.
+  morphism_intro.
+  constructor; auto.
+Qed.
+
+Definition witness_function (m:RenameMap) (f:state->state)
+  (xs : list Var) : Prop :=
+  forall st x,
+    List.In x xs ->
+    st x = eval_term (m x) (f st) (f st).
+
+Lemma subst_enabled :
+  forall A xs G m (f:state->state),
+    next_state_vars A xs ->
+    witness_function m f xs ->
+    G |-- Enabled A ->
+    Rename m G |-- Enabled (Rename m A).
+Proof.
+  breakAbstraction. intros. unfold next_state_vars in *.
+  specialize (H1 _ H2).
+  destruct tr.
+  destruct H1 as [tr' HA].
+  exists (Stream.stream_map f tr').
+  rewrite Stream.stream_map_cons
+    by eauto with typeclass_instances.
+  rewrite H.
+  { eapply Proper_eval_formula.
+    3: apply HA.
+    { reflexivity. }
+    { constructor.
+      { reflexivity. }
+      { reflexivity. } } }
+  { unfold witness_function, traces_agree in *. intros.
+    unfold subst_state.
+    eapply Stream.Transitive_stream_eq.
+    { repeat red. congruence. }
+    { apply Stream.stream_map_compose.
+      repeat red. reflexivity. }
+    { simpl.
+      match goal with
+      | [ |- context [ Stream.stream_map ?f _ ] ] =>
+        pose proof (@Stream.Proper_stream_map _ _
+              (fun st1 st2 : state => (eq (st1 x) (st2 x)))
+              (fun st1 st2 : state => (eq (st1 x) (st2 x)))
+              f (fun x => x)) as Hproper
+      end.
+      repeat red in Hproper.
+      eapply Stream.Transitive_stream_eq.
+      { repeat red. congruence. }
+      { apply Hproper.
+        { repeat red. intros. rewrite <- H0; auto. }
+        { apply Stream.Reflexive_stream_eq.
+          repeat red. auto. } }
+      { apply Stream.stream_map_id. repeat red.
+        auto. } } }
+Qed.
+
+(* The old version. *)
+(*
+Definition witness_function (m:RenameMap) (f:state->state)
+  : Prop :=
+  forall st x,
+    st x = eval_term (m x) (f st) (f st).
+
+Lemma subst_enabled :
+  forall A G m (f:state->state),
+    witness_function m f ->
+    G |-- Enabled A ->
+    Rename m G |-- Enabled (Rename m A).
+Proof.
+  breakAbstraction. intros.
+  specialize (H0 (Stream.stream_map (subst_state m) tr) H1).
+  destruct tr.
+  destruct H0 as [tr' HA].
+  exists (Stream.stream_map f tr').
+  rewrite Stream.stream_map_cons
+    by eauto with typeclass_instances.
+  rewrite Stream.stream_map_compose
+    by eauto with typeclass_instances.
+  unfold subst_state.
+  eapply Proper_eval_formula; eauto.
+  constructor.
+  { reflexivity. }
+  { simpl.
+    rewrite (@Stream.Proper_stream_map state state eq eq).
+    2: red; intros; subst;
+    apply FunctionalExtensionality.functional_extensionality;
+    intros; rewrite <- H; instantiate (1:=fun x => x);
+    reflexivity.
+    { apply Stream.stream_map_id;
+      eauto with typeclass_instances. }
+    { reflexivity. } }
+Qed.
+*)
+
+(*
+TODO : translate from polar to rectangular,
+refine coupled contraint to a decoupled one
+use disjointness lemma.
+This will show that you can use disjointness,
+even when the system is coupled.
+Viewing things as logical formulas that
+can be refined makes this process clear.
+*)
+
   Lemma same_next :
     forall x y,
       x! = R0 //\\ y! = R0 |-- x! = y!.
@@ -294,6 +404,66 @@ rewrite <- ProgRefined_ok.
 
   Let rename_polar : list (Var*Term) :=
     ("ax","a"*sin("theta"))::("ay","a"*cos("theta"))::nil.
+
+Lemma rectangular_to_polar :
+  forall (x y:R),
+    { p : (R*R) |
+      (eq x ((fst p) * Rtrigo_def.cos (snd p)) /\
+       eq y ((fst p) * Rtrigo_def.sin (snd p)))%R }.
+Admitted.
+
+Lemma polar_witness_function :
+  exists f, witness_function (to_RenameMap rename_polar) f.
+Proof.
+  eexists.
+  unfold witness_function.
+  intros. simpl.
+  repeat match goal with
+         | [ |- context [if ?e then _ else _] ]
+             => destruct e; simpl
+         end; subst; simpl.
+
+(*  exists
+    (fun st x =>
+       let witness :=
+           proj1_sig
+             (rectangular_to_polar (st "ay") (st "ax")) in
+       if String.string_dec x "a"
+       then fst witness
+       else if String.string_dec x "theta"
+            then snd witness
+            else if String.string_dec x "ax"
+                 then (fst witness) *
+                      Rtrigo_def.sin (snd witness)
+                 else if String.string_dec x "ay"
+                      then (fst witness) *
+                           Rtrigo_def.cos (snd witness)
+                      else st x)%R.*)
+  exists
+    (fun st x =>
+       let witness :=
+           proj1_sig
+             (rectangular_to_polar (st "ay") (st "ax")) in
+       if String.string_dec x "a"
+       then fst witness
+       else if String.string_dec x "theta"
+            then snd witness
+            else st x)%R.
+  unfold witness_function.
+  intros. simpl.
+  repeat match goal with
+         | [ |- context [if ?e then _ else _] ]
+             => destruct e; simpl
+         end; subst; simpl.
+  { destruct (rectangular_to_polar (st "ay") (st "ax")).
+    simpl. tauto. }
+  { destruct (rectangular_to_polar (st "ay") (st "ax")).
+    simpl. tauto. }
+  { destruct (rectangular_to_polar (st "ay") (st "ax")).
+    simpl. tauto. }
+
+    instantiate (1:=
+rewrite Hpolary.
 
   Definition SpecPolarR :
     { x : SysRec &
