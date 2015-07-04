@@ -19,6 +19,8 @@ tla/Substitution.v
 tla/Tactics.v
 tla/Automation.v
 tla/TLA.v
+tla/Morphisms.v
+tla/EnabledLemmas.v
 
 ChargeTactics/Tactics.v
 ChargeTactics/Lemmas.v
@@ -30,3 +32,4 @@ tlaexamples/SecondDerivUtil.v
 tlaexamples/UpperLowerSecond.v
 tlaexamples/UpperLowerFirst.v
 tlaexamples/TheBox.v
+tlaexamples/ParLang.v

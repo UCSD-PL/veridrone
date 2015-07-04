@@ -134,7 +134,7 @@ Fixpoint eval_Parallel {ins outs} (p : Parallel ins outs)
     else eval_Parallel p2 st
   end.
 
-Definition tlaImpD {ins outs} (p : Parallel ins outs) :=
+Definition tlaParD {ins outs} (p : Parallel ins outs) :=
   Embed (fun st1 st2 =>
            forall x, List.In x outs ->
                      eval_Parallel p st1 x = st2 x).
@@ -291,9 +291,9 @@ Lemma ite_refine :
   forall A B C ins1 ins2 outs1 outs2
          (b:Parallel ins1 outs1) (c:Parallel ins2 outs2),
     is_decidable_st_formula A = true ->
-    tlaImpD b |-- B ->
-    tlaImpD c |-- C ->
-    tlaImpD (Ite (projT2 (Formula_to_Cond A)) b c) |--
+    tlaParD b |-- B ->
+    tlaParD c |-- C ->
+    tlaParD (Ite (projT2 (Formula_to_Cond A)) b c) |--
             (A //\\ B) \\// C.
 Proof.
   intros.
@@ -313,7 +313,7 @@ Qed.
 Lemma Assign_refine :
   forall x t,
     is_st_term t = true ->
-    tlaImpD (Assign x _ (projT2 (Term_to_ParTerm t))) |--
+    tlaParD (Assign x _ (projT2 (Term_to_ParTerm t))) |--
     x! = t.
 Proof.
   intros; breakAbstraction; intros;
@@ -327,9 +327,9 @@ Lemma ite_refine_and_impl :
          (b:Parallel ins1 outs1) (d:Parallel ins2 outs2),
     is_decidable_st_formula A = true ->
     A //\\ C |-- lfalse ->
-    tlaImpD b |-- B ->
-    tlaImpD d |-- D ->
-    tlaImpD (Ite (projT2 (Formula_to_Cond A)) b d) |--
+    tlaParD b |-- B ->
+    tlaParD d |-- D ->
+    tlaParD (Ite (projT2 (Formula_to_Cond A)) b d) |--
             (A -->> B) //\\ (C -->> D).
 Proof.
   intros. rewrite <- H1. rewrite <- H2. clear H1 H2.
@@ -345,11 +345,11 @@ Qed.
 
 Lemma par_disjoint_refine :
   forall A B ins1 ins2 outs1 outs2
-         (a:Parallel ins1 outs1) (b:Parallel ins2 outs2)
-         (pf:sets_disjoint outs1 outs2),
-    tlaImpD a |-- A ->
-    tlaImpD b |-- B ->
-    tlaImpD (Par pf a b) |-- A //\\ B.
+         (a:Parallel ins1 outs1) (b:Parallel ins2 outs2),
+    tlaParD a |-- A ->
+    tlaParD b |-- B ->
+    forall (pf:sets_disjoint outs1 outs2),
+      tlaParD (Par pf a b) |-- A //\\ B.
 Proof.
   intros. breakAbstraction. intros.
   split.

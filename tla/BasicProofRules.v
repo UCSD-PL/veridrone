@@ -437,6 +437,21 @@ Proof.
   intros. rewrite H. rewrite H0. reflexivity.
 Qed.
 
+Lemma land_distr :
+  forall A B C,
+    (A //\\ B) //\\ (C //\\ B) -|- (A //\\ C) //\\ B.
+Proof. split; charge_tauto. Qed.
+
+Lemma lor_intro1 :
+  forall A B,
+    A |-- A \\// B.
+Proof. intros; charge_tauto. Qed.
+
+Lemma lor_intro2 :
+  forall A B,
+    B |-- A \\// B.
+Proof. intros; charge_tauto. Qed.
+
 Close Scope HP_scope.
 
 End in_context.

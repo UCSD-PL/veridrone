@@ -1,6 +1,7 @@
 Require Import Rdefinitions.
 Require Import RIneq.
-Require Import TLA.Tactics.
+Require Import TLA.TLA.
+Require Import BasicProofRules.
 
 (* Some obvious but useful real arithmetic
    facts. *)
@@ -129,6 +130,54 @@ Lemma cos_atan : forall x,
   Rtrigo_def.cos (Ratan.atan x) =
   (1/R_sqrt.sqrt (1 + x*x))%R.
 Admitted.
+
+Lemma mult_0_l_equiv :
+  forall x,
+    term_equiv (0*x) 0.
+Proof. unfold term_equiv; solve_linear. Qed.
+Lemma mult_0_r_equiv :
+  forall x,
+    term_equiv (x*0) 0.
+Proof. unfold term_equiv; solve_linear. Qed.
+Lemma plus_0_r_equiv :
+  forall x,
+    term_equiv (x+0) x.
+Proof. unfold term_equiv; solve_linear. Qed.
+Lemma plus_0_l_equiv :
+  forall x,
+    term_equiv (0+x) x.
+Proof. unfold term_equiv; solve_linear. Qed.
+Lemma minus_0_r_equiv :
+  forall x,
+    term_equiv (x-0) x.
+Proof. unfold term_equiv; solve_linear. Qed.
+Lemma minus_0_l_equiv :
+  forall x,
+    term_equiv (0%R-x) --x.
+Proof. unfold term_equiv; solve_linear. Qed.
+Lemma minus_eq :
+  forall x y,
+    --x = --y -|- x = y.
+Proof. split; solve_linear. Qed.
+
+Ltac tla_rewrite_0 :=
+  repeat first
+         [ rewrite mult_0_l_equiv |
+           rewrite mult_0_r_equiv |
+           rewrite plus_0_l_equiv |
+           rewrite plus_0_r_equiv |
+           rewrite minus_0_l_equiv |
+           rewrite minus_0_r_equiv ].
+
+Lemma leq_eq_refine :
+  forall t1 t2,
+    t1 = t2 |-- t1 <= t2.
+Proof. solve_linear. Qed.
+
+Lemma neg_eq :
+  forall t1 t2,
+    t1 = -- t2 -|- --t1 = t2.
+Proof. split; solve_linear. Qed.
 
 Require Import Coq.Classes.RelationClasses.
 Require Import RIneq.
