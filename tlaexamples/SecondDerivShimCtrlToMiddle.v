@@ -169,6 +169,37 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     enable_ex_st. repeat eexists; solve_linear.
   Qed.
 
+  Lemma indInvPremise : forall v V a t T , (v <= ubv ->
+                                            v - V = a * (T - t) -> 
+                                            V + a * (T -t) <= ubv)%R.
+  Proof.
+    intros.
+    solve_nonlinear.
+  Qed.
+  
+  Lemma indInvPremise2 : forall t T, (t <= T -> T <= d -> 0 <= t -> 0 <= T - t <= d)%R.
+  Proof.  
+    intros. solve_linear.
+  Qed.
+  
+  Lemma simplProof : forall x , ((x * (x * 1)) >= R0)%R.    
+  Proof.
+    intros.
+    solve_nonlinear.
+  Qed.
+  
+  Lemma simplProof3 : forall y Y s1 s2, (y - Y <= s1 -> Y + s1 + s2 <= ub -> s2 >= 0 -> y <=ub)%R.  
+  Proof.
+    intros.
+    solve_linear.
+  Qed.
+
+  Lemma simplProof2 : forall x y, (x >= R0 -> y < R0 ->  x * (0 - / 2) * / y >= R0)%R. 
+  Proof.
+    intros.
+    z3 solve_dbg.
+  Admitted.
+
   Theorem ctrl_safe :
    []"v" <= ubv |-- Spec -->> []Safe.
   Proof.
@@ -293,7 +324,208 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
                        tdist "v" 0 d + sdist ("v" + 0 * d)).
             + pose proof (tdist_sdist_incr "V"! "v" "a"! 0 x d).
               charge_apply H. solve_linear.
-            + solve_linear.
+            +
+              breakAbstraction.  intros. decompose [and] H. clear H.
+              pose proof indInvPremise as indInvPremise.
+              specialize (indInvPremise (Stream.hd tr "v") (Stream.hd tr "V") (Stream.hd tr "a") (Stream.hd tr "t") (Stream.hd tr "T") H4 H1).
+              specialize (H8 (Stream.hd tr "T" - Stream.hd tr "t")%R indInvPremise).
+              pose proof indInvPremise2 as indInvPremise2.
+              specialize (indInvPremise2  (Stream.hd tr "t") (Stream.hd tr "T") H9 H11 H7).
+              destruct (Rge_dec ( Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) R0).
+              {
+                apply Rge_le in r.
+                (* proving  0 <= T-t <=d*)
+                pose proof conj as conjIndInvPremise.
+                specialize (conjIndInvPremise (0 <= Stream.hd tr "T" - Stream.hd tr "t" <= d)%R (0 <= Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t"))%R indInvPremise2 r).
+                decompose [and] H8.
+                specialize (H conjIndInvPremise). 
+  
+                pose proof simplProof as sProof.
+                specialize (sProof  (Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t"))%R).
+                pose proof simplProof2 as sProof2.
+                specialize (sProof2  ((Stream.hd tr "V" +
+                                       Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) *
+                                      ((Stream.hd tr "V" +
+                                        Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) * 1))%R amin sProof amin_lt_0).
+                pose proof simplProof3 as sProof3.
+                specialize (sProof3 (Stream.hd tr "y") (Stream.hd tr "Y")  
+                                    (Stream.hd tr "V" * (Stream.hd tr "T" - Stream.hd tr "t") +
+                                     / 2 * Stream.hd tr "a" *
+                                     ((Stream.hd tr "T" - Stream.hd tr "t") *
+                                      ((Stream.hd tr "T" - Stream.hd tr "t") * 1)))%R
+                                    ((Stream.hd tr "V" +
+                                      Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) *
+                                     ((Stream.hd tr "V" +
+                                       Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) * 1) *
+                                     (0 - / 2) * / amin)%R H6 H sProof2).
+                clear sProof sProof2.
+                
+                specialize (H23 H5).
+                revert H23. intros.
+                
+                rewrite <- H14 in H23, sProof3. rewrite <- H16 in H23.
+                rewrite <- H16 in H0.
+                clear -H2 H25 amin_lt_0 H5 sProof3 H23 H0. 
+                z3 solve_dbg.
+                admit.
+              }
+              {
+                z3 solve_dbg.
+                solve_nonlinear.
+                admit.
+              }
+          - 
+            breakAbstraction. intros. 
+            decompose [and] H.  specialize (H20 H4). rewrite <- H13 in H20. rewrite <- H15 in H20.
+            decompose [and] H0.
+            clear -H4 H20 H25 H23 amin_lt_0.
+            z3 solve_dbg.
+            admit.
+          -
+            breakAbstraction.  intros. decompose [and] H. clear H. 
+            pose proof indInvPremise as indInvPremise.
+            specialize (indInvPremise (Stream.hd tr "v") (Stream.hd tr "V") (Stream.hd tr "a") (Stream.hd tr "t") (Stream.hd tr "T") H2 H3).
+            specialize (H7 (Stream.hd tr "T" - Stream.hd tr "t")%R indInvPremise).
+            
+            pose proof indInvPremise2 as indInvPremise2.
+            specialize (indInvPremise2  (Stream.hd tr "t") (Stream.hd tr "T") H8 H10 H6).
+
+            destruct (Rge_dec ( Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) R0).
+            {
+              apply Rge_le in r.
+              (* proving  0 <= T-t <=d*)
+              pose proof conj as conjIndInvPremise.
+              specialize (conjIndInvPremise (0 <= Stream.hd tr "T" - Stream.hd tr "t" <= d)%R (0 <= Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t"))%R indInvPremise2 r).
+              decompose [and] H7.
+              specialize (H conjIndInvPremise). 
+              clear H16.
+              pose proof simplProof as sProof.
+              specialize (sProof  (Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t"))%R).
+              pose proof simplProof2 as sProof2.
+              specialize (sProof2  ((Stream.hd tr "V" +
+                                     Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) *
+                                    ((Stream.hd tr "V" +
+                                      Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) * 1))%R amin sProof amin_lt_0).
+              pose proof simplProof3 as sProof3.
+              specialize (sProof3 (Stream.hd tr "y") (Stream.hd tr "Y")  
+                                  (Stream.hd tr "V" * (Stream.hd tr "T" - Stream.hd tr "t") +
+                                   / 2 * Stream.hd tr "a" *
+                                   ((Stream.hd tr "T" - Stream.hd tr "t") *
+                                    ((Stream.hd tr "T" - Stream.hd tr "t") * 1)))%R
+                                  ((Stream.hd tr "V" +
+                                    Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) *
+                                   ((Stream.hd tr "V" +
+                                     Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) * 1) *
+                                   (0 - / 2) * / amin)%R H5 H sProof2).
+              clear sProof sProof2.
+              specialize (H22 H4).
+              rewrite <- H13 in H22, sProof3. rewrite <- H15 in H22.
+              clear H8 H10 H6 H12 H11 H14 H9 H15 H13 H15. clear H19 H18 H17 H21 H20.
+              clear H1. clear H4 H2. clear H5 H7 H3 H indInvPremise indInvPremise2 conjIndInvPremise r d_gt_0.
+              clear -amin_lt_0 x tr H0 H22 sProof3.
+              decompose [and] H0. clear H0.
+              z3 solve_dbg.
+              admit.
+            }
+            {
+
+              apply Rnot_ge_lt in n.
+              decompose [and] H7.
+              pose proof conj as conjIndInvPremise.
+              specialize (conjIndInvPremise (0 <= Stream.hd tr "T" - Stream.hd tr "t" <= d)%R (Stream.hd tr "V" +  Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t") < 0)%R indInvPremise2 n).
+              specialize (H16 conjIndInvPremise).  
+              rewrite <- H13 in H5. rewrite <- H15 in H3.
+              clear -amin_lt_0 H0 H5 H3 H16 conjIndInvPremise.
+              z3 solve_dbg.
+              admit.
+            }
+          - 
+            breakAbstraction. intros. decompose [and] H. clear H. 
+            pose proof indInvPremise as indInvPremise.
+            specialize (indInvPremise (Stream.hd tr "v") (Stream.hd tr "V") (Stream.hd tr "a") (Stream.hd tr "t") (Stream.hd tr "T") H2 H3).
+            specialize (H7 (Stream.hd tr "T" - Stream.hd tr "t")%R indInvPremise).
+            
+            pose proof indInvPremise2 as indInvPremise2.
+            specialize (indInvPremise2  (Stream.hd tr "t") (Stream.hd tr "T") H8 H10 H6).
+            destruct (Rge_dec ( Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) R0).
+            {
+              clear -amin_lt_0 x tr H0 H4 H3 H15 r.  
+              z3 solve_dbg.
+              admit.
+            }
+            {
+              apply Rnot_ge_lt in n.
+              decompose [and] H7.
+              pose proof conj as conjIndInvPremise.
+              specialize (conjIndInvPremise (0 <= Stream.hd tr "T" - Stream.hd tr "t" <= d)%R (Stream.hd tr "V" +  Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t") < 0)%R indInvPremise2 n).
+              specialize (H16 conjIndInvPremise).  
+              rewrite <- H13 in H5. rewrite <- H15 in H3.
+              clear -amin_lt_0 H0 H5 H3 H16 conjIndInvPremise.
+              z3 solve_dbg.
+              admit.
+            }
+        }
+        {
+          
+          admit.
+           (*
+           breakAbstraction. intros. decompose [and] H. clear H.
+           pose proof indInvPremise as indInvPremise.
+           specialize (indInvPremise (Stream.hd tr "v") (Stream.hd tr "V") (Stream.hd tr "a") (Stream.hd tr "t") (Stream.hd tr "T") H1 H3).
+           specialize (H5 (Stream.hd tr "T" - Stream.hd tr "t")%R indInvPremise).
+
+           pose proof indInvPremise2 as indInvPremise2.
+           specialize (indInvPremise2  (Stream.hd tr "t") (Stream.hd tr "T") H6 H8 H4).
+           destruct (Rge_dec ( Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) R0).
+           {
+              apply Rge_le in r.
+               (* proving  0 <= T-t <=d*)
+               pose proof conj as conjIndInvPremise.
+               specialize (conjIndInvPremise (0 <= Stream.hd tr "T" - Stream.hd tr "t" <= d)%R (0 <= Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t"))%R indInvPremise2 r).
+               decompose [and] H5. clear H5.
+               specialize (H conjIndInvPremise). 
+               clear H18.
+               pose proof simplProof as sProof.
+               specialize (sProof  (Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t"))%R).
+               pose proof simplProof2 as sProof2.
+               specialize (sProof2  ((Stream.hd tr "V" +
+                                      Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) *
+                                     ((Stream.hd tr "V" +
+                                       Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) * 1))%R amin sProof amin_lt_0).
+               pose proof simplProof3 as sProof3.
+               specialize (sProof3 (Stream.hd tr "y") (Stream.hd tr "Y")  
+                                   (Stream.hd tr "V" * (Stream.hd tr "T" - Stream.hd tr "t") +
+                                    / 2 * Stream.hd tr "a" *
+                                    ((Stream.hd tr "T" - Stream.hd tr "t") *
+                                     ((Stream.hd tr "T" - Stream.hd tr "t") * 1)))%R
+                                   ((Stream.hd tr "V" +
+                                     Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) *
+                                    ((Stream.hd tr "V" +
+                                      Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) * 1) *
+                                    (0 - / 2) * / amin)%R H2 H sProof2). 
+               clear sProof sProof2.
+               split.
+               intros.
+              *)
+         }
+       }
+      {
+        breakAbstraction.
+        intros.
+        decompose [and] H.
+        clear -H16.
+        solve_nonlinear.
+      }
+      {
+        breakAbstraction.
+        intros.
+        decompose [and] H.
+        clear -H12 H16.
+        solve_nonlinear.
+      }
+  Qed.
+  
+ 
 Admitted.
 (*
           - simpl. restoreAbstraction. charge_intros.
