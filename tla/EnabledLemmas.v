@@ -241,3 +241,55 @@ Proof.
   apply get_vars_next_state_vars in H0.
   auto.
 Qed.
+
+Definition witness_function (m:RenameMap) (f:state->state)
+  (xs : list Var) : Prop :=
+  forall st x,
+    List.In x xs ->
+    st x = eval_term (m x) (f st) (f st).
+
+Lemma subst_enabled :
+  forall A xs G m (f:state->state),
+    next_state_vars A xs ->
+    witness_function m f xs ->
+    G |-- Enabled A ->
+    Rename m G |-- Enabled (Rename m A).
+Proof.
+  breakAbstraction. intros. unfold next_state_vars in *.
+  specialize (H1 _ H2).
+  destruct tr.
+  destruct H1 as [tr' HA].
+  exists (Stream.stream_map f tr').
+  rewrite Stream.stream_map_cons
+    by eauto with typeclass_instances.
+  rewrite H.
+  { eapply BasicProofRules.Proper_eval_formula.
+    3: apply HA.
+    { reflexivity. }
+    { constructor.
+      { reflexivity. }
+      { reflexivity. } } }
+  { unfold witness_function, traces_agree in *. intros.
+    unfold subst_state.
+    eapply Stream.Transitive_stream_eq.
+    { repeat red. congruence. }
+    { apply Stream.stream_map_compose.
+      repeat red. reflexivity. }
+    { simpl.
+      match goal with
+      | [ |- context [ Stream.stream_map ?f _ ] ] =>
+        pose proof (@Stream.Proper_stream_map _ _
+              (fun st1 st2 : state => (eq (st1 x) (st2 x)))
+              (fun st1 st2 : state => (eq (st1 x) (st2 x)))
+              f (fun x => x)) as Hproper
+      end.
+      repeat red in Hproper.
+      eapply Stream.Transitive_stream_eq.
+      { repeat red. congruence. }
+      { apply Hproper.
+        { repeat red. intros. rewrite <- H0; auto. }
+        { apply Stream.Reflexive_stream_eq.
+          repeat red. auto. } }
+      { apply Stream.stream_map_id. repeat red.
+        auto. } } }
+Qed.
