@@ -4,3 +4,4 @@ Require Export TLA.Semantics.
 Require Export TLA.Tactics.
 Require Export TLA.Automation.
 Require Export TLA.Lib.
+Require Export TLA.Morphisms.

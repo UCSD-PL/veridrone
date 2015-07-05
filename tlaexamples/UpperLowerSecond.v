@@ -37,7 +37,7 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
 
   Let mirror :=
     (("y",--"y")::("v",--"v")::("a",--"a")::
-     ("Y",--"Y")::("V",--"V")::nil).
+     ("Y",--"Y")::("V",--"V")::("A",--"A")::nil).
 
   Definition SpecMirrorR :
     { x : SysRec &

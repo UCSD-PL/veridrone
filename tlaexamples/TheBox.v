@@ -1,8 +1,11 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
+Require Import TLA.ArithFacts.
+Require Import TLA.EnabledLemmas.
 Require Import Examples.System.
 Require Import Examples.UpperLowerSecond.
 Require Import Examples.UpperLowerFirst.
+Require Import Examples.ParLang.
 Require Import ChargeTactics.Lemmas.
 Require Import Coq.Reals.R_sqrt.
 Require Import Coq.Reals.Ratan.
@@ -61,11 +64,11 @@ Module Box (P : BoxParams).
   Let rename_y :=
     RenameListC (("A","Ay")::("V","Vy")::("Y","Y")::("y","y")::
                  ("v","vy")::("a","ay")::("Ymax","Ymax")::
-                 ("Vmax","Vymax")::nil).
+                 ("Vmax","Vymax")::("T","Ty")::nil).
   Let rename_x :=
     RenameListC (("A","Ax")::("V","Vx")::("Y","X")::("y","x")::
                  ("v","vx")::("a","ax")::("Ymax","Xmax")::
-                 ("Vmax","Vxmax")::nil).
+                 ("Vmax","Vxmax")::("T","Tx")::nil).
 
   Definition UpperLower_X_SpecR :
     { x : SysRec &
@@ -75,6 +78,231 @@ Module Box (P : BoxParams).
   Proof.
     discharge_PartialSys_rename_formula.
   Defined.
+
+  Lemma UpperLower_X_Proposed_refine :
+    forall t,
+      UpperLower_X.Monitor.SafeAcc t //\\ "a"! = t
+      |-- UpperLower_X.Monitor.SafeAcc "a"!.
+  Proof.
+    breakAbstraction. solve_linear. rewrite H1 in *.
+    solve_linear.
+  Qed.
+
+Require Import Coq.Classes.Morphisms.
+Global Instance Cons_Proper :
+  Proper (eq ==>
+          Stream.stream_eq eq ==> Stream.stream_eq eq)
+         (@Stream.Cons state).
+Proof.
+  morphism_intro.
+  constructor; auto.
+Qed.
+
+Definition witness_function (m:RenameMap) (f:state->state)
+  (xs : list Var) : Prop :=
+  forall st x,
+    List.In x xs ->
+    st x = eval_term (m x) (f st) (f st).
+
+Lemma subst_enabled :
+  forall A xs G m (f:state->state),
+    next_state_vars A xs ->
+    witness_function m f xs ->
+    G |-- Enabled A ->
+    Rename m G |-- Enabled (Rename m A).
+Proof.
+  breakAbstraction. intros. unfold next_state_vars in *.
+  specialize (H1 _ H2).
+  destruct tr.
+  destruct H1 as [tr' HA].
+  exists (Stream.stream_map f tr').
+  rewrite Stream.stream_map_cons
+    by eauto with typeclass_instances.
+  rewrite H.
+  { eapply Proper_eval_formula.
+    3: apply HA.
+    { reflexivity. }
+    { constructor.
+      { reflexivity. }
+      { reflexivity. } } }
+  { unfold witness_function, traces_agree in *. intros.
+    unfold subst_state.
+    eapply Stream.Transitive_stream_eq.
+    { repeat red. congruence. }
+    { apply Stream.stream_map_compose.
+      repeat red. reflexivity. }
+    { simpl.
+      match goal with
+      | [ |- context [ Stream.stream_map ?f _ ] ] =>
+        pose proof (@Stream.Proper_stream_map _ _
+              (fun st1 st2 : state => (eq (st1 x) (st2 x)))
+              (fun st1 st2 : state => (eq (st1 x) (st2 x)))
+              f (fun x => x)) as Hproper
+      end.
+      repeat red in Hproper.
+      eapply Stream.Transitive_stream_eq.
+      { repeat red. congruence. }
+      { apply Hproper.
+        { repeat red. intros. rewrite <- H0; auto. }
+        { apply Stream.Reflexive_stream_eq.
+          repeat red. auto. } }
+      { apply Stream.stream_map_id. repeat red.
+        auto. } } }
+Qed.
+
+(* The old version. *)
+(*
+Definition witness_function (m:RenameMap) (f:state->state)
+  : Prop :=
+  forall st x,
+    st x = eval_term (m x) (f st) (f st).
+
+Lemma subst_enabled :
+  forall A G m (f:state->state),
+    witness_function m f ->
+    G |-- Enabled A ->
+    Rename m G |-- Enabled (Rename m A).
+Proof.
+  breakAbstraction. intros.
+  specialize (H0 (Stream.stream_map (subst_state m) tr) H1).
+  destruct tr.
+  destruct H0 as [tr' HA].
+  exists (Stream.stream_map f tr').
+  rewrite Stream.stream_map_cons
+    by eauto with typeclass_instances.
+  rewrite Stream.stream_map_compose
+    by eauto with typeclass_instances.
+  unfold subst_state.
+  eapply Proper_eval_formula; eauto.
+  constructor.
+  { reflexivity. }
+  { simpl.
+    rewrite (@Stream.Proper_stream_map state state eq eq).
+    2: red; intros; subst;
+    apply FunctionalExtensionality.functional_extensionality;
+    intros; rewrite <- H; instantiate (1:=fun x => x);
+    reflexivity.
+    { apply Stream.stream_map_id;
+      eauto with typeclass_instances. }
+    { reflexivity. } }
+Qed.
+*)
+
+(*
+TODO : translate from polar to rectangular,
+refine coupled contraint to a decoupled one
+use disjointness lemma.
+This will show that you can use disjointness,
+even when the system is coupled.
+Viewing things as logical formulas that
+can be refined makes this process clear.
+*)
+
+  Lemma same_next :
+    forall x y,
+      x! = R0 //\\ y! = R0 |-- x! = y!.
+  Proof. solve_linear. Qed.
+
+  Definition refined_UpperLower_X_SpecR :
+    { ins : list Var &
+       { outs : list Var &
+           { p : Parallel ins outs &
+                 tlaParD p |--
+                 Prog (projT1 UpperLower_X_SpecR)} } }.
+  Proof.
+    Opaque UpperLower_X.Monitor.SafeAcc
+           UpperLower_X.Monitor.Default.
+    eexists. eexists. eexists. simpl. restoreAbstraction.
+    match goal with
+    | [ |- context [ rename_formula ?m _ ] ]
+      => remember m as rx
+    end.
+    match goal with
+    | [ |- context
+             [ rename_formula _ (rename_formula ?m _) ] ]
+      => remember m as rm
+    end.
+    repeat rewrite minus_eq.
+    rewrite land_distr.
+    apply par_disjoint_refine.
+    { repeat rewrite land_lor_distr_R.
+      pose proof UpperLower_X_Proposed_refine
+        as Hrefine. specialize (Hrefine "A").
+      apply (Proper_Rename rx rx) in Hrefine;
+        [ | reflexivity].
+      rewrite <- Rename_ok in Hrefine.
+      rewrite <- Rename_ok in Hrefine.
+      rewrite <- Hrefine at 1. clear Hrefine.
+      pose proof UpperLower_X_Proposed_refine as Hrefine.
+      specialize (Hrefine "A").
+      apply (Proper_Rename rm rm) in Hrefine;
+        [ | reflexivity].
+      apply (Proper_Rename rx rx) in Hrefine;
+        [ | reflexivity].
+      rewrite <- Rename_ok with (m:=rm) in Hrefine.
+      rewrite <- Rename_ok with (m:=rm) in Hrefine.
+      rewrite <- Rename_ok with (m:=rx) in Hrefine.
+      rewrite <- Rename_ok with (m:=rx) in Hrefine.
+      rewrite <- Hrefine at 1. clear Hrefine.
+      repeat rewrite lorA.
+      Transparent UpperLower_X.Monitor.SafeAcc
+                  UpperLower_X.Monitor.Default.
+      subst. simpl. restoreAbstraction.
+      repeat rewrite minus_eq. rewrite land_distr.
+      apply ite_refine.
+      { reflexivity. }
+      { apply Assign_refine; reflexivity. }
+      { rewrite <- lor_intro2. rewrite <- lor_intro2.
+        apply ite_refine_and_impl.
+        { reflexivity. }
+        { solve_linear. }
+        { apply ite_refine_and_impl.
+          { reflexivity. }
+          { solve_linear. }
+          { rewrite <- leq_eq_refine.
+            apply Assign_refine; reflexivity. }
+          { rewrite <- leq_eq_refine.
+            apply Assign_refine; reflexivity. } }
+        { apply ite_refine_and_impl.
+          { reflexivity. }
+          { solve_linear. }
+          { rewrite <- leq_eq_refine.
+            rewrite minus_0_l_equiv.
+            rewrite <- neg_eq.
+            apply Assign_refine; reflexivity. }
+          { rewrite <- leq_eq_refine.
+            rewrite minus_0_l_equiv.
+            rewrite <- neg_eq.
+            apply Assign_refine; reflexivity. } } }
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
+      admit. }
+    { rewrite landtrueR.
+      rewrite <- same_next.
+      repeat apply par_disjoint_refine;
+      try (apply Assign_refine; reflexivity). }
+    Grab Existential Variables.
+    { decide_disjoint_var_sets. }
+    { decide_disjoint_var_sets. }
+    { decide_disjoint_var_sets. }
+    { decide_disjoint_var_sets. }
+    { decide_disjoint_var_sets. }
+    { decide_disjoint_var_sets. }
+  Defined.
+
+(*
+Eval simpl in
+      (projT1 (projT2 (projT2 refined_UpperLower_X_SpecR))).
+*)
 
   Definition UpperLower_Y_SpecR :
     { x : SysRec &
@@ -89,21 +317,34 @@ Module Box (P : BoxParams).
     SysCompose (projT1 UpperLower_X_SpecR)
                (projT1 UpperLower_Y_SpecR).
 
-  Definition ProgRectRefined : Formula :=
-    rename_formula (to_RenameMap rename_x)
-                   UpperLower_X.ProgRefined //\\
-    rename_formula (to_RenameMap rename_y)
-                   UpperLower_Y.ProgRefined.
-
-  Lemma ProgRefined_ok :
-    ProgRectRefined |-- SpecRectR.(Prog).
-  Admitted.
+  Lemma Prog_SysCompose :
+    forall a b,
+      Prog (SysCompose a b) -|- Prog a //\\ Prog b.
+  Proof.
+    simpl. restoreAbstraction. intros. split; charge_tauto.
+  Qed.
 
   Lemma RectEnabled :
     |-- SysSafe SpecRectR.
   Proof.
+  Admitted.
+(*
     apply SysSafe_rule. apply always_tauto.
-    unfold Discr. rewrite <- ProgRefined_ok.
+    unfold Discr.
+    rewrite <- disjoint_state_enabled.
+    { charge_split.
+      { unfold SpecRectR. rewrite Prog_SysCompose.
+        repeat rewrite <- disjoint_state_enabled.
+        { charge_split.
+          { admit. }
+          { admit. } }
+        { apply formulas_disjoint_state; try reflexivity.
+          simpl Prog. restoreAbstraction.
+          simpl.
+          simpl get_next_vars_formula. simpl.
+Print Formula.
+
+rewrite <- ProgRefined_ok.
     enable_ex_st.
     pose proof UpperLower_X.Params.amin_lt_0.
     pose proof UpperLower_Y.Params.amin_lt_0.
@@ -118,6 +359,7 @@ Module Box (P : BoxParams).
       do 4 eexists. exists (-UpperLower_X.Params.amin)%R.
       smart_repeat_eexists. solve_linear. }
   Qed.
+*)
 
   Module VX <: UpperLowerFirstParams.
     Definition ub := P.ubv_X.
@@ -162,6 +404,66 @@ Module Box (P : BoxParams).
 
   Let rename_polar : list (Var*Term) :=
     ("ax","a"*sin("theta"))::("ay","a"*cos("theta"))::nil.
+
+Lemma rectangular_to_polar :
+  forall (x y:R),
+    { p : (R*R) |
+      (eq x ((fst p) * Rtrigo_def.cos (snd p)) /\
+       eq y ((fst p) * Rtrigo_def.sin (snd p)))%R }.
+Admitted.
+
+Lemma polar_witness_function :
+  exists f, witness_function (to_RenameMap rename_polar) f.
+Proof.
+  eexists.
+  unfold witness_function.
+  intros. simpl.
+  repeat match goal with
+         | [ |- context [if ?e then _ else _] ]
+             => destruct e; simpl
+         end; subst; simpl.
+
+(*  exists
+    (fun st x =>
+       let witness :=
+           proj1_sig
+             (rectangular_to_polar (st "ay") (st "ax")) in
+       if String.string_dec x "a"
+       then fst witness
+       else if String.string_dec x "theta"
+            then snd witness
+            else if String.string_dec x "ax"
+                 then (fst witness) *
+                      Rtrigo_def.sin (snd witness)
+                 else if String.string_dec x "ay"
+                      then (fst witness) *
+                           Rtrigo_def.cos (snd witness)
+                      else st x)%R.*)
+  exists
+    (fun st x =>
+       let witness :=
+           proj1_sig
+             (rectangular_to_polar (st "ay") (st "ax")) in
+       if String.string_dec x "a"
+       then fst witness
+       else if String.string_dec x "theta"
+            then snd witness
+            else st x)%R.
+  unfold witness_function.
+  intros. simpl.
+  repeat match goal with
+         | [ |- context [if ?e then _ else _] ]
+             => destruct e; simpl
+         end; subst; simpl.
+  { destruct (rectangular_to_polar (st "ay") (st "ax")).
+    simpl. tauto. }
+  { destruct (rectangular_to_polar (st "ay") (st "ax")).
+    simpl. tauto. }
+  { destruct (rectangular_to_polar (st "ay") (st "ax")).
+    simpl. tauto. }
+
+    instantiate (1:=
+rewrite Hpolary.
 
   Definition SpecPolarR :
     { x : SysRec &
