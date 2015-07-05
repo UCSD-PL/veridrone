@@ -97,9 +97,8 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
   Qed.
 
   Lemma UpperLower_enabled :
-    |-- SysSafe SpecR.
+    |-- Enabled (Discr SpecR.(Prog) SpecR.(maxTime)).
   Proof.
-    apply SysSafe_rule. apply always_tauto.
     simpl. restoreAbstraction.
     enable_ex_st.
     pose proof P.amin_lt_0. pose proof P.d_gt_0.
@@ -112,6 +111,13 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
       { right. instantiate (1:=(-Params.amin)%R).
         solve_linear. }
       { reflexivity. } }
+  Qed.
+
+  Lemma UpperLower_full :
+    |-- SysSafe SpecR.
+  Proof.
+    apply SysSafe_rule. apply always_tauto.
+    apply UpperLower_enabled.
   Qed.
 
 End UpperLowerSecond.

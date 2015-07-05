@@ -6,6 +6,7 @@ Require Import TLA.TLA.
 Require Import TLA.ProofRules.
 Require Import TLA.ArithFacts.
 Require Import TLA.Automation.
+Require Import TLA.EnabledLemmas.
 Require Import ChargeTactics.Lemmas.
 Require Import Coq.Lists.ListSet.
 
@@ -196,6 +197,18 @@ Proof.
   subst. rewrite H. reflexivity.
 Qed.
 Existing Instance Proper_Discr.
+
+Global Instance Proper_maxTime :
+  Proper (SysRec_equiv ==> eq) maxTime.
+Proof.
+  unfold SysRec_equiv. morphism_intro. tauto.
+Qed.
+
+Global Instance Proper_Prog :
+  Proper (SysRec_equiv ==> lequiv) Prog.
+Proof.
+  unfold SysRec_equiv. morphism_intro. tauto.
+Qed.
 
 Lemma UnchangedT_In : forall x xs,
     List.In x xs ->
@@ -1195,6 +1208,34 @@ Proof.
              rewrite Rename_ok in *; intuition].
 Qed.
 
+Lemma subst_enabled_sys_discr :
+  forall s m m' xs f,
+    next_state_vars (Discr s.(Prog) s.(maxTime)) xs ->
+    witness_function m f xs ->
+    NotRenamed m "t" ->
+    |-- Enabled (Discr s.(Prog) s.(maxTime)) ->
+    |-- Enabled (Discr (SysRename m m' s).(Prog)
+                       (SysRename m m' s).(maxTime)).
+Proof.
+  intros. simpl. restoreAbstraction. unfold Discr.
+  assert (Rename m ("t"! <= maxTime s) |--
+          "t"! <= maxTime s)%HP as Hd.
+  { breakAbstraction. intros. destruct tr as [? [? ?]].
+    simpl in *. unfold subst_state in *. rewrite H1 in *.
+    simpl in *. auto. }
+  { rewrite <- Hd. clear Hd. rewrite <- Rename_and.
+    eapply subst_enabled_noenv; eauto. }
+Qed.
+
+Ltac sysrename_side_cond :=
+  match goal with
+  | [ |- forall _ : state, is_st_formula _ ]
+    => tlaIntuition; abstract is_st_term_list
+  | [ |- NotRenamed _ _ ]
+    => reflexivity
+  | [ |- _ ] => apply deriv_term_list; reflexivity
+  end.
+
 Ltac discharge_PartialSys_rename_formula :=
   match goal with
     |- { _ : _ & _ |-- Rename (to_RenameMap ?m)
@@ -1206,13 +1247,7 @@ Ltac discharge_PartialSys_rename_formula :=
   rewrite <- SysRename_rename_formula_equiv
     by rw_side_condition;
   apply PartialSysRename_sound;
-  match goal with
-  | [ |- forall _ : state, is_st_formula _ ]
-    => tlaIntuition; abstract is_st_term_list
-  | [ |- NotRenamed _ _ ]
-    => reflexivity
-  | [ |- _ ] => apply deriv_term_list; reflexivity
-  end.
+  sysrename_side_cond.
 
 Ltac discharge_Sys_rename_formula :=
   match goal with
@@ -1232,3 +1267,20 @@ Ltac discharge_Sys_rename_formula :=
     => reflexivity
   | [ |- _ ] => apply deriv_term_list; reflexivity
   end.
+
+Ltac discharge_sysrec_equiv_rename :=
+  match goal with
+  | |- {_ : _ &
+            SysRec_equiv
+              (SysRename (to_RenameMap ?m) _ ?s) _ } =>
+    exists
+      (Sys_rename_formula (to_RenameMap m)
+                          (deriv_term_RenameList m) s)
+  end;
+  apply SysRename_rename_formula_equiv;
+  rw_side_condition.
+
+Ltac rewrite_rename_pf s :=
+  let H := fresh in
+  pose proof (projT2 s) as H;
+    cbv beta in H; rewrite <- H; clear H.

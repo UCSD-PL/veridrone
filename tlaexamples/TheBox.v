@@ -2,6 +2,7 @@ Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
 Require Import TLA.ArithFacts.
 Require Import TLA.EnabledLemmas.
+Require Import TLA.DifferentialInduction.
 Require Import Examples.System.
 Require Import Examples.UpperLowerSecond.
 Require Import Examples.UpperLowerFirst.
@@ -38,6 +39,8 @@ Module Type BoxParams.
 End BoxParams.
 
 Module Box (P : BoxParams).
+  Open Scope HP_scope.
+
   Module X <: UpperLowerSecondParams.
     Definition ub := P.ub_X.
     Definition d := P.d.
@@ -70,6 +73,54 @@ Module Box (P : BoxParams).
                  ("v","vx")::("a","ax")::("Ymax","Xmax")::
                  ("Vmax","Vxmax")::("T","Tx")::nil).
 
+  Lemma x_witness_function :
+    exists f,
+    forall xs,
+      List.forallb
+        (fun y => negb (List.existsb
+                          (fun x => if String.string_dec x y
+                                    then true else false)
+                          (get_image_vars rename_x)))
+        xs = true ->
+      witness_function (to_RenameMap rename_x) f xs.
+  Proof.
+    exists (get_witness rename_x).
+    intros. simpl. unfold witness_function. intros.
+    repeat (destruct_ite; simpl); subst; try reflexivity;
+    try (rewrite List.forallb_forall in H;
+         specialize (H _ H0); discriminate).
+  Qed.
+
+  Lemma y_witness_function :
+    exists f,
+    forall xs,
+      List.forallb
+        (fun y => negb (List.existsb
+                          (fun x => if String.string_dec x y
+                                    then true else false)
+                          (get_image_vars rename_y)))
+        xs = true ->
+      witness_function (to_RenameMap rename_y) f xs.
+  Proof.
+    exists (get_witness rename_y).
+    intros. simpl. unfold witness_function. intros.
+    repeat (destruct_ite; simpl); subst; try reflexivity;
+    try (rewrite List.forallb_forall in H;
+         specialize (H _ H0); discriminate).
+  Qed.
+
+  Definition UpperLower_X_SpecR :
+    { x : SysRec &
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap rename_x)
+               (deriv_term_RenameList rename_x)
+               UpperLower_X.SpecR)
+            x}.
+  Proof.
+    discharge_sysrec_equiv_rename.
+  Defined.
+(*
   Definition UpperLower_X_SpecR :
     { x : SysRec &
           PartialSysD x |--
@@ -78,11 +129,26 @@ Module Box (P : BoxParams).
   Proof.
     discharge_PartialSys_rename_formula.
   Defined.
+*)
+
+  Lemma UpperLower_X_Enabled :
+    |-- Enabled (Discr (projT1 UpperLower_X_SpecR).(Prog)
+                       (projT1 UpperLower_X_SpecR).(maxTime)).
+  Proof.
+    pose proof (projT2 UpperLower_X_SpecR). cbv beta in H.
+    rewrite <- H. clear H.
+    pose proof x_witness_function. destruct H.
+    eapply subst_enabled_sys_discr with (f:=x).
+    { apply get_vars_next_state_vars; reflexivity. }
+    { apply H; reflexivity. }
+    { reflexivity. }
+    { apply UpperLower_X.UpperLower_enabled. }
+  Qed.
 
   Lemma UpperLower_X_Proposed_refine :
     forall t,
-      UpperLower_X.Monitor.SafeAcc t //\\ "a"! = t
-      |-- UpperLower_X.Monitor.SafeAcc "a"!.
+      (UpperLower_X.Monitor.SafeAcc t //\\ "a"! = t
+       |-- UpperLower_X.Monitor.SafeAcc "a"!).
   Proof.
     breakAbstraction. solve_linear. rewrite H1 in *.
     solve_linear.
@@ -90,7 +156,7 @@ Module Box (P : BoxParams).
 
   Lemma same_next :
     forall x y,
-      x! = R0 //\\ y! = R0 |-- x! = y!.
+      (x! = R0 //\\ y! = R0 |-- x! = y!).
   Proof. solve_linear. Qed.
 
   Definition refined_UpperLower_X_SpecR :
@@ -191,12 +257,25 @@ Module Box (P : BoxParams).
 
   Definition UpperLower_Y_SpecR :
     { x : SysRec &
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap rename_y)
+               (deriv_term_RenameList rename_y)
+               UpperLower_Y.SpecR)
+            x}.
+  Proof.
+    discharge_sysrec_equiv_rename.
+  Defined.
+(*
+  Definition UpperLower_Y_SpecR :
+    { x : SysRec &
           PartialSysD x |--
             Rename (to_RenameMap rename_y)
                    (PartialSysD UpperLower_Y.SpecR) }.
   Proof.
     discharge_PartialSys_rename_formula.
   Defined.
+*)
 
   Definition SpecRectR :=
     SysCompose (projT1 UpperLower_X_SpecR)
@@ -263,12 +342,38 @@ rewrite <- ProgRefined_ok.
 
   Definition SpecVelocityR_X :
     { x : SysRec &
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap rename_x)
+               (deriv_term_RenameList rename_x)
+               VelX.SpecR)
+            x}.
+  Proof.
+    discharge_sysrec_equiv_rename.
+  Defined.
+
+(*
+  Definition SpecVelocityR_X :
+    { x : SysRec &
           PartialSysD x |-- Rename (to_RenameMap rename_x)
                                    (PartialSysD VelX.SpecR) }.
   Proof.
     discharge_PartialSys_rename_formula.
   Defined.
+*)
 
+  Definition SpecVelocityR_Y :
+    { x : SysRec &
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap rename_y)
+               (deriv_term_RenameList rename_y)
+               VelY.SpecR)
+            x}.
+  Proof.
+    discharge_sysrec_equiv_rename.
+  Defined.
+(*
   Definition SpecVelocityR_Y :
     { x : SysRec &
           PartialSysD x |-- Rename (to_RenameMap rename_y)
@@ -276,6 +381,7 @@ rewrite <- ProgRefined_ok.
   Proof.
     discharge_PartialSys_rename_formula.
   Defined.
+*)
 
   Definition SpecVelocityR :=
     SysCompose (projT1 SpecVelocityR_X)
@@ -331,12 +437,25 @@ rewrite <- ProgRefined_ok.
 
   Definition SpecPolarR :
     { x : SysRec &
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap rename_polar)
+               (deriv_term_RenameList rename_polar)
+               SpecRectVelocityR)
+            x}.
+  Proof.
+    discharge_sysrec_equiv_rename.
+  Defined.
+(*
+  Definition SpecPolarR :
+    { x : SysRec &
           PartialSysD x |--
             Rename (to_RenameMap rename_polar)
                    (PartialSysD SpecRectVelocityR) }.
   Proof.
     discharge_PartialSys_rename_formula.
   Defined.
+*)
 (*    apply forget_prem.
     rewrite <- Rename_ok by is_st_term_list.
     simpl; restoreAbstraction.
@@ -390,8 +509,10 @@ rewrite <- ProgRefined_ok.
           simpl rename_formula. restoreAbstraction.
           repeat rewrite Always_and. apply always_imp.
           solve_linear. }
-        { pose proof (projT2 UpperLower_X_SpecR).
-          cbv beta in H. charge_tauto. } } }
+        { rewrite_rename_pf UpperLower_X_SpecR.
+          rewrite PartialSysRename_sound
+            by sysrename_side_cond.
+          charge_tauto. } } }
     { charge_intros. pose proof UpperLower_Y.UpperLower_safe.
       apply (Proper_Rename (to_RenameMap rename_y)
                            (to_RenameMap rename_y))
@@ -406,8 +527,10 @@ rewrite <- ProgRefined_ok.
           simpl rename_formula. restoreAbstraction.
           repeat rewrite Always_and. apply always_imp.
           solve_linear. }
-        { pose proof (projT2 UpperLower_Y_SpecR).
-          cbv beta in H. charge_tauto. } } }
+        { rewrite_rename_pf UpperLower_Y_SpecR.
+          rewrite PartialSysRename_sound
+            by sysrename_side_cond.
+          charge_tauto. } } }
   Qed.
 
   Lemma velocity_safe :
@@ -416,8 +539,10 @@ rewrite <- ProgRefined_ok.
             "vy" <= VY.ub //\\ -- ("vy") <= VY.ub).
   Proof.
     apply PartialCompose.
-    - pose proof (projT2 SpecVelocityR_X). cbv beta in H.
-      rewrite H. clear. pose proof VelX.UpperLower_safe.
+    - rewrite_rename_pf SpecVelocityR_X.
+      rewrite PartialSysRename_sound
+        by sysrename_side_cond.
+      pose proof VelX.UpperLower_safe.
       apply (Proper_Rename (to_RenameMap rename_x)
                            (to_RenameMap rename_x))
         in H; [ | reflexivity ].
@@ -426,8 +551,10 @@ rewrite <- ProgRefined_ok.
       rewrite landtrueL in H. rewrite H. clear.
       rewrite <- Rename_ok by rw_side_condition.
       apply always_imp. solve_linear.
-    - pose proof (projT2 SpecVelocityR_Y). cbv beta in H.
-      rewrite H. clear. pose proof VelY.UpperLower_safe.
+    - rewrite_rename_pf SpecVelocityR_Y.
+      rewrite PartialSysRename_sound
+        by sysrename_side_cond.
+      pose proof VelY.UpperLower_safe.
       apply (Proper_Rename (to_RenameMap rename_y)
                            (to_RenameMap rename_y))
         in H; [ | reflexivity ].
@@ -475,8 +602,9 @@ Axiom amin_ubv_Y : (-P.amin*P.d <= P.ubv_Y)%R.
     charge_intros.
     unfold SpecPolarConstrainedR.
     rewrite PartialComposeRefine.
-    pose proof (projT2 SpecPolarR). cbv beta in H.
-    rewrite H. clear.
+    rewrite_rename_pf SpecPolarR.
+    rewrite PartialSysRename_sound
+      by sysrename_side_cond.
     pose proof rect_velocity_safe.
     eapply Proper_Rename in H. 2: reflexivity.
     revert H. instantiate (1 := to_RenameMap rename_polar).

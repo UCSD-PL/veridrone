@@ -293,3 +293,14 @@ Proof.
       { apply Stream.stream_map_id. repeat red.
         auto. } } }
 Qed.
+
+Lemma subst_enabled_noenv :
+  forall A xs m (f:state->state),
+    next_state_vars A xs ->
+    witness_function m f xs ->
+    |-- Enabled A ->
+    |-- Enabled (Rename m A).
+Proof.
+  intros. rewrite <- subst_enabled with (G:=ltrue); eauto.
+  apply BasicProofRules.Rename_True.
+Qed.
