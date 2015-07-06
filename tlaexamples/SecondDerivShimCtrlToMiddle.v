@@ -22,8 +22,10 @@ Module Type SecondDerivShimParams <: SdistParams.
   (* Our breaking acceleration. *)
   Parameter amin : R.
   Parameter amin_lt_0 : (amin < 0)%R.
-
+  
   Parameter ubv : R.
+  Parameter ub_ubv : (ubv*d - ubv*ubv*(/2)*(/amin) <= ub)%R.
+
 
 End SecondDerivShimParams.
 
@@ -197,8 +199,12 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
   Lemma simplProof2 : forall x y, (x >= R0 -> y < R0 ->  x * (0 - / 2) * / y >= R0)%R. 
   Proof.
     intros.
-    z3 solve_dbg.
-  Admitted.
+    assert (/ y < 0)%R by solve_linear.
+    assert (0 - / 2 < 0)%R by solve_linear.
+    generalize dependent (/y)%R.
+    generalize dependent (0 - / 2)%R.
+    solve_nonlinear.
+  Qed.
 
   Theorem ctrl_safe :
    []"v" <= ubv |-- Spec -->> []Safe.
@@ -339,49 +345,90 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
                 specialize (conjIndInvPremise (0 <= Stream.hd tr "T" - Stream.hd tr "t" <= d)%R (0 <= Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t"))%R indInvPremise2 r).
                 decompose [and] H8.
                 specialize (H conjIndInvPremise). 
-  
-                pose proof simplProof as sProof.
-                specialize (sProof  (Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t"))%R).
-                pose proof simplProof2 as sProof2.
-                specialize (sProof2  ((Stream.hd tr "V" +
-                                       Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) *
-                                      ((Stream.hd tr "V" +
-                                        Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) * 1))%R amin sProof amin_lt_0).
-                pose proof simplProof3 as sProof3.
-                specialize (sProof3 (Stream.hd tr "y") (Stream.hd tr "Y")  
-                                    (Stream.hd tr "V" * (Stream.hd tr "T" - Stream.hd tr "t") +
-                                     / 2 * Stream.hd tr "a" *
-                                     ((Stream.hd tr "T" - Stream.hd tr "t") *
-                                      ((Stream.hd tr "T" - Stream.hd tr "t") * 1)))%R
-                                    ((Stream.hd tr "V" +
-                                      Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) *
-                                     ((Stream.hd tr "V" +
-                                       Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) * 1) *
-                                     (0 - / 2) * / amin)%R H6 H sProof2).
-                clear sProof sProof2.
-                
                 specialize (H23 H5).
                 revert H23. intros.
                 
-                rewrite <- H14 in H23, sProof3. rewrite <- H16 in H23.
+                rewrite <- H14 in H23. rewrite <- H16 in H23.
                 rewrite <- H16 in H0.
-                clear -H2 H25 amin_lt_0 H5 sProof3 H23 H0. 
-                z3 solve_dbg.
-                admit.
+                clear - H23 H0 amin_lt_0.
+                assert (/amin < 0)%R by solve_linear.
+                assert (0 - / 2 < 0)%R by solve_linear.
+                assert (/ 2 > 0)%R by solve_linear.
+                simpl in *.
+                Print plus_assoc_reverse.
+                Lemma simplPlus : forall x y z:R, (x + y + z)%R = (x + (y + z))%R.
+                Proof.
+                  solve_linear.
+                Qed.
+                intros.
+                rewrite simplPlus in H23.
+                remember (Stream.hd (Stream.tl tr) "V" * d + / 2 * 0 * (d * (d * 1)) +
+                          (Stream.hd (Stream.tl tr) "V" + 0 * d) *
+                          ((Stream.hd (Stream.tl tr) "V" + 0 * d) * 1) * 
+                          (0 - / 2) * / amin)%R.
+                rewrite simplPlus.
+                remember (Stream.hd (Stream.tl tr) "V" * x +
+                          / 2 * Stream.hd (Stream.tl tr) "a" * (x * (x * 1)) +
+                          (Stream.hd (Stream.tl tr) "V" + Stream.hd (Stream.tl tr) "a" * x) *
+                          ((Stream.hd (Stream.tl tr) "V" + Stream.hd (Stream.tl tr) "a" * x) * 1) *
+                          (0 - / 2) * / amin)%R.
+                clear Heqr0 Heqr.
+                generalize dependent (/amin)%R.
+                generalize dependent (0 - / 2)%R.
+                generalize dependent (/ 2)%R.
+                solve_nonlinear.
               }
               {
-                z3 solve_dbg.
+              
+                clear -amin_lt_0 x tr H5 H1 H16 H24 H2 n.
+                
+
+                assert (/amin < 0)%R by solve_linear.
+                assert (0 - / 2 < 0)%R by solve_linear.
+                assert (/ 2 > 0)%R by solve_linear.
+                generalize dependent (/amin)%R.
+                generalize dependent (0 - / 2)%R.
+                generalize dependent (/ 2)%R.
                 solve_nonlinear.
-                admit.
               }
           - 
             breakAbstraction. intros. 
             decompose [and] H.  specialize (H20 H4). rewrite <- H13 in H20. rewrite <- H15 in H20.
             decompose [and] H0.
             clear -H4 H20 H25 H23 amin_lt_0.
-            z3 solve_dbg.
-            admit.
-          -
+            rewrite simplPlus in H20.
+            rewrite simplPlus.
+            
+            Lemma diffAcc : forall v t1 t2 a amin1, (a >= 0 -> amin1 < 0 -> t1 <= t2 -> (0 <= v + a * t1) -> (v * t1 + / 2 * a * (t1 * (t1 * 1)) + (v + a * t1) * ((v + a * t1) * 1) * (0 - / 2) * / amin1) <=  (v * t2 + / 2 * a * (t2 * (t2 * 1)) + (v + a * t2) * ((v + a * t2) * 1) * (0 - / 2) * / amin1))%R.
+            Proof.
+              intros.
+              assert (/amin1 < 0)%R by solve_linear.
+              assert (0 - / 2 < 0)%R by solve_linear.
+              assert (/ 2 > 0)%R by solve_linear.
+              generalize dependent (/amin1)%R.
+              generalize dependent (0 - / 2)%R.
+              generalize dependent (/ 2)%R.
+              
+            Admitted.
+            intros.
+            pose proof diffAcc as diffAcc.
+            specialize (diffAcc (Stream.hd (Stream.tl tr) "V") x d (Stream.hd (Stream.tl tr) "a") amin H4 amin_lt_0 H25 H23).
+            
+            remember (Stream.hd (Stream.tl tr) "V" * x +
+                      / 2 * Stream.hd (Stream.tl tr) "a" * (x * (x * 1)) +
+                      (Stream.hd (Stream.tl tr) "V" + Stream.hd (Stream.tl tr) "a" * x) *
+                      ((Stream.hd (Stream.tl tr) "V" +
+                        Stream.hd (Stream.tl tr) "a" * x) * 1) * 
+                      (0 - / 2) * / amin)%R.
+            remember (Stream.hd (Stream.tl tr) "V" * d +
+                      / 2 * Stream.hd (Stream.tl tr) "a" * (d * (d * 1)) +
+                      (Stream.hd (Stream.tl tr) "V" + Stream.hd (Stream.tl tr) "a" * d) *
+                      ((Stream.hd (Stream.tl tr) "V" +
+                        Stream.hd (Stream.tl tr) "a" * d) * 1) * 
+                      (0 - / 2) * / amin)%R.
+            clear Heqr Heqr0.
+            solve_nonlinear.
+          - 
             breakAbstraction.  intros. decompose [and] H. clear H. 
             pose proof indInvPremise as indInvPremise.
             specialize (indInvPremise (Stream.hd tr "v") (Stream.hd tr "V") (Stream.hd tr "a") (Stream.hd tr "t") (Stream.hd tr "T") H2 H3).
@@ -423,8 +470,14 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
               clear H8 H10 H6 H12 H11 H14 H9 H15 H13 H15. clear H19 H18 H17 H21 H20.
               clear H1. clear H4 H2. clear H5 H7 H3 H indInvPremise indInvPremise2 conjIndInvPremise r d_gt_0.
               clear -amin_lt_0 x tr H0 H22 sProof3.
+   
               decompose [and] H0. clear H0.
-              z3 solve_dbg.
+              assert (/amin < 0)%R by solve_linear.
+              assert (0 - / 2 < 0)%R by solve_linear.
+              assert (/ 2 > 0)%R by solve_linear.
+              generalize dependent (/amin)%R.
+              generalize dependent (0 - / 2)%R.
+              generalize dependent (/ 2)%R.
               admit.
             }
             {
@@ -436,7 +489,16 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
               specialize (H16 conjIndInvPremise).  
               rewrite <- H13 in H5. rewrite <- H15 in H3.
               clear -amin_lt_0 H0 H5 H3 H16 conjIndInvPremise.
+              decompose [and] H0. clear H0. 
+              decompose [and] conjIndInvPremise. clear conjIndInvPremise.
+              clear H4 H6 H7.
               z3 solve_dbg.
+              assert (/amin < 0)%R by solve_linear.
+              assert (0 - / 2 < 0)%R by solve_linear.
+              assert (/ 2 > 0)%R by solve_linear.
+              generalize dependent (/amin)%R.
+              generalize dependent (0 - / 2)%R.
+              generalize dependent (/ 2)%R.
               admit.
             }
           - 
@@ -449,9 +511,14 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
             specialize (indInvPremise2  (Stream.hd tr "t") (Stream.hd tr "T") H8 H10 H6).
             destruct (Rge_dec ( Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) R0).
             {
-              clear -amin_lt_0 x tr H0 H4 H3 H15 r.  
-              z3 solve_dbg.
-              admit.
+              clear -amin_lt_0 x tr H0 H4 H3 H15 r.
+               assert (/amin < 0)%R by solve_linear.
+              assert (0 - / 2 < 0)%R by solve_linear.
+              assert (/ 2 > 0)%R by solve_linear.
+              generalize dependent (/amin)%R.
+              generalize dependent (0 - / 2)%R.
+              generalize dependent (/ 2)%R.
+              solve_nonlinear.
             }
             {
               apply Rnot_ge_lt in n.
@@ -461,54 +528,255 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
               specialize (H16 conjIndInvPremise).  
               rewrite <- H13 in H5. rewrite <- H15 in H3.
               clear -amin_lt_0 H0 H5 H3 H16 conjIndInvPremise.
-              z3 solve_dbg.
+              assert (/amin < 0)%R by solve_linear.
+              assert (0 - / 2 < 0)%R by solve_linear.
+              assert (/ 2 > 0)%R by solve_linear.
+              generalize dependent (/amin)%R.
+              generalize dependent (0 - / 2)%R.
+              generalize dependent (/ 2)%R.
               admit.
             }
         }
         {
-          
-          admit.
-           (*
-           breakAbstraction. intros. decompose [and] H. clear H.
-           pose proof indInvPremise as indInvPremise.
-           specialize (indInvPremise (Stream.hd tr "v") (Stream.hd tr "V") (Stream.hd tr "a") (Stream.hd tr "t") (Stream.hd tr "T") H1 H3).
-           specialize (H5 (Stream.hd tr "T" - Stream.hd tr "t")%R indInvPremise).
-
-           pose proof indInvPremise2 as indInvPremise2.
-           specialize (indInvPremise2  (Stream.hd tr "t") (Stream.hd tr "T") H6 H8 H4).
-           destruct (Rge_dec ( Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) R0).
-           {
+          tlaAssert (("y" > 0 //\\ "v" > 0 //\\ "a"! <= amin) \\//
+                                                              ("y" > 0 //\\ "v" <= 0 //\\ "a"! <= 0) \\//
+                                                              "y" <= 0);
+          [ solve_linear | charge_intros; decompose_hyps ].
+          {
+            
+            breakAbstraction. intros. decompose [and] H. clear H.
+            pose proof indInvPremise as indInvPremise.
+            specialize (indInvPremise (Stream.hd tr "v") (Stream.hd tr "V") (Stream.hd tr "a") (Stream.hd tr "t") (Stream.hd tr "T") H3 H1).
+            specialize (H6 (Stream.hd tr "T" - Stream.hd tr "t")%R indInvPremise).
+            
+            pose proof indInvPremise2 as indInvPremise2.
+            specialize (indInvPremise2  (Stream.hd tr "t") (Stream.hd tr "T") H7 H9 H5).
+            destruct (Rge_dec ( Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) R0).
+            {
               apply Rge_le in r.
-               (* proving  0 <= T-t <=d*)
-               pose proof conj as conjIndInvPremise.
-               specialize (conjIndInvPremise (0 <= Stream.hd tr "T" - Stream.hd tr "t" <= d)%R (0 <= Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t"))%R indInvPremise2 r).
-               decompose [and] H5. clear H5.
-               specialize (H conjIndInvPremise). 
-               clear H18.
-               pose proof simplProof as sProof.
-               specialize (sProof  (Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t"))%R).
-               pose proof simplProof2 as sProof2.
-               specialize (sProof2  ((Stream.hd tr "V" +
-                                      Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) *
-                                     ((Stream.hd tr "V" +
-                                       Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) * 1))%R amin sProof amin_lt_0).
-               pose proof simplProof3 as sProof3.
-               specialize (sProof3 (Stream.hd tr "y") (Stream.hd tr "Y")  
-                                   (Stream.hd tr "V" * (Stream.hd tr "T" - Stream.hd tr "t") +
-                                    / 2 * Stream.hd tr "a" *
-                                    ((Stream.hd tr "T" - Stream.hd tr "t") *
-                                     ((Stream.hd tr "T" - Stream.hd tr "t") * 1)))%R
-                                   ((Stream.hd tr "V" +
-                                     Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) *
-                                    ((Stream.hd tr "V" +
-                                      Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) * 1) *
-                                    (0 - / 2) * / amin)%R H2 H sProof2). 
-               clear sProof sProof2.
-               split.
-               intros.
-              *)
-         }
-       }
+              
+              (* proving  0 <= T-t <=d*)
+              pose proof conj as conjIndInvPremise.
+              specialize (conjIndInvPremise (0 <= Stream.hd tr "T" - Stream.hd tr "t" <= d)%R (0 <= Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t"))%R indInvPremise2 r).
+              decompose [and] H6. clear H6.
+              specialize (H conjIndInvPremise). 
+              split. 
+              {
+                intros. z3 solve_dbg.
+                rewrite H12 in *. rewrite H14 in *.
+                clear H12 H14 H18 H17 H16 H20.
+                clear H2. clear r indInvPremise indInvPremise2 conjIndInvPremise. clear H21. 
+                clear H3 H0. clear H7. clear H9 H5 H11 H10 H13 H8. 
+                clear -amin_lt_0 d_gt_0 x tr H4 H1 H15 H19 H22 H H6.
+                decompose [and] H6.
+                clear H6. clear H5. 
+                z3 solve_dbg.
+                assert (/amin < 0)%R by solve_linear.
+                assert (0 - / 2 < 0)%R by solve_linear.
+                assert (/ 2 > 0)%R by solve_linear.
+                generalize dependent (/amin)%R.
+                generalize dependent (0 - / 2)%R.
+                generalize dependent (/ 2)%R.
+                admit.
+                
+              }
+              {
+                intros.
+                rewrite H12 in *. rewrite H14 in *.
+                clear H12 H14 H18 H17 H16 H20. clear H19 H2. clear indInvPremise indInvPremise2 r conjIndInvPremise. clear H21 H6. clear H0 H3. clear H7 H9 H5 H11 H10 H13 H8. clear H15. 
+                clear -amin_lt_0 x tr H4 H1 H22 H.
+                assert (/amin < 0)%R by solve_linear.
+                assert (0 - / 2 < 0)%R by solve_linear.
+                assert (/ 2 > 0)%R by solve_linear.
+                generalize dependent (/amin)%R.
+                generalize dependent (0 - / 2)%R.
+                generalize dependent (/ 2)%R.    
+                admit.
+              }
+            }
+            {
+              split.
+              intros.
+              rewrite H12 in *.
+              rewrite H14 in *.
+              clear -amin_lt_0 H0 H1 n H2.
+              assert (/amin < 0)%R by solve_linear.
+              assert (0 - / 2 < 0)%R by solve_linear.
+              assert (/ 2 > 0)%R by solve_linear.
+              generalize dependent (/amin)%R.
+              generalize dependent (0 - / 2)%R.
+              generalize dependent (/ 2)%R.
+              solve_nonlinear.
+              clear -amin_lt_0 H0 H1 n H2.
+              intros.
+              assert (/amin < 0)%R by solve_linear.
+              assert (0 - / 2 < 0)%R by solve_linear.
+              assert (/ 2 > 0)%R by solve_linear.
+              generalize dependent (/amin)%R.
+              generalize dependent (0 - / 2)%R.
+              generalize dependent (/ 2)%R.
+              solve_nonlinear.
+            }
+          }
+          {
+             breakAbstraction. intros. decompose [and] H. clear H.
+            pose proof indInvPremise as indInvPremise.
+            specialize (indInvPremise (Stream.hd tr "v") (Stream.hd tr "V") (Stream.hd tr "a") (Stream.hd tr "t") (Stream.hd tr "T") H3 H1).
+            specialize (H6 (Stream.hd tr "T" - Stream.hd tr "t")%R indInvPremise).
+            
+            pose proof indInvPremise2 as indInvPremise2.
+            specialize (indInvPremise2  (Stream.hd tr "t") (Stream.hd tr "T") H7 H9 H5).
+            destruct (Rge_dec ( Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) R0).
+            {
+              apply Rge_le in r.
+              
+              (* proving  0 <= T-t <=d*)
+              
+              pose proof conj as conjIndInvPremise.
+              specialize (conjIndInvPremise (0 <= Stream.hd tr "T" - Stream.hd tr "t" <= d)%R (0 <= Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t"))%R indInvPremise2 r).
+              decompose [and] H6. clear H6.
+              specialize (H conjIndInvPremise). 
+              split. 
+              {
+                intros. 
+                rewrite H12 in *. rewrite H14 in *.
+                clear -amin_lt_0 H4 H6 H2 H22 H.
+                assert (/amin < 0)%R by solve_linear.
+                assert (0 - / 2 < 0)%R by solve_linear.
+                assert (/ 2 > 0)%R by solve_linear.
+                generalize dependent (/amin)%R.
+                generalize dependent (0 - / 2)%R.
+                generalize dependent (/ 2)%R.
+                admit.
+              }
+              {
+                intros.
+                rewrite H12 in *. rewrite H14 in *.
+                clear -amin_lt_0 H4 H6 H2 H.
+                assert (/amin < 0)%R by solve_linear.
+                assert (0 - / 2 < 0)%R by solve_linear.
+                assert (/ 2 > 0)%R by solve_linear.
+                generalize dependent (/amin)%R.
+                generalize dependent (0 - / 2)%R.
+                generalize dependent (/ 2)%R.
+                admit.
+              }
+            }
+            {
+              split.
+              {
+                intros. 
+                rewrite H12 in *. rewrite H14 in *.
+                clear -amin_lt_0 H1 H n H22 .
+                assert (/amin < 0)%R by solve_linear.
+                assert (0 - / 2 < 0)%R by solve_linear.
+                assert (/ 2 > 0)%R by solve_linear.
+                generalize dependent (/amin)%R.
+                generalize dependent (0 - / 2)%R.
+                generalize dependent (/ 2)%R.
+                solve_nonlinear.
+              }
+              {
+                apply Rnot_ge_lt in n.
+                decompose [and] H6. clear H6.
+                pose proof conj as conjIndInvPremise.
+                specialize (conjIndInvPremise (0 <= Stream.hd tr "T" - Stream.hd tr "t" <= d)%R (Stream.hd tr "V" +  Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t") < 0)%R indInvPremise2 n).
+                specialize (H21 conjIndInvPremise).                
+                intros.
+                rewrite H12 in *. rewrite H14 in *.
+                clear conjIndInvPremise indInvPremise indInvPremise2.
+                clear H12 H14 H18 H17 H16 H20 H7 H9 H5 H11 H10 H13 H8 H15.
+                z3 solve_dbg.
+                clear -amin_lt_0 H1 H4 n  H6  H21.
+                 assert (/amin < 0)%R by solve_linear.
+                assert (0 - / 2 < 0)%R by solve_linear.
+                assert (/ 2 > 0)%R by solve_linear.
+                generalize dependent (/amin)%R.
+                generalize dependent (0 - / 2)%R.
+                generalize dependent (/ 2)%R.
+                admit.
+              }
+            }
+          }
+          {
+            breakAbstraction. intros. decompose [and] H. clear H.
+            pose proof indInvPremise as indInvPremise.
+            specialize (indInvPremise (Stream.hd tr "v") (Stream.hd tr "V") (Stream.hd tr "a") (Stream.hd tr "t") (Stream.hd tr "T") H3 H1).
+            specialize (H6 (Stream.hd tr "T" - Stream.hd tr "t")%R indInvPremise).
+            
+            pose proof indInvPremise2 as indInvPremise2.
+            specialize (indInvPremise2  (Stream.hd tr "t") (Stream.hd tr "T") H7 H9 H5).
+            destruct (Rge_dec ( Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t")) R0).
+            { 
+              apply Rge_le in r.
+              (* proving  0 <= T-t <=d*)
+              pose proof conj as conjIndInvPremise.
+              specialize (conjIndInvPremise (0 <= Stream.hd tr "T" - Stream.hd tr "t" <= d)%R (0 <= Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t"))%R indInvPremise2 r).
+              decompose [and] H6. clear H6.
+              specialize (H conjIndInvPremise). 
+              clear H19.
+              split.
+              intros.
+              decompose [and] H6.
+              pose proof ub_ubv.
+              rewrite H14 in *.
+              clear H14.
+              rewrite H12 in *.
+              clear -amin_lt_0 x tr H0 H2 H3 H21 H22 H23 H19.
+              assert (/amin < 0)%R by solve_linear.
+              assert (0 - / 2 < 0)%R by solve_linear.
+              assert (/ 2 > 0)%R by solve_linear.
+              generalize dependent (/amin)%R.
+              generalize dependent (0 - / 2)%R.
+              generalize dependent (/ 2)%R.
+              admit.
+              intros.
+              pose proof ub_ubv.
+              rewrite H12 in *. rewrite H14 in *. clear H12 H14 H18 H17 H16. 
+              clear H7 H9 H5 H11 H10 H13. clear H4 H1 H8 H15 H20. 
+              clear conjIndInvPremise.
+              clear indInvPremise2. clear H. clear d_gt_0.
+              clear -amin_lt_0 x tr H2 H3 indInvPremise r H6 H19.
+              assert (/amin < 0)%R by solve_linear.
+              assert (0 - / 2 < 0)%R by solve_linear.
+              assert (/ 2 > 0)%R by solve_linear.
+              generalize dependent (/amin)%R.
+              generalize dependent (0 - / 2)%R.
+              generalize dependent (/ 2)%R.
+              admit.
+            }
+            {
+              rewrite H12 in *. rewrite H14 in *.
+              split.
+              intros.
+              pose proof ub_ubv.
+              clear -amin_lt_0 H0 H2 H3 H H19.
+              assert (/amin < 0)%R by solve_linear.
+              assert (0 - / 2 < 0)%R by solve_linear.
+              assert (/ 2 > 0)%R by solve_linear.
+              generalize dependent (/amin)%R.
+              generalize dependent (0 - / 2)%R.
+              generalize dependent (/ 2)%R.
+              admit.
+              intros. pose proof ub_ubv.
+              decompose [and] H6.
+              apply Rnot_ge_lt in n.
+              pose proof conj as conjIndInvPremise.
+              specialize (conjIndInvPremise (0 <= Stream.hd tr "T" - Stream.hd tr "t" <= d)%R (Stream.hd tr "V" + Stream.hd tr "a" * (Stream.hd tr "T" - Stream.hd tr "t") < 0)%R indInvPremise2 n).
+              specialize (H22 conjIndInvPremise). 
+              clear -amin_lt_0 H2 H3 H H19 H22 H4.
+              z3 solve_dbg.
+              assert (/amin < 0)%R by solve_linear.
+              assert (0 - / 2 < 0)%R by solve_linear.
+              assert (/ 2 > 0)%R by solve_linear.
+              generalize dependent (/amin)%R.
+              generalize dependent (0 - / 2)%R.
+              generalize dependent (/ 2)%R.
+              admit.
+            }
+          }
+        }
+      }
       {
         breakAbstraction.
         intros.
@@ -526,7 +794,6 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
   Qed.
   
  
-Admitted.
 (*
           - simpl. restoreAbstraction. charge_intros.
             tlaAssert ("v" >= 0 \\// "v" <= 0);
