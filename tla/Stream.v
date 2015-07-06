@@ -102,6 +102,14 @@ Section parametric.
     eapply stream_eq_eta in H. tauto.
   Qed.
 
+  Global Instance Cons_Proper :
+    Proper (eq ==>
+               stream_eq eq ==> stream_eq eq) Cons.
+  Proof.
+    repeat red.
+    constructor; auto.
+  Qed.
+
   CoFixpoint forever (v : A) : stream :=
     Cons v (forever v).
 

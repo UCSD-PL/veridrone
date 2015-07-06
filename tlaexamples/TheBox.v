@@ -2,6 +2,7 @@ Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
 Require Import TLA.ArithFacts.
 Require Import TLA.EnabledLemmas.
+Require Import TLA.DifferentialInduction.
 Require Import Examples.System.
 Require Import Examples.UpperLowerSecond.
 Require Import Examples.UpperLowerFirst.
@@ -38,6 +39,8 @@ Module Type BoxParams.
 End BoxParams.
 
 Module Box (P : BoxParams).
+  Open Scope HP_scope.
+
   Module X <: UpperLowerSecondParams.
     Definition ub := P.ub_X.
     Definition d := P.d.
@@ -70,6 +73,54 @@ Module Box (P : BoxParams).
                  ("v","vx")::("a","ax")::("Ymax","Xmax")::
                  ("Vmax","Vxmax")::("T","Tx")::nil).
 
+  Lemma x_witness_function :
+    exists f,
+    forall xs,
+      List.forallb
+        (fun y => negb (List.existsb
+                          (fun x => if String.string_dec x y
+                                    then true else false)
+                          (get_image_vars rename_x)))
+        xs = true ->
+      witness_function (to_RenameMap rename_x) f xs.
+  Proof.
+    exists (get_witness rename_x).
+    intros. simpl. unfold witness_function. intros.
+    repeat (destruct_ite; simpl); subst; try reflexivity;
+    try (rewrite List.forallb_forall in H;
+         specialize (H _ H0); discriminate).
+  Qed.
+
+  Lemma y_witness_function :
+    exists f,
+    forall xs,
+      List.forallb
+        (fun y => negb (List.existsb
+                          (fun x => if String.string_dec x y
+                                    then true else false)
+                          (get_image_vars rename_y)))
+        xs = true ->
+      witness_function (to_RenameMap rename_y) f xs.
+  Proof.
+    exists (get_witness rename_y).
+    intros. simpl. unfold witness_function. intros.
+    repeat (destruct_ite; simpl); subst; try reflexivity;
+    try (rewrite List.forallb_forall in H;
+         specialize (H _ H0); discriminate).
+  Qed.
+
+  Definition UpperLower_X_SpecR :
+    { x : SysRec &
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap rename_x)
+               (deriv_term_RenameList rename_x)
+               UpperLower_X.SpecR)
+            x}.
+  Proof.
+    discharge_sysrec_equiv_rename.
+  Defined.
+(*
   Definition UpperLower_X_SpecR :
     { x : SysRec &
           PartialSysD x |--
@@ -78,129 +129,34 @@ Module Box (P : BoxParams).
   Proof.
     discharge_PartialSys_rename_formula.
   Defined.
+*)
+
+  Lemma UpperLower_X_Enabled :
+    |-- Enabled (Discr (projT1 UpperLower_X_SpecR).(Prog)
+                       (projT1 UpperLower_X_SpecR).(maxTime)).
+  Proof.
+    pose proof (projT2 UpperLower_X_SpecR). cbv beta in H.
+    rewrite <- H. clear H.
+    pose proof x_witness_function. destruct H.
+    eapply subst_enabled_sys_discr with (f:=x).
+    { apply get_vars_next_state_vars; reflexivity. }
+    { apply H; reflexivity. }
+    { reflexivity. }
+    { apply UpperLower_X.UpperLower_enabled. }
+  Qed.
 
   Lemma UpperLower_X_Proposed_refine :
     forall t,
-      UpperLower_X.Monitor.SafeAcc t //\\ "a"! = t
-      |-- UpperLower_X.Monitor.SafeAcc "a"!.
+      (UpperLower_X.Monitor.SafeAcc t //\\ "a"! = t
+       |-- UpperLower_X.Monitor.SafeAcc "a"!).
   Proof.
     breakAbstraction. solve_linear. rewrite H1 in *.
     solve_linear.
   Qed.
 
-Require Import Coq.Classes.Morphisms.
-Global Instance Cons_Proper :
-  Proper (eq ==>
-          Stream.stream_eq eq ==> Stream.stream_eq eq)
-         (@Stream.Cons state).
-Proof.
-  morphism_intro.
-  constructor; auto.
-Qed.
-
-Definition witness_function (m:RenameMap) (f:state->state)
-  (xs : list Var) : Prop :=
-  forall st x,
-    List.In x xs ->
-    st x = eval_term (m x) (f st) (f st).
-
-Lemma subst_enabled :
-  forall A xs G m (f:state->state),
-    next_state_vars A xs ->
-    witness_function m f xs ->
-    G |-- Enabled A ->
-    Rename m G |-- Enabled (Rename m A).
-Proof.
-  breakAbstraction. intros. unfold next_state_vars in *.
-  specialize (H1 _ H2).
-  destruct tr.
-  destruct H1 as [tr' HA].
-  exists (Stream.stream_map f tr').
-  rewrite Stream.stream_map_cons
-    by eauto with typeclass_instances.
-  rewrite H.
-  { eapply Proper_eval_formula.
-    3: apply HA.
-    { reflexivity. }
-    { constructor.
-      { reflexivity. }
-      { reflexivity. } } }
-  { unfold witness_function, traces_agree in *. intros.
-    unfold subst_state.
-    eapply Stream.Transitive_stream_eq.
-    { repeat red. congruence. }
-    { apply Stream.stream_map_compose.
-      repeat red. reflexivity. }
-    { simpl.
-      match goal with
-      | [ |- context [ Stream.stream_map ?f _ ] ] =>
-        pose proof (@Stream.Proper_stream_map _ _
-              (fun st1 st2 : state => (eq (st1 x) (st2 x)))
-              (fun st1 st2 : state => (eq (st1 x) (st2 x)))
-              f (fun x => x)) as Hproper
-      end.
-      repeat red in Hproper.
-      eapply Stream.Transitive_stream_eq.
-      { repeat red. congruence. }
-      { apply Hproper.
-        { repeat red. intros. rewrite <- H0; auto. }
-        { apply Stream.Reflexive_stream_eq.
-          repeat red. auto. } }
-      { apply Stream.stream_map_id. repeat red.
-        auto. } } }
-Qed.
-
-(* The old version. *)
-(*
-Definition witness_function (m:RenameMap) (f:state->state)
-  : Prop :=
-  forall st x,
-    st x = eval_term (m x) (f st) (f st).
-
-Lemma subst_enabled :
-  forall A G m (f:state->state),
-    witness_function m f ->
-    G |-- Enabled A ->
-    Rename m G |-- Enabled (Rename m A).
-Proof.
-  breakAbstraction. intros.
-  specialize (H0 (Stream.stream_map (subst_state m) tr) H1).
-  destruct tr.
-  destruct H0 as [tr' HA].
-  exists (Stream.stream_map f tr').
-  rewrite Stream.stream_map_cons
-    by eauto with typeclass_instances.
-  rewrite Stream.stream_map_compose
-    by eauto with typeclass_instances.
-  unfold subst_state.
-  eapply Proper_eval_formula; eauto.
-  constructor.
-  { reflexivity. }
-  { simpl.
-    rewrite (@Stream.Proper_stream_map state state eq eq).
-    2: red; intros; subst;
-    apply FunctionalExtensionality.functional_extensionality;
-    intros; rewrite <- H; instantiate (1:=fun x => x);
-    reflexivity.
-    { apply Stream.stream_map_id;
-      eauto with typeclass_instances. }
-    { reflexivity. } }
-Qed.
-*)
-
-(*
-TODO : translate from polar to rectangular,
-refine coupled contraint to a decoupled one
-use disjointness lemma.
-This will show that you can use disjointness,
-even when the system is coupled.
-Viewing things as logical formulas that
-can be refined makes this process clear.
-*)
-
   Lemma same_next :
     forall x y,
-      x! = R0 //\\ y! = R0 |-- x! = y!.
+      (x! = R0 //\\ y! = R0 |-- x! = y!).
   Proof. solve_linear. Qed.
 
   Definition refined_UpperLower_X_SpecR :
@@ -299,11 +255,18 @@ can be refined makes this process clear.
     { decide_disjoint_var_sets. }
   Defined.
 
+  Definition UpperLower_Y_SpecR :
+    { x : SysRec &
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap rename_y)
+               (deriv_term_RenameList rename_y)
+               UpperLower_Y.SpecR)
+            x}.
+  Proof.
+    discharge_sysrec_equiv_rename.
+  Defined.
 (*
-Eval simpl in
-      (projT1 (projT2 (projT2 refined_UpperLower_X_SpecR))).
-*)
-
   Definition UpperLower_Y_SpecR :
     { x : SysRec &
           PartialSysD x |--
@@ -312,6 +275,7 @@ Eval simpl in
   Proof.
     discharge_PartialSys_rename_formula.
   Defined.
+*)
 
   Definition SpecRectR :=
     SysCompose (projT1 UpperLower_X_SpecR)
@@ -378,12 +342,38 @@ rewrite <- ProgRefined_ok.
 
   Definition SpecVelocityR_X :
     { x : SysRec &
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap rename_x)
+               (deriv_term_RenameList rename_x)
+               VelX.SpecR)
+            x}.
+  Proof.
+    discharge_sysrec_equiv_rename.
+  Defined.
+
+(*
+  Definition SpecVelocityR_X :
+    { x : SysRec &
           PartialSysD x |-- Rename (to_RenameMap rename_x)
                                    (PartialSysD VelX.SpecR) }.
   Proof.
     discharge_PartialSys_rename_formula.
   Defined.
+*)
 
+  Definition SpecVelocityR_Y :
+    { x : SysRec &
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap rename_y)
+               (deriv_term_RenameList rename_y)
+               VelY.SpecR)
+            x}.
+  Proof.
+    discharge_sysrec_equiv_rename.
+  Defined.
+(*
   Definition SpecVelocityR_Y :
     { x : SysRec &
           PartialSysD x |-- Rename (to_RenameMap rename_y)
@@ -391,6 +381,7 @@ rewrite <- ProgRefined_ok.
   Proof.
     discharge_PartialSys_rename_formula.
   Defined.
+*)
 
   Definition SpecVelocityR :=
     SysCompose (projT1 SpecVelocityR_X)
@@ -405,66 +396,57 @@ rewrite <- ProgRefined_ok.
   Let rename_polar : list (Var*Term) :=
     ("ax","a"*sin("theta"))::("ay","a"*cos("theta"))::nil.
 
-Lemma rectangular_to_polar :
-  forall (x y:R),
-    { p : (R*R) |
-      (eq x ((fst p) * Rtrigo_def.cos (snd p)) /\
-       eq y ((fst p) * Rtrigo_def.sin (snd p)))%R }.
-Admitted.
+  Lemma rectangular_to_polar :
+    forall (x y:R),
+      { p : (R*R) |
+        (eq x ((fst p) * Rtrigo_def.cos (snd p)) /\
+         eq y ((fst p) * Rtrigo_def.sin (snd p)))%R }.
+  Admitted.
 
-Lemma polar_witness_function :
-  exists f, witness_function (to_RenameMap rename_polar) f.
-Proof.
-  eexists.
-  unfold witness_function.
-  intros. simpl.
-  repeat match goal with
-         | [ |- context [if ?e then _ else _] ]
+  Lemma polar_witness_function :
+    exists f,
+    forall xs,
+      ~List.In "a" xs ->
+      ~List.In "theta" xs ->
+      witness_function (to_RenameMap rename_polar) f xs.
+  Proof.
+    exists
+      (fun st x =>
+         let witness :=
+             proj1_sig
+               (rectangular_to_polar (st "ay") (st "ax")) in
+         if String.string_dec x "a"
+         then fst witness
+         else if String.string_dec x "theta"
+              then snd witness
+              else st x)%R.
+    unfold witness_function.
+    intros. simpl.
+    repeat match goal with
+           | [ |- context [if ?e then _ else _] ]
              => destruct e; simpl
-         end; subst; simpl.
+           end; subst; simpl.
+    { destruct (rectangular_to_polar (st "ay") (st "ax")).
+      simpl. tauto. }
+    { destruct (rectangular_to_polar (st "ay") (st "ax")).
+      simpl. tauto. }
+    { contradiction. }
+    { contradiction. }
+    { reflexivity. }
+  Qed.
 
-(*  exists
-    (fun st x =>
-       let witness :=
-           proj1_sig
-             (rectangular_to_polar (st "ay") (st "ax")) in
-       if String.string_dec x "a"
-       then fst witness
-       else if String.string_dec x "theta"
-            then snd witness
-            else if String.string_dec x "ax"
-                 then (fst witness) *
-                      Rtrigo_def.sin (snd witness)
-                 else if String.string_dec x "ay"
-                      then (fst witness) *
-                           Rtrigo_def.cos (snd witness)
-                      else st x)%R.*)
-  exists
-    (fun st x =>
-       let witness :=
-           proj1_sig
-             (rectangular_to_polar (st "ay") (st "ax")) in
-       if String.string_dec x "a"
-       then fst witness
-       else if String.string_dec x "theta"
-            then snd witness
-            else st x)%R.
-  unfold witness_function.
-  intros. simpl.
-  repeat match goal with
-         | [ |- context [if ?e then _ else _] ]
-             => destruct e; simpl
-         end; subst; simpl.
-  { destruct (rectangular_to_polar (st "ay") (st "ax")).
-    simpl. tauto. }
-  { destruct (rectangular_to_polar (st "ay") (st "ax")).
-    simpl. tauto. }
-  { destruct (rectangular_to_polar (st "ay") (st "ax")).
-    simpl. tauto. }
-
-    instantiate (1:=
-rewrite Hpolary.
-
+  Definition SpecPolarR :
+    { x : SysRec &
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap rename_polar)
+               (deriv_term_RenameList rename_polar)
+               SpecRectVelocityR)
+            x}.
+  Proof.
+    discharge_sysrec_equiv_rename.
+  Defined.
+(*
   Definition SpecPolarR :
     { x : SysRec &
           PartialSysD x |--
@@ -473,6 +455,7 @@ rewrite Hpolary.
   Proof.
     discharge_PartialSys_rename_formula.
   Defined.
+*)
 (*    apply forget_prem.
     rewrite <- Rename_ok by is_st_term_list.
     simpl; restoreAbstraction.
@@ -502,47 +485,6 @@ rewrite Hpolary.
   Definition SpecPolarConstrainedR :=
     SysCompose (projT1 SpecPolarR) InputConstraintSysR.
 
-(*
-  Lemma constraints_ok :
-    (** generalize with respect to the underlying system and add a premise
-     ** that says something about the arctan(x/y) is bounded by some theta.
-     **)
-    PartialSysD SpecPolarConstrainedR |--
-    PartialSysD (projT1 SpecPolarR).
-  Proof.
-    apply PartialComposeRefine.
-    tlaAssert ltrue;
-      [ charge_tauto | charge_intros; rewrite landC ].
-    apply ComposeRefine.
-    apply SysSafe_rule. apply always_tauto.
-    unfold Discr. simpl; restoreAbstraction.
-    setoid_rewrite <- lor_right2.
-    pose proof P.theta_min_lt_theta_max.
-    enable_ex_st.
-    admit.
-    (*eexists.
-    exists P.theta_max. smart_repeat_eexists.
-    solve_linear.
-    instantiate
-      (1:=(- sqrt (X.amin*X.amin + Y.amin*Y.amin))%R).
-    { unfold Y.amin. admit. }
-    { unfold Y.amin. admit. }
-    { unfold Y.amin. admit. }
-    { unfold Y.amin. admit. }*)
-  Qed.
-
-  Lemma rect_to_polar :
-    (** this should generalize without any additional premises
-     ** it might require enabledness
-     **)
-    SysD (projT1 SpecPolarR)
-    |-- Rename (to_RenameMap rename_polar)
-               (SysD SpecRectVelocityR).
-  Proof.
-    apply (projT2 SpecPolarR).
-  Qed.
-*)
-
   Lemma rect_safe
     : []"vx" <= P.ubv_X //\\ []"vx" >= --P.ubv_X //\\
       []"vy" <= P.ubv_Y //\\  []"vy" >= --P.ubv_Y
@@ -567,8 +509,10 @@ rewrite Hpolary.
           simpl rename_formula. restoreAbstraction.
           repeat rewrite Always_and. apply always_imp.
           solve_linear. }
-        { pose proof (projT2 UpperLower_X_SpecR).
-          cbv beta in H. charge_tauto. } } }
+        { rewrite_rename_pf UpperLower_X_SpecR.
+          rewrite PartialSysRename_sound
+            by sysrename_side_cond.
+          charge_tauto. } } }
     { charge_intros. pose proof UpperLower_Y.UpperLower_safe.
       apply (Proper_Rename (to_RenameMap rename_y)
                            (to_RenameMap rename_y))
@@ -583,8 +527,10 @@ rewrite Hpolary.
           simpl rename_formula. restoreAbstraction.
           repeat rewrite Always_and. apply always_imp.
           solve_linear. }
-        { pose proof (projT2 UpperLower_Y_SpecR).
-          cbv beta in H. charge_tauto. } } }
+        { rewrite_rename_pf UpperLower_Y_SpecR.
+          rewrite PartialSysRename_sound
+            by sysrename_side_cond.
+          charge_tauto. } } }
   Qed.
 
   Lemma velocity_safe :
@@ -593,8 +539,10 @@ rewrite Hpolary.
             "vy" <= VY.ub //\\ -- ("vy") <= VY.ub).
   Proof.
     apply PartialCompose.
-    - pose proof (projT2 SpecVelocityR_X). cbv beta in H.
-      rewrite H. clear. pose proof VelX.UpperLower_safe.
+    - rewrite_rename_pf SpecVelocityR_X.
+      rewrite PartialSysRename_sound
+        by sysrename_side_cond.
+      pose proof VelX.UpperLower_safe.
       apply (Proper_Rename (to_RenameMap rename_x)
                            (to_RenameMap rename_x))
         in H; [ | reflexivity ].
@@ -603,8 +551,10 @@ rewrite Hpolary.
       rewrite landtrueL in H. rewrite H. clear.
       rewrite <- Rename_ok by rw_side_condition.
       apply always_imp. solve_linear.
-    - pose proof (projT2 SpecVelocityR_Y). cbv beta in H.
-      rewrite H. clear. pose proof VelY.UpperLower_safe.
+    - rewrite_rename_pf SpecVelocityR_Y.
+      rewrite PartialSysRename_sound
+        by sysrename_side_cond.
+      pose proof VelY.UpperLower_safe.
       apply (Proper_Rename (to_RenameMap rename_y)
                            (to_RenameMap rename_y))
         in H; [ | reflexivity ].
@@ -652,8 +602,9 @@ Axiom amin_ubv_Y : (-P.amin*P.d <= P.ubv_Y)%R.
     charge_intros.
     unfold SpecPolarConstrainedR.
     rewrite PartialComposeRefine.
-    pose proof (projT2 SpecPolarR). cbv beta in H.
-    rewrite H. clear.
+    rewrite_rename_pf SpecPolarR.
+    rewrite PartialSysRename_sound
+      by sysrename_side_cond.
     pose proof rect_velocity_safe.
     eapply Proper_Rename in H. 2: reflexivity.
     revert H. instantiate (1 := to_RenameMap rename_polar).
@@ -670,6 +621,16 @@ Axiom amin_ubv_Y : (-P.amin*P.d <= P.ubv_Y)%R.
       tlaRevert. apply always_imp.
       solve_linear. }
   Qed.
+
+(*
+TODO : translate from polar to rectangular,
+refine coupled contraint to a decoupled one
+use disjointness lemma.
+This will show that you can use disjointness,
+even when the system is coupled.
+Viewing things as logical formulas that
+can be refined makes this process clear.
+*)
 
   Theorem box_enabled :
     |-- SysSafe SpecPolarConstrainedR.

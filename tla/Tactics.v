@@ -12,6 +12,36 @@ Require Import Coq.Strings.String.
 
 (* Some useful tactics for our examples. *)
 
+Ltac destruct_ite :=
+  match goal with
+  | [ |- context [ if ?e then _ else _ ] ]
+    => destruct e
+  end.
+
+Fixpoint get_vars_term (t : Term) : list Var :=
+  match t with
+  | VarNextT t | VarNowT t => t :: nil
+  | NatT _ | RealT _ => nil
+  | PlusT a b | MinusT a b | MultT a b =>
+                             get_vars_term a ++
+                                           get_vars_term b
+  | InvT a | CosT a | SinT a | SqrtT a | ArctanT a =>
+                                         get_vars_term a
+  end.
+
+Definition get_image_vars (m:list (Var*Term)) :=
+  List.flat_map (fun p => get_vars_term (snd p)) m.
+
+Fixpoint get_witness (m : list (Var*Term)) : state -> state :=
+  match m with
+  | nil => fun st => st
+  | (x,VarNowT y) :: m =>
+    fun st z =>
+      if String.string_dec z y
+      then st x else get_witness m st z
+  | _ => fun st => st
+  end.
+
 Fixpoint get_next_vars_term (t : Term) : list Var :=
   match t with
   | VarNextT t => t :: nil
