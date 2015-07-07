@@ -21,6 +21,8 @@ Module Type UpperLowerSecondParams.
   Axiom amin_lt_0 : (amin < 0)%R.
 
   Parameter ubv : R.
+  Parameter ub_ubv : (ubv*d - ubv*ubv*(/2)*(/amin) <= ub)%R.
+
 End UpperLowerSecondParams.
 
 Module UpperLowerSecond (P : UpperLowerSecondParams).
@@ -31,6 +33,7 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
     Definition amin := P.amin.
     Definition amin_lt_0 := P.amin_lt_0.
     Definition ubv := P.ubv.
+    Definition ub_ubv := P.ub_ubv.
   End Params.
 
   Module Monitor := SecondDerivShimCtrl Params.
@@ -51,6 +54,7 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
   Definition SpecR :=
     SysCompose Monitor.SpecR (projT1 SpecMirrorR).
 
+(*
   Definition ProgRefined :=
     Monitor.ProgRefined //\\
     rename_formula (to_RenameMap mirror) Monitor.ProgRefined.
@@ -64,6 +68,7 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
     charge_tauto.
     Transparent Monitor.SafeAcc Monitor.Default.
   Qed.
+*)
 
   Definition Safe :=
     "y" <= Params.ub //\\ --Params.ub <= "y".

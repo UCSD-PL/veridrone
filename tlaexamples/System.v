@@ -137,12 +137,39 @@ Proof.
   firstorder.
 Qed.
 
+Instance Symmetric_set_equiv {T} : Symmetric (@set_equiv T).
+Proof.
+  red. intros. unfold set_equiv in *. tauto.
+Qed.
+
 Definition SysRec_equiv (a b : SysRec) : Prop :=
   set_equiv a.(unch) b.(unch) /\
   (a.(Init) -|- b.(Init)) /\
   (a.(Prog) -|- b.(Prog)) /\
   (forall st', (a.(world) st' -|- b.(world) st')) /\
   a.(maxTime) = b.(maxTime).
+
+Global Instance Reflexive_SysRec_equiv
+  : Reflexive SysRec_equiv.
+Proof.
+  red. unfold SysRec_equiv. intros.
+  repeat split; reflexivity.
+Qed.
+
+Global Instance Symmetric_SysRec_equiv
+  : Symmetric SysRec_equiv.
+Proof.
+  red. unfold SysRec_equiv. intros.
+  intuition. specialize (H2 st'). rewrite H2.
+  auto.
+Qed.
+
+Global Instance Transitive_SysRec_equiv
+  : Transitive SysRec_equiv.
+Proof.
+  red. unfold SysRec_equiv. intros.
+  intuition; etransitivity; eauto.
+Qed.
 
 Ltac morphism_intro :=
   repeat (intros; match goal with
@@ -1177,6 +1204,13 @@ Proof.
   split; try reflexivity.
   intros; Rename_rewrite.
   restoreAbstraction. split; charge_tauto.
+Qed.
+
+Lemma Prog_SysRename :
+  forall s m m',
+    Prog (SysRename m m' s) -|- Rename m (Prog s).
+Proof.
+  simpl. intros. reflexivity.
 Qed.
 
 Definition Sys_rename_formula (m : RenameMap)

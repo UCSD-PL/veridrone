@@ -10,6 +10,7 @@ Require Import Examples.ParLang.
 Require Import ChargeTactics.Lemmas.
 Require Import Coq.Reals.R_sqrt.
 Require Import Coq.Reals.Ratan.
+Require Import Coq.Reals.Rtrigo1.
 Require Import Coq.Strings.String.
 Local Open Scope string_scope.
 
@@ -26,16 +27,26 @@ Module Type BoxParams.
   Parameter d : R.
   Axiom d_gt_0 : (d > 0)%R.
 
-  Parameter amin : R.
-  Axiom amin_lt_0 : (amin < 0)%R.
+  Parameter theta_min : R.
+  Definition theta_max := (-theta_min)%R.
+  Axiom theta_min_bound : (-PI/2 < theta_min < 0)%R.
+
+  (* Gravitational constant *)
+  Parameter g : R.
+  Axiom g_gt_0 : (g > 0)%R.
+  Parameter amin_Y : R.
+  Axiom amin_Y_lt_0 : (amin_Y < 0)%R.
+  Axiom amin_Y_lt_g : (amin_Y > -g)%R.
+  Definition amin_X :=
+    ((amin_Y + g) * tan theta_min)%R.
 
   Parameter ubv_X : R.
   Parameter ubv_Y : R.
+  Parameter ub_ubv_X :
+    (ubv_X*d - ubv_X*ubv_X*(/2)*(/amin_X) <= ub_X)%R.
+  Parameter ub_ubv_Y :
+    (ubv_Y*d - ubv_Y*ubv_Y*(/2)*(/amin_Y) <= ub_Y)%R.
 
-  Parameter theta_min : R.
-  Parameter theta_max : R.
-  Axiom theta_min_lt_theta_max : (theta_min <= theta_max)%R.
-  Axiom theta_max_bound : (0 < theta_max < Rtrigo1.PI)%R.
 End BoxParams.
 
 Module Box (P : BoxParams).
@@ -45,20 +56,31 @@ Module Box (P : BoxParams).
     Definition ub := P.ub_X.
     Definition d := P.d.
     Definition d_gt_0 := P.d_gt_0.
-    Definition amin := P.amin.
-    Definition amin_lt_0 := P.amin_lt_0.
+    Definition amin := P.amin_X.
+    Theorem amin_lt_0 : (amin < 0)%R.
+    Proof.
+      unfold amin, P.amin_X.
+      pose proof P.theta_min_bound.
+      assert (tan P.theta_min < 0)%R
+      by (pose proof P.theta_min_bound;
+          apply tan_lt_0; solve_linear).
+      pose proof P.amin_Y_lt_0.
+      pose proof P.g_gt_0.
+      pose proof P.amin_Y_lt_g.
+      solve_nonlinear.
+    Qed.
     Definition ubv := P.ubv_X.
+    Definition ub_ubv := P.ub_ubv_X.
   End X.
 
   Module Y <: UpperLowerSecondParams.
     Definition ub := P.ub_Y.
     Definition d := P.d.
     Definition d_gt_0 := P.d_gt_0.
-    Definition amin :=
-      (X.amin/Rtrigo1.tan (P.theta_max))%R.
-    Theorem amin_lt_0 : (amin < 0)%R.
-    Admitted.
+    Definition amin := P.amin_Y.
+    Definition amin_lt_0 := P.amin_Y_lt_0.
     Definition ubv := P.ubv_Y.
+    Definition ub_ubv := P.ub_ubv_Y.
   End Y.
 
   Module UpperLower_X := UpperLowerSecond X.
@@ -120,16 +142,6 @@ Module Box (P : BoxParams).
   Proof.
     discharge_sysrec_equiv_rename.
   Defined.
-(*
-  Definition UpperLower_X_SpecR :
-    { x : SysRec &
-          PartialSysD x |--
-            Rename (to_RenameMap rename_x)
-                   (PartialSysD UpperLower_X.SpecR) }.
-  Proof.
-    discharge_PartialSys_rename_formula.
-  Defined.
-*)
 
   Lemma UpperLower_X_Enabled :
     |-- Enabled (Discr (projT1 UpperLower_X_SpecR).(Prog)
@@ -159,102 +171,6 @@ Module Box (P : BoxParams).
       (x! = R0 //\\ y! = R0 |-- x! = y!).
   Proof. solve_linear. Qed.
 
-  Definition refined_UpperLower_X_SpecR :
-    { ins : list Var &
-       { outs : list Var &
-           { p : Parallel ins outs &
-                 tlaParD p |--
-                 Prog (projT1 UpperLower_X_SpecR)} } }.
-  Proof.
-    Opaque UpperLower_X.Monitor.SafeAcc
-           UpperLower_X.Monitor.Default.
-    eexists. eexists. eexists. simpl. restoreAbstraction.
-    match goal with
-    | [ |- context [ rename_formula ?m _ ] ]
-      => remember m as rx
-    end.
-    match goal with
-    | [ |- context
-             [ rename_formula _ (rename_formula ?m _) ] ]
-      => remember m as rm
-    end.
-    repeat rewrite minus_eq.
-    rewrite land_distr.
-    apply par_disjoint_refine.
-    { repeat rewrite land_lor_distr_R.
-      pose proof UpperLower_X_Proposed_refine
-        as Hrefine. specialize (Hrefine "A").
-      apply (Proper_Rename rx rx) in Hrefine;
-        [ | reflexivity].
-      rewrite <- Rename_ok in Hrefine.
-      rewrite <- Rename_ok in Hrefine.
-      rewrite <- Hrefine at 1. clear Hrefine.
-      pose proof UpperLower_X_Proposed_refine as Hrefine.
-      specialize (Hrefine "A").
-      apply (Proper_Rename rm rm) in Hrefine;
-        [ | reflexivity].
-      apply (Proper_Rename rx rx) in Hrefine;
-        [ | reflexivity].
-      rewrite <- Rename_ok with (m:=rm) in Hrefine.
-      rewrite <- Rename_ok with (m:=rm) in Hrefine.
-      rewrite <- Rename_ok with (m:=rx) in Hrefine.
-      rewrite <- Rename_ok with (m:=rx) in Hrefine.
-      rewrite <- Hrefine at 1. clear Hrefine.
-      repeat rewrite lorA.
-      Transparent UpperLower_X.Monitor.SafeAcc
-                  UpperLower_X.Monitor.Default.
-      subst. simpl. restoreAbstraction.
-      repeat rewrite minus_eq. rewrite land_distr.
-      apply ite_refine.
-      { reflexivity. }
-      { apply Assign_refine; reflexivity. }
-      { rewrite <- lor_intro2. rewrite <- lor_intro2.
-        apply ite_refine_and_impl.
-        { reflexivity. }
-        { solve_linear. }
-        { apply ite_refine_and_impl.
-          { reflexivity. }
-          { solve_linear. }
-          { rewrite <- leq_eq_refine.
-            apply Assign_refine; reflexivity. }
-          { rewrite <- leq_eq_refine.
-            apply Assign_refine; reflexivity. } }
-        { apply ite_refine_and_impl.
-          { reflexivity. }
-          { solve_linear. }
-          { rewrite <- leq_eq_refine.
-            rewrite minus_0_l_equiv.
-            rewrite <- neg_eq.
-            apply Assign_refine; reflexivity. }
-          { rewrite <- leq_eq_refine.
-            rewrite minus_0_l_equiv.
-            rewrite <- neg_eq.
-            apply Assign_refine; reflexivity. } } }
-      admit.
-      admit.
-      admit.
-      admit.
-      admit.
-      admit.
-      admit.
-      admit.
-      admit.
-      admit.
-      admit.
-      admit. }
-    { rewrite landtrueR.
-      rewrite <- same_next.
-      repeat apply par_disjoint_refine;
-      try (apply Assign_refine; reflexivity). }
-    Grab Existential Variables.
-    { decide_disjoint_var_sets. }
-    { decide_disjoint_var_sets. }
-    { decide_disjoint_var_sets. }
-    { decide_disjoint_var_sets. }
-    { decide_disjoint_var_sets. }
-    { decide_disjoint_var_sets. }
-  Defined.
-
   Definition UpperLower_Y_SpecR :
     { x : SysRec &
           SysRec_equiv
@@ -266,16 +182,6 @@ Module Box (P : BoxParams).
   Proof.
     discharge_sysrec_equiv_rename.
   Defined.
-(*
-  Definition UpperLower_Y_SpecR :
-    { x : SysRec &
-          PartialSysD x |--
-            Rename (to_RenameMap rename_y)
-                   (PartialSysD UpperLower_Y.SpecR) }.
-  Proof.
-    discharge_PartialSys_rename_formula.
-  Defined.
-*)
 
   Definition SpecRectR :=
     SysCompose (projT1 UpperLower_X_SpecR)
@@ -289,7 +195,7 @@ Module Box (P : BoxParams).
   Qed.
 
   Lemma RectEnabled :
-    |-- SysSafe SpecRectR.
+    |-- Enabled (Discr SpecRectR.(Prog) SpecRectR.(maxTime)).
   Proof.
   Admitted.
 (*
@@ -352,16 +258,6 @@ rewrite <- ProgRefined_ok.
     discharge_sysrec_equiv_rename.
   Defined.
 
-(*
-  Definition SpecVelocityR_X :
-    { x : SysRec &
-          PartialSysD x |-- Rename (to_RenameMap rename_x)
-                                   (PartialSysD VelX.SpecR) }.
-  Proof.
-    discharge_PartialSys_rename_formula.
-  Defined.
-*)
-
   Definition SpecVelocityR_Y :
     { x : SysRec &
           SysRec_equiv
@@ -373,15 +269,6 @@ rewrite <- ProgRefined_ok.
   Proof.
     discharge_sysrec_equiv_rename.
   Defined.
-(*
-  Definition SpecVelocityR_Y :
-    { x : SysRec &
-          PartialSysD x |-- Rename (to_RenameMap rename_y)
-                                   (PartialSysD VelY.SpecR) }.
-  Proof.
-    discharge_PartialSys_rename_formula.
-  Defined.
-*)
 
   Definition SpecVelocityR :=
     SysCompose (projT1 SpecVelocityR_X)
@@ -393,28 +280,150 @@ rewrite <- ProgRefined_ok.
   Definition SpecRectVelocityR :=
     SysCompose SpecVelocityR SpecRectR.
 
+  Definition InputConstraintRect : Formula :=
+     "ay" + P.g > 0 //\\
+     P.theta_min <= ArctanT ("ax"/("ay" + P.g)) <= P.theta_max.
+
+  Definition RefinedConstraint :=
+    UpperLower_X.Params.amin <= "ax"
+    <= --UpperLower_X.Params.amin //\\
+    UpperLower_Y.Params.amin <= "ay"
+    <= --UpperLower_Y.Params.amin.
+
+  Lemma refined_constraint_ok :
+    RefinedConstraint |-- InputConstraintRect.
+  Proof.
+    breakAbstraction. intros.
+    generalize dependent (Stream.hd tr). intros.
+    unfold UpperLower_X.Params.amin,
+    UpperLower_Y.Params.amin, X.amin, Y.amin, P.amin_X in *.
+    assert (tan P.theta_min < 0)%R
+      by (pose proof P.theta_min_bound;
+          apply tan_lt_0; solve_linear).
+    pose proof P.theta_min_bound.
+    pose proof P.amin_Y_lt_0.
+    pose proof P.amin_Y_lt_g.
+    pose proof P.g_gt_0.
+    unfold P.theta_max.
+    split; [ solve_linear | ].
+    split.
+    { apply ArithFacts.tan_increasing_1.
+      { solve_linear. }
+      { pose proof atan_bound as Hatan.
+        match goal with
+          |- context [atan ?e] => specialize (Hatan e)
+        end. solve_linear. }
+      { rewrite atan_right_inv.
+        generalize dependent (tan P.theta_min).
+        intuition. apply Rmult_le_algebra2; solve_linear.
+        solve_nonlinear. } }
+    { apply ArithFacts.tan_increasing_1.
+      { pose proof atan_bound as Hatan.
+        match goal with
+          |- context [atan ?e] => specialize (Hatan e)
+        end. solve_linear. }
+      { solve_linear. }
+      { rewrite atan_right_inv.
+        rewrite tan_neg.
+        generalize dependent (tan P.theta_min).
+        intuition. apply Rmult_le_algebra; solve_linear.
+        solve_nonlinear. } }
+  Qed.
+
+  Definition InputConstraintSysRectR : SysRec :=
+    {| Init := InputConstraintRect;
+       Prog := next InputConstraintRect;
+       world := fun _ => TRUE;
+       unch := nil;
+       maxTime := P.d |}.
+
+  Definition SpecRectVelocityConstrainedR :=
+    SysCompose SpecRectVelocityR InputConstraintSysRectR.
+
+  (* theta is the angle between the y axis and
+     the a vector *)
   Let rename_polar : list (Var*Term) :=
-    ("ax","a"*sin("theta"))::("ay","a"*cos("theta"))::nil.
+    ("ax","a"*sin("theta"))::
+    ("ay","a"*cos("theta") - P.g)::nil.
 
   Lemma rectangular_to_polar :
     forall (x y:R),
       { p : (R*R) |
-        (eq x ((fst p) * Rtrigo_def.cos (snd p)) /\
+        (0 <= fst p /\ -PI < snd p <= PI /\
+         eq x ((fst p) * Rtrigo_def.cos (snd p)) /\
          eq y ((fst p) * Rtrigo_def.sin (snd p)))%R }.
   Admitted.
+
+  Definition PolarBounds : Formula :=
+    0 <= "a" //\\ --PI <= "theta" <= PI.
+
+  Lemma polar_predicated_witness_function :
+    exists f,
+    forall xs,
+      List.forallb (fun x => if String.string_dec x "a"
+                             then false else true) xs =
+      true ->
+      List.forallb (fun x => if String.string_dec x "theta"
+                             then false else true) xs =
+      true ->
+      predicated_witness_function
+        (to_RenameMap rename_polar) f xs PolarBounds.
+  Proof.
+    exists
+      (fun st x =>
+         let witness :=
+             proj1_sig
+               (rectangular_to_polar (st "ay" + P.g)
+                                     (st "ax")) in
+         if String.string_dec x "a"
+         then fst witness
+         else if String.string_dec x "theta"
+              then snd witness
+              else st x)%R.
+    unfold predicated_witness_function, witness_function.
+    split.
+    { intros. simpl.
+      rewrite List.forallb_forall in *.
+      specialize (H "a").
+      specialize (H0 "theta").
+      repeat match goal with
+             | [ |- context [if ?e then _ else _] ]
+               => destruct e; simpl
+             end; subst; simpl.
+      { destruct (rectangular_to_polar (st "ay" + P.g)
+                                       (st "ax")).
+        simpl. tauto. }
+      { destruct (rectangular_to_polar (st "ay" + P.g)
+                                       (st "ax")).
+        simpl. unfold Value. solve_linear. }
+      { destruct (String.string_dec "a" "a");
+        intuition congruence. }
+      { destruct (String.string_dec "theta" "theta");
+        intuition congruence. }
+      { reflexivity. } }
+    { intros. destruct tr. simpl.
+      destruct (rectangular_to_polar (s "ay" + P.g)
+                                     (s "ax")).
+      simpl. solve_linear. }
+  Qed.
 
   Lemma polar_witness_function :
     exists f,
     forall xs,
-      ~List.In "a" xs ->
-      ~List.In "theta" xs ->
+      List.forallb (fun x => if String.string_dec x "a"
+                             then false else true) xs =
+      true ->
+      List.forallb (fun x => if String.string_dec x "theta"
+                             then false else true) xs =
+      true ->
       witness_function (to_RenameMap rename_polar) f xs.
   Proof.
     exists
       (fun st x =>
          let witness :=
              proj1_sig
-               (rectangular_to_polar (st "ay") (st "ax")) in
+               (rectangular_to_polar (st "ay" + P.g)
+                                     (st "ax")) in
          if String.string_dec x "a"
          then fst witness
          else if String.string_dec x "theta"
@@ -422,16 +431,23 @@ rewrite <- ProgRefined_ok.
               else st x)%R.
     unfold witness_function.
     intros. simpl.
+    rewrite List.forallb_forall in *.
+    specialize (H "a").
+    specialize (H0 "theta").
     repeat match goal with
            | [ |- context [if ?e then _ else _] ]
              => destruct e; simpl
            end; subst; simpl.
-    { destruct (rectangular_to_polar (st "ay") (st "ax")).
+    { destruct (rectangular_to_polar (st "ay" + P.g)
+                                     (st "ax")).
       simpl. tauto. }
-    { destruct (rectangular_to_polar (st "ay") (st "ax")).
-      simpl. tauto. }
-    { contradiction. }
-    { contradiction. }
+    { destruct (rectangular_to_polar (st "ay" + P.g)
+                                     (st "ax")).
+      simpl. unfold Value. solve_linear. }
+    { destruct (String.string_dec "a" "a");
+      intuition congruence. }
+    { destruct (String.string_dec "theta" "theta");
+      intuition congruence. }
     { reflexivity. }
   Qed.
 
@@ -446,32 +462,71 @@ rewrite <- ProgRefined_ok.
   Proof.
     discharge_sysrec_equiv_rename.
   Defined.
-(*
-  Definition SpecPolarR :
-    { x : SysRec &
-          PartialSysD x |--
-            Rename (to_RenameMap rename_polar)
-                   (PartialSysD SpecRectVelocityR) }.
-  Proof.
-    discharge_PartialSys_rename_formula.
-  Defined.
-*)
-(*    apply forget_prem.
-    rewrite <- Rename_ok by is_st_term_list.
-    simpl; restoreAbstraction.
-    setoid_rewrite <- lor_right2.
-    enable_ex_st.
-    smart_repeat_eexists.
-    solve_linear.
-    instantiate (2:=sqrt (X.amin*X.amin + Y.amin*Y.amin)).
-    instantiate (1:=atan (Y.amin/X.amin)).
-    rewrite ArithFacts.sin_atan. admit.
-    rewrite ArithFacts.sin_atan. admit.
-    rewrite ArithFacts.cos_atan. admit.
-    rewrite ArithFacts.cos_atan. admit.*)
 
   Definition InputConstraint : Formula :=
-    P.theta_min <= "theta" <= P.theta_max.
+      P.theta_min <= "theta" <= P.theta_max.
+
+  Lemma rect_input_refines_polar :
+    Rename (to_RenameMap rename_polar) InputConstraintRect
+    //\\ PolarBounds |--
+    InputConstraint.
+  Proof.
+    rewrite <- Rename_ok by rw_side_condition.
+    breakAbstraction. intros.
+    generalize dependent (Stream.hd tr). intros.
+    assert (tan P.theta_min < 0)%R
+      by (pose proof P.theta_min_bound;
+          apply tan_lt_0; solve_linear).
+    pose proof P.theta_min_bound.
+    pose proof P.amin_Y_lt_0.
+    pose proof P.amin_Y_lt_g.
+    pose proof P.g_gt_0.
+    unfold P.theta_max in *.
+    decompose [and] H. clear H.
+    apply ArithFacts.tan_increasing_2 in H5.
+    { apply ArithFacts.tan_increasing_2 in H9.
+      { rewrite atan_right_inv in *. unfold tan in *.
+        rewrite sin_antisym in *. rewrite <- cos_sym in *.
+        unfold Rminus in *.
+        repeat rewrite Raxioms.Rplus_assoc in *.
+        rewrite RIneq.Rplus_opp_l in *.
+        rewrite RIneq.Rplus_0_r in *.
+        assert ((s "a" * cos (s "theta"))%R <> 0%R)
+          by solve_linear.
+        assert (s "a" <> R0) by solve_linear.
+        assert (cos (s "theta") <> R0) by solve_linear.
+        rewrite Raxioms.Rmult_comm
+        with (r2:= cos (s "theta")) in *.
+        rewrite RIneq.Rinv_mult_distr in *; auto.
+        repeat rewrite Raxioms.Rmult_assoc in *.
+        rewrite Raxioms.Rmult_comm in *.
+        repeat rewrite Raxioms.Rmult_assoc in *.
+        rewrite Raxioms.Rinv_l in *; auto.
+        rewrite RIneq.Rmult_1_r in *.
+        unfold Rdiv in *.
+        rewrite RIneq.Ropp_mult_distr_l_reverse in H9.
+        change (sin (s "theta") * / cos (s "theta"))%R
+        with (tan (s "theta")) in *.
+        change (sin P.theta_min * / cos P.theta_min)%R
+        with (tan P.theta_min) in *.
+        assert (-PI/2 < s "theta" < PI/2)%R.
+        { apply cos_pos; [ solve_nonlinear | solve_linear ]. }
+        { apply ArithFacts.tan_increasing_1 in H5; auto.
+          { rewrite <- tan_neg in *.
+            apply ArithFacts.tan_increasing_1 in H9; auto.
+            solve_linear. }
+          { solve_linear. } } }
+      { pose proof atan_bound as Hatan.
+        match goal with
+          |- context [atan ?e] => specialize (Hatan e)
+        end. solve_linear. }
+      { solve_linear. } }
+    { solve_linear. }
+    { pose proof atan_bound as Hatan.
+      match goal with
+        |- context [atan ?e] => specialize (Hatan e)
+      end. solve_linear. }
+  Qed.
 
   Definition InputConstraintSysR : SysRec :=
     {| Init := InputConstraint;
@@ -479,6 +534,33 @@ rewrite <- ProgRefined_ok.
        world := fun _ => TRUE;
        unch := nil;
        maxTime := P.d |}.
+
+(*
+  Lemma InputConstraint_equiv :
+    InputConstraint -|-
+    Rename (to_RenameMap rename_polar) InputConstraintRect.
+  Proof.
+    rewrite <- Rename_ok by rw_side_condition.
+    split; breakAbstraction.
+    simpl. restoreAbstraction.
+  Admitted.
+*)
+
+  Lemma next_st_formula_equiv :
+    forall A B,
+      is_st_formula A ->
+      is_st_formula B ->
+      A -|- B ->
+      next A -|- next B.
+  Admitted.
+
+  Lemma next_st_formula_entails :
+    forall A B,
+      is_st_formula A ->
+      is_st_formula B ->
+      A |-- B ->
+      next A |-- next B.
+  Admitted.
 
   (* The full system, in polar coordinates, with
      control input constraints. *)
@@ -589,8 +671,8 @@ rewrite <- ProgRefined_ok.
         solve_linear. }
   Qed.
 
-Axiom amin_ubv_X : (-P.amin*P.d <= P.ubv_X)%R.
-Axiom amin_ubv_Y : (-P.amin*P.d <= P.ubv_Y)%R.
+Axiom amin_ubv_X : (-P.amin_X*P.d <= P.ubv_X)%R.
+Axiom amin_ubv_Y : (-P.amin_X*P.d <= P.ubv_Y)%R.
 
   Theorem box_safe :
     |-- PartialSysD SpecPolarConstrainedR -->>
@@ -634,6 +716,44 @@ can be refined makes this process clear.
 
   Theorem box_enabled :
     |-- SysSafe SpecPolarConstrainedR.
+  Proof.
+    apply SysSafe_rule. apply always_tauto.
+    unfold SpecPolarConstrainedR.
+    rewrite_rename_pf SpecPolarR.
+    rewrite Prog_SysCompose.
+    rewrite Prog_SysRename. unfold Discr.
+    simpl maxTime.
+    simpl (Prog InputConstraintSysR).
+    pose proof rect_input_refines_polar.
+    apply next_st_formula_entails in H;
+      [ | simpl; tauto | simpl; tauto ].
+    simpl next in H.
+    restoreAbstraction. rewrite <- H. clear H.
+    rewrite <- Rename_and.
+    match goal with
+    | [ |- context [ Rename ?m _ //\\ ?A ] ]
+      => let H := fresh in
+         assert (A -|- Rename m A)
+           as H by (rewrite <- Rename_ok;
+                    [ | rw_side_condition
+                      | rw_side_condition;
+                        destruct (string_dec x "ax");
+                        try reflexivity;
+                        destruct (string_dec x "ay");
+                        try reflexivity ]; reflexivity);
+           rewrite H; clear H
+    end.
+    repeat rewrite <- Rename_and.
+    pose proof polar_witness_function. destruct H.
+    eapply subst_enabled_noenv with (f:=x).
+    { apply get_vars_next_state_vars; reflexivity. }
+    { apply H; reflexivity. }
+    { clear.
+
+
+
+    SearchAbout 
+
 (*
     - apply SysSafe_rule. apply always_tauto.
       simpl. restoreAbstraction.
