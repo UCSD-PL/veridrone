@@ -1,4 +1,5 @@
 Require Import TLA.TLA.
+Require Import TLA.BasicProofRules.
 Require Import Coq.Lists.List.
 Require Import Coq.Strings.String.
 
@@ -302,5 +303,76 @@ Lemma subst_enabled_noenv :
     |-- Enabled (Rename m A).
 Proof.
   intros. rewrite <- subst_enabled with (G:=ltrue); eauto.
+  apply BasicProofRules.Rename_True.
+Qed.
+
+Definition predicated_witness_function (m:RenameMap)
+  (f:state->state) (xs : list Var) (A : Formula) : Prop :=
+  witness_function m f xs /\
+  forall tr, eval_formula A (Stream.stream_map f tr).
+
+Lemma subst_enabled_predicated_witness :
+  forall A xs G m (f:state->state) I
+    (Hst : is_st_formula I),
+    next_state_vars A xs ->
+    predicated_witness_function m f xs I ->
+    G |-- Enabled A ->
+    Rename m G |-- Enabled ((Rename m A) //\\ next I).
+Proof.
+  breakAbstraction. intros. unfold next_state_vars in *.
+  specialize (H1 _ H2).
+  destruct tr.
+  destruct H1 as [tr' HA].
+  exists (Stream.stream_map f tr').
+  rewrite Stream.stream_map_cons
+    by eauto with typeclass_instances.
+  rewrite H.
+  { split.
+    { eapply BasicProofRules.Proper_eval_formula.
+      3: apply HA.
+      { reflexivity. }
+      { constructor.
+        { reflexivity. }
+        { reflexivity. } } }
+    { unfold predicated_witness_function in *.
+      rewrite next_formula_tl; auto. simpl. intuition. } }
+  { unfold predicated_witness_function, witness_function,
+    traces_agree in *. intros.
+    unfold subst_state.
+    eapply Stream.Transitive_stream_eq.
+    { repeat red. congruence. }
+    { apply Stream.stream_map_compose.
+      repeat red. reflexivity. }
+    { simpl.
+      match goal with
+      | [ |- context [ Stream.stream_map ?f _ ] ] =>
+        pose proof (@Stream.Proper_stream_map _ _
+             (fun st1 st2 : state => (eq (st1 x) (st2 x)))
+             (fun st1 st2 : state => (eq (st1 x) (st2 x)))
+             f (fun x => x)) as Hproper
+      end.
+      repeat red in Hproper.
+      eapply Stream.Transitive_stream_eq.
+      { repeat red. congruence. }
+      { apply Hproper.
+        { repeat red. intros. destruct H0.
+          rewrite <- H0; auto. }
+        { apply Stream.Reflexive_stream_eq.
+          repeat red. auto. } }
+      { apply Stream.stream_map_id. repeat red.
+        auto. } } }
+Qed.
+
+Lemma subst_enabled_predicated_witness_noenv :
+  forall A xs m (f:state->state) I
+    (Hst : is_st_formula I),
+    next_state_vars A xs ->
+    predicated_witness_function m f xs I ->
+    |-- Enabled A ->
+    |-- Enabled ((Rename m A) //\\ next I).
+Proof.
+  intros.
+  rewrite <- subst_enabled_predicated_witness
+  with (G:=ltrue); eauto.
   apply BasicProofRules.Rename_True.
 Qed.
