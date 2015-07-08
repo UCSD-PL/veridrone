@@ -14,7 +14,7 @@ Module Type UpperLowerParams.
   Parameter amin : R.
   Parameter amin_lt_0 : (amin < 0)%R.
   Parameter ubv : R.
-  Axiom ubv_gt_0 : (ubv >= -amin*d)%R.
+  Axiom ubv_gt_amin_d : (ubv >= -amin*d)%R.
   Parameter ub_ubv :
     (ubv*d - ubv*ubv*(/2)*(/amin) <= ub)%R.
 End UpperLowerParams.
@@ -56,24 +56,35 @@ Module UpperLower (P : UpperLowerParams).
       apply always_imp. solve_linear.
   Qed.
 
-  Lemma Prog_enabled :
-    |-- Enabled SpecR.(Prog).
+  Definition Constraint :=
+    P.amin <= "a" <= --P.amin.
+
+  Lemma Prog_constrained_enabled :
+    |-- Enabled (SpecR.(Prog) //\\ next Constraint).
   Proof.
     simpl. restoreAbstraction.
     enable_ex_st.
     pose proof P.amin_lt_0. pose proof P.d_gt_0.
-    pose proof P.ubv_gt_0.
+    pose proof P.ubv_gt_amin_d.
     unfold Vel.V.ub, Vel.V.d, V.ub, V.d.
     unfold Position.Params.amin.
     unfold Y.amin.
     destruct (RIneq.Rgt_dec (st "y") R0);
     destruct (RIneq.Rgt_dec (st "v") R0).
-    { do 4 eexists. exists P.amin.
+    { exists P.amin.
       smart_repeat_eexists. solve_linear. }
     { smart_repeat_eexists. solve_linear. }
     { smart_repeat_eexists. solve_linear. }
-    { do 4 eexists. exists (-P.amin)%R.
+    { exists (-P.amin)%R.
       smart_repeat_eexists. solve_linear. }
+  Qed.
+
+  Lemma Prog_enabled :
+    |-- Enabled SpecR.(Prog).
+  Proof.
+    etransitivity.
+    { apply Prog_constrained_enabled. }
+    { rewrite Enabled_and. charge_assumption. }
   Qed.
 
   Lemma UpperLower_enabled :

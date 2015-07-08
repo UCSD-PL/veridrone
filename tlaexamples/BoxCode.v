@@ -1,3 +1,17 @@
+  Lemma same_next :
+    forall x y,
+      (x! = R0 //\\ y! = R0 |-- x! = y!).
+  Proof. solve_linear. Qed.
+
+  Lemma UpperLower_X_Proposed_refine :
+    forall t,
+      (UpperLower_X.Monitor.SafeAcc t //\\ "a"! = t
+       |-- UpperLower_X.Monitor.SafeAcc "a"!).
+  Proof.
+    breakAbstraction. solve_linear. rewrite H1 in *.
+    solve_linear.
+  Qed.
+
 (*
   Definition refined_UpperLower_X_SpecR :
     { ins : list Var &
