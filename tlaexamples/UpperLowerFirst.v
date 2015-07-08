@@ -1,5 +1,7 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
+Require Import TLA.EnabledLemmas.
+Require Import TLA.DifferentialInduction.
 Require Import Examples.System.
 Require Import Examples.FirstDerivShimCtrl.
 Require Import ChargeTactics.Lemmas.
@@ -31,26 +33,32 @@ Module UpperLowerFirst (P : UpperLowerFirstParams).
 
   Definition SpecVelocityMirrorR :
     { x : SysRec &
-          PartialSysD x |-- Rename (to_RenameMap mirror)
-                            (PartialSysD Vel.SpecR) }.
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap mirror)
+               (deriv_term_RenameList mirror)
+               Vel.SpecR)
+            x}.
   Proof.
-    discharge_PartialSys_rename_formula.
+    discharge_sysrec_equiv_rename.
   Defined.
 
   Definition SpecR :=
     SysCompose (projT1 SpecVelocityMirrorR) Vel.SpecR.
 
+  Definition Safe : Formula :=
+    --P.ub <= "v" <= P.ub.
+
   Lemma UpperLower_safe :
-    |-- PartialSysD SpecR -->> []--P.ub <= "v" <= P.ub.
+    |-- PartialSysD SpecR -->> []Safe.
   Proof.
     apply PartialCompose.
     - charge_intros.
-      pose proof (projT2 SpecVelocityMirrorR).
-      cbv beta in H. rewrite H. clear.
+      rewrite_rename_pf SpecVelocityMirrorR.
+      rewrite PartialSysRename_sound
+        by sysrename_side_cond.
       pose proof Vel.ctrl_safe.
-      apply (Proper_Rename (to_RenameMap mirror)
-                           (to_RenameMap mirror)) in H;
-        [ | reflexivity ].
+      rename_hyp mirror H.
       rewrite Rename_impl in H. rewrite Rename_True in H.
       restoreAbstraction. apply landAdj in H.
       rewrite landtrueL in H. rewrite H. clear.
@@ -61,12 +69,29 @@ Module UpperLowerFirst (P : UpperLowerFirstParams).
       unfold V.ub in *. charge_apply H. charge_tauto. 
   Qed.
 
+  Lemma Prog_enabled :
+    |-- Enabled SpecR.(Prog).
+  Proof.
+    simpl. restoreAbstraction.
+    enable_ex_st. smart_repeat_eexists. solve_linear.
+  Qed.
+
   Lemma UpperLower_enabled :
+    |-- Enabled (Discr SpecR.(Prog) SpecR.(maxTime)).
+  Proof.
+    unfold Discr.
+    rewrite <- disjoint_state_enabled.
+    { charge_split.
+      { apply Prog_enabled. }
+      { enable_ex_st. smart_repeat_eexists. solve_linear. } }
+    { apply formulas_disjoint_state; reflexivity. }
+  Qed.
+
+  Lemma UpperLower_full :
     |-- SysSafe SpecR.
   Proof.
     apply SysSafe_rule. apply always_tauto.
-    simpl. restoreAbstraction.
-    enable_ex_st. smart_repeat_eexists. solve_linear.
+    apply UpperLower_enabled.
   Qed.
 
 End UpperLowerFirst.

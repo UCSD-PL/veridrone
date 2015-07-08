@@ -1,5 +1,6 @@
 Require Import Rdefinitions.
 Require Import RIneq.
+Require Import Coq.Reals.Rtrigo1.
 Require Import TLA.TLA.
 Require Import BasicProofRules.
 
@@ -113,6 +114,33 @@ Proof.
   rewrite <- Rinv_l_sym; solve_linear.
 Qed.
 
+Lemma Rmult_le_algebra2 : forall r1 r2 r3,
+  (r2 > 0 -> r1 * r2 <= r3 -> r1 <= r3 * (/r2))%R.
+Proof.
+  intros.
+  apply (RIneq.Rmult_le_reg_r r2); solve_linear.
+  rewrite Raxioms.Rmult_assoc.
+  rewrite <- RIneq.Rinv_l_sym; solve_linear.
+Qed.
+
+Lemma Rmult_lt_algebra : forall r1 r2 r3,
+  (r2 > 0 -> r1 < r3 * r2 -> r1 * (/r2) < r3)%R.
+Proof.
+  intros.
+  apply (RIneq.Rmult_lt_reg_r r2); solve_linear.
+  rewrite Raxioms.Rmult_assoc.
+  rewrite <- RIneq.Rinv_l_sym; solve_linear.
+Qed.
+
+Lemma Rmult_lt_algebra2 : forall r1 r2 r3,
+  (r2 > 0 -> r1 * r2 < r3 -> r1 < r3 * (/r2))%R.
+Proof.
+  intros.
+  apply (RIneq.Rmult_lt_reg_r r2); solve_linear.
+  rewrite Raxioms.Rmult_assoc.
+  rewrite <- RIneq.Rinv_l_sym; solve_linear.
+Qed.
+
 Lemma algebra1 : forall r1 r2 r3 r4,
   (r3 > 0 -> r1 <= r2 + r3*r4 -> (r1-r2)*/r3 <= r4)%R.
 Proof.
@@ -129,6 +157,37 @@ Admitted.
 Lemma cos_atan : forall x,
   Rtrigo_def.cos (Ratan.atan x) =
   (1/R_sqrt.sqrt (1 + x*x))%R.
+Admitted.
+
+Lemma tan_increasing_1 :
+  forall r1 r2,
+    (-PI/2 < r1 < PI/2 ->
+     -PI/2 < r2 < PI/2 ->
+     tan r1 <= tan r2 ->
+     r1 <= r2)%R.
+Admitted.
+
+Lemma tan_increasing_2 :
+  forall r1 r2,
+    (-PI/2 < r1 < PI/2 ->
+     -PI/2 < r2 < PI/2 ->
+     r1 <= r2 ->
+     tan r1 <= tan r2)%R.
+Admitted.
+
+Lemma cos_pos :
+  forall x,
+    (cos x > 0 ->
+     -PI <= x <= PI ->
+     -PI/2 < x < PI/2)%R.
+Admitted.
+
+Lemma rectangular_to_polar :
+  forall (x y:R),
+    { p : (R*R) |
+      (0 <= fst p /\ -PI < snd p <= PI /\
+       eq x ((fst p) * Rtrigo_def.cos (snd p)) /\
+       eq y ((fst p) * Rtrigo_def.sin (snd p)))%R }.
 Admitted.
 
 Lemma mult_0_l_equiv :

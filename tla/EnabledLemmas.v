@@ -1,4 +1,5 @@
 Require Import TLA.TLA.
+Require Import TLA.BasicProofRules.
 Require Import Coq.Lists.List.
 Require Import Coq.Strings.String.
 
@@ -33,6 +34,36 @@ Definition disjoint_states_aux (A B : Formula)
 
 Definition disjoint_states (A B : Formula) :=
   exists xs ys, disjoint_states_aux A B xs ys.
+
+Require Import Coq.Classes.Morphisms.
+Global Instance Proper_disjoint_states :
+  Proper (lequiv ==> lequiv ==> iff) disjoint_states.
+Proof.
+  morphism_intro. unfold disjoint_states, disjoint_states_aux.
+  apply exists_iff. intro. apply exists_iff. intro.
+  destruct H as [Hx Hy]. destruct H0 as [Hx0 Hy0].
+  unfold sets_disjoint, next_state_vars. breakAbstraction.
+  intuition; breakAbstraction;
+  try first [apply Hx; apply Hy in H3 |
+             apply Hy; apply Hx in H3 |
+             apply Hx0; apply Hy0 in H3 |
+             apply Hy0; apply Hx0 in H3 ];
+  try solve [rewrite <- H; eauto ].
+  rewrite <- H; eauto. unfold traces_agree in *. intros.
+  eapply Stream.Symmetric_stream_eq;
+    [ repeat red; congruence | eauto ].
+  rewrite <- H2; eauto.
+  rewrite <- H2; eauto. unfold traces_agree in *. intros.
+  eapply Stream.Symmetric_stream_eq;
+    [ repeat red; congruence | eauto ].
+  rewrite <- H; eauto. unfold traces_agree in *. intros.
+  eapply Stream.Symmetric_stream_eq;
+    [ repeat red; congruence | eauto ].
+  rewrite <- H2; eauto.
+  rewrite <- H2; eauto. unfold traces_agree in *. intros.
+  eapply Stream.Symmetric_stream_eq;
+    [ repeat red; congruence | eauto ].
+Qed.
 
 Definition merge_states (xs ys : list Var)
            (st1 st2 : state) : state :=
@@ -185,7 +216,9 @@ Ltac decide_disjoint_var_sets :=
 Fixpoint can_get_vars_formula (f : Formula) : bool :=
   match f with
   | Always a | Eventually a | Enabled a =>
-                              can_get_vars_formula a
+   (* This could be true, but proving it is a pain,
+      and we don't need it at the moment. *)
+                              false
   | And a b | Or a b | Imp a b =>
                        andb (can_get_vars_formula a)
                             (can_get_vars_formula b)
@@ -194,34 +227,86 @@ Fixpoint can_get_vars_formula (f : Formula) : bool :=
   | _ => false
   end.
 
+Lemma traces_agree_app :
+  forall tr1 tr2 xs ys,
+    traces_agree tr1 tr2 (xs ++ ys) ->
+    traces_agree tr1 tr2 xs /\ traces_agree tr1 tr2 ys.
+Proof.
+  intros. unfold traces_agree in *.
+  split; intros; apply H; apply List.in_or_app; tauto.
+Qed.
+
+Lemma traces_agree_sym :
+  forall tr1 tr2 xs,
+    traces_agree tr1 tr2 xs ->
+    traces_agree tr2 tr1 xs.
+Proof.
+  unfold traces_agree. intros.
+  apply Stream.Symmetric_stream_eq.
+  { repeat red. congruence. }
+  { auto. }
+Qed.
+
+Require Import Coq.Reals.Rdefinitions.
+
+Lemma get_vars_term :
+  forall t tr1 tr2 st,
+    traces_agree tr1 tr2 (get_next_vars_term t) ->
+    eval_term t st (Stream.hd tr1) =
+    eval_term t st (Stream.hd tr2).
+Proof.
+  induction t; simpl; intros; auto;
+  try solve [ apply traces_agree_app in H; destruct H;
+              erewrite IHt1; eauto; erewrite IHt2; eauto |
+              erewrite IHt; eauto ].
+  unfold traces_agree in *. simpl in *.
+  specialize (H v (or_introl (eq_refl _))).
+  destruct H. auto.
+Qed.
+
 Lemma get_vars_next_state_vars :
   forall A,
     can_get_vars_formula A = true ->
     next_state_vars A (get_next_vars_formula A).
 Proof.
-Admitted.
-(*
-    induction A; simpl; try discriminate;
-    unfold state_vars in *; simpl; intros.
-    - admit.
+  induction A; simpl; try discriminate;
+  unfold next_state_vars in *; simpl; intros; try tauto.
+    - destruct c; simpl;
+      apply traces_agree_app in H0; destruct H0;
+      erewrite get_vars_term with (t:=t); eauto;
+      erewrite get_vars_term with (t:=t0); eauto; tauto.
     - apply andb_prop in H.
-      unfold traces_agree in *.
       split; intros;
-      (split).
-       [ eapply IHA1 | eapply IHA2 ]; try tauto).
-       intros; try apply H0; intros).
-      apply List.in_or_app; auto).
+      apply traces_agree_app in H0;
+      destruct H0; destruct H1;
+      split.
+      { eapply IHA1; try tauto;
+        try apply traces_agree_sym; eauto. }
+      { eapply IHA2; try tauto;
+        try apply traces_agree_sym; eauto. }
+      { eapply IHA1; try tauto; eauto. }
+      { eapply IHA2; try tauto; eauto. }
     - apply andb_prop in H.
-      unfold traces_agree in *.
-      destruct H1; [ left; eapply IHA1 | right; eapply IHA2 ];
-      try tauto; intros; try apply H0; try tauto;
-      apply List.in_or_app; auto.
+      split; intros;
+      apply traces_agree_app in H0;
+      destruct H0; destruct H1.
+      { left. eapply IHA1; try tauto;
+        try apply traces_agree_sym; eauto. }
+      { right. eapply IHA2; try tauto;
+        try apply traces_agree_sym; eauto. }
+      { left. eapply IHA1; try tauto; eauto. }
+      { right. eapply IHA2; try tauto; eauto. }
     - apply andb_prop in H.
-      unfold traces_agree in *.
-      eapply IHA2; try tauto; intros; try apply H0.
-      { apply List.in_or_app; auto. }
-      { apply H1.
- *)
+      split; intros;
+      apply traces_agree_app in H0;
+      destruct H0.
+      { eapply IHA2; try tauto;
+        try apply traces_agree_sym; eauto.
+        apply H1. eapply IHA1; try tauto; eauto. }
+      { eapply IHA2; try tauto; eauto; apply H1.
+        eapply IHA1; try tauto;
+        try apply traces_agree_sym; eauto. }
+Qed.
 
 Lemma formulas_disjoint_state :
   forall A B,
@@ -303,4 +388,93 @@ Lemma subst_enabled_noenv :
 Proof.
   intros. rewrite <- subst_enabled with (G:=ltrue); eauto.
   apply BasicProofRules.Rename_True.
+Qed.
+
+Definition predicated_witness_function (m:RenameMap)
+  (f:state->state) (xs : list Var) (A : Formula) : Prop :=
+  witness_function m f xs /\
+  forall tr, eval_formula A (Stream.stream_map f tr).
+
+Lemma subst_enabled_predicated_witness :
+  forall A xs G m (f:state->state) I
+    (Hst : is_st_formula I),
+    next_state_vars A xs ->
+    predicated_witness_function m f xs I ->
+    G |-- Enabled A ->
+    Rename m G |-- Enabled ((Rename m A) //\\ next I).
+Proof.
+  breakAbstraction. intros. unfold next_state_vars in *.
+  specialize (H1 _ H2).
+  destruct tr.
+  destruct H1 as [tr' HA].
+  exists (Stream.stream_map f tr').
+  rewrite Stream.stream_map_cons
+    by eauto with typeclass_instances.
+  rewrite H.
+  { split.
+    { eapply BasicProofRules.Proper_eval_formula.
+      3: apply HA.
+      { reflexivity. }
+      { constructor.
+        { reflexivity. }
+        { reflexivity. } } }
+    { unfold predicated_witness_function in *.
+      rewrite next_formula_tl; auto. simpl. intuition. } }
+  { unfold predicated_witness_function, witness_function,
+    traces_agree in *. intros.
+    unfold subst_state.
+    eapply Stream.Transitive_stream_eq.
+    { repeat red. congruence. }
+    { apply Stream.stream_map_compose.
+      repeat red. reflexivity. }
+    { simpl.
+      match goal with
+      | [ |- context [ Stream.stream_map ?f _ ] ] =>
+        pose proof (@Stream.Proper_stream_map _ _
+             (fun st1 st2 : state => (eq (st1 x) (st2 x)))
+             (fun st1 st2 : state => (eq (st1 x) (st2 x)))
+             f (fun x => x)) as Hproper
+      end.
+      repeat red in Hproper.
+      eapply Stream.Transitive_stream_eq.
+      { repeat red. congruence. }
+      { apply Hproper.
+        { repeat red. intros. destruct H0.
+          rewrite <- H0; auto. }
+        { apply Stream.Reflexive_stream_eq.
+          repeat red. auto. } }
+      { apply Stream.stream_map_id. repeat red.
+        auto. } } }
+Qed.
+
+Lemma subst_enabled_predicated_witness_noenv :
+  forall A xs m (f:state->state) I
+    (Hst : is_st_formula I),
+    next_state_vars A xs ->
+    predicated_witness_function m f xs I ->
+    |-- Enabled A ->
+    |-- Enabled ((Rename m A) //\\ next I).
+Proof.
+  intros.
+  rewrite <- subst_enabled_predicated_witness
+  with (G:=ltrue); eauto.
+  apply BasicProofRules.Rename_True.
+Qed.
+
+(** This lemma shows that we can push state formulas inside
+ ** of Enabled which allows us to move the inductive invariant inside
+ ** of the controller
+ **)
+Lemma Enabled_and_push : forall P Q,
+    is_st_formula P ->
+    P //\\ Enabled Q -|- Enabled (P //\\ Q).
+Proof.
+  intros. breakAbstraction.
+  eapply lequiv_to_iff. intros; simpl; split.
+  { destruct 1 as [ ? [ ? ? ] ].
+    eexists; split; eauto.
+    eapply st_formula_hd; eauto. }
+  { destruct 1 as [ ? [ ? ? ] ].
+    split; eauto.
+    eapply st_formula_hd; eauto. }
 Qed.

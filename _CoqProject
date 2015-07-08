@@ -27,8 +27,9 @@ ChargeTactics/Lemmas.v
 
 tlaexamples/System.v
 tlaexamples/FirstDerivShimCtrl.v
-tlaexamples/SecondDerivShimCtrlToMiddle.v
+tlaexamples/SecondDerivShimCtrlToMiddle2.v
 tlaexamples/SecondDerivUtil.v
+tlaexamples/UpperLower.v
 tlaexamples/UpperLowerSecond.v
 tlaexamples/UpperLowerFirst.v
 tlaexamples/TheBox.v

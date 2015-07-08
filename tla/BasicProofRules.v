@@ -276,6 +276,18 @@ Proof.
     eapply Stream.stream_map_tl. apply eq_equivalence.
 Qed.
 
+Lemma next_st_formula_entails :
+  forall A B,
+    is_st_formula A ->
+    is_st_formula B ->
+    A |-- B ->
+    next A |-- next B.
+Proof.
+  breakAbstraction. intros.
+  apply next_formula_tl; auto.
+  apply H1. apply next_formula_tl; auto.
+Qed.
+
 (* And finally the proof rules *)
 
 (* A discrete induction rule *)
@@ -949,3 +961,8 @@ Proof.
   - rewrite H0; subst; reflexivity.
   - rewrite <- H0; subst; reflexivity.
 Qed.
+
+Ltac rename_hyp m H :=
+  apply (Proper_Rename (to_RenameMap m)
+                       (to_RenameMap m))
+  in H; [ | reflexivity ].

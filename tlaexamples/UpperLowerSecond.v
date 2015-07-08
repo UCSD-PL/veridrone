@@ -1,7 +1,9 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
+Require Import TLA.EnabledLemmas.
+Require Import TLA.DifferentialInduction.
 Require Import Examples.System.
-Require Import Examples.SecondDerivShimCtrlToMiddle.
+Require Import Examples.SecondDerivShimCtrlToMiddle2.
 Require Import ChargeTactics.Lemmas.
 Require Import Coq.Strings.String.
 Local Open Scope string_scope.
@@ -21,6 +23,8 @@ Module Type UpperLowerSecondParams.
   Axiom amin_lt_0 : (amin < 0)%R.
 
   Parameter ubv : R.
+  Parameter ub_ubv : (ubv*d - ubv*ubv*(/2)*(/amin) <= ub)%R.
+
 End UpperLowerSecondParams.
 
 Module UpperLowerSecond (P : UpperLowerSecondParams).
@@ -31,6 +35,7 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
     Definition amin := P.amin.
     Definition amin_lt_0 := P.amin_lt_0.
     Definition ubv := P.ubv.
+    Definition ub_ubv := P.ub_ubv.
   End Params.
 
   Module Monitor := SecondDerivShimCtrl Params.
@@ -41,29 +46,18 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
 
   Definition SpecMirrorR :
     { x : SysRec &
-          PartialSysD x |--
-                      Rename (to_RenameMap mirror)
-                             (PartialSysD Monitor.SpecR) }.
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap mirror)
+               (deriv_term_RenameList mirror)
+               Monitor.SpecR)
+            x}.
   Proof.
-    discharge_PartialSys_rename_formula.
+    discharge_sysrec_equiv_rename.
   Defined.
 
   Definition SpecR :=
     SysCompose Monitor.SpecR (projT1 SpecMirrorR).
-
-  Definition ProgRefined :=
-    Monitor.ProgRefined //\\
-    rename_formula (to_RenameMap mirror) Monitor.ProgRefined.
-
-  Lemma ProgRefined_ok :
-    ProgRefined |-- SpecR.(Prog).
-  Proof.
-    unfold ProgRefined, SpecR, Monitor.ProgRefined.
-    Opaque Monitor.SafeAcc Monitor.Default.
-    simpl. restoreAbstraction. unfold Monitor.Ctrl.
-    charge_tauto.
-    Transparent Monitor.SafeAcc Monitor.Default.
-  Qed.
 
   Definition Safe :=
     "y" <= Params.ub //\\ --Params.ub <= "y".
@@ -77,12 +71,11 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
       unfold Monitor.Safe in *.
       charge_apply H. charge_tauto.
     - charge_intros.
-      pose proof (projT2 SpecMirrorR). cbv beta in H.
-      rewrite H. clear.
+      rewrite_rename_pf SpecMirrorR.
+      rewrite PartialSysRename_sound
+        by sysrename_side_cond.
       pose proof Monitor.ctrl_safe.
-      apply (Proper_Rename (to_RenameMap mirror)
-                           (to_RenameMap mirror)) in H;
-        [ | reflexivity ].
+      rename_hyp mirror H.
       rewrite Rename_impl in H.
       repeat rewrite <- (Rename_ok (Always _)) in H
         by is_st_term_list. simpl rename_formula in H.
@@ -96,8 +89,8 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
         solve_linear. }
   Qed.
 
-  Lemma UpperLower_enabled :
-    |-- Enabled (Discr SpecR.(Prog) SpecR.(maxTime)).
+  Lemma Prog_enabled :
+    |-- Enabled SpecR.(Prog).
   Proof.
     simpl. restoreAbstraction.
     enable_ex_st.
@@ -109,8 +102,18 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
       { right. intros. apply RIneq.Rgt_ge in H1.
         contradiction. }
       { right. instantiate (1:=(-Params.amin)%R).
-        solve_linear. }
-      { reflexivity. } }
+        solve_linear. } }
+  Qed.
+
+  Lemma UpperLower_enabled :
+    |-- Enabled (Discr SpecR.(Prog) SpecR.(maxTime)).
+  Proof.
+    unfold Discr.
+    rewrite <- disjoint_state_enabled.
+    { charge_split.
+      { apply Prog_enabled. }
+      { enable_ex_st. smart_repeat_eexists. solve_linear. } }
+    { apply formulas_disjoint_state; reflexivity. }
   Qed.
 
   Lemma UpperLower_full :
