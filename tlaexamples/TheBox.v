@@ -89,11 +89,11 @@ Module Box (P : BoxParams).
   Let rename_y :=
     RenameListC (("A","Ay")::("V","Vy")::("Y","Y")::("y","y")::
                  ("v","vy")::("a","ay")::("Ymax","Ymax")::
-                 ("Vmax","Vymax")::("T","Ty")::nil).
+                 ("Vmax","Vymax")::nil).
   Let rename_x :=
     RenameListC (("A","Ax")::("V","Vx")::("Y","X")::("y","x")::
                  ("v","vx")::("a","ax")::("Ymax","Xmax")::
-                 ("Vmax","Vxmax")::("T","Tx")::nil).
+                 ("Vmax","Vxmax")::nil).
 
   Lemma x_witness_function :
     exists f,
@@ -154,6 +154,7 @@ Module Box (P : BoxParams).
     { apply get_vars_next_state_vars; reflexivity. }
     { apply H; reflexivity. }
     { reflexivity. }
+    { reflexivity. }
     { apply UpperLower_X.UpperLower_enabled. }
   Qed.
 
@@ -183,21 +184,18 @@ Module Box (P : BoxParams).
     discharge_sysrec_equiv_rename.
   Defined.
 
+(*
   Definition SpecRectR :=
     SysCompose (projT1 UpperLower_X_SpecR)
                (projT1 UpperLower_Y_SpecR).
+*)
 
-  Lemma Prog_SysCompose :
-    forall a b,
-      Prog (SysCompose a b) -|- Prog a //\\ Prog b.
-  Proof.
-    simpl. restoreAbstraction. intros. split; charge_tauto.
-  Qed.
-
+(*
   Lemma RectEnabled :
     |-- Enabled (Discr SpecRectR.(Prog) SpecRectR.(maxTime)).
   Proof.
   Admitted.
+*)
 (*
     apply SysSafe_rule. apply always_tauto.
     unfold Discr.
@@ -270,25 +268,61 @@ rewrite <- ProgRefined_ok.
     discharge_sysrec_equiv_rename.
   Defined.
 
+(*
   Definition SpecVelocityR :=
     SysCompose (projT1 SpecVelocityR_X)
                (projT1 SpecVelocityR_Y).
+*)
+
+  Definition SpecXR :=
+    SysCompose (projT1 SpecVelocityR_X)
+               (projT1 UpperLower_X_SpecR).
+
+  Definition SpecYR :=
+    SysCompose (projT1 SpecVelocityR_Y)
+               (projT1 UpperLower_Y_SpecR).
 
   (* The velocity and position monitors
      in rectangular coordinates without
      constraints on control inputs. *)
-  Definition SpecRectVelocityR :=
-    SysCompose SpecVelocityR SpecRectR.
+  Definition SpecRectR :=
+    SysCompose SpecXR SpecYR.
 
   Definition InputConstraintRect : Formula :=
      "ay" + P.g > 0 //\\
-     P.theta_min <= ArctanT ("ax"/("ay" + P.g)) <= P.theta_max.
+     P.theta_min <= ArctanT ("ax"/("ay" + P.g))
+                 <= P.theta_max.
 
-  Definition RefinedConstraint :=
+  Definition XConstraint :=
     UpperLower_X.Params.amin <= "ax"
-    <= --UpperLower_X.Params.amin //\\
+    <= --UpperLower_X.Params.amin.
+
+  Definition YConstraint :=
     UpperLower_Y.Params.amin <= "ay"
     <= --UpperLower_Y.Params.amin.
+
+  Definition XConstraintSysR : SysRec :=
+    {| Init := XConstraint;
+       Prog := next XConstraint;
+       world := fun _ => TRUE;
+       unch := nil;
+       maxTime := P.d |}.
+
+  Definition YConstraintSysR : SysRec :=
+    {| Init := YConstraint;
+       Prog := next YConstraint;
+       world := fun _ => TRUE;
+       unch := nil;
+       maxTime := P.d |}.
+
+  Definition SpecXConstrainedR :=
+    SysCompose SpecXR XConstraintSysR.
+
+  Definition SpecYConstrainedR :=
+    SysCompose SpecYR YConstraintSysR.
+
+  Definition RefinedConstraint :=
+    XConstraint //\\ YConstraint.
 
   Lemma refined_constraint_ok :
     RefinedConstraint |-- InputConstraintRect.
@@ -714,6 +748,14 @@ Viewing things as logical formulas that
 can be refined makes this process clear.
 *)
 
+Lemma Prog_SysCompose :
+  forall a b,
+    Prog (SysCompose a b) -|- Prog a //\\ Prog b.
+Proof.
+  simpl. restoreAbstraction. intros. split; charge_tauto.
+Qed.
+
+
   Theorem box_enabled :
     |-- SysSafe SpecPolarConstrainedR.
   Proof.
@@ -727,29 +769,42 @@ can be refined makes this process clear.
     pose proof rect_input_refines_polar.
     apply next_st_formula_entails in H;
       [ | simpl; tauto | simpl; tauto ].
-    simpl next in H.
+    simpl (next InputConstraint) in H.
     restoreAbstraction. rewrite <- H. clear H.
-    rewrite <- Rename_and.
-    match goal with
-    | [ |- context [ Rename ?m _ //\\ ?A ] ]
-      => let H := fresh in
-         assert (A -|- Rename m A)
-           as H by (rewrite <- Rename_ok;
-                    [ | rw_side_condition
-                      | rw_side_condition;
-                        destruct (string_dec x "ax");
-                        try reflexivity;
-                        destruct (string_dec x "ay");
-                        try reflexivity ]; reflexivity);
-           rewrite H; clear H
-    end.
-    repeat rewrite <- Rename_and.
-    pose proof polar_witness_function. destruct H.
-    eapply subst_enabled_noenv with (f:=x).
-    { apply get_vars_next_state_vars; reflexivity. }
-    { apply H; reflexivity. }
-    { clear.
-
+    rewrite <- disjoint_state_enabled.
+    { charge_split.
+      { Opaque PolarBounds. simpl next. restoreAbstraction.
+        repeat rewrite <- landA. rewrite <- Rename_and.
+        Transparent PolarBounds.
+        pose proof polar_predicated_witness_function.
+        destruct H.
+        eapply subst_enabled_predicated_witness_noenv
+        with (f:=x).
+(*
+          => let H := fresh in
+             assert (A -|- Rename m A)
+               as H by (rewrite <- Rename_ok;
+                        [ | rw_side_condition
+                          | rw_side_condition;
+                            destruct (string_dec x "ax");
+                            try reflexivity;
+                            destruct (string_dec x "ay");
+                            try reflexivity ]; reflexivity);
+               rewrite H; clear H
+        end;
+        repeat rewrite <- Rename_and.
+repeat rewrite <- landA.*)
+        { simpl; tauto. }
+        { apply get_vars_next_state_vars; reflexivity. }
+        { apply H; reflexivity. }
+        { clear. pose proof refined_constraint_ok.
+          apply next_st_formula_entails in H;
+            [ | simpl; tauto | simpl; tauto ].
+          simpl (next InputConstraintRect) in H.
+          restoreAbstraction. rewrite landA.
+          rewrite <- H. clear. simpl next.
+          restoreAbstraction. unfold SpecRectVelocityR.
+          unfold SpecVelocityR. unfold SpecRectR.
 
 
     SearchAbout 

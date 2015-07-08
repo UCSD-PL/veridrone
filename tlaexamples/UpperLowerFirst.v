@@ -1,5 +1,6 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
+Require Import TLA.EnabledLemmas.
 Require Import Examples.System.
 Require Import Examples.FirstDerivShimCtrl.
 Require Import ChargeTactics.Lemmas.
@@ -40,8 +41,11 @@ Module UpperLowerFirst (P : UpperLowerFirstParams).
   Definition SpecR :=
     SysCompose (projT1 SpecVelocityMirrorR) Vel.SpecR.
 
+  Definition Safe : Formula :=
+    --P.ub <= "v" <= P.ub.
+
   Lemma UpperLower_safe :
-    |-- PartialSysD SpecR -->> []--P.ub <= "v" <= P.ub.
+    |-- PartialSysD SpecR -->> []Safe.
   Proof.
     apply PartialCompose.
     - charge_intros.
@@ -61,12 +65,30 @@ Module UpperLowerFirst (P : UpperLowerFirstParams).
       unfold V.ub in *. charge_apply H. charge_tauto. 
   Qed.
 
+
+  Lemma Prog_enabled :
+    |-- Enabled SpecR.(Prog).
+  Proof.
+    simpl. restoreAbstraction.
+    enable_ex_st. smart_repeat_eexists. solve_linear.
+  Qed.
+
   Lemma UpperLower_enabled :
+    |-- Enabled (Discr SpecR.(Prog) SpecR.(maxTime)).
+  Proof.
+    unfold Discr.
+    rewrite <- disjoint_state_enabled.
+    { charge_split.
+      { apply Prog_enabled. }
+      { enable_ex_st. smart_repeat_eexists. solve_linear. } }
+    { apply formulas_disjoint_state; reflexivity. }
+  Qed.
+
+  Lemma UpperLower_full :
     |-- SysSafe SpecR.
   Proof.
     apply SysSafe_rule. apply always_tauto.
-    simpl. restoreAbstraction.
-    enable_ex_st. smart_repeat_eexists. solve_linear.
+    apply UpperLower_enabled.
   Qed.
 
 End UpperLowerFirst.

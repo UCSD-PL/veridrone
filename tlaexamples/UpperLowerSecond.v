@@ -1,7 +1,8 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
+Require Import TLA.EnabledLemmas.
 Require Import Examples.System.
-Require Import Examples.SecondDerivShimCtrlToMiddle.
+Require Import Examples.SecondDerivShimCtrlToMiddle2.
 Require Import ChargeTactics.Lemmas.
 Require Import Coq.Strings.String.
 Local Open Scope string_scope.
@@ -101,8 +102,8 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
         solve_linear. }
   Qed.
 
-  Lemma UpperLower_enabled :
-    |-- Enabled (Discr SpecR.(Prog) SpecR.(maxTime)).
+  Lemma Prog_enabled :
+    |-- Enabled SpecR.(Prog).
   Proof.
     simpl. restoreAbstraction.
     enable_ex_st.
@@ -114,8 +115,18 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
       { right. intros. apply RIneq.Rgt_ge in H1.
         contradiction. }
       { right. instantiate (1:=(-Params.amin)%R).
-        solve_linear. }
-      { reflexivity. } }
+        solve_linear. } }
+  Qed.
+
+  Lemma UpperLower_enabled :
+    |-- Enabled (Discr SpecR.(Prog) SpecR.(maxTime)).
+  Proof.
+    unfold Discr.
+    rewrite <- disjoint_state_enabled.
+    { charge_split.
+      { apply Prog_enabled. }
+      { enable_ex_st. smart_repeat_eexists. solve_linear. } }
+    { apply formulas_disjoint_state; reflexivity. }
   Qed.
 
   Lemma UpperLower_full :

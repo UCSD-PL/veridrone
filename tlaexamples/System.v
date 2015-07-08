@@ -22,13 +22,16 @@ Definition AllConstant (vars : list Var) : state->Formula :=
 
 (* Adds time derivative to an Evolution. *)
 Definition mkEvolution (world : state->Formula) : state->Formula :=
-  fun st' => st' "t" = --1 //\\  world st'.
+  fun st' => st' "t" = --1 //\\ st' "T" = 0 //\\ world st'.
 
 Definition World (world : state->Formula) : Formula :=
   Continuous (mkEvolution world).
 
+Definition TDiscrete (d : R) : Formula :=
+  "t"! <= d //\\ "T"! = "t"!.
+
 Definition Discr (Prog : Formula) (d : R) : Formula :=
-  Prog //\\ "t"! <= d.
+  Prog //\\ TDiscrete d.
 
 Definition Next (Prog: Formula) (world : state->Formula)
            (unch:list Term) (d : R) :=
@@ -38,7 +41,7 @@ Definition Next (Prog: Formula) (world : state->Formula)
   in      steps
      \\// (Enabled d -->> lfalse)
 (*     \\// (Enabled w -->> lfalse) *)
-     \\// UnchangedT (("t":Term)::unch)%list.
+     \\// UnchangedT (("t":Term)::("T":Term)::unch)%list.
 
 Definition PartialNext (Prog: Formula)
            (world : state->Formula)
@@ -47,17 +50,17 @@ Definition PartialNext (Prog: Formula)
   let d := Discr Prog d in
   let steps := w \\// d
   in      steps
-     \\// UnchangedT (("t":Term)::unch)%list.
+     \\// UnchangedT (("t":Term)::("T":Term)::unch)%list.
 
 Definition sysD (Init Prog: Formula) (world : state->Formula)
            (unch : list Term) (d : R) : Formula :=
-  ("t" <= d //\\ Init) //\\
+  ("t" <= d //\\ "T" = "t" //\\ Init) //\\
      [](Next Prog world unch d //\\ 0 <= "t").
 
 Definition Partial_sysD (Init Prog: Formula)
            (world : state->Formula)
            (unch : list Term) (d : R) : Formula :=
-  ("t" <= d //\\ Init) //\\
+  ("t" <= d //\\ "T" = "t" //\\ Init) //\\
      [](PartialNext Prog world unch d //\\ 0 <= "t").
 
 Record SysRec
@@ -375,7 +378,8 @@ Ltac decompose_hyps :=
   repeat rewrite land_lor_distr_L;
   repeat apply lorL.
 
-Definition TimeBound d : Formula := 0 <= "t" <= d.
+Definition TimeBound d : Formula :=
+  0 <= "t" //\\ "t" <= "T" <= d.
 
 Lemma mkEvolution_st_formula :
   forall w,
@@ -391,9 +395,7 @@ Lemma PartialSys_bound_t : forall P (a : SysRec),
     P |-- []TimeBound a.(maxTime).
 Proof.
   intros.
-  unfold SysD in *.
-  rewrite <- Always_and
-  with (P:=0 <= "t") (Q:="t" <= a.(maxTime)).
+  unfold SysD in *. unfold TimeBound. rewrite <- Always_and.
   tlaSplit.
   - rewrite H0. unfold PartialSysD, Partial_sysD.
     rewrite <- Always_and. tlaAssume.
@@ -404,7 +406,7 @@ Proof.
     + rewrite H0.
       unfold PartialSysD, Partial_sysD, PartialNext.
       rewrite <- Always_and. tlaAssume.
-    + rewrite H0. tlaAssume.
+    + rewrite H0. solve_linear.
     + unfold PartialNext. decompose_hyps.
       * pose proof (mkEvolution_st_formula a.(world)).
         specialize (H1 H). clear H.
@@ -681,7 +683,7 @@ Theorem PartialSys_by_induction :
   P //\\ Init |-- IndInv ->
   P |-- [] A ->
   A //\\ IndInv //\\ TimeBound d |-- Inv ->
-  InvariantUnder (("t":Term)::unch)%list IndInv ->
+  InvariantUnder (("t":Term)::("T":Term)::unch)%list IndInv ->
   A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
     //\\ World w |-- next IndInv ->
   A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
@@ -744,7 +746,7 @@ Theorem Sys_by_induction :
   P //\\ Init |-- IndInv ->
   P |-- [] A ->
   A //\\ IndInv //\\ TimeBound d |-- Inv ->
-  InvariantUnder (("t":Term)::unch)%list IndInv ->
+  InvariantUnder (("t":Term)::("T":Term)::unch)%list IndInv ->
   A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
     //\\ World w |-- next IndInv ->
   A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
@@ -1121,18 +1123,20 @@ Theorem PartialSysRename_sound
          (H_is_st : forall st, is_st_formula (s.(world) st)),
   (forall x : Var, deriv_term (m x) = Some (fun st' : state => m' st' x)) ->
   NotRenamed m "t" ->
+  NotRenamed m "T" ->
   PartialSysD (SysRename m m' s) |--
   Rename m (PartialSysD s).
 Proof.
   intros. destruct s.
   unfold PartialSysD, Partial_sysD, PartialNext,
-  World, Discr in *.
+  World, Discr, TDiscrete in *.
   simpl in *.
   restoreAbstraction.
+  unfold NotRenamed in *.
   Rename_rewrite.
   apply land_lentails_m.
   { simpl rename_formula.
-    rewrite H0. reflexivity. }
+    rewrite H1. rewrite H0. reflexivity. }
   tlaRevert. eapply always_imp. charge_intro.
   apply land_lentails_m.
   2: simpl rename_formula; rewrite H0; reflexivity.
@@ -1147,8 +1151,8 @@ Proof.
       eapply Proper_Continuous_entails. intro.
       Rename_rewrite. simpl rename_formula.
       charge_tauto. }
-    { rewrite H0. reflexivity. } }
-  { rewrite H0. charge_tauto. }
+    { rewrite H0. rewrite H1. reflexivity. } }
+  { rewrite H0. rewrite H1. charge_tauto. }
 Qed.
 
 Theorem SysRename_sound
@@ -1156,17 +1160,21 @@ Theorem SysRename_sound
          (H_is_st : forall st, is_st_formula (s.(world) st)),
   (forall x : Var, deriv_term (m x) = Some (fun st' : state => m' st' x)) ->
   NotRenamed m "t" ->
+  NotRenamed m "T" ->
   (Rename m (Enabled (Discr s.(Prog) s.(maxTime))) |--
           Enabled (Rename m (Discr s.(Prog) s.(maxTime)))) ->
   SysD (SysRename m m' s) |-- Rename m (SysD s).
 Proof.
-  intros. destruct s. unfold SysD, sysD, Next, World, Discr in *.
+  intros. destruct s.
+  unfold SysD, sysD, Next,
+  World, Discr, TDiscrete in *.
   simpl in *.
   restoreAbstraction.
+  unfold NotRenamed in *.
   Rename_rewrite.
   apply land_lentails_m.
   { simpl rename_formula.
-    rewrite H0. reflexivity. }
+    rewrite H0. rewrite H1. reflexivity. }
   tlaRevert. eapply always_imp. charge_intro.
   apply land_lentails_m.
   2: simpl rename_formula; rewrite H0; reflexivity.
@@ -1181,13 +1189,14 @@ Proof.
       eapply Proper_Continuous_entails. intro.
       Rename_rewrite. simpl rename_formula.
       charge_tauto. }
-    { rewrite H0. reflexivity. } }
+    { rewrite H0. rewrite H1. reflexivity. } }
   { eapply lorL; [ charge_left | charge_right ].
-    { rewrite H1. eapply limpl_lentails_m.
+    { rewrite H2. eapply limpl_lentails_m.
       { eapply Proper_Enabled. Rename_rewrite.
-        simpl rename_formula. rewrite H0. reflexivity. }
+        simpl rename_formula. rewrite H0. rewrite H1.
+        reflexivity. }
       { reflexivity. } }
-    { rewrite H0. reflexivity. } }
+    { rewrite H0. rewrite H1. reflexivity. } }
 Qed.
 
 Lemma SysCompose_SysRename
@@ -1211,6 +1220,13 @@ Lemma Prog_SysRename :
     Prog (SysRename m m' s) -|- Rename m (Prog s).
 Proof.
   simpl. intros. reflexivity.
+Qed.
+
+Lemma Prog_SysCompose :
+  forall a b,
+    Prog (SysCompose a b) -|- Prog a //\\ Prog b.
+Proof.
+  simpl. restoreAbstraction. intros. split; charge_tauto.
 Qed.
 
 Definition Sys_rename_formula (m : RenameMap)
@@ -1247,17 +1263,24 @@ Lemma subst_enabled_sys_discr :
     next_state_vars (Discr s.(Prog) s.(maxTime)) xs ->
     witness_function m f xs ->
     NotRenamed m "t" ->
+    NotRenamed m "T" ->
     |-- Enabled (Discr s.(Prog) s.(maxTime)) ->
     |-- Enabled (Discr (SysRename m m' s).(Prog)
                        (SysRename m m' s).(maxTime)).
 Proof.
-  intros. simpl. restoreAbstraction. unfold Discr.
+  intros. simpl. restoreAbstraction. unfold Discr, TDiscrete.
   assert (Rename m ("t"! <= maxTime s) |--
           "t"! <= maxTime s)%HP as Hd.
   { breakAbstraction. intros. destruct tr as [? [? ?]].
     simpl in *. unfold subst_state in *. rewrite H1 in *.
     simpl in *. auto. }
-  { rewrite <- Hd. clear Hd. rewrite <- Rename_and.
+  assert (Rename m ("T"! = "t"!) |--
+          "T"! = "t"!)%HP as Hd2.
+  { breakAbstraction. intros. destruct tr as [? [? ?]].
+    simpl in *. unfold subst_state in *. rewrite H1 in *.
+    rewrite H2 in *. simpl in *. auto. }
+  { rewrite <- Hd. rewrite <- Hd2. clear Hd Hd2.
+    repeat rewrite <- Rename_and.
     eapply subst_enabled_noenv; eauto. }
 Qed.
 
