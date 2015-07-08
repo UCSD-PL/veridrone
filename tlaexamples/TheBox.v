@@ -217,36 +217,6 @@ Ltac rename_hyp m H :=
      P.theta_min <= ArctanT ("ax"/("ay" + P.g))
                  <= P.theta_max.
 
-(*
-  Definition XConstraint :=
-    UpperLower_X.Params.amin <= "ax"
-    <= --UpperLower_X.Params.amin.
-
-  Definition YConstraint :=
-    UpperLower_Y.Params.amin <= "ay"
-    <= --UpperLower_Y.Params.amin.
-
-  Definition XConstraintSysR : SysRec :=
-    {| Init := XConstraint;
-       Prog := next XConstraint;
-       world := fun _ => TRUE;
-       unch := nil;
-       maxTime := P.d |}.
-
-  Definition YConstraintSysR : SysRec :=
-    {| Init := YConstraint;
-       Prog := next YConstraint;
-       world := fun _ => TRUE;
-       unch := nil;
-       maxTime := P.d |}.
-
-  Definition SpecXConstrainedR :=
-    SysCompose SpecXR XConstraintSysR.
-
-  Definition SpecYConstrainedR :=
-    SysCompose SpecYR YConstraintSysR.
-*)
-
   Definition XYConstraint :=
     Rename (to_RenameMap rename_x) X.Constraint //\\
     Rename (to_RenameMap rename_y) Y.Constraint.
@@ -291,26 +261,6 @@ Ltac rename_hyp m H :=
         intuition. apply Rmult_le_algebra; solve_linear.
         solve_nonlinear. } }
   Qed.
-
-(*
-  Definition InputConstraintSysRectR : SysRec :=
-    {| Init := InputConstraintRect;
-       Prog := next InputConstraintRect;
-       world := fun _ => TRUE;
-       unch := nil;
-       maxTime := P.d |}.
-
-  Definition SpecRectVelocityConstrainedR :=
-    SysCompose SpecRectVelocityR InputConstraintSysRectR.
-*)
-
-  Lemma rectangular_to_polar :
-    forall (x y:R),
-      { p : (R*R) |
-        (0 <= fst p /\ -PI < snd p <= PI /\
-         eq x ((fst p) * Rtrigo_def.cos (snd p)) /\
-         eq y ((fst p) * Rtrigo_def.sin (snd p)))%R }.
-  Admitted.
 
   Definition PolarBounds : Formula :=
     0 <= "a" //\\ --PI <= "theta" <= PI.
@@ -405,52 +355,6 @@ Ltac rename_hyp m H :=
       simpl. solve_linear. }
   Qed.
 
-(*
-  Lemma polar_witness_function :
-    exists f,
-    forall xs,
-      List.forallb (fun x => if String.string_dec x "a"
-                             then false else true) xs =
-      true ->
-      List.forallb (fun x => if String.string_dec x "theta"
-                             then false else true) xs =
-      true ->
-      witness_function (to_RenameMap rename_polar) f xs.
-  Proof.
-    exists
-      (fun st x =>
-         let witness :=
-             proj1_sig
-               (rectangular_to_polar (st "ay" + P.g)
-                                     (st "ax")) in
-         if String.string_dec x "a"
-         then fst witness
-         else if String.string_dec x "theta"
-              then snd witness
-              else st x)%R.
-    unfold witness_function.
-    intros. simpl.
-    rewrite List.forallb_forall in *.
-    specialize (H "a").
-    specialize (H0 "theta").
-    repeat match goal with
-           | [ |- context [if ?e then _ else _] ]
-             => destruct e; simpl
-           end; subst; simpl.
-    { destruct (rectangular_to_polar (st "ay" + P.g)
-                                     (st "ax")).
-      simpl. tauto. }
-    { destruct (rectangular_to_polar (st "ay" + P.g)
-                                     (st "ax")).
-      simpl. unfold Value. solve_linear. }
-    { destruct (String.string_dec "a" "a");
-      intuition congruence. }
-    { destruct (String.string_dec "theta" "theta");
-      intuition congruence. }
-    { reflexivity. }
-  Qed.
-*)
-
   Lemma rect_input_refines_polar :
     Rename (to_RenameMap rename_polar) InputConstraintRect
     //\\ PolarBounds |--
@@ -512,67 +416,6 @@ Ltac rename_hyp m H :=
         |- context [atan ?e] => specialize (Hatan e)
       end. solve_linear. }
   Qed.
-
-
-
-(*
-  Lemma InputConstraint_equiv :
-    InputConstraint -|-
-    Rename (to_RenameMap rename_polar) InputConstraintRect.
-  Proof.
-    rewrite <- Rename_ok by rw_side_condition.
-    split; breakAbstraction.
-    simpl. restoreAbstraction.
-  Admitted.
-*)
-(*
-  Lemma next_st_formula_equiv :
-    forall A B,
-      is_st_formula A ->
-      is_st_formula B ->
-      A -|- B ->
-      next A -|- next B.
-  Admitted.
-*)
-
-  Lemma next_st_formula_entails :
-    forall A B,
-      is_st_formula A ->
-      is_st_formula B ->
-      A |-- B ->
-      next A |-- next B.
-  Admitted.
-
-Require Import Coq.Classes.Morphisms.
-Global Instance Proper_disjoint_states :
-  Proper (lequiv ==> lequiv ==> iff) disjoint_states.
-Proof.
-  morphism_intro. unfold disjoint_states, disjoint_states_aux.
-  apply exists_iff. intro. apply exists_iff. intro.
-  destruct H as [Hx Hy]. destruct H0 as [Hx0 Hy0].
-  unfold sets_disjoint, next_state_vars. breakAbstraction.
-  intuition; breakAbstraction;
-  try first [apply Hx; apply Hy in H3 |
-             apply Hy; apply Hx in H3 |
-             apply Hx0; apply Hy0 in H3 |
-             apply Hy0; apply Hx0 in H3 ];
-  try solve [rewrite <- H; eauto ].
-  rewrite <- H; eauto. unfold traces_agree in *. intros.
-  eapply Stream.Symmetric_stream_eq;
-    [ repeat red; congruence | eauto ].
-  rewrite <- H2; eauto.
-  rewrite <- H2; eauto. unfold traces_agree in *. intros.
-  eapply Stream.Symmetric_stream_eq;
-    [ repeat red; congruence | eauto ].
-  rewrite <- H; eauto. unfold traces_agree in *. intros.
-  eapply Stream.Symmetric_stream_eq;
-    [ repeat red; congruence | eauto ].
-  rewrite <- H2; eauto.
-  rewrite <- H2; eauto. unfold traces_agree in *. intros.
-  eapply Stream.Symmetric_stream_eq;
-    [ repeat red; congruence | eauto ].
-Qed.  
-
 
   Theorem box_enabled :
     |-- SysSafe SpecR.

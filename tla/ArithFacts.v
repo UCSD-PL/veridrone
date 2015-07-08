@@ -182,6 +182,14 @@ Lemma cos_pos :
      -PI/2 < x < PI/2)%R.
 Admitted.
 
+Lemma rectangular_to_polar :
+  forall (x y:R),
+    { p : (R*R) |
+      (0 <= fst p /\ -PI < snd p <= PI /\
+       eq x ((fst p) * Rtrigo_def.cos (snd p)) /\
+       eq y ((fst p) * Rtrigo_def.sin (snd p)))%R }.
+Admitted.
+
 Lemma mult_0_l_equiv :
   forall x,
     term_equiv (0*x) 0.

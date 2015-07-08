@@ -35,6 +35,36 @@ Definition disjoint_states_aux (A B : Formula)
 Definition disjoint_states (A B : Formula) :=
   exists xs ys, disjoint_states_aux A B xs ys.
 
+Require Import Coq.Classes.Morphisms.
+Global Instance Proper_disjoint_states :
+  Proper (lequiv ==> lequiv ==> iff) disjoint_states.
+Proof.
+  morphism_intro. unfold disjoint_states, disjoint_states_aux.
+  apply exists_iff. intro. apply exists_iff. intro.
+  destruct H as [Hx Hy]. destruct H0 as [Hx0 Hy0].
+  unfold sets_disjoint, next_state_vars. breakAbstraction.
+  intuition; breakAbstraction;
+  try first [apply Hx; apply Hy in H3 |
+             apply Hy; apply Hx in H3 |
+             apply Hx0; apply Hy0 in H3 |
+             apply Hy0; apply Hx0 in H3 ];
+  try solve [rewrite <- H; eauto ].
+  rewrite <- H; eauto. unfold traces_agree in *. intros.
+  eapply Stream.Symmetric_stream_eq;
+    [ repeat red; congruence | eauto ].
+  rewrite <- H2; eauto.
+  rewrite <- H2; eauto. unfold traces_agree in *. intros.
+  eapply Stream.Symmetric_stream_eq;
+    [ repeat red; congruence | eauto ].
+  rewrite <- H; eauto. unfold traces_agree in *. intros.
+  eapply Stream.Symmetric_stream_eq;
+    [ repeat red; congruence | eauto ].
+  rewrite <- H2; eauto.
+  rewrite <- H2; eauto. unfold traces_agree in *. intros.
+  eapply Stream.Symmetric_stream_eq;
+    [ repeat red; congruence | eauto ].
+Qed.
+
 Definition merge_states (xs ys : list Var)
            (st1 st2 : state) : state :=
   fun x =>
