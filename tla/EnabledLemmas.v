@@ -376,3 +376,21 @@ Proof.
   with (G:=ltrue); eauto.
   apply BasicProofRules.Rename_True.
 Qed.
+
+(** This lemma shows that we can push state formulas inside
+ ** of Enabled which allows us to move the inductive invariant inside
+ ** of the controller
+ **)
+Lemma Enabled_and_push : forall P Q,
+    is_st_formula P ->
+    P //\\ Enabled Q -|- Enabled (P //\\ Q).
+Proof.
+  intros. breakAbstraction.
+  eapply lequiv_to_iff. intros; simpl; split.
+  { destruct 1 as [ ? [ ? ? ] ].
+    eexists; split; eauto.
+    eapply st_formula_hd; eauto. }
+  { destruct 1 as [ ? [ ? ? ] ].
+    split; eauto.
+    eapply st_formula_hd; eauto. }
+Qed.
