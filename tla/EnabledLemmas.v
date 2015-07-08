@@ -216,7 +216,9 @@ Ltac decide_disjoint_var_sets :=
 Fixpoint can_get_vars_formula (f : Formula) : bool :=
   match f with
   | Always a | Eventually a | Enabled a =>
-                              can_get_vars_formula a
+   (* This could be true, but proving it is a pain,
+      and we don't need it at the moment. *)
+                              false
   | And a b | Or a b | Imp a b =>
                        andb (can_get_vars_formula a)
                             (can_get_vars_formula b)
@@ -225,34 +227,86 @@ Fixpoint can_get_vars_formula (f : Formula) : bool :=
   | _ => false
   end.
 
+Lemma traces_agree_app :
+  forall tr1 tr2 xs ys,
+    traces_agree tr1 tr2 (xs ++ ys) ->
+    traces_agree tr1 tr2 xs /\ traces_agree tr1 tr2 ys.
+Proof.
+  intros. unfold traces_agree in *.
+  split; intros; apply H; apply List.in_or_app; tauto.
+Qed.
+
+Lemma traces_agree_sym :
+  forall tr1 tr2 xs,
+    traces_agree tr1 tr2 xs ->
+    traces_agree tr2 tr1 xs.
+Proof.
+  unfold traces_agree. intros.
+  apply Stream.Symmetric_stream_eq.
+  { repeat red. congruence. }
+  { auto. }
+Qed.
+
+Require Import Coq.Reals.Rdefinitions.
+
+Lemma get_vars_term :
+  forall t tr1 tr2 st,
+    traces_agree tr1 tr2 (get_next_vars_term t) ->
+    eval_term t st (Stream.hd tr1) =
+    eval_term t st (Stream.hd tr2).
+Proof.
+  induction t; simpl; intros; auto;
+  try solve [ apply traces_agree_app in H; destruct H;
+              erewrite IHt1; eauto; erewrite IHt2; eauto |
+              erewrite IHt; eauto ].
+  unfold traces_agree in *. simpl in *.
+  specialize (H v (or_introl (eq_refl _))).
+  destruct H. auto.
+Qed.
+
 Lemma get_vars_next_state_vars :
   forall A,
     can_get_vars_formula A = true ->
     next_state_vars A (get_next_vars_formula A).
 Proof.
-Admitted.
-(*
-    induction A; simpl; try discriminate;
-    unfold state_vars in *; simpl; intros.
-    - admit.
+  induction A; simpl; try discriminate;
+  unfold next_state_vars in *; simpl; intros; try tauto.
+    - destruct c; simpl;
+      apply traces_agree_app in H0; destruct H0;
+      erewrite get_vars_term with (t:=t); eauto;
+      erewrite get_vars_term with (t:=t0); eauto; tauto.
     - apply andb_prop in H.
-      unfold traces_agree in *.
       split; intros;
-      (split).
-       [ eapply IHA1 | eapply IHA2 ]; try tauto).
-       intros; try apply H0; intros).
-      apply List.in_or_app; auto).
+      apply traces_agree_app in H0;
+      destruct H0; destruct H1;
+      split.
+      { eapply IHA1; try tauto;
+        try apply traces_agree_sym; eauto. }
+      { eapply IHA2; try tauto;
+        try apply traces_agree_sym; eauto. }
+      { eapply IHA1; try tauto; eauto. }
+      { eapply IHA2; try tauto; eauto. }
     - apply andb_prop in H.
-      unfold traces_agree in *.
-      destruct H1; [ left; eapply IHA1 | right; eapply IHA2 ];
-      try tauto; intros; try apply H0; try tauto;
-      apply List.in_or_app; auto.
+      split; intros;
+      apply traces_agree_app in H0;
+      destruct H0; destruct H1.
+      { left. eapply IHA1; try tauto;
+        try apply traces_agree_sym; eauto. }
+      { right. eapply IHA2; try tauto;
+        try apply traces_agree_sym; eauto. }
+      { left. eapply IHA1; try tauto; eauto. }
+      { right. eapply IHA2; try tauto; eauto. }
     - apply andb_prop in H.
-      unfold traces_agree in *.
-      eapply IHA2; try tauto; intros; try apply H0.
-      { apply List.in_or_app; auto. }
-      { apply H1.
- *)
+      split; intros;
+      apply traces_agree_app in H0;
+      destruct H0.
+      { eapply IHA2; try tauto;
+        try apply traces_agree_sym; eauto.
+        apply H1. eapply IHA1; try tauto; eauto. }
+      { eapply IHA2; try tauto; eauto; apply H1.
+        eapply IHA1; try tauto;
+        try apply traces_agree_sym; eauto. }
+Qed.
 
 Lemma formulas_disjoint_state :
   forall A B,

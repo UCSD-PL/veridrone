@@ -1,6 +1,7 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
 Require Import TLA.EnabledLemmas.
+Require Import TLA.DifferentialInduction.
 Require Import Examples.System.
 Require Import Examples.SecondDerivShimCtrlToMiddle2.
 Require Import ChargeTactics.Lemmas.
@@ -45,31 +46,18 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
 
   Definition SpecMirrorR :
     { x : SysRec &
-          PartialSysD x |--
-                      Rename (to_RenameMap mirror)
-                             (PartialSysD Monitor.SpecR) }.
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap mirror)
+               (deriv_term_RenameList mirror)
+               Monitor.SpecR)
+            x}.
   Proof.
-    discharge_PartialSys_rename_formula.
+    discharge_sysrec_equiv_rename.
   Defined.
 
   Definition SpecR :=
     SysCompose Monitor.SpecR (projT1 SpecMirrorR).
-
-(*
-  Definition ProgRefined :=
-    Monitor.ProgRefined //\\
-    rename_formula (to_RenameMap mirror) Monitor.ProgRefined.
-
-  Lemma ProgRefined_ok :
-    ProgRefined |-- SpecR.(Prog).
-  Proof.
-    unfold ProgRefined, SpecR, Monitor.ProgRefined.
-    Opaque Monitor.SafeAcc Monitor.Default.
-    simpl. restoreAbstraction. unfold Monitor.Ctrl.
-    charge_tauto.
-    Transparent Monitor.SafeAcc Monitor.Default.
-  Qed.
-*)
 
   Definition Safe :=
     "y" <= Params.ub //\\ --Params.ub <= "y".
@@ -83,12 +71,11 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
       unfold Monitor.Safe in *.
       charge_apply H. charge_tauto.
     - charge_intros.
-      pose proof (projT2 SpecMirrorR). cbv beta in H.
-      rewrite H. clear.
+      rewrite_rename_pf SpecMirrorR.
+      rewrite PartialSysRename_sound
+        by sysrename_side_cond.
       pose proof Monitor.ctrl_safe.
-      apply (Proper_Rename (to_RenameMap mirror)
-                           (to_RenameMap mirror)) in H;
-        [ | reflexivity ].
+      rename_hyp mirror H.
       rewrite Rename_impl in H.
       repeat rewrite <- (Rename_ok (Always _)) in H
         by is_st_term_list. simpl rename_formula in H.

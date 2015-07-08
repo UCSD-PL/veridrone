@@ -40,20 +40,47 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
       st' "y" = "v" //\\ st' "v" = "a" //\\
       AllConstant ("a"::"Y"::"V"::nil)%list st'.
 
-  Definition SafeAcc (a:Term) : Formula :=
+  Definition SafeAcc (a v y:Term) : Formula :=
     Max a 0
         (fun mxa =>
-           "y" + tdist "v" mxa d + sdist ("v" + mxa*d)
+           y + tdist v mxa d + sdist (v + mxa*d)
            <= ub).
 
-  Definition Default : Formula :=
-    "y" > 0 -->> (("v" > 0 -->> "a"! <= amin) //\\
-                  ("v" <= 0 -->> "a"! <= 0)).
+  Definition Default (a v y:Term) : Formula :=
+    y > 0 -->> ((v > 0 -->> a <= amin) //\\
+                  (v <= 0 -->> a <= 0)).
 
   Definition Ctrl : Formula :=
-    SafeAcc "a"! \\// Default.
+    SafeAcc "a"! "v" "y" \\// Default "a"! "v" "y".
 
-  Definition History : Formula :=
+  (* Some useful renaming lemmas *)
+  Lemma Rename_SafeAcc :
+    forall a v y m,
+      (forall x : Var, is_st_term (m x) = true) ->
+      Rename m (SafeAcc a v y) -|-
+      SafeAcc (rename_term m a) (rename_term m v)
+              (rename_term m y).
+  Proof.
+    intros; split; breakAbstraction; intros;
+    destruct tr as [? [? ?]]; simpl in *.
+    { repeat rewrite Rename_term_ok; auto. }
+    { repeat rewrite <- Rename_term_ok; auto. }
+  Qed.
+
+  Lemma Rename_Default :
+    forall a v y m,
+      (forall x : Var, is_st_term (m x) = true) ->
+      Rename m (Default a v y) -|-
+      Default (rename_term m a) (rename_term m v)
+              (rename_term m y).
+  Proof.
+    intros; split; breakAbstraction; intros;
+    destruct tr as [? [? ?]]; simpl in *.
+    { repeat (rewrite Rename_term_ok in *; auto). }
+    { repeat (rewrite <- Rename_term_ok in *; auto). }
+  Qed.
+
+  Definition History (Y y V v:Term) : Formula :=
     "Y"! = "y" //\\ "V"! = "v".
 
   Definition Safe : Formula :=
@@ -76,7 +103,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
 
   Definition SpecR : SysRec :=
     {| Init := I;
-       Prog := Ctrl //\\ History //\\
+       Prog := Ctrl //\\ History "Y"! "y" "V"! "v" //\\
                Unchanged ("v"::"y"::nil)%list;
        world := w;
        unch := (("a":Term)::("Y":Term)::("V":Term)::

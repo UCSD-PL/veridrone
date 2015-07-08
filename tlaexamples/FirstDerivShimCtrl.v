@@ -25,8 +25,14 @@ Module FirstDerivShim (P : FirstDerivShimParams).
   Definition w : Evolution :=
     fun st' => st' "v" = "a" //\\ st' "a" = 0.
 
+  Definition SafeAcc (a v:Term) : Formula :=
+    a*d + v <= ub.
+
+  Definition Default (a:Term) : Formula :=
+    a <= 0.
+
   Definition Ctrl : Formula :=
-    "a"!*d + "v" <= ub \\// "a"! <= 0.
+    SafeAcc "a"! "v" \\// Default "a"!.
 
   Definition I : Formula :=
     "v" <= ub //\\ "v" + "a"*d <= ub.
@@ -83,6 +89,30 @@ Module FirstDerivShim (P : FirstDerivShimParams).
                          solve_linear ] ].
         solve_nonlinear.
     - solve_nonlinear.
+  Qed.
+
+  (* Some useful renaming lemmas *)
+  Lemma Rename_SafeAcc :
+    forall a v m,
+      (forall x : Var, is_st_term (m x) = true) ->
+      Rename m (SafeAcc a v) -|-
+      SafeAcc (rename_term m a) (rename_term m v).
+  Proof.
+    intros; split; breakAbstraction; intros;
+    destruct tr as [? [? ?]]; simpl in *.
+    { repeat rewrite Rename_term_ok; auto. }
+    { repeat rewrite <- Rename_term_ok; auto. }
+  Qed.
+
+  Lemma Rename_Default :
+    forall a m,
+      (forall x : Var, is_st_term (m x) = true) ->
+      Rename m (Default a) -|- Default (rename_term m a).
+  Proof.
+    intros; split; breakAbstraction; intros;
+    destruct tr as [? [? ?]]; simpl in *.
+    { repeat rewrite Rename_term_ok; auto. }
+    { repeat rewrite <- Rename_term_ok; auto. }
   Qed.
 
 End FirstDerivShim.

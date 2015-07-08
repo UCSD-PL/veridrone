@@ -961,3 +961,8 @@ Proof.
   - rewrite H0; subst; reflexivity.
   - rewrite <- H0; subst; reflexivity.
 Qed.
+
+Ltac rename_hyp m H :=
+  apply (Proper_Rename (to_RenameMap m)
+                       (to_RenameMap m))
+  in H; [ | reflexivity ].

@@ -1,6 +1,7 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
 Require Import TLA.EnabledLemmas.
+Require Import TLA.DifferentialInduction.
 Require Import Examples.System.
 Require Import Examples.FirstDerivShimCtrl.
 Require Import ChargeTactics.Lemmas.
@@ -32,10 +33,14 @@ Module UpperLowerFirst (P : UpperLowerFirstParams).
 
   Definition SpecVelocityMirrorR :
     { x : SysRec &
-          PartialSysD x |-- Rename (to_RenameMap mirror)
-                            (PartialSysD Vel.SpecR) }.
+          SysRec_equiv
+            (SysRename
+               (to_RenameMap mirror)
+               (deriv_term_RenameList mirror)
+               Vel.SpecR)
+            x}.
   Proof.
-    discharge_PartialSys_rename_formula.
+    discharge_sysrec_equiv_rename.
   Defined.
 
   Definition SpecR :=
@@ -49,12 +54,11 @@ Module UpperLowerFirst (P : UpperLowerFirstParams).
   Proof.
     apply PartialCompose.
     - charge_intros.
-      pose proof (projT2 SpecVelocityMirrorR).
-      cbv beta in H. rewrite H. clear.
+      rewrite_rename_pf SpecVelocityMirrorR.
+      rewrite PartialSysRename_sound
+        by sysrename_side_cond.
       pose proof Vel.ctrl_safe.
-      apply (Proper_Rename (to_RenameMap mirror)
-                           (to_RenameMap mirror)) in H;
-        [ | reflexivity ].
+      rename_hyp mirror H.
       rewrite Rename_impl in H. rewrite Rename_True in H.
       restoreAbstraction. apply landAdj in H.
       rewrite landtrueL in H. rewrite H. clear.
@@ -64,7 +68,6 @@ Module UpperLowerFirst (P : UpperLowerFirstParams).
     - charge_intros. pose proof Vel.ctrl_safe.
       unfold V.ub in *. charge_apply H. charge_tauto. 
   Qed.
-
 
   Lemma Prog_enabled :
     |-- Enabled SpecR.(Prog).

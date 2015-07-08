@@ -161,11 +161,6 @@ Module Box (P : BoxParams).
   Definition SpecR :=
     SysCompose (projT1 SpecPolarR) InputConstraintSysR.
 
-Ltac rename_hyp m H :=
-  apply (Proper_Rename (to_RenameMap m)
-                       (to_RenameMap m))
-  in H; [ | reflexivity ].
-
   (* The safety of the full system. *)
   Theorem box_safe :
     |-- PartialSysD SpecR -->>
@@ -209,6 +204,75 @@ Ltac rename_hyp m H :=
       Y.Position.Params.ub, Y.Y.ub.
       charge_tauto.
   Qed.
+
+(* The following helps generate code. *)
+(*
+Definition shift (ub lb:R) (x:Var) : list (Var*Term) :=
+  (x,x - ((lb + ub)/2))::nil.
+Variable ubx lbx uby lby ubvx ubvy lbvx lbvy : R.
+
+Goal (Rename (to_RenameMap (shift ubx lbx "x"))
+        (Rename (to_RenameMap (shift uby lby "y"))
+           (Rename (to_RenameMap (shift ubvx lbvx "vx"))
+              (Rename (to_RenameMap (shift ubvy lbvy "vy"))
+                      (Prog SpecR))))) |-- TRUE.
+  unfold SpecR. rewrite_rename_pf SpecPolarR.
+  rewrite Prog_SysCompose. rewrite Prog_SysRename.
+  unfold SpecRectR. rewrite_rename_pf X_SpecR.
+  rewrite_rename_pf Y_SpecR. rewrite Prog_SysCompose.
+  repeat rewrite Prog_SysRename. unfold X.SpecR, Y.SpecR.
+  repeat rewrite Prog_SysCompose.
+  unfold X.Vel.SpecR, X.Position.SpecR,
+  Y.Vel.SpecR, Y.Position.SpecR.
+  repeat rewrite Prog_SysCompose.
+  repeat match goal with
+         |- context [ projT1 ?X ]
+         => rewrite_rename_pf X
+         end.
+  repeat rewrite Prog_SysRename.
+  Opaque Unchanged.
+  simpl Prog. restoreAbstraction.
+  (* Get rid of all of the unchanged clauses that
+     have no computational meaning. *)
+  repeat match goal with
+  |- context [ Unchanged ?l ] =>
+    rewrite ltrueR with (C:=Unchanged l)
+  end; repeat rewrite landtrueR.
+  unfold X.Position.Monitor.Ctrl, Y.Position.Monitor.Ctrl,
+  X.Vel.Vel.Ctrl, Y.Vel.Vel.Ctrl.
+  Rename_rewrite.
+  repeat rewrite X.Vel.Vel.Rename_SafeAcc
+    by rw_side_condition.
+  repeat rewrite X.Vel.Vel.Rename_Default
+    by rw_side_condition.
+  repeat rewrite Y.Vel.Vel.Rename_SafeAcc
+    by rw_side_condition.
+  repeat rewrite Y.Vel.Vel.Rename_Default
+    by rw_side_condition.
+  repeat rewrite X.Position.Monitor.Rename_SafeAcc
+    by rw_side_condition.
+  repeat rewrite X.Position.Monitor.Rename_Default
+    by rw_side_condition.
+  repeat rewrite Y.Position.Monitor.Rename_SafeAcc
+    by rw_side_condition.
+  repeat rewrite Y.Position.Monitor.Rename_Default
+    by rw_side_condition.
+  simpl rename_term.
+  (* Get rid of history variables with no computational
+     meaning. *)
+  repeat match goal with
+  |- context [ Rename ?m ?F ]
+  => rewrite ltrueR with (C:=Rename m F)
+  end; repeat rewrite landtrueR.
+2: rw_side_condition.
+2: rw_side_condition.
+change RealT with ConstC.
+restoreAbstraction.
+
+simpl; restoreAbstraction.
+Check SecondDerivUtil.tdist.
+SecondDerivUtil.tdist "vx" ("a"!*sin("theta"!)) P.d = 0.
+*)
 
   (* Now we move on to Enabled *)
 
