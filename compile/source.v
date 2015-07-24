@@ -21,26 +21,71 @@ Local Close Scope HP_scope.
 Delimit Scope SrcLang_scope with SL.
 Local Open Scope SrcLang_scope.
 
+(* TODO fill these in *)
+(** [prec] is the number of bits of the mantissa including the implicit one.
+    [emax] is the exponent of the infinities.
+    Typically p=24 and emax = 128 in single precision. *)
 
+(*
 Variable prec:Z.
 Variable emax:Z.
 Variable emin:Z.
 Hypothesis emaxGtEmin : (emax > emin)%Z.
 Hypothesis precGe1: (prec >= 1)%Z.
 Hypothesis precLtEmax : (prec < emax)%Z.
-Hypothesis eminMinValue : (emin > 3 - emax - prec)%Z.
+Hypothesis eminMinValue : (emin >= 3 - emax - prec)%Z.
 Hypothesis nan : binary_float prec emax -> binary_float prec emax -> bool * nan_pl prec.
 Locate FLT_exp.
-Hypothesis precThm : forall k : Z,
+Hypothesis precThm : forall k : ,Z
+    (emin < k)%Z ->
+    (prec <=
+     k - Fcore_FLT.FLT_exp (3 - emax - prec) prec k)%Z.*)
+
+Definition prec:Z := 24%Z.
+Definition emax:Z := 128%Z.
+Definition emin:Z := (3 - emax - prec)%Z.
+Definition emaxGtEmin : (emax > emin)%Z.
+Proof. compute. reflexivity.
+Defined.
+
+Definition precGe1: (prec >= 1)%Z.
+Proof. compute. inversion 1.
+Defined.
+
+Lemma eminMinValue : (emin >= 3 - emax - prec)%Z.
+Proof. compute. inversion 1. Qed.
+
+Definition precLtEmax : (prec < emax)%Z.
+Proof. compute. reflexivity.
+Defined.
+
+(* TODO - figure out where eminMinValue and precThm are actually getting used *)
+
+(* Lemma nan : binary_float prec emax -> binary_float prec emax -> bool * nan_pl prec. *)
+Lemma precThm : forall k : Z,
     (emin < k)%Z ->
     (prec <=
      k - Fcore_FLT.FLT_exp (3 - emax - prec) prec k)%Z.
+Proof.
+  intros.
+  unfold Fcore_FLT.FLT_exp.
+  unfold Z.max.
+  destruct (k -prec ?= 3 - emax - prec)%Z eqn:Hk; try lia.
+  - rewrite Z.compare_lt_iff in Hk.
+    unfold emin, emax, prec in *.
+    simpl in *.
+
+    (* WARNING WARNING WARNING
+       As stated, with these constants, this theorem is not true!
+       WARNING WARNING WARNING *)
+Admitted.    
+
 Definition custom_prec := prec.
 Definition custom_emax:= emax.
 Definition custom_float_zero := B754_zero custom_prec custom_emax false.
 Definition custom_emin := emin.
 Definition float := binary_float custom_prec custom_emax.
-Lemma customEminMinValue : (custom_emin > 3 - custom_emax - custom_prec)%Z.
+Lemma customEminMinValue : (custom_emin >= 3 - custom_emax - custom_prec)%Z.
 unfold custom_emin, custom_emax, custom_prec.
 apply eminMinValue.
 Qed.
@@ -101,9 +146,7 @@ unfold custom_emax, custom_prec.
 apply precLtEmax.
 Qed.
 
-Print nan.
-
-Definition custom_nan:float -> float -> bool * nan_pl custom_prec := nan.
+Definition custom_nan:float -> float -> bool * nan_pl custom_prec := Floats.Float32.binop_pl.
  
 Definition nat_to_float (n : nat) : float :=
 Fappli_IEEE_extra.BofZ custom_prec custom_emax custom_precGt0 custom_precLtEmax (Z.of_nat n).
@@ -370,6 +413,56 @@ Fixpoint eval_SrcProg (sp : SrcProg) (init : fstate) : option fstate :=
       end
   end.
 
+Locate custom_float_zero.
+Locate Zdigits2.
+
+Extraction "deps.ml" nat_to_float.
+
+Extraction nat_to_float.
+
+Print nat_to_float.
+Print Fappli_IEEE_extra.BofZ.
+Print binary_normalize.
+Print FF2B.
+
+Lemma derp : forall x, nat_to_float 3 = x.
+Proof.
+  intros.
+  unfold nat_to_float.
+  unfold Fappli_IEEE_extra.BofZ.
+  unfold binary_normalize.
+  unfold binary_round_correct.
+  simpl.
+  unfold shl_align_fexp_correct.
+  simpl.
+  compute.
+  unfold shl_align_correct.
+  unfold binary_round_aux_correct.
+  simpl.
+  unfold Fcalc_round.truncate_correct_partial.
+  unfold Fcalc_round.truncate_correct.
+  simpl.
+  unfold fexp_correct.
+  unfold Fcalc_round.round_trunc_sign_any_correct.
+  simpl.
+  unfold Fcalc_round.truncate_correct_format.
+  unfold Fcalc_round.truncate_correct.
+  simpl.
+  unfold Fcalc_round.round_sign_any_correct.
+  simpl.
+  unfold F2R.
+  unfold Fnum.
+  unfold Fcore_Raux.Z2R.
+  simpl.
+  Locate Zpower.shift_pos_correct.
+  lazy.
+  unfold FF2B.
+  simpl.
+  Check B754_finite.
+  unfold Fcore_FLT.FLT_exp.
+  simpl.
+  unfold binary_round_correct.
+  simpl.
 (* Previous denotation functions for source language *)
 
 (*

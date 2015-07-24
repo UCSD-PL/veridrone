@@ -15,6 +15,8 @@ Require Import Abstractor.
 Require Import TLA.Automation.
 Require Import Coq.Classes.Morphisms.
 
+
+
 Lemma Z3Test : forall (a : R), (a + 1 = 3)%R%type -> ((a + 2 = 3)%R /\ ((1+1)%R=2%R)%R)%type.
 Proof.
   intros.
@@ -832,11 +834,45 @@ Proof.
     generalize (F2OR_FloatToR _ _ _ H1 H); intro HF2OR.
     subst.
 
-
     (* finish this proof, should be semi straightforward *)
     Print Ltac enable_ex_st.
-    eapply (ex_state "x").
+
+    eexists.
+    exists (fstate_set nil "x" x).
+
     simpl.
+    split.
+    { split; auto. }
+    { right.
+      eexists.
+      split.
+      { econstructor. reflexivity. }
+      { simpl. split.
+        -
+          Print float.
+          Print custom_prec.
+          Locate prec.
+
+          Print float_one.
+
+          Print Fappli_IEEE_extra.BofZ.
+          Eval compute in F2OR (float_zero).
+          
+          unfold F2OR, FloatToR.
+          unfold float_one.
+          Print nat_to_float.
+
+          Check Fappli_IEEE_extra.BofZ.
+          Locate Fappli_IEEE_extra.BofZ.
+          unfold nat_to_float.
+          unfold Fappli_IEEE.B2R.
+          unfold Fcore_defs.F2R.
+          unfold Fcore_Raux.Z2R.
+          unfold Fcore_Raux.bpow.
+          unfold Fcore_Zaux.cond_Zopp.
+          compute.
+
+          rewrite H1.
     apply ex_state_any; intro; clear.
 
     exists 1%R.
@@ -850,7 +886,7 @@ Proof.
     subst.
     (*exists (Stream.tl tr).*)
     eexists.
-    exists (fstate_set nil "x" x).
+    
     split.
     - simpl.
       split; auto.

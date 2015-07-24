@@ -1,5 +1,6 @@
 -R ./clight-plugin/src clight_degen
 -R ../tla TLA
+-R ./compcert/lib compcert.lib
 -R ./compcert/common compcert.common
 -R ./compcert/cfrontend compcert.cfrontend
 -R ./compcert/flocq/Core compcert.flocq.Core
