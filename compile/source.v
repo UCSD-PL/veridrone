@@ -102,6 +102,9 @@ Print Floats.float.
 Print binary64.
 Print binary_float.
 
+SearchAbout binary_float.
+Locate Fappli_IEEE_extra.Beq_dec.
+
 (* Term, sans the next operator *)
 Inductive NowTerm : Type :=
 | VarNowN : Var -> NowTerm
@@ -425,6 +428,8 @@ Print Fappli_IEEE_extra.BofZ.
 Print binary_normalize.
 Print FF2B.
 
+(* failed effort to get nat_to_float to compute *)
+(*
 Lemma derp : forall x, nat_to_float 3 = x.
 Proof.
   intros.
@@ -463,6 +468,7 @@ Proof.
   simpl.
   unfold binary_round_correct.
   simpl.
+*)
 (* Previous denotation functions for source language *)
 
 (*
