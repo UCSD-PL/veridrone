@@ -580,6 +580,7 @@ Hint Resolve
      arith_push_fupdate_eq arith_push_fupdate_neq
   : arith_push.
 
+(* Automation for pushing through embed rewriting *)
 Ltac crunch_embeds :=
   progress repeat
            match goal with
@@ -596,6 +597,41 @@ Ltac crunch_embeds :=
            | |- Embed (fun x y => (_ >= _)%R) -|- _ => eapply embed_push_Ge; eauto with arith_push
            | |- Embed (fun x y => ?X) -|- _ => eapply embed_push_Const
            end.
+
+(* Small logic lemmas for the subsequent theorem *)
+Lemma lentail_cut1 :
+  forall (A B C : Formula),
+    C |-- A ->
+    A -->> B |-- C -->> B.
+Proof.
+  intros. breakAbstraction. intuition.
+Qed.
+
+Lemma lentail_cut2 :
+  forall (A B C D : Formula),
+    C |-- A ->
+    B |-- D ->
+    (A -->> B |-- C -->> D).
+Proof.
+  intros. tlaIntuition.
+Qed.
+
+Lemma land_comm_left :
+  forall (A B C : Formula),
+    A //\\ B |-- C ->
+    B //\\ A |-- C.
+Proof.
+  tlaIntuition.
+Qed.
+
+Lemma limpl_comm1 :
+  forall (A B C D : Formula),
+    A |-- B -->> C -->> D ->
+    A |-- C -->> B -->> D.
+Proof.
+  tlaIntuition.
+Qed.
+
 
 (*Fact fwp_simple : |-- "x" > 0 //\\ [](oembed_fcmd simple_prog_ivs simple_prog_ivs simple_prog) -->> []("x" > 0).*)
 Fact fwp_simpler : |-- "x" > 0 //\\ [](oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog) -->> []("x" > 0).
@@ -618,50 +654,12 @@ Proof.
       crunch_embeds.
     }
 
-    Lemma lentail_cut1 :
-      forall (A B C : Formula),
-        C |-- A ->
-        A -->> B |-- C -->> B.
-    Proof.
-      intros. breakAbstraction. intuition.
-    Qed.
-
-    Lemma lentail_cut2 :
-      forall (A B C D : Formula),
-        C |-- A ->
-        B |-- D ->
-        (A -->> B |-- C -->> D).
-    Proof.
-      intros. tlaIntuition.
-    Qed.
 
     apply lexistsL.
-
     intro.
-
-    Lemma land_comm_left :
-      forall (A B C : Formula),
-        A //\\ B |-- C ->
-        B //\\ A |-- C.
-    Proof.
-      tlaIntuition.
-    Qed.
     
-    idtac.
-
     apply land_comm_left.
     apply landAdj.
-
-    Lemma limpl_comm1 :
-      forall (A B C D : Formula),
-        A |-- B -->> C -->> D ->
-        A |-- C -->> B -->> D.
-    Proof.
-      tlaIntuition.
-    Qed.
-
-    idtac.
-
     apply limpl_comm1.
     apply lentail_cut2.
 
@@ -672,9 +670,8 @@ Proof.
       exists float_one.
       split; try reflexivity.
       left.
-      split. admit. (* need computability of natToFloat *)
+      split; auto. 
       intros.
-      SearchAbout fstate_lookup.
       generalize fstate_lookup_update_match; intro Hflum.
       symmetry in Hflum.
       rewrite Hflum.
@@ -682,7 +679,10 @@ Proof.
       split; try reflexivity.
       exists x1.
       split; auto.
-      admit. (* need computability of B2R *)        
+      unfold F2OR, FloatToR in H0.
+      destruct x0; try congruence.
+      - lazy in H0. lazy in H1. (* contradiction *) psatz R.
+      - lazy in H1. psatz R.
     }
     {
       breakAbstraction.
@@ -712,12 +712,6 @@ Definition varValidBoth (v : Var) : Syntax.Formula :=
 
 (* Embed (...) can't be a state formula, so here are versions that
    do not use it. *)
-Print Syntax.Formula.
-Print Syntax.Term.
-
-Print oembed_fcmd.
-Print oembedStep_maybenone.
-Print is_st_formula.
 
 (* TODO: we can't encode these definitions in the current version of RTLA, I think. *)
 (*
@@ -732,11 +726,6 @@ Definition varValidPost (v : Var) : Syntax.Formula :=
 Definition varValidBoth (v : Var) : Syntax.Formula :=
   varValidPre v //\\ varValidPost v.           
  *)
-
-Print Syntax.Formula.
-Print Syntax.Term.
-
-SearchAbout float R.
 
 (* Predicate capturing that the given variable is a float in the pre-state *)
 (* todo, possibly: lift to variable maps? *)
@@ -783,6 +772,12 @@ Proof.
   eauto.
 Qed.
 
+Lemma PropF_tauto :
+  forall (P : Prop) F,
+    P -> F |-- PropF P.
+Proof.
+  tlaIntuition.
+Qed.
 
 Fact fwp_simpler_full : preVarIsFloat "x" //\\ "x" > 0 //\\
                                 [](oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog \\//
@@ -795,23 +790,66 @@ Proof.
   { tlaIntuition. }
 
   tlaRevert.
-
   eapply lorL.
-
   {
-    admit. (* should be similar to last proof *)
-    (*
     erewrite -> Hoare__embed_rw; [| solve [simpl; intuition] | solve [simpl; intuition; eauto]].
     eapply lforallL.
-    (* rhs *)
-    tlaRevert.
+    instantiate (1 := (fun fst => exists f, fstate_lookup fst "x" = Some f /\ exists r, F2OR f = Some r /\ (r > 0)%R)).
     simpl fwp.
+    cbv zeta.
     eapply lequiv_rewrite_left.
-
+    { crunch_embeds. }
+    apply lexistsL.
+    intros.
+    charge_intros.
+    etransitivity.
     {
-      crunch_embeds.
+      charge_use.
+      tlaRevert.
+      apply landL1. (* get rid of the fact we used *)
+      charge_intro.
+      apply (lexistsR float_one).
+      charge_split; [apply PropF_tauto; reflexivity|].
+      charge_left.
+      charge_split; [apply PropF_tauto; constructor|].
+      charge_intros.
+      apply (lexistsR x0).
+      rewrite <- (fstate_lookup_update_match).
+      charge_split; [apply PropF_tauto; reflexivity|].
+      apply (lexistsR x1).
+      charge_split; [charge_assumption|].
+      match goal with
+      | |- context[Fcore_defs.F2R ?X] => 
+        let X2 := eval compute in (Fcore_defs.F2R X) in change (Fcore_defs.F2R X) with X2
+      end.
+      
+      breakAbstraction.
+      intros.
+      lra.
     }
-    *)
+    {
+      apply lexistsL. intros.
+      breakAbstraction.
+      intros. fwd.
+      split.
+      { unfold fstate_lookupR in H.
+        rewrite H0 in H.
+        rewrite H1 in H.
+        inversion H.
+        exists x1.
+        split.
+        - unfold F2OR in H1.
+          destruct x1; try congruence.
+        - eauto.
+      }
+      {
+        unfold fstate_lookupR in H.
+        rewrite H0 in H.
+        rewrite H1 in H. inversion H.
+        rewrite H5.
+        assumption.
+      }
+    }
   }
   {
     (* enabledness tactic? *)
@@ -834,9 +872,6 @@ Proof.
     generalize (F2OR_FloatToR _ _ _ H1 H); intro HF2OR.
     subst.
 
-    (* finish this proof, should be semi straightforward *)
-    Print Ltac enable_ex_st.
-
     eexists.
     exists (fstate_set nil "x" x).
 
@@ -847,411 +882,23 @@ Proof.
       eexists.
       split.
       { econstructor. reflexivity. }
-      { simpl. split.
-        -
-          Print float.
-          Print custom_prec.
-          Locate prec.
-
-          Print float_one.
-
-          Print Fappli_IEEE_extra.BofZ.
-          Eval compute in F2OR (float_zero).
-          
-          unfold F2OR, FloatToR.
-          unfold float_one.
-          Print nat_to_float.
-
-          Check Fappli_IEEE_extra.BofZ.
-          Locate Fappli_IEEE_extra.BofZ.
-          unfold nat_to_float.
-          unfold Fappli_IEEE.B2R.
-          unfold Fcore_defs.F2R.
-          unfold Fcore_Raux.Z2R.
-          unfold Fcore_Raux.bpow.
-          unfold Fcore_Zaux.cond_Zopp.
-          compute.
-
-          rewrite H1.
-    apply ex_state_any; intro; clear.
-
-    exists 1%R.
-    exists (fstate_set nil "x" float_one).
-    simpl.
-    split.
-    intros.
-    destruct H.
-    fwd.
-    generalize (F2OR_FloatToR _ _ _ H1 H); intro HF2OR.
-    subst.
-    (*exists (Stream.tl tr).*)
-    eexists.
-    
-    split.
-    - simpl.
-      split; auto.
-    - simpl.
-      unfold simpler_prog.
-      right.
-      eexists.
-      split.
-      * eapply FEAsnS.
-        simpl.
-        reflexivity.
-      * split; auto.
-        simpl.
-        unfold F2OR.
-        {
-          destruct float_one.
-          - simpl in *.
-            rewrite H0.
-            reflexivity.
-          - simpl in *.
-      consider (fexprD (FConst float_one) [("x",x)]); intros.
-      + right.
-        inversion H2.
-        inversion H2; subst; clear H2.
-        eexists.
-        split.
-        * econstructor.
-          reflexivity.
-        * split; auto.
-          simpl.
-
-      right.
-      eexists.
-      simpl.
-      split.
-      + econstructor.
-        simpl.
-        reflexivity.
-      + simpl.
-      split; auto.
-      exists (fstate_set [("x",x)] "x" x).
-      split; auto.
-      eapply FEAsnS.
-      simpl.
-
-      
-      rewrite <- H.
-      unfold F2OR.
-      
-
-
-
-    eexists. eexists.
-    split.
-    - split; auto.
-      reflexivity.
-    erewrite -> Hoare__embed_rw; [| solve [simpl; intuition] | solve [simpl; intuition; eauto]].
-
-  }
-  
-  eapply land_comm_left.
-  
-
-
-  SearchAbout Always.
-
-  eapply lorL.
-
-  tlaRevert.
-
-  Lemma limpl_limpl_land :
-    forall (A B C : Syntax.Formula),
-      |-- A //\\ B -->> C ->
-      |-- A -->> B -->> C.
-  Proof.
-    tlaIntuition.
-  Qed.
-
-  idtac.
-
-  eapply limpl_limpl_land.
-
-  Print ILogic.
-
-  Check fwp_simpler.
-  Check Hoare__embed_rw.
-  
-  erewrite -> Hoare__embed_rw; [| solve [simpl; intuition] | solve [simpl; intuition; eauto]].
-  charge_intros.
-  eapply discr_indX.
-  { red; intuition. }
-  { charge_assumption. }
-  { charge_assumption. }
-  {
-    (* rhs *)
-    rewrite landforallDL. eapply lforallL.
-    instantiate (1 := (fun fst => exists f, fstate_lookup fst "x" = Some f /\ exists r, F2OR f = Some r /\ (r > 0)%R)).
-    tlaRevert.
-    simpl fwp.
-    eapply lequiv_rewrite_left.
-
-    {
-      crunch_embeds.
-    }
-
-    Lemma lentail_cut1 :
-      forall (A B C : Formula),
-        C |-- A ->
-        A -->> B |-- C -->> B.
-    Proof.
-      intros. breakAbstraction. intuition.
-    Qed.
-
-    Lemma lentail_cut2 :
-      forall (A B C D : Formula),
-        C |-- A ->
-        B |-- D ->
-        (A -->> B |-- C -->> D).
-    Proof.
-      intros. tlaIntuition.
-    Qed.
-
-    apply lexistsL.
-
-    intro.
-
-    Lemma land_comm_left :
-      forall (A B C : Formula),
-        A //\\ B |-- C ->
-        B //\\ A |-- C.
-    Proof.
-      tlaIntuition.
-    Qed.
-    
-    idtac.
-
-    apply land_comm_left.
-    apply landAdj.
-
-    Lemma limpl_comm1 :
-      forall (A B C D : Formula),
-        A |-- B -->> C -->> D ->
-        A |-- C -->> B -->> D.
-    Proof.
-      tlaIntuition.
-    Qed.
-
-    idtac.
-
-    apply limpl_comm1.
-    apply lentail_cut2.
-
-    Require Import Coq.micromega.Psatz.
-    {
-      breakAbstraction.
-      intros.
-      exists float_one.
-      split; try reflexivity.
-      left.
-      split. admit. (* need computability of natToFloat *)
-      intros.
-      SearchAbout fstate_lookup.
-      generalize fstate_lookup_update_match; intro Hflum.
-      symmetry in Hflum.
-      rewrite Hflum.
-      exists x0.
-      split; try reflexivity.
-      exists x1.
-      split; auto.
-      admit. (* need computability of B2R *)        
-    }
-    {
-      breakAbstraction.
-      intros.
-      fwd.
-      unfold fstate_lookupR in H.
-      rewrite H2 in H.
-      rewrite H3 in H.
-      inversion H; subst; clear H.
-      assumption.
-    }
-  }
+      { simpl. split; auto. } } }
 Qed.
 
-Fact simpler_enabledness : (oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog)
-                             \\// Enabled (oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog -->> lfalse)
-                             |-- "x" > 0 -->> next ("x" > 0).
+Lemma limpl_limpl_land :
+  forall (A B C : Syntax.Formula),
+    |-- A //\\ B -->> C ->
+    |-- A -->> B -->> C.
 Proof.
-  Print ILogic.
-  eapply lorL.
-  { admit. (* use part of proof from last theorem *) }
-  { breakAbstraction.
-    intros.
-    fwd.
-    destruct H.
-    eexists.
-    split.
-    - split; auto.
-      
-  erewrite -> Hoare__embed_rw.
+  tlaIntuition.
+Qed.
 
-
-  : |-- (oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog) \\// Enabled (oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog -->> lfalse).
-Proof.
-  erewrite -> Hoare__embed_rw; [| solve [simpl; intuition] | solve [simpl; intuition; eauto]].
-  charge_intros.
-  eapply discr_indX.
-  { red; intuition. }
-  { charge_assumption. }
-  { charge_assumption. }
-  {
-    (* rhs *)
-    rewrite landforallDL. eapply lforallL.
-    instantiate (1 := (fun fst => exists f, fstate_lookup fst "x" = Some f /\ exists r, F2OR f = Some r /\ (r > 0)%R)).
-    tlaRevert.
-    simpl fwp.
-    eapply lequiv_rewrite_left.
-
-    {
-      crunch_embeds.
-    }
-
-
-rewrite H2 in H      }
-        
-      Print ILogic.
-
-      
-
-      idtac.
-
-      eapply lentail_cut2.
-
-      eapply lexistsL.
-      (* apply lexistsL
-         eliminate t0 ext because it equal t1
-         need to prove exists... proves RHS of entailment
-         but first we need to access it so we need to discharge its hypothesis
-       *)
-
-      (*
-       Exists x, PropF (Some a = Some x) //\\ P x -|- P a
-
-       and also
-
-       Forall x, PropF (Some a = Some x) -->> P x -|- P a
-
-       (may need to reorder (Some a = Some x), or prove alternate version w/ reordering)
-       *)
-
-      (* "push" the first embed to RHS of entailment:
-         Embed (fun x _ : state => vmodels simple_prog_ivs x t) //\\
-
-         ... |-- Embed (fun x _ : state => vmodels simple_prog_ivs x t) //\\ "x" > 0 -->> next ...
-       *)
-
-      (* need this lemma
-        C |-- A
-        B |-- D
-        --------------
-        A -->> B |-- C -->> D
-       *)
-
-      (* talk to Greg about Coq architecture *)
-
-
-      Print ILogic.
-      (* fstate_lookup of fstate set lemma is needed *)
-      (* need to show x and x-next are floating point numbers *)
-
-      shatterAbstraction.
-      intros.
-      split.
-    - intros.
-      fwd.
-      inversion H1; subst; clear H1.
-      destruct H2; try contradiction.
-      fwd.
-      eexists. split.
-      + split; auto.
-        
-
-      
-               
-
-      idtac.
-      apply lentail_cut1.
-      Print bound.isVarValid.
-      
-      simpl next.
-
-      
-
-        idtac.
-        eapply arith_push_fupdate.
-        eauto with arith_push.
-
-        Print evals_to.
-        
-        Print Syntax.Term.
-        unfold fupdate.
-        simpl.
-        Print eval_term.
-        eauto with arith_push.
-        
-        
-            
-        Print fupdate.
-        
-                                                                                                                    
-
-        repeat (first [ eapply embed_push_And (*; eauto with arith_push*) |
-                        eapply embed_push_Or  (*; eauto with arith_push*) |
-                        eapply embed_push_Imp (*; eauto with arith_push*) |
-                        eapply embed_push_Exists; intro (*; eauto with arith_push*) |
-                        eapply embed_push_Forall; intro (*; eauto with arith_push*) |
-                        eapply embed_push_Const (*; eauto with arith_push*) |
-                        eapply embed_push_Eq; eauto with arith_push |
-                        eapply embed_push_Lt; eauto with arith_push |
-                        eapply embed_push_Le; eauto with arith_push |
-                        eapply embed_push_Gt; eauto with arith_push |
-                        eapply embed_push_Ge; eauto with arith_push
-               ]).
-        simple eapply embed_push_Imp.
-        eapply embed_push_And.
-
-        idtac.
-        Check embed_push_Forall.
-        match goal with 
-        
-        eauto with arith_push.
-        
-        Focus 7. eapply lforall_lequiv_m.
-      2: eauto with arith_push.
-      2: eauto with arith_push.
-      setoid_rewrite embed_push_Le.
-
-      rewrite_strat (subterm (terms (embed_push_Le))).
-      rewrite_strat (topdown (repeat (old_hints embed_push))).
-
-      rewrite_strat (topdown (repeat (terms embed_push_Imp embed_push_And embed_push_Or))).
-
-      autorewrite with embed_push.
-      rewrite 
-      rewrite_strat (bottomup (repeat (terms embed_push_Imp embed_push_And embed_push_Or))).
-      setoid_rewrite embed_push_Imp.
-      
-      rewrite_strat bottomup embed_push_Imp.
-      rewrite_strat bottomup (repeat (hints embed_push)).
-
-    
-      apply H.
-    
-    breakAbstraction.
-
-    
-    
-
-    
-  simpl. intuition. eexists. left. reflexivity.
-        
-  specialize (fwp_correct simple_prog_ivs ivs 
-                    
+(* TODO: repeat the preceding exercise (proving correctness and enabledness) for velocity shim
+   then, for height shim *)
 
 (* sample abstractor outputs *)
+(* this section now defunct... *)
+(*
 Section fwp.
   Parameter st : state.
   Parameter postcond : state -> Prop.
@@ -1395,3 +1042,4 @@ Proof.
   SearchAbout bounds_to_formula.
   
 Abort.
+*)

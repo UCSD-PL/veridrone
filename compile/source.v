@@ -347,13 +347,17 @@ Qed.
 (* here is how we define new floating-point constants. *)
 Definition new_float_one := Eval lazy in (concretize_float (nat_to_float 1)).
 
+(* Nice tactics for reducing floating-point expressions. Automatically apply concretization *)
+Ltac fcompute_in X :=
+  rewrite <- concretize_float_correct in X; lazy in X.
+
+Ltac fcompute :=
+  rewrite <- concretize_float_correct; lazy.
+
 (* raw representaion of float 1 as bits (obtained from simple C program) *)
 Lemma test : new_float_one = concretize_float (b32_of_bits 1065353216).
 Proof.
-  unfold new_float_one.
-  unfold b32_of_bits.
-  unfold binary_float_of_bits.
-  lazy.
+  fcompute.
   reflexivity.
 Qed.
 
