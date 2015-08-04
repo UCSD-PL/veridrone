@@ -22,6 +22,7 @@ Inductive ParTerm : list Var -> Type :=
 | SinPT : forall {xs}, ParTerm xs -> ParTerm xs
 | SqrtPT : forall {xs}, ParTerm xs -> ParTerm xs
 | ArctanPT : forall {xs}, ParTerm xs -> ParTerm xs
+| ExpPT : forall {xs}, ParTerm xs -> ParTerm xs
 .
 
 (* Conditionals in the parallel language. The type parameter
@@ -74,6 +75,7 @@ Fixpoint eval_ParTerm {xs} (t : ParTerm xs) (st : state)
   | SinPT _ t => Rtrigo_def.sin (eval_ParTerm t st)
   | SqrtPT _ t => R_sqrt.sqrt (eval_ParTerm t st)
   | ArctanPT _ t => Ratan.atan (eval_ParTerm t st)
+  | ExpPT _ t => Rtrigo_def.exp (eval_ParTerm t st)
   end%R.
 
 Definition eval_ParComp {xs ys} (t1:ParTerm xs)
@@ -169,6 +171,8 @@ Fixpoint Term_to_ParTerm (t : Syntax.Term) :
     existT _ _ (SqrtPT (projT2 (Term_to_ParTerm t)))
   | ArctanT t =>
     existT _ _ (ArctanPT (projT2 (Term_to_ParTerm t)))
+  | ExpT t =>
+    existT _ _ (ExpPT (projT2 (Term_to_ParTerm t)))
   | _ => existT _ _ (NatPT 0)
   end.
 

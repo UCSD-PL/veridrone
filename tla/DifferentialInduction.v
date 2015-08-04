@@ -90,6 +90,7 @@ Fixpoint deriv_term (t:Term)
     option_map (fun f x => InvT (f x))
                (Some (fun _ => PlusT (RealT R1) (MultT t t)))
 *)
+  | ExpT t => None
   end.
 
 (* Takes the "derivative" of a comparison operator.
@@ -240,6 +241,7 @@ Proof.
       simpl. rewrite IHe; auto. rewrite derive_pt_sin. auto.
     - (** TODO: derivative of sqrt **) inversion H.
     - (** TODO: derivative of arctan **) inversion H.
+    - (** TODO: derivative of exp **) inversion H.
 Qed.
 
 Require Import ExtLib.Tactics.

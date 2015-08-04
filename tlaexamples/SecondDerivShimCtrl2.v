@@ -34,7 +34,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
   Definition w : state->Formula :=
     fun st' =>
       st' "y" = "v" //\\ st' "v" = "a" //\\
-      AllConstant ("a"::"Y"::"V"::"T"::nil)%list st'.
+      AllConstant ("a"::"Y"::"V"::nil)%list st'.
 
   Definition SafeAcc (a:Term) : Formula :=
     Max a 0
@@ -103,7 +103,7 @@ actions.
  *)
 
   Definition History : Formula :=
-    "Y"! = "y" //\\ "V"! = "v" //\\ "T"! = "t"!.
+    "Y"! = "y" //\\ "V"! = "v".
 
   Definition Safe : Formula :=
     "y" <= ub.
@@ -128,7 +128,7 @@ actions.
        Prog := Ctrl //\\ History //\\ Unchanged ("v"::"y"::nil)%list;
        world := w;
        unch := (("a":Term)::("Y":Term)::("V":Term)::
-                ("T":Term)::("v":Term)::("y":Term)::nil)%list;
+                ("v":Term)::("y":Term)::nil)%list;
        maxTime := d |}.
 
   Definition Spec := SysD SpecR.
@@ -142,8 +142,7 @@ actions.
                     "Y" + (tdist "V" "a" t) +
                     (sdist ("V" + "a"*t)) <= ub) //\\
               ((0 <= t <= d //\\ "V" + "a"*t < 0) -->>
-                     "Y" + (tdist "V" "a" t) <= ub)) //\\
-   "t" <= "T" <= d.
+                     "Y" + (tdist "V" "a" t) <= ub)).
 
   Lemma ind_inv_init :
     I |-- IndInv.

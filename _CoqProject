@@ -25,6 +25,7 @@ tla/EnabledLemmas.v
 ChargeTactics/Tactics.v
 ChargeTactics/Lemmas.v
 
+tlaexamples/DiffEqSolutions.v
 tlaexamples/System.v
 tlaexamples/FirstDerivShimCtrl.v
 tlaexamples/SecondDerivShimCtrlToMiddle2.v

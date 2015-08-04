@@ -36,6 +36,7 @@ Fixpoint eval_term (t:Term) (s1 s2:state) : R :=
      | SinT t => sin (eval_term t s1 s2)
      | SqrtT t => sqrt (eval_term t s1 s2)
      | ArctanT t => atan (eval_term t s1 s2)
+     | ExpT t => exp (eval_term t s1 s2)
    end)%R.
 
 (* Semantics of comparison operators *)

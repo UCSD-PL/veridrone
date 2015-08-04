@@ -112,6 +112,7 @@ Fixpoint next_term (t:Term) :=
     | SinT t => SinT (next_term t)
     | SqrtT t => SqrtT (next_term t)
     | ArctanT t => ArctanT (next_term t)
+    | ExpT t => ExpT (next_term t)
   end.
 
 (* Puts ! on all variables in a Formula *)
@@ -151,6 +152,7 @@ Fixpoint is_st_term (t:Term) : bool :=
     | SinT t => is_st_term t
     | SqrtT t => is_st_term t
     | ArctanT t => is_st_term t
+    | ExpT t => is_st_term t
   end.
 
 (* Prop expressing that the Formula has no
@@ -539,6 +541,16 @@ Proof.
   exists x. intuition.
 Qed.
 
+Lemma Exists_with_st : forall G P (t : Term),
+    (forall x : R, G |-- t = x -->> P x) ->
+    G |-- Exists x : R, P x.
+Proof.
+  breakAbstraction.
+  intros.
+  specialize (H _ tr H0 eq_refl).
+  eexists. eauto.
+Qed.
+
 (* Enabled *)
 Lemma Enabled_action : forall P,
     (forall st, exists st',
@@ -601,6 +613,7 @@ Fixpoint rename_term (m : RenameMap) (t:Term) :=
     | SinT t => SinT (rename_term m t)
     | SqrtT t => SqrtT (rename_term m t)
     | ArctanT t => ArctanT (rename_term m t)
+    | ExpT t => ExpT (rename_term m t)
   end.
 
 Definition RenameMap_compose (m m' : RenameMap) : RenameMap :=
