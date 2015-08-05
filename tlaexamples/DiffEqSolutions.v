@@ -7,16 +7,20 @@ Require Import TLA.ContinuousProofRules.
 Open Scope HP_scope.
 Open Scope string_scope.
 
+Definition sgl_int : Evolution :=
+  fun st' => st' "y" = "v" //\\ st' "v" = 0 //\\ st' "t" = 1.
+
 Lemma solve_sgl_int_aux1 :
-  Continuous (fun st' => st' "y" = "v" //\\ st' "v" = 0
-                         //\\ st' "t" = 1)
+  Continuous sgl_int
   |-- Exists y : R, "y" = y //\\
       Exists t : R, "t" = t //\\
-                    "y"! = y + "v" * ("t"! - t).
+                    "y"! = y + "v" * ("t"! - t) //\\
+                    "t"! >= t.
 Proof.
   tlaAssert (Exists y : R, "y" = y //\\
              Exists t : R, "t" = t //\\
-                           "y"! = y + "v"! * ("t"! - t)).
+                           "y"! = y + "v"! * ("t"! - t) //\\
+                           "t"! >= t).
   { apply Exists_with_st with (t:="y"). intros.
     charge_intros. charge_split; [ charge_tauto | ].
     apply Exists_with_st with (t:="t"). intros.
@@ -48,31 +52,35 @@ Qed.
 Lemma solve_sgl_int_aux2 :
   (Exists y : R, "y" = y //\\
    Exists t : R, "t" = t //\\
-                 "y"! = y + "v" * ("t"! - t))
-  |-- "y"! = "y" + "v" * ("t"! - "t").
+                 "y"! = y + "v" * ("t"! - t) //\\
+                 "t"! >= t)
+  |-- "y"! = "y" + "v" * ("t"! - "t") //\\ "t"! >= "t".
 Proof.
   apply lexistsL. intros.
-  solve_linear. destruct H1. solve_linear.
-  subst. solve_linear.
+  solve_linear; destruct H1; solve_linear;
+  subst; solve_linear.
 Qed.
 
 Lemma solve_sgl :
-  Continuous (fun st' => st' "y" = "v" //\\ st' "v" = 0
-                         //\\ st' "t" = 1)
-  |-- "y"! = "y" + "v" * ("t"! - "t").
+  Continuous sgl_int
+  |-- "y"! = "y" + "v" * ("t"! - "t") //\\ "t"! >= "t".
 Proof.
   rewrite solve_sgl_int_aux1. apply solve_sgl_int_aux2.
 Qed.
 
+Definition dbl_int : Evolution :=
+  fun st' => st' "y" = "v" //\\ st' "v" = "a"
+             //\\ st' "a" = 0 //\\ st' "t" = 1.
+
 Lemma solve_dbl_int_aux1 :
-  Continuous (fun st' => st' "y" = "v" //\\ st' "v" = "a"
-                         //\\ st' "a" = 0 //\\ st' "t" = 1)
+  Continuous dbl_int
   |-- Exists y : R, "y" = y //\\
       Exists v : R, "v" = v //\\
       Exists t : R, "t" = t //\\
                     "y"! = y + v * ("t"! - t)
                            + (/2)%R*"a" * ("t"! - t)^^2 //\\
-                    "v"! = v + "a" * ("t"! - t).
+                    "v"! = v + "a" * ("t"! - t) //\\
+                    "t"! >= t.
 Proof.
   tlaAssert
     (Exists y : R, "y" = y //\\
@@ -80,7 +88,8 @@ Proof.
      Exists t : R, "t" = t //\\
                    "y"! = y + v * ("t"! - t)
                           + (/2)%R*"a"! * ("t"! - t)^^2 //\\
-                   "v"! = v + "a"! * ("t"! - t)).
+                   "v"! = v + "a"! * ("t"! - t) //\\
+                   "t"! >= t).
   { apply Exists_with_st with (t:="y"). intros.
     charge_intros. charge_split; [ charge_tauto | ].
     apply Exists_with_st with (t:="v"). intros.
@@ -129,10 +138,12 @@ Lemma solve_dbl_int_aux2 :
    Exists t : R, "t" = t //\\
                  "y"! = y + v * ("t"! - t)
                         + (/2)%R*"a" * ("t"! - t)^^2 //\\
-                 "v"! = v + "a" * ("t"! - t))
+                 "v"! = v + "a" * ("t"! - t) //\\
+                 "t"! >= t)
   |-- "y"! = "y" + "v" * ("t"! - "t")
              + (/2)%R*"a" * ("t"! - "t")^^2 //\\
-      "v"! = "v" + "a" * ("t"! - "t").
+      "v"! = "v" + "a" * ("t"! - "t") //\\
+      "t"! >= "t".
 Proof.
   apply lexistsL. intros.
   solve_linear; destruct H1; intuition;
@@ -140,11 +151,11 @@ Proof.
 Qed.
 
 Lemma solve_dbl_int :
-  Continuous (fun st' => st' "y" = "v" //\\ st' "v" = "a"
-                         //\\ st' "a" = 0 //\\ st' "t" = 1)
+  Continuous dbl_int
   |-- "y"! = "y" + "v" * ("t"! - "t")
              + (/2)%R*"a" * ("t"! - "t")^^2 //\\
-      "v"! = "v" + "a" * ("t"! - "t").
+      "v"! = "v" + "a" * ("t"! - "t") //\\
+      "t"! >= "t".
 Proof.
   rewrite solve_dbl_int_aux1. apply solve_dbl_int_aux2.
 Qed.

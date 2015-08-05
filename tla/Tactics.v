@@ -22,7 +22,7 @@ Fixpoint get_vars_term (t : Term) : list Var :=
   match t with
   | VarNextT t | VarNowT t => t :: nil
   | NatT _ | RealT _ => nil
-  | PlusT a b | MinusT a b | MultT a b =>
+  | PlusT a b | MinusT a b | MultT a b | MaxT a b =>
                              get_vars_term a ++
                                            get_vars_term b
   | InvT a | CosT a | SinT a | SqrtT a | ArctanT a | ExpT a =>
@@ -46,7 +46,7 @@ Fixpoint get_next_vars_term (t : Term) : list Var :=
   match t with
   | VarNextT t => t :: nil
   | VarNowT _ | NatT _ | RealT _ => nil
-  | PlusT a b | MinusT a b | MultT a b =>
+  | PlusT a b | MinusT a b | MultT a b | MaxT a b =>
                              get_next_vars_term a ++
                              get_next_vars_term b
   | InvT a | CosT a | SinT a | SqrtT a | ArctanT a | ExpT a
@@ -162,6 +162,21 @@ Ltac solve_linear :=
 Ltac solve_nonlinear :=
   breakAbstraction; intros; unfold eval_comp in *;
   simpl in *; intuition; try psatz R.
+
+Ltac zero_deriv_tac v :=
+  eapply ContinuousProofRules.zero_deriv
+  with (x:=v); [ charge_tauto | solve_linear | ].
+
+Ltac always_imp_tac :=
+  match goal with
+  | [ |- ?H |-- _ ]
+    => match H with
+       | context[ Always ?HH ] =>
+         tlaAssert (Always HH);
+           [ charge_tauto |
+             apply Lemmas.forget_prem; apply always_imp ]
+       end
+  end.
 
 Ltac specialize_arith_hyp H :=
   repeat match type of H with
@@ -294,6 +309,7 @@ Fixpoint unnext_term (t:Term) : Term :=
     | SqrtT t => SqrtT (unnext_term t)
     | ArctanT t => ArctanT (unnext_term t)
     | ExpT t => ExpT (unnext_term t)
+    | MaxT t1 t2 => MaxT (unnext_term t1) (unnext_term t2)
   end.
 
 (* Removes ! from variables in a Formula *)

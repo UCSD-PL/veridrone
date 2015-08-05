@@ -25,6 +25,7 @@ Inductive Term :=
 | SqrtT : Term -> Term 
 | ArctanT : Term -> Term
 | ExpT : Term -> Term
+| MaxT : Term -> Term -> Term
 .
 
 (* Comparison operations *)
@@ -89,6 +90,7 @@ Notation "x / y" := (MultT x (InvT y)) : HP_scope.
 Notation "cos( x )" := (CosT x).
 Notation "sin( x )" := (SinT x).
 Notation "exp( x )" := (ExpT x).
+Notation "MAX( x1 , x2 )" := (MaxT x1 x2).
 
 (* Comparisons *)
 Notation "t1 > t2" := (Comp t1 t2 Gt) : HP_scope.

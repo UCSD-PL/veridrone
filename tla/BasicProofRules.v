@@ -113,6 +113,7 @@ Fixpoint next_term (t:Term) :=
     | SqrtT t => SqrtT (next_term t)
     | ArctanT t => ArctanT (next_term t)
     | ExpT t => ExpT (next_term t)
+    | MaxT t1 t2 => MaxT (next_term t1) (next_term t2)
   end.
 
 (* Puts ! on all variables in a Formula *)
@@ -153,6 +154,8 @@ Fixpoint is_st_term (t:Term) : bool :=
     | SqrtT t => is_st_term t
     | ArctanT t => is_st_term t
     | ExpT t => is_st_term t
+    | MaxT t1 t2 => andb (is_st_term t1)
+                         (is_st_term t2)
   end.
 
 (* Prop expressing that the Formula has no
@@ -614,6 +617,8 @@ Fixpoint rename_term (m : RenameMap) (t:Term) :=
     | SqrtT t => SqrtT (rename_term m t)
     | ArctanT t => ArctanT (rename_term m t)
     | ExpT t => ExpT (rename_term m t)
+    | MaxT t1 t2 => MaxT (rename_term m t1)
+                         (rename_term m t2)
   end.
 
 Definition RenameMap_compose (m m' : RenameMap) : RenameMap :=

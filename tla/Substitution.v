@@ -47,6 +47,9 @@ Fixpoint subst_term_term (t1 t2 : Term) (x : Var)
     | SqrtT t => SqrtT (subst_term_term t t2 x next)
     | ArctanT t => ArctanT (subst_term_term t t2 x next)
     | ExpT t => ExpT (subst_term_term t t2 x next)
+    | MaxT t3 t4 =>
+      MaxT (subst_term_term t3 t2 x next)
+           (subst_term_term t4 t2 x next)
   end.
 
 (* If next is true, substitutes t for x! in F.

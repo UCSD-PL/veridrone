@@ -37,6 +37,9 @@ Fixpoint eval_term (t:Term) (s1 s2:state) : R :=
      | SqrtT t => sqrt (eval_term t s1 s2)
      | ArctanT t => atan (eval_term t s1 s2)
      | ExpT t => exp (eval_term t s1 s2)
+     | MaxT t1 t2 =>
+       Rbasic_fun.Rmax (eval_term t1 s1 s2)
+                       (eval_term t2 s1 s2)
    end)%R.
 
 (* Semantics of comparison operators *)

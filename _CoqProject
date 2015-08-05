@@ -35,3 +35,4 @@ tlaexamples/UpperLowerSecond.v
 tlaexamples/UpperLowerFirst.v
 tlaexamples/TheBox.v
 tlaexamples/ParLang.v
+tlaexamples/FirstOrderStability.v

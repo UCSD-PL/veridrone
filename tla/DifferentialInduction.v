@@ -91,6 +91,7 @@ Fixpoint deriv_term (t:Term)
                (Some (fun _ => PlusT (RealT R1) (MultT t t)))
 *)
   | ExpT t => None
+  | MaxT _ _ => None
   end.
 
 (* Takes the "derivative" of a comparison operator.
@@ -242,6 +243,7 @@ Proof.
     - (** TODO: derivative of sqrt **) inversion H.
     - (** TODO: derivative of arctan **) inversion H.
     - (** TODO: derivative of exp **) inversion H.
+    - inversion H.
 Qed.
 
 Require Import ExtLib.Tactics.
