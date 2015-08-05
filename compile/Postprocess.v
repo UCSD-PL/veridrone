@@ -26,19 +26,7 @@ Proof.
 (* Implementation of postprocessing automation for the Abstractor,
    using the Z3 plugin to simplify the terms produced b ythe abstractor *)
 
-(* test cases - velocity shim *)
-
-Definition velshim : fcmd :=
-  FIte (FMinus (FVar "ub") (FPlus (FMult (FVar "a") (FVar "d")) (FVar "vmax")))
-       (FAsn "a" (FVar "a"))
-       (FAsn "a" (FConst fzero)).
-
-Definition velshim_ivs : list (Var * Var) :=
-  [("ub", "ub"); ("a", "a"); ("d", "d"); ("vmax", "vmax")].
-
-(* proportional controller *)
-
-Print FMinus.
+(* test case: proportional controller *)
 
 (* c is constant and goal is 0 *)
 Definition proportional_controller : fcmd :=
@@ -892,6 +880,138 @@ Lemma limpl_limpl_land :
 Proof.
   tlaIntuition.
 Qed.
+
+(* velocity-shim controller *)
+(*
+Definition velshim : fcmd :=
+  FIte (FMinus (FVar "ub") (FPlus (FMult (FVar "a") (FVar "d")) (FVar "vmax")))
+       (FAsn "a" (FVar "a"))
+       (FAsn "a" (FConst fzero)).
+ *)
+
+Definition f10 := Eval lazy in (concretize_float (nat_to_float 10)).
+
+Definition velshim : fcmd :=
+  FIte (FMinus (FConst f10) (FPlus (FMult (FVar "a") (FConst float_one)) (FVar "v")))
+       (FAsn "a" (FVar "a"))
+       (FAsn "a" (FConst fzero)).
+
+Definition velshim_ivs : list (Var * Var) :=
+  [("a", "a"); ("v", "v")].
+
+(* TODO: prove thorem about always-enabledness of oembed_fcmd
+     (true of any semantics embedded using oembedStep_maybenone, provided
+     that any state has some other state it steps to *)
+Lemma feval_never_stuck :
+  forall (fs : fstate) (c : fcmd),
+  exists (ofst : option fstate),
+    feval fs c ofst.
+Proof.
+  intros fs c.
+  generalize dependent fs.
+  induction c.
+  - intros.
+    specialize (IHc1 fs). fwd.
+    destruct x.
+    + specialize (IHc2 f). fwd.
+      eexists. econstructor 2; eassumption.
+    + eexists. econstructor 3. eassumption.
+  - intros. eexists. econstructor.
+  - intros.
+    consider (fexprD f fs); intros.
+    + eexists. econstructor 4. eassumption.
+    + eexists. econstructor 5. eassumption.
+  - intros.
+    consider (fexprD f fs); intros.
+    + generalize (float_lt_ge_trichotomy f0 fzero); intro Htri.
+      destruct Htri.
+      * specialize (IHc1 fs). fwd. eexists. econstructor 6; eauto.
+      * specialize (IHc2 fs). fwd. eexists. econstructor 7; eauto.
+    + eexists. econstructor 8; eauto.
+  - intros. eexists. econstructor.
+  - intros. eexists. econstructor.
+    Grab Existential Variables.
+    apply fzero.
+Qed.
+
+(* TODO - prove these lemmas inline *)
+Lemma oembed_fcmd_enabled :
+  forall (ivs ovs : list (Var * Var)) (fc : fcmd),
+    (|-- Enabled (oembed_fcmd ivs ovs fc)).
+Proof.
+  breakAbstraction.
+  intros.
+Abort.
+
+(* Idea: oembedStep_maybenone will always be enabled so long as it is given an evaluation
+   relation which is "never stuck" *)
+Lemma oembedStep_maybenone_enabled :
+  forall (var ast state : Type)
+    (eval : state -> ast -> option state -> Prop)
+    (asReal : state -> var -> option R)
+    (pre_vars post_vars : list (Var * var))
+    (prog : ast)
+    (Heval : forall (a : ast) (st : state), exists (ost : option state), eval st a ost),
+    (|-- Enabled (oembedStep_maybenone var ast state eval asReal pre_vars post_vars prog)).
+Proof.
+  intros.
+  breakAbstraction.
+  intros.
+Abort.
+
+(* Used to expose post-states, since fwp by default does not let us talk about both
+   pre- and post-states *)
+Definition fstate_get_rval (v : Var) (P : R -> fstate -> Prop) (fs : fstate) : Prop :=
+  exists (vf : float), fstate_lookup fs v = Some vf /\
+        exists (vr : R), F2OR vf = Some vr /\ P vr fs.  
+  
+Fact fwp_velshim_full : preVarIsFloat "a" //\\ preVarIsFloat "v" //\\ 
+                                      (oembed_fcmd velshim_ivs velshim_ivs velshim \\//
+                                                   (Enabled (oembed_fcmd velshim_ivs velshim_ivs velshim) -->> lfalse))
+                                      |-- (VarNextT "a" = 0 \\// "v" + ((VarNextT "a") * NatT 1) < NatT 10 )%HP.
+Proof.
+  repeat rewrite Lemmas.land_lor_distr_L.
+  apply lorL.
+  {
+    rewrite landC.
+    tlaRevert.
+    rewrite landC.
+    tlaRevert.
+
+    erewrite -> Hoare__embed_rw.
+    { (* main goal *)
+      eapply lforallL.       
+      instantiate (1 := (fun fst => (("a") ! = 0)%HP \\// ("v" + ("a") ! * NatT 1 < NatT 10))%HP).
+
+    }
+    {
+      simpl. intuition.
+      constructor. intuition congruence.
+      constructor.
+    }
+    {
+      simpl. intuition eauto.
+    }
+
+    (* copied over from "main goal" section of previous theorem *)
+    eapply lforallL.
+    instantiate (1 := (fun fst => exists f, fstate_lookup fst "x" = Some f /\ exists r, F2OR f = Some r /\ (r > 0)%R)).
+    simpl fwp.
+    cbv zeta.
+    eapply lequiv_rewrite_left.
+    { crunch_embeds. }
+    apply lexistsL.
+    intros.
+    charge_intros.
+    etransitivity.
+    
+    admit. }
+  {
+  (* TODO: prove thorem about always-enabledness of oembed_fcmd
+     (true of any semantics embedded using oembedStep_maybenone, provided
+     that any state has some other state it steps to *)
+    admit. }
+  Qed.
 
 (* TODO: repeat the preceding exercise (proving correctness and enabledness) for velocity shim
    then, for height shim *)
