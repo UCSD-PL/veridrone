@@ -56,8 +56,48 @@ Module AbstractShim (Import P : Params).
 
   Definition SafeAcc (a : Term) (d : Term) : Formula :=
     Forall t : R,
-      0 <= t <= d -->>
+      (0 < t //\\ t <= d) -->>
       "y" + tdist "v" a t + sdist MAX("v" + a*t, 0) <= ub.
+
+  Definition SafeAccEquiv (a : Term) (d : Term) : Formula :=
+    Forall t : R,
+      (0 < t //\\ t <= d) -->>
+      (0 <= "v" + a*t -->>
+       a <= (/2*/t)%R*
+            (SqrtT (amin*(amin*t^^2+4*t*"v"-8*ub+8*"y")) +
+             amin*t-2*"v")) //\\
+      ("v" + a*t <= 0 -->>
+       a <= 2*(ub - "y" - "v"*t)*(/t)*(/t)).
+
+  Lemma convex_quadratic_ineq :
+    forall a b c x,
+      ((-b - R_sqrt.sqrt (b*b - 4*a*c))*/2*/a <= a
+       <= (-b + R_sqrt.sqrt (b*b - 4*a*c))*/2*/a ->
+       0 <= a ->
+       a*x*x + b*x + c <= 0)%R.
+  Admitted.
+
+(*
+  Lemma lower_bound_irrelevant :
+    forall v a t,
+      0 <= v + a*t ->
+  *)
+
+  Lemma SafeAccEquiv_refines :
+    forall a d,
+      SafeAccEquiv a d //\\ SafeAcc amin d |-- SafeAcc a d.
+  Proof.
+    intros. reason_action_tac.
+    unfold Rbasic_fun.Rmax.
+    destruct_ite.
+    - rewrite_real_zeros. intuition.
+      specialize (H1 x). intuition.
+      assert (eq (x*/x) 1)%R by solve_linear.
+      generalize dependent (/x)%R. intros.
+      clear H1 H2 H3 r. solve_nonlinear.
+    - intuition. specialize (H1 x). specialize (H2 x).
+      intuition. specialize_arith_hyp H1.
+  Admitted.
 
   Definition AbstractPD (a : Term) : Formula :=
     Exists kP : R, kP < 0 //\\
