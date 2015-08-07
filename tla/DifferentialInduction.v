@@ -90,7 +90,10 @@ Fixpoint deriv_term (t:Term)
     option_map (fun f x => InvT (f x))
                (Some (fun _ => PlusT (RealT R1) (MultT t t)))
 *)
-  | ExpT t => None
+  | ExpT t =>
+    option_map2 (lift2 MultT)
+                (Some (fun _ => exp(t)))
+                (deriv_term t)
   | MaxT _ _ => None
   end.
 
@@ -242,7 +245,22 @@ Proof.
       simpl. rewrite IHe; auto. rewrite derive_pt_sin. auto.
     - (** TODO: derivative of sqrt **) inversion H.
     - (** TODO: derivative of arctan **) inversion H.
-    - (** TODO: derivative of exp **) inversion H.
+    - destruct (deriv_term e);
+      simpl in *; try discriminate. inversion H; subst e'.
+      specialize (IHe t (Logic.eq_refl _)).
+      destruct IHe as [pf IHe].
+      exists (fun r => derivable_pt_comp
+                         _ _ _ (pf r)
+                         (Ranalysis4.derivable_pt_exp
+                            (eval_term e (f r) s))).
+      intros.
+      pose proof (derive_pt_comp _ exp _ (pf z)
+                                 (Ranalysis4.derivable_pt_exp
+                                    (eval_term e (f z) s)))
+        as Hderiv.
+      unfold derive, comp in *. rewrite Hderiv.
+      simpl. rewrite IHe; auto.
+      rewrite Ranalysis4.derive_pt_exp. auto.
     - inversion H.
 Qed.
 
