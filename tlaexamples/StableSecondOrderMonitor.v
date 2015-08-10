@@ -5,6 +5,56 @@ Require Import TLA.BasicProofRules.
 Require Import Examples.DiffEqSolutions.
 Require Import Coq.Lists.List.
 
+Lemma concave_quadratic_ineq :
+    forall a b c x,
+      ((-b + R_sqrt.sqrt (b*b - 4*a*c))*/2*/a <= x
+       <= (-b - R_sqrt.sqrt (b*b - 4*a*c))*/2*/a ->
+       a < 0 ->
+       a*x*x + b*x + c >= 0)%R.
+  Admitted.
+
+  Lemma quadratic_axis_of_symmetry :
+    forall a b c,
+      (0 <= b*b - 4*a*c ->
+       a < 0 ->
+       (- b + R_sqrt.sqrt (b*b - 4*a*c))*/2*/a <= -b*/2*/a
+       <= (- b - R_sqrt.sqrt (b*b - 4*a*c))*/2*/a)%R.
+  Proof.
+    intros. pose proof (R_sqrt.sqrt_pos (b*b - 4*a*c)).
+    generalize dependent (R_sqrt.sqrt (b*b - 4*a*c)).
+    intros. assert (eq (a * /a) 1)%R by solve_linear.
+    generalize dependent (/a)%R. intros.
+    solve_nonlinear.
+  Qed.
+
+  Require Import Coq.Reals.RIneq.
+  Lemma SafeAcc_quadratic :
+    forall y v a t ub amin,
+      (amin < 0 ->
+       t <> 0 ->
+       (-t*t)*a*a + (amin*t*t-2*v*t)*a +
+       (2*amin*y - 2*amin*ub + 2*amin*v*t - v*v) >= 0 ->
+       y + (v*t + /2*a*t*t) + (v + a*t)*(v + a*t)*(-/2)*/amin
+       <= ub)%R.
+  Proof.
+    intros.
+    apply Rmult_le_reg_l with (r:=2%R);
+      [ solve_linear | ].
+    apply Rmult_le_reg_l with (r:=(-amin)%R);
+      [ solve_linear | ].
+    ring_simplify. simpl. field_simplify. simpl.
+    unfold Rdiv in *. solve_nonlinear.
+    solve_linear.
+  Qed.
+
+  Lemma sqrt_fact :
+    forall u y b t v,
+      (0 < t ->
+       b < 0 ->
+       2*b*u <= 2*b*y - v*v ->
+       b*t*t + 4*t*v-8*u+8*y <= 0)%R.
+  Proof. solve_nonlinear. Qed.
+
 Open Scope HP_scope.
 Open Scope string_scope.
 
@@ -56,26 +106,17 @@ Module AbstractShim (Import P : Params).
 
   Definition SafeAcc (a : Term) (d : Term) : Formula :=
     Forall t : R,
-      (0 < t //\\ t <= d) -->>
+      (0 <= t //\\ t <= d) -->>
       "y" + tdist "v" a t + sdist MAX("v" + a*t, 0) <= ub.
 
   Definition SafeAccEquiv (a : Term) (d : Term) : Formula :=
     Forall t : R,
-      (0 < t //\\ t <= d) -->>
+      (0 <= t //\\ t <= d) -->>
       (0 <= "v" + a*t -->>
-       a <= (/2*/t)%R*
-            (SqrtT (amin*(amin*t^^2+4*t*"v"-8*ub+8*"y")) +
-             amin*t-2*"v")) //\\
+       a <= (SqrtT (amin*(amin*t^^2+4*t*"v"-8*ub+8*"y")) +
+             amin*t-2*"v")*(/2)%R*(/t)%R) //\\
       ("v" + a*t <= 0 -->>
        a <= 2*(ub - "y" - "v"*t)*(/t)*(/t)).
-
-  Lemma convex_quadratic_ineq :
-    forall a b c x,
-      ((-b - R_sqrt.sqrt (b*b - 4*a*c))*/2*/a <= a
-       <= (-b + R_sqrt.sqrt (b*b - 4*a*c))*/2*/a ->
-       0 <= a ->
-       a*x*x + b*x + c <= 0)%R.
-  Admitted.
 
 (*
   Lemma lower_bound_irrelevant :
@@ -83,20 +124,78 @@ Module AbstractShim (Import P : Params).
       0 <= v + a*t ->
   *)
 
+  Lemma axis_symmetry_SafeAcc :
+    forall a b v t,
+      (t > 0 ->
+       a*t >= -v ->
+       b <= 0 ->
+       2*t*a >= b*t-v*2)%R.
+  Proof. solve_nonlinear. Qed.
+
   Lemma SafeAccEquiv_refines :
     forall a d,
       SafeAccEquiv a d //\\ SafeAcc amin d |-- SafeAcc a d.
   Proof.
     intros. reason_action_tac.
+    destruct (RIneq.Req_dec x R0).
+    { subst. intuition. specialize (H2 R0).
+      specialize_arith_hyp H2. revert H2.
+      unfold Rbasic_fun.Rmax.
+      repeat destruct_ite; rewrite_real_zeros;
+      solve_linear. }
     unfold Rbasic_fun.Rmax.
     destruct_ite.
     - rewrite_real_zeros. intuition.
-      specialize (H1 x). intuition.
+      specialize (H2 x). intuition.
       assert (eq (x*/x) 1)%R by solve_linear.
       generalize dependent (/x)%R. intros.
-      clear H1 H2 H3 r. solve_nonlinear.
-    - intuition. specialize (H1 x). specialize (H2 x).
-      intuition. specialize_arith_hyp H1.
+      z3_solve. admit.
+    - intuition. specialize (H2 x).
+      intuition. specialize_arith_hyp H2.
+      rewrite Rminus_0_l. repeat rewrite Rmult_1_r.
+      repeat rewrite <- Rmult_assoc.
+      apply SafeAcc_quadratic.
+      + exact amin_lt_0.
+      + solve_linear.
+      + match goal with
+        |- (?a*_*_ + ?b*_ + ?c >= _)%R
+        => pose (a2:=a); pose (a1:=b); pose (a0:=c)
+        end.
+        apply concave_quadratic_ineq.
+        * split.
+          { pose proof (quadratic_axis_of_symmetry a2 a1 a0)
+              as Hsym.
+            unfold a2, a1, a0 in Hsym.
+            match type of Hsym with
+            | ?H -> _ => assert H
+            end.
+            { specialize (H3 R0). specialize_arith_hyp H3.
+              revert H3. unfold Rbasic_fun.Rmax.
+              repeat destruct_ite; rewrite_real_zeros.
+              { revert r. rewrite_real_zeros. intros.
+                pose proof amin_lt_0. clear - r H3 H0 H.
+                z3_solve. admit. }
+              { revert n0. rewrite_real_zeros. intros.
+                pose proof amin_lt_0. clear - n0 H3 H0 H.
+                z3_solve. admit. } }
+            { assert (0 < x)%R by solve_linear.
+              assert (- x * x < 0)%R by (z3_solve; admit).
+              specialize_arith_hyp Hsym.
+              destruct Hsym as [Hsym1 Hsym2]. 
+              eapply Rle_trans; eauto.
+              assert (pre "v"+eval_term a pre post*x > 0)%R
+                by solve_linear.
+              apply Rmult_le_reg_l with (r:=2%R);
+                [ solve_linear | ].
+              apply Rmult_le_reg_l with (r:=(x*x)%R);
+                [ solve_linear | ].
+              repeat rewrite Ropp_mult_distr_l_reverse.
+              rewrite <- Ropp_inv_permute; [ | solve_linear].
+              field_simplify; [ | solve_linear ].
+              simpl. unfold Rdiv. rewrite Rinv_1.
+              pose proof amin_lt_0. solve_nonlinear. } }
+          { eapply Rle_trans; eauto.
+            R_simplify. simpl.
   Admitted.
 
   Definition AbstractPD (a : Term) : Formula :=
