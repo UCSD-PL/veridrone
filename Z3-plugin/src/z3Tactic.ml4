@@ -327,10 +327,10 @@ struct
   let ptrn_failure = Str.regexp "^sat ([^)]*) (model\\(.+\\)) ?$"
   let ptrn_split = Str.regexp " "
 
-  let ptrn_def = Str.regexp "(define-fun x\\([0-9]+\\) () Real[ \n\r\t]+(?\\(-? [0-9]*.[0-9]*\\))?)"
+  let ptrn_def = Str.regexp "(define-fun x\\([0-9]+\\) () Real[ \n\r\t]+\\([0-9]*.[0-9]*\\|([^)]*)\\))";;
 
   type z3_result =
-      Sat of (int * float) list
+      Sat of (int * string) list
     | Unsat of Names.identifier list
 
 
@@ -347,7 +347,6 @@ struct
 	with
 	  Not_found -> value
       in
-      let value = float_of_string value in
       (num, value) :: extract_model (Str.match_end ()) result
     with
       Not_found -> []
@@ -486,15 +485,15 @@ struct
       | Some x -> x
     in
     let pp_assign (x,v) =
-      let vv : float = v in
+      let vv = v in
       Pp.(   (Printer.pr_constr (find x))
-	  ++ (str (Printf.sprintf " = %f" vv)))
+	  ++ (str (Printf.sprintf " = %s" vv)))
     in
     begin
     fun x ->
       match x with
       | [] -> assert false
-      | _ -> 
+      | _ ->
 	pp_list pp_assign Pp.fnl x
     end
 

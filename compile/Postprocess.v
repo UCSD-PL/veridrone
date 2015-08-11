@@ -893,8 +893,8 @@ Definition f10 := Eval lazy in (concretize_float (nat_to_float 10)).
 
 Definition velshim : fcmd :=
   FIte (FMinus (FConst f10) (FPlus (FMult (FVar "a") (FConst float_one)) (FVar "v")))
-       (FAsn "a" (FVar "a"))
-       (FAsn "a" (FConst fzero)).
+       (FAsn "a" (FConst fzero))
+       (FAsn "a" (FVar "a")).
 
 Definition velshim_ivs : list (Var * Var) :=
   [("a", "a"); ("v", "v")].
@@ -963,8 +963,19 @@ Abort.
    pre- and post-states *)
 Definition fstate_get_rval (v : Var) (P : R -> fstate -> Prop) (fs : fstate) : Prop :=
   exists (vf : float), fstate_lookup fs v = Some vf /\
-        exists (vr : R), F2OR vf = Some vr /\ P vr fs.  
-  
+                  exists (vr : R), F2OR vf = Some vr /\ P vr fs.
+
+(* Used to get pre-state variable values *)
+Lemma inject_var :
+  forall (s : Var) G P,
+    (G |-- Forall x : R, (RealT x = VarNowT s)%HP -->> P) ->
+    (G |-- P).
+Proof.
+  tlaIntuition.
+  eapply H. eassumption.
+  reflexivity.
+Qed.
+
 Fact fwp_velshim_full : preVarIsFloat "a" //\\ preVarIsFloat "v" //\\ 
                                       (oembed_fcmd velshim_ivs velshim_ivs velshim \\//
                                                    (Enabled (oembed_fcmd velshim_ivs velshim_ivs velshim) -->> lfalse))
@@ -980,11 +991,386 @@ Proof.
 
     erewrite -> Hoare__embed_rw.
     { (* main goal *)
-      eapply lforallL.       
-      instantiate (1 := (fun fst => (("a") ! = 0)%HP \\// ("v" + ("a") ! * NatT 1 < NatT 10))%HP).
+      eapply (inject_var "v").
+      charge_intro.
+      eapply lforallL.
 
-    }
-    {
+      instantiate (1 := (fstate_get_rval "a" (fun a fs => a = 0 \/ (x + a) < 10)%R)).
+      cbv zeta.
+      simpl fwp.
+      eapply lequiv_rewrite_left.
+      { crunch_embeds. }
+      (* todo find a cbv list to control reduction, leaving as much abstracion as possible *)
+
+      Lemma limpl_lentail_limpl :
+        forall A B C D,
+          (C |-- A) -> (B |-- D) ->
+          (A -->> B |-- C -->> D).
+      Proof.
+        tlaIntuition.
+      Qed.
+
+      idtac.
+      rewrite <- curry.
+      rewrite <- curry.
+
+      apply lexistsL.
+      intro.
+      rewrite landC.
+
+      tlaRevert.
+      rewrite <- curry.
+      
+      apply limpl_lentail_limpl.
+      (* we know the lookups will succeed *)
+
+      Lemma varIsFloat_fstate_lookup :
+        forall (v : Var) (fs : fstate) ivs G X,
+          (G |-- preVarIsFloat v) ->
+          (G |-- Embed (fun x1 _ : state => vmodels ivs x1 fs)) ->
+          (exists v', In (v,v') ivs) ->          
+          (forall res, fstate_lookup fs v = Some res -> G |-- X) ->
+          G |-- X.
+      Proof.
+        tlaIntuition.
+        specialize (H _ H3). fwd.
+        specialize (H0 _ H3).
+        assert (exists Res, fstate_lookup fs v = Some Res).
+        admit.
+        fwd.
+        eapply H2; eauto.
+      Qed.
+
+      idtac.
+
+      eapply varIsFloat_fstate_lookup with (v := "a").
+      charge_assumption.
+      charge_assumption.
+      simpl. eauto.
+
+      intros.
+      repeat (rewrite H).
+
+      (* do this again for v, and then we can simplify the lift2 and things *)
+      eapply varIsFloat_fstate_lookup with (v := "v").
+      charge_assumption.
+      charge_assumption.
+      simpl. eauto.
+      intros.
+      repeat (rewrite H0).
+
+      unfold lift2.
+
+      eapply lexistsR.
+
+      charge_split; [apply PropF_tauto; reflexivity|].
+
+      charge_split.
+      {
+        charge_intros.
+        eapply lexistsR.
+        charge_split; [apply PropF_tauto; reflexivity|].
+        Lemma fstate_lookup_isVarValid :
+          forall v vs  fs,
+            (exists (v' : Var), In (v,v') vs) ->
+            Embed (fun rs _ : state => vmodels vs rs fs) //\\
+                  preVarIsFloat v |--
+                  PropF (isVarValid v fs).
+        Proof.
+        Admitted.
+
+        idtac.
+
+        charge_left.
+
+        charge_split; [apply PropF_tauto; tauto|].
+
+        charge_intros.
+
+        Lemma fstate_set_fstate_get_rval :
+          forall fs v f (P : R -> fstate -> Prop) r,
+            F2OR f = Some r ->
+            P r (fstate_set fs v f) ->
+            fstate_get_rval v P (fstate_set fs v f).
+        Proof.
+          intros.
+          unfold fstate_get_rval;
+            rewrite <- fstate_lookup_update_match;
+            eauto.
+        Qed.
+
+        breakAbstraction.
+        intros.
+        fwd.
+        eapply fstate_set_fstate_get_rval.
+        eauto.
+        lra.
+      }
+      {
+        charge_split.
+        {
+          charge_intros.
+          eapply lexistsR.
+          charge_split; [apply PropF_tauto; reflexivity|].
+          charge_left.
+          charge_split.
+          {
+            rewrite <- fstate_lookup_isVarValid.
+            charge_tauto.
+            compute; eauto.
+          }
+          {
+            charge_intros.
+            breakAbstraction.
+            intros. fwd.
+            eapply fstate_set_fstate_get_rval; [eauto|].
+            unfold bound_fexpr in H5.
+            simpl fexpr_to_NowTerm in H5.
+
+            simpl bound_term in H5.
+            unfold simpleBound2 in H5.
+            unfold simpleBound in H5.
+            simpl in H5.
+
+
+            Print lofst.
+            unfold maybe_ge0 in H5.
+            unfold map in H5.
+            simpl in H5.
+
+            Lemma F2OR_FloatToR' :
+              forall f f' r,
+                F2OR f = Some r -> F2OR f' = Some r -> FloatToR f = FloatToR f'.
+            Proof.
+              intros.
+              unfold F2OR, FloatToR in *.
+              destruct f; destruct f'; try congruence.
+            Qed.
+
+            Transparent ILInsts.ILFun_Ops.
+            Ltac crunch_goals_post :=
+              unfold land in *;
+              simpl in *;
+              fwd;
+              unfold lofst in *;
+              simpl in *;
+              repeat match goal with
+                     | H: context[Fcore_defs.F2R ?X] |- _ =>
+                       let Y := constr:(@Fcore_defs.F2R Fappli_IEEE.radix2 X) in
+                       let Y' := eval compute in Y in
+                         change Y with Y' in H
+                     end;
+              unfold fstate_lookup_force in *;
+              unfold plusResultValidity, minusResultValidity in *;
+              simpl eval_NowTerm in *;
+              repeat
+                match goal with
+                | H: _ = _ |- _ => rewrite H in *
+                end;
+              let X := eval compute in floatMax in change floatMax with X in *;
+                let X := eval compute in floatMin in change floatMin with X in *;
+                  let X := eval compute in error in change error with X in *;
+                    unfold lift2 in *;
+                    unfold fstate_lookupR in *;
+                    repeat match goal with
+                           | H: fstate_lookup ?fs ?v = Some ?f |- _ =>
+                             rewrite H in *
+                           end;
+                    repeat match goal with
+                           | H0: F2OR ?f = Some ?r, H1: FloatToR ?f = ?r' |- _ =>
+                             lazymatch r with
+                           | r' => fail
+                           | _ => generalize (F2OR_FloatToR _ _ _ H0 H1); intro; subst
+                           end
+            end;
+            
+            repeat match goal with
+                   | H1 : Some ?r1 = F2OR ?f1, H2: F2OR ?f2 = Some ?r1 |- _ =>
+                     symmetry in H1;
+                       generalize (F2OR_FloatToR' _ _ _ H1 H2);
+                       intro
+                   end.    
+                    
+            admit.
+            (*(repeat match goal with
+                   | H: ?A \/ ?B |- _=> destruct H
+                    end); crunch_goals_post ; try (z3 solve; admit).*)
+
+          }
+        }
+        {
+           repeat match goal with
+                     | |- context[Fcore_defs.F2R ?X] =>
+                       let Y := constr:(@Fcore_defs.F2R Fappli_IEEE.radix2 X) in
+                       let Y' := eval compute in Y in
+                         change Y with Y' in H
+                     end;
+              unfold fstate_lookup_force in *;
+              unfold plusResultValidity, minusResultValidity in *;
+              simpl eval_NowTerm in *.
+              repeat
+                match goal with
+                | H: _ = _ |- _ => rewrite H in *
+                end;
+              let X := eval compute in floatMax in change floatMax with X in *;
+                let X := eval compute in floatMin in change floatMin with X in *;
+                  let X := eval compute in error in change error with X in *.
+
+              breakAbstraction.
+              intros. fwd.
+              rewrite H. rewrite H0.
+              unfold lift2.
+
+              unfold lofst in *;
+              simpl in *;
+              repeat match goal with
+                     | |- context[Fcore_defs.F2R ?X] =>
+                       let Y := constr:(@Fcore_defs.F2R Fappli_IEEE.radix2 X) in
+                       let Y' := eval compute in Y in
+                         change Y with Y'
+                     end.
+
+
+              Lemma crunch_and :
+                forall (P P' Q Q' : Prop),
+                  (P' -> P) -> (Q' -> Q) ->
+                  P' /\ Q' -> P /\ Q.
+              Proof.
+                intuition.
+              Qed.
+
+              Lemma crunch_or :
+                forall (P P' Q Q' : Prop),
+                  (P' -> P) -> (Q' -> Q) ->
+                  P' \/ Q -> P \/ Q.
+              Proof.
+                intuition.
+              Qed.
+
+              Definition z3proved : Prop -> Prop :=
+                fun _ => True.
+
+              Lemma True_expand1 : forall (P : Prop),
+                  P <-> True /\ P.
+              Proof. intuition. Qed.
+
+              Lemma True_expand2 : forall (P : Prop),
+                  P <-> P /\ True.
+              Proof. intuition. Qed.
+
+              Lemma False_expand1 : forall (P : Prop),
+                  P <-> False \/ P.
+              Proof. intuition. Qed.
+
+              Lemma False_expand2 : forall (P : Prop),
+                  P <-> P \/ False.
+              Proof. intuition. Qed.
+
+              unfold multResultValidity.
+              unfold lift2.
+              simpl eval_NowTerm.
+              rewrite H.
+
+              Lemma Lcut :
+                forall (P P' : Prop),
+                  (P' -> P) -> P' -> P.
+              Proof.
+                tauto.
+              Qed.
+
+              idtac.
+
+              eapply Lcut.
+              rewrite <- True_expand1.
+              
+              eapply True_expand1.
+              
+              match goal with
+              | |- ?X =>
+                match X with
+                | True \/ ?B => eapply 
+                end
+              end
+              
+              try (
+                  match goal with
+                  | contex[
+                  end
+                ).
+
+              rewrite H0.
+              (* need case for isVarValid *)
+              
+              idtac.
+
+              (* need to do context cleanup first in order to set up relationships between res/0 and x/0 *)
+              Ltac crunch_logic :=
+                progress repeat
+                         match goal with
+                         | |- True /\ ?R => eapply True_expand1
+                         | |- ?L /\ True => eapply True_expand2
+                         | |- False \/ ?R => eapply False_expand1
+                         | |- ?L \/ False => eapply False_expand2
+                         | |- ?L /\ ?R => eapply crunch_and
+                         | |- ?L \/ ?R => eapply crunch_or
+                         end.
+
+              eapply crunch_or.
+              
+              intro.
+
+              Unset Printing Notations.
+              idtac.
+              
+              
+              crunch_logic.
+
+              rewrite <- True_expand1.
+              rewrite <- False_expand2.
+              
+              match goal with
+              | |- context[?X] =>
+                match X with
+                | context[True /\ ?Y] =>
+                  idtac "doing it";
+                  replace X with Y by apply True_expand1
+                end
+              end.
+              
+              match goal with
+              | |- context[True /\ ?X] => idtac;
+                                      rewrite (True_expand1 X)
+                       (*replace (True /\ X) with X by apply True_expand1*)
+              end.
+              
+              repeat match goal with
+                     | |- context[True /\ ?X] =>
+                        replace (True /\ X) with X by apply True_expand1
+                     | |- context[?X /\ True] =>
+                       setoid_rewrite (True_expand2 X)
+                     | |- context[False \/ ?X] =>
+                       setoid_rewrite (False_expand1 X)
+                     | |- context[?X \/ False] =>
+                       setoid_rewrite (False_expand2 X)
+                     end.
+                       
+
+              repeat match goal with
+                     | |- context[?X] =>
+                       match X with
+                       | context[_/\_] => idtac "found or"; fail
+                       | context[_\/_] => idtac "found or"; fail
+                       | _ =>
+                         idtac "GOOD GOAL " X;
+                         assert (z3proved X) by auto (*assert X; [assert (z3Proved X) by auto | try (z3 solve_dbg; admit)]*)
+                       end
+                     end.
+               
+
+        
+              {
+                cbv beta.
+          intuition.
       simpl. intuition.
       constructor. intuition congruence.
       constructor.
