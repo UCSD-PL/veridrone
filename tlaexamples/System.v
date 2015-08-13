@@ -6,7 +6,6 @@ Require Import TLA.TLA.
 Require Import TLA.ProofRules.
 Require Import TLA.ArithFacts.
 Require Import TLA.Automation.
-Require Import TLA.EnabledLemmas.
 Require Import ChargeTactics.Lemmas.
 Require Import Coq.Lists.ListSet.
 
@@ -39,29 +38,12 @@ Definition Next (Prog: Formula) (world : state->Formula)
   let d := Discr Prog d in
   let steps := w \\// d
   in      steps
-     \\// (Enabled d -->> lfalse)
-(*     \\// (Enabled w -->> lfalse) *)
-     \\// UnchangedT (("t":Term)::("T":Term)::unch)%list.
-
-Definition PartialNext (Prog: Formula)
-           (world : state->Formula)
-           (unch:list Term) (d : R) :=
-  let w := World world in
-  let d := Discr Prog d in
-  let steps := w \\// d
-  in      steps
      \\// UnchangedT (("t":Term)::("T":Term)::unch)%list.
 
 Definition sysD (Init Prog: Formula) (world : state->Formula)
            (unch : list Term) (d : R) : Formula :=
   ("t" <= d //\\ "T" = "t" //\\ Init) //\\
      [](Next Prog world unch d //\\ 0 <= "t").
-
-Definition Partial_sysD (Init Prog: Formula)
-           (world : state->Formula)
-           (unch : list Term) (d : R) : Formula :=
-  ("t" <= d //\\ "T" = "t" //\\ Init) //\\
-     [](PartialNext Prog world unch d //\\ 0 <= "t").
 
 Record SysRec
 : Type := Sys
@@ -74,10 +56,6 @@ Record SysRec
 Definition SysD (s : SysRec)
 : Formula :=
   sysD s.(Init) s.(Prog) s.(world) s.(unch) s.(maxTime).
-
-Definition PartialSysD (s : SysRec)
-: Formula :=
-  Partial_sysD s.(Init) s.(Prog) s.(world) s.(unch) s.(maxTime).
 
 Definition SysCompose (a b : SysRec) : SysRec :=
 {| Init  := a.(Init) //\\ b.(Init)
@@ -98,9 +76,6 @@ Definition SysRename (m : RenameMap) (m' : state->RenameMap)
  ; unch := List.map (rename_term m) s.(unch)
  ; maxTime := s.(maxTime)
  |}.
-
-Definition SysSafe (a : SysRec) : Formula :=
-  SysD a -->> PartialSysD a.
 
 Definition set_subset {T} (a b : list T) : Prop :=
   forall x, List.In x a -> List.In x b.
@@ -308,44 +283,6 @@ Proof.
 Qed.
 Existing Instance Proper_SysD.
 
-Lemma Proper_PartialNext :
-  Proper (lequiv ==> (pointwise_relation _ lequiv) ==>
-                 set_equiv ==> eq ==> lequiv) PartialNext.
-Proof.
-  morphism_intro. unfold PartialNext.
-  subst.
-  rewrite H0. rewrite H. rewrite H1. reflexivity.
-Qed.
-Existing Instance Proper_PartialNext.
-
-
-Lemma Proper_PartialSysD :
-  Proper (SysRec_equiv ==> lequiv) PartialSysD.
-Proof.
-  red. red. intros.
-  unfold PartialSysD.
-  unfold Partial_sysD.
-  destruct H as [ ? [ ? [ ? [ ? ? ] ] ] ].
-  rewrite H; clear H.
-  rewrite H0; clear H0.
-  rewrite H3; clear H3.
-  rewrite H1; clear H1.
-  change (forall st' : state, world x st' -|- world y st')
-    with (pointwise_relation _ lequiv (world x) (world y))
-    in H2.
-  rewrite H2; clear H2.
-  reflexivity.
-Qed.
-Existing Instance Proper_PartialSysD.
-
-Lemma Proper_SysSafe :
-  Proper (SysRec_equiv ==> lequiv) SysSafe.
-Proof.
-  red. red. intros. unfold SysSafe.
-  rewrite H. reflexivity.
-Qed.
-Existing Instance Proper_SysSafe.
-
 Lemma discr_indX : forall P A IndInv,
     is_st_formula IndInv ->
     P |-- [] A ->
@@ -389,25 +326,25 @@ Proof.
   simpl. intros. intuition.
 Qed.
 
-Lemma PartialSys_bound_t : forall P (a : SysRec),
+Lemma Sys_bound_t : forall P (a : SysRec),
     (forall st, is_st_formula (a.(world) st)) ->
-    P |-- PartialSysD a ->
+    P |-- SysD a ->
     P |-- []TimeBound a.(maxTime).
 Proof.
   intros.
   unfold SysD in *. unfold TimeBound. rewrite <- Always_and.
   tlaSplit.
-  - rewrite H0. unfold PartialSysD, Partial_sysD.
+  - rewrite H0. unfold SysD, sysD.
     rewrite <- Always_and. tlaAssume.
   - apply discr_indX
-    with (A:=PartialNext a.(Prog) a.(world)
+    with (A:=Next a.(Prog) a.(world)
                   a.(unch) a.(maxTime)).
     + tlaIntuition.
     + rewrite H0.
-      unfold PartialSysD, Partial_sysD, PartialNext.
+      unfold SysD, sysD, Next.
       rewrite <- Always_and. tlaAssume.
     + rewrite H0. solve_linear.
-    + unfold PartialNext. decompose_hyps.
+    + unfold Next. decompose_hyps.
       * pose proof (mkEvolution_st_formula a.(world)).
         specialize (H1 H). clear H.
         eapply diff_ind with (Hyps:=TRUE);
@@ -417,19 +354,6 @@ Proof.
         { solve_linear. }
       * solve_linear.
       * solve_linear.
-Qed.
-
-Lemma Sys_bound_t : forall P (a : SysRec),
-    (forall st, is_st_formula (a.(world) st)) ->
-    forall Hsafe : P |-- SysSafe a,
-    P |-- SysD a ->
-    P |-- []TimeBound a.(maxTime).
-Proof.
-  intros.
-  unfold SysSafe in *.
-  assert (P |-- PartialSysD a).
-  { charge_apply Hsafe. charge_tauto. }
-  apply PartialSys_bound_t; auto.
 Qed.
 
 Definition InvariantUnder (unch : list Term)
@@ -604,19 +528,18 @@ Proof.
   unfold Discr. intros. rewrite H. solve_linear.
 Qed.
 
-Theorem PartialSys_weaken :
-  forall I I' P P' w w' unch unch' d d',
-    I' |-- I ->
-    P' |-- P ->
-    (forall st', w' st' |-- w st') ->
-    all_in unch unch' ->
-    (d >= d')%R ->
-    PartialSysD (Sys I' P' w' unch' d') |--
-    PartialSysD (Sys I P w unch d).
+Theorem Sys_weaken : forall I I' P P' w w' unch unch' d d',
+  I' |-- I ->
+  P' |-- P ->
+  (forall st', w' st' |-- w st') ->
+  all_in unch unch' ->
+  (d >= d')%R ->
+  SysD (Sys I' P' w' unch' d') |--
+  SysD (Sys I P w unch d).
 Proof.
   do 10 intro.
   intros HI HP Hw Hunch Hd.
-  unfold PartialSysD, Partial_sysD, PartialNext;
+  unfold SysD, sysD, Next;
     simpl.
   restoreAbstraction.
   apply lrevert.
@@ -635,39 +558,6 @@ Proof.
     decompose_hyps; charge_tauto. }
 Qed.
 
-Lemma Partial_refinement :
-  forall s, PartialSysD s |-- SysD s.
-Proof.
-  intros. destruct s.
-  unfold PartialSysD, Partial_sysD, PartialNext,
-  SysD, sysD, Next; simpl; restoreAbstraction.
-  charge_split.
-  { charge_tauto. }
-  { tlaRevert. apply forget_prem. apply always_imp.
-    charge_intros. decompose_hyps.
-    { charge_left. charge_left. charge_tauto. }
-    { charge_left. charge_right. charge_tauto. }
-    { charge_right. charge_right. charge_tauto. } }
-Qed.
-
-Theorem Sys_weaken : forall I I' P P' w w' unch unch' d d',
-  forall Hsafe : |-- SysSafe (Sys I' P' w' unch' d'),
-  I' |-- I ->
-  P' |-- P ->
-  (forall st', w' st' |-- w st') ->
-  all_in unch unch' ->
-  (d >= d')%R ->
-  SysD (Sys I' P' w' unch' d') |--
-  SysD (Sys I P w unch d).
-Proof.
-  intros.
-  unfold SysSafe in Hsafe. apply landAdj in Hsafe.
-  rewrite landtrueL in Hsafe.
-  rewrite Hsafe. clear Hsafe.
-  rewrite <- Partial_refinement.
-  apply PartialSys_weaken; auto.
-Qed.
-
 Ltac sys_apply_with_weaken H :=
   eapply imp_trans; [ | apply H ];
   eapply Sys_weaken;
@@ -675,10 +565,10 @@ Ltac sys_apply_with_weaken H :=
             | apply imp_id
             | reflexivity ].
 
-Theorem PartialSys_by_induction :
+Theorem Sys_by_induction :
   forall P A Init Prog Inv IndInv w unch (d:R),
   is_st_formula IndInv ->
-  P |-- PartialSysD (Sys Init Prog w unch d) ->
+  P |-- SysD (Sys Init Prog w unch d) ->
   (forall st', is_st_formula (w st')) ->
   P //\\ Init |-- IndInv ->
   P |-- [] A ->
@@ -692,7 +582,7 @@ Theorem PartialSys_by_induction :
 Proof.
   intros P A Init Prog Inv IndInv w unch d
          Hst Hsys Hstw Hinit Ha Hinv InvUnder Hw Hdiscr.
-  unfold PartialSysD, Partial_sysD in *;
+  unfold SysD, sysD in *;
     simpl in *. restoreAbstraction.
   tlaAssert ([]TimeBound d).
   - change d with (maxTime {|
@@ -701,12 +591,12 @@ Proof.
                world := w;
                unch := unch;
                maxTime := d |}).
-    eapply PartialSys_bound_t;
+    eapply Sys_bound_t;
       [ assumption | rewrite Hsys; charge_assumption ].
   - tlaIntro. tlaAssert ([]IndInv).
     + tlaAssert ([]A); [rewrite Ha; tlaAssume | tlaIntro ].
       apply discr_indX with
-      (A:=PartialNext Prog w unch d //\\
+      (A:=Next Prog w unch d //\\
                TimeBound d //\\ next (TimeBound d) //\\ A).
         { assumption. }
         { restoreAbstraction.
@@ -726,7 +616,7 @@ Proof.
         { rewrite <- Hinit. unfold SysD.
           charge_split; [charge_tauto | ].
           rewrite Hsys. charge_tauto. }
-        { unfold PartialNext. decompose_hyps.
+        { unfold Next. decompose_hyps.
           - rewrite <- Hw. charge_tauto.
           - rewrite <- Hdiscr. charge_tauto.
           - unfold InvariantUnder in *. rewrite <- InvUnder.
@@ -735,27 +625,6 @@ Proof.
       repeat rewrite <- uncurry. repeat rewrite Always_and.
       apply always_imp. charge_intros. rewrite <- Hinv.
       charge_tauto.
-Qed.
-
-Theorem Sys_by_induction :
-  forall P A Init Prog Inv IndInv w unch (d:R),
-  is_st_formula IndInv ->
-  P |-- SysD (Sys Init Prog w unch d) ->
-  (forall st', is_st_formula (w st')) ->
-  forall Hsafe : P |-- SysSafe (Sys Init Prog w unch d),
-  P //\\ Init |-- IndInv ->
-  P |-- [] A ->
-  A //\\ IndInv //\\ TimeBound d |-- Inv ->
-  InvariantUnder (("t":Term)::("T":Term)::unch)%list IndInv ->
-  A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
-    //\\ World w |-- next IndInv ->
-  A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
-          //\\ Discr Prog d |-- next IndInv ->
-  P |-- [] Inv.
-Proof.
-  intros. unfold SysSafe in *.
-  eapply PartialSys_by_induction; eauto.
-  charge_tauto.
 Qed.
 
 (** TODO: move this **)
@@ -767,26 +636,10 @@ Proof.
   intros. charge_tauto.
 Qed.
 
-Theorem Enabled_and (A B : Formula) :
-  Enabled (A //\\ B) |-- Enabled A //\\ Enabled B.
+Theorem ComposeRefine (a b : SysRec) G :
+  G //\\ SysD (SysCompose a b) |-- SysD a.
 Proof.
-  breakAbstraction. intros. split; destruct H;
-  exists x; tauto.
-Qed.
-
-Theorem Enabled_imp (A B : Formula) :
-  A |-- B ->
-  Enabled A |-- Enabled B.
-Proof.
-  breakAbstraction. intros. destruct H0.
-  eauto.
-Qed.
-
-Theorem PartialComposeRefine (a b : SysRec) :
-  PartialSysD (SysCompose a b) |-- PartialSysD a.
-Proof.
-  unfold SysCompose, PartialSysD, Partial_sysD,
-  PartialNext.
+  unfold SysCompose, SysD, sysD, Next.
   simpl. restoreAbstraction.
   repeat rewrite <- Always_and.
   repeat charge_split; try charge_tauto.
@@ -815,46 +668,6 @@ Proof.
         tauto. }
 Qed.
 
-Theorem ComposeRefine (a b : SysRec) G :
-  forall Hsafe : G |-- SysSafe (SysCompose a b),
-  G //\\ SysD (SysCompose a b) |-- SysD a.
-Proof.
-  intro.
-  unfold SysSafe in Hsafe. apply landAdj in Hsafe.
-  rewrite Hsafe.
-  rewrite PartialComposeRefine.
-  apply Partial_refinement.
-Qed.
-
-Theorem PartialComposeComm (a b : SysRec) :
-  PartialSysD (SysCompose a b) |--
-  PartialSysD (SysCompose b a).
-Proof.
-  intros.
-  unfold SysCompose, PartialSysD, Partial_sysD, PartialNext.
-  simpl. restoreAbstraction.
-  repeat rewrite <- Always_and.
-  repeat charge_split; try charge_tauto.
-  { solve_linear. rewrite Rmin_comm. auto. }
-  { tlaRevert. apply forget_prem.
-    charge_intros.
-    rewrite Always_and.
-    tlaRevert. apply always_imp.
-    charge_intros. decompose_hyps.
-    - apply lorR1. apply lorR1.
-      rewrite World_weaken.
-      + charge_tauto.
-      + tlaIntuition.
-    - apply lorR1. apply lorR2.
-      unfold Discr. repeat charge_split; try charge_tauto.
-      + solve_linear. rewrite Rmin_comm. auto.
-    - apply lorR2.
-      charge_split; try charge_assumption.
-      rewrite UnchangedT_weaken; [ charge_assumption | ].
-      unfold all_in. intros. apply List.in_or_app.
-      apply List.in_app_or in H. intuition. }
-Qed.
-
 Theorem ComposeComm (a b : SysRec) :
   SysD (SysCompose a b) |-- SysD (SysCompose b a).
 Proof.
@@ -875,11 +688,7 @@ Proof.
     - apply lorR1. apply lorR2.
       unfold Discr. repeat charge_split; try charge_tauto.
       + solve_linear. rewrite Rmin_comm. auto.
-    - apply lorR2. apply lorR1. charge_intros. unfold Discr.
-      charge_use. tlaRevert. apply forget_prem. charge_intros.
-      apply Enabled_imp. rewrite Rmin_comm.
-      repeat charge_split; try charge_tauto.
-    - apply lorR2. apply lorR2.
+    - apply lorR2.
       charge_split; try charge_assumption.
       rewrite UnchangedT_weaken; [ charge_assumption | ].
       unfold all_in. intros. apply List.in_or_app.
@@ -944,41 +753,21 @@ Proof.
   { apply Rmin_comm. }
 Qed.
 
-Theorem PartialCompose (a b : SysRec) P Q G :
-  G |-- PartialSysD a -->> [] P ->
-  G //\\ [] P |-- PartialSysD b -->> [] Q ->
-  G |-- PartialSysD (SysCompose a b) -->> [](P //\\ Q).
+Theorem Compose (a b : SysRec) P Q G :
+  G |-- SysD a -->> [] P ->
+  G //\\ [] P |-- SysD b -->> [] Q ->
+  G |-- SysD (SysCompose a b) -->> [](P //\\ Q).
 Proof.
   intros Ha Hb.
   rewrite <- Always_and.
   tlaIntro. tlaAssert ([]P).
   - charge_apply Ha.
     tlaAssert G; [ charge_tauto | charge_intros ].
-    rewrite PartialComposeRefine.
-    charge_tauto.
-  - tlaAssert (PartialSysD b).
-    + rewrite PartialComposeComm;
-      rewrite PartialComposeRefine.
-      charge_tauto.
-    + charge_tauto.
-Qed.
-
-Theorem Compose (a b : SysRec) P Q G :
-  forall Hsafe : G |-- SysSafe (SysCompose a b),
-  G |-- SysD a -->> [] P ->
-  G //\\ [] P |-- SysD b -->> [] Q ->
-  G |-- SysD (SysCompose a b) -->> [](P //\\ Q).
-Proof.
-  intros Hsafe Ha Hb.
-  rewrite <- Always_and.
-  tlaIntro. tlaAssert ([]P).
-  - charge_apply Ha.
-    tlaAssert G; [ charge_tauto | charge_intros ].
     rewrite ComposeRefine.
-    charge_tauto. auto.
+    charge_tauto.
   - tlaAssert (SysD b).
     + rewrite ComposeComm; rewrite ComposeRefine.
-      charge_tauto. rewrite SysCompose_Comm. assumption.
+      charge_tauto.
     + charge_tauto.
 Qed.
 
@@ -995,47 +784,6 @@ Qed.
 
 Ltac charge_exfalso :=
   etransitivity; [ | eapply lfalseL ].
-
-Theorem SysSafe_rule
-: forall P S
-    (Hprog : P |-- [] Enabled (Discr S.(Prog) S.(maxTime))),
-    P |-- SysSafe S.
-Proof.
-  unfold SysSafe.
-  intros.
-  unfold SysD, PartialSysD, sysD, Partial_sysD.
-  charge_intro.
-  charge_split.
-  - charge_tauto.
-  - rewrite <- landA. tlaRevert.
-    tlaAssert (P); [ charge_assumption | rewrite Hprog at 2 ].
-    repeat rewrite <- always_impl_distr.
-    apply always_tauto.
-    unfold Next, PartialNext.
-    charge_intros. charge_split; [ | charge_tauto ].
-    decompose_hyps; try charge_tauto.
-    { charge_exfalso. charge_tauto. }
-Qed.
-
-Definition Inductively (P I : Formula) : Formula :=
-  P //\\ [](P //\\ I -->> next P).
-
-Lemma InductivelyCompose : forall P Q E,
-    Inductively P (Q //\\ E) //\\
-    Inductively Q (P //\\ E)
-    |-- Inductively (P //\\ Q) E.
-Proof.
-  unfold Inductively.
-  intros. charge_split; try charge_tauto.
-  intros.
-  transitivity
-    ([](P //\\ (Q //\\ E) -->> next P) //\\
-       [](Q //\\ (P //\\ E) -->> next Q)).
-  - charge_tauto.
-  - rewrite Always_and.
-    tlaRevert. eapply BasicProofRules.always_imp.
-    charge_tauto.
-Qed.
 
 Lemma World_Compose : forall a b,
   World (world (SysCompose a b)) |--
@@ -1118,17 +866,16 @@ Qed.
 
 Hint Rewrite Rename_UnchangedT using eauto with rw_rename : rw_rename.
 
-Theorem PartialSysRename_sound
+Theorem SysRename_sound
 : forall s m m'
          (H_is_st : forall st, is_st_formula (s.(world) st)),
   (forall x : Var, deriv_term (m x) = Some (fun st' : state => m' st' x)) ->
   NotRenamed m "t" ->
   NotRenamed m "T" ->
-  PartialSysD (SysRename m m' s) |--
-  Rename m (PartialSysD s).
+  SysD (SysRename m m' s) |-- Rename m (SysD s).
 Proof.
   intros. destruct s.
-  unfold PartialSysD, Partial_sysD, PartialNext,
+  unfold SysD, sysD, Next,
   World, Discr, TDiscrete in *.
   simpl in *.
   restoreAbstraction.
@@ -1153,50 +900,6 @@ Proof.
       charge_tauto. }
     { rewrite H0. rewrite H1. reflexivity. } }
   { rewrite H0. rewrite H1. charge_tauto. }
-Qed.
-
-Theorem SysRename_sound
-: forall s m m'
-         (H_is_st : forall st, is_st_formula (s.(world) st)),
-  (forall x : Var, deriv_term (m x) = Some (fun st' : state => m' st' x)) ->
-  NotRenamed m "t" ->
-  NotRenamed m "T" ->
-  (Rename m (Enabled (Discr s.(Prog) s.(maxTime))) |--
-          Enabled (Rename m (Discr s.(Prog) s.(maxTime)))) ->
-  SysD (SysRename m m' s) |-- Rename m (SysD s).
-Proof.
-  intros. destruct s.
-  unfold SysD, sysD, Next,
-  World, Discr, TDiscrete in *.
-  simpl in *.
-  restoreAbstraction.
-  unfold NotRenamed in *.
-  Rename_rewrite.
-  apply land_lentails_m.
-  { simpl rename_formula.
-    rewrite H0. rewrite H1. reflexivity. }
-  tlaRevert. eapply always_imp. charge_intro.
-  apply land_lentails_m.
-  2: simpl rename_formula; rewrite H0; reflexivity.
-  eapply lorL; [ charge_left | charge_right ];
-  repeat match goal with
-         |- context [ rename_formula ?m ?e ]
-         => simpl (rename_formula m e)
-         end.
-  { eapply lorL; [ charge_left | charge_right ].
-    { unfold mkEvolution.
-      erewrite <- Rename_Continuous_deriv_term; eauto.
-      eapply Proper_Continuous_entails. intro.
-      Rename_rewrite. simpl rename_formula.
-      charge_tauto. }
-    { rewrite H0. rewrite H1. reflexivity. } }
-  { eapply lorL; [ charge_left | charge_right ].
-    { rewrite H2. eapply limpl_lentails_m.
-      { eapply Proper_Enabled. Rename_rewrite.
-        simpl rename_formula. rewrite H0. rewrite H1.
-        reflexivity. }
-      { reflexivity. } }
-    { rewrite H0. rewrite H1. reflexivity. } }
 Qed.
 
 Lemma SysCompose_SysRename
@@ -1258,32 +961,6 @@ Proof.
              rewrite Rename_ok in *; intuition].
 Qed.
 
-Lemma subst_enabled_sys_discr :
-  forall s m m' xs f,
-    next_state_vars (Discr s.(Prog) s.(maxTime)) xs ->
-    witness_function m f xs ->
-    NotRenamed m "t" ->
-    NotRenamed m "T" ->
-    |-- Enabled (Discr s.(Prog) s.(maxTime)) ->
-    |-- Enabled (Discr (SysRename m m' s).(Prog)
-                       (SysRename m m' s).(maxTime)).
-Proof.
-  intros. simpl. restoreAbstraction. unfold Discr, TDiscrete.
-  assert (Rename m ("t"! <= maxTime s) |--
-          "t"! <= maxTime s)%HP as Hd.
-  { breakAbstraction. intros. destruct tr as [? [? ?]].
-    simpl in *. unfold subst_state in *. rewrite H1 in *.
-    simpl in *. auto. }
-  assert (Rename m ("T"! = "t"!) |--
-          "T"! = "t"!)%HP as Hd2.
-  { breakAbstraction. intros. destruct tr as [? [? ?]].
-    simpl in *. unfold subst_state in *. rewrite H1 in *.
-    rewrite H2 in *. simpl in *. auto. }
-  { rewrite <- Hd. rewrite <- Hd2. clear Hd Hd2.
-    repeat rewrite <- Rename_and.
-    eapply subst_enabled_noenv; eauto. }
-Qed.
-
 Ltac sysrename_side_cond :=
   match goal with
   | [ |- forall _ : state, is_st_formula _ ]
@@ -1292,19 +969,6 @@ Ltac sysrename_side_cond :=
     => reflexivity
   | [ |- _ ] => apply deriv_term_list; reflexivity
   end.
-
-Ltac discharge_PartialSys_rename_formula :=
-  match goal with
-    |- { _ : _ & _ |-- Rename (to_RenameMap ?m)
-                              (PartialSysD ?s) }
-    => exists (Sys_rename_formula
-                 (to_RenameMap m)
-                 (deriv_term_RenameList m) s)
-  end;
-  rewrite <- SysRename_rename_formula_equiv
-    by rw_side_condition;
-  apply PartialSysRename_sound;
-  sysrename_side_cond.
 
 Ltac discharge_Sys_rename_formula :=
   match goal with
@@ -1317,7 +981,6 @@ Ltac discharge_Sys_rename_formula :=
     by rw_side_condition;
   apply SysRename_sound;
   match goal with
-  | [ |- context [ Enabled _ ] ] =>  idtac
   | [ |- forall _ : state, is_st_formula _ ]
     => tlaIntuition; abstract is_st_term_list
   | [ |- NotRenamed _ _ ]

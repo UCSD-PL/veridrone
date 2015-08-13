@@ -5,7 +5,7 @@ Require Import TLA.DifferentialInduction.
 Require Import TLA.ContinuousProofRules.
 Require Import TLA.BasicProofRules.
 Require Import Examples.System.
-Require Import Examples.SecondDerivUtil.
+Require Import Examples.SndDerivUtil.
 
 Open Scope HP_scope.
 Open Scope string_scope.
@@ -49,10 +49,12 @@ Module SensorWithDelayRangeSndOrder
               (0 <= t <= d -->>
                            ("a" >= 0 -->>
                             Max (tdist "V" "a" t) 0
-                            (fun mx => "X" + mx <= "Xmax_post"))
+                            (fun mx => "X" + mx <=
+                                       "Xmax_post"))
                      //\\ ("a" < 0 -->>
                            Max (tdist "V" 0 t) 0
-                           (fun mx => "X" + mx <= "Xmax_post")))) //\\
+                           (fun mx => "X" + mx <=
+                                      "Xmax_post")))) //\\
    "t" <= "T" <= d.
 
   Definition I := SenseSafeInd.
@@ -62,47 +64,21 @@ Module SensorWithDelayRangeSndOrder
 
   Definition w :=
     fun st' : state =>
-      st' "x" = "v" //\\ st' "v" = "a" //\\
-      AllConstant ("Xmax_post"::"a"::"X"::"V"::"T"::nil)%list st'.
+      st' "x" = "v" //\\ st' "v" <= "a" //\\
+      AllConstant ("Xmax_post"::"a"::"X"::"V"::
+                   "T"::nil)%list st'.
 
   Definition SpecR : SysRec :=
     {| Init := I;
-       Prog := Sense //\\ History //\\ Unchanged ("x"::"v"::nil)%list;
+       Prog := Sense //\\ History //\\
+               Unchanged ("x"::"v"::nil)%list;
        world := w;
        unch := (("Xmax_post":Term)::("a":Term)::("X":Term)::
-                ("V":Term)::("T":Term)::("x":Term)::("v":Term)::nil)%list;
+                ("V":Term)::("T":Term)::("x":Term)::
+                ("v":Term)::nil)%list;
        maxTime := d |}.
 
   Definition Spec := SysD SpecR.
-
-  Lemma SysSafe_sense : forall P, P |-- SysSafe SpecR.
-  Proof.
-    intros.
-    apply SysSafe_rule; apply always_tauto.
-    enable_ex_st. simpl.
-    exists d. exists (st "v"). exists (st "x").
-    exists d. exists (st "v"). exists (st "x").
-    exists (st "Xmax" + Rbasic_fun.Rmax (st "Vmax" * d) 0)%R.
-    exists R0. solve_linear. left.
-    rewrite_real_zeros. solve_linear.
-    { unfold Rbasic_fun.Rmax.
-      match goal with
-      |- context[ Rle_dec ?e1 ?e2 ] =>
-      destruct (Rle_dec e1 e2)
-      end; solve_linear. }
-    { unfold Rbasic_fun.Rmax.
-      match goal with
-      |- context[ Rle_dec ?e1 ?e2 ] =>
-      destruct (Rle_dec e1 e2)
-      end; solve_linear. }
-  Qed.
-
-(*
-  Ltac rewrite_deriv_terms :=
-    repeat match goal with
-           | [ H : context [ get_deriv ] |- _ ] =>
-             rewrite H
-           end.*)
 
   Ltac solve_diff_ind_goals :=
     solve [ tlaIntuition |
@@ -111,7 +87,8 @@ Module SensorWithDelayRangeSndOrder
               solve_linear ].
   
   Theorem sense_safe :
-    []("v" <= "Vmax" //\\ "x" <= "Xmax") //\\ Spec |-- []SenseSafe.
+    []("v" <= "Vmax" //\\ "x" <= "Xmax") //\\ Spec
+    |-- []SenseSafe.
   Proof.
     intro.
     eapply Sys_by_induction
@@ -120,18 +97,12 @@ Module SensorWithDelayRangeSndOrder
     - tlaIntuition.
     - unfold Spec, SpecR. tlaAssume.
     - tlaIntuition.
-    - apply SysSafe_sense.
     - tlaAssume.
     - charge_tauto.
     - reason_action_tac. intuition.
-      specialize (H4 (pre "T" - pre "t")%R).
+      specialize (H5 (pre "T" - pre "t")%R).
       intuition.
-      repeat match type of H7 with
-             | ?H -> _ =>
-               let HH := fresh "H" in
-               assert H as HH by solve_linear;
-                 specialize (H7 HH); clear HH
-             end.
+      specialize_arith_hyp H8.
       destruct (Rge_dec (pre "a") R0); intuition; solve_linear.
       assert (pre "a" < 0)%R; solve_linear.
       destruct (Rle_dec
@@ -143,7 +114,7 @@ Module SensorWithDelayRangeSndOrder
         eapply Rle_trans; eauto.
         apply Rplus_le_compat; solve_linear.
         eapply Rle_trans; eauto.
-        clear - H7. solve_nonlinear.
+        clear - H8. solve_nonlinear.
       + assert (pre "V" * (pre "T" - pre "t") +
                 / 2 * 0 * ((pre "T" - pre "t") *
                            ((pre "T" - pre "t") * 1)) >= 0)%R;
@@ -151,7 +122,7 @@ Module SensorWithDelayRangeSndOrder
         eapply Rle_trans; eauto.
         eapply Rle_trans; eauto.
         apply Rplus_le_compat; solve_linear.
-        clear - H7. solve_nonlinear.
+        clear - H8. solve_nonlinear.
     - red. solve_linear; rewrite_next_st; solve_linear;
       specialize (H3 x); intuition; solve_linear.
     - unfold World. repeat charge_split.
@@ -281,8 +252,8 @@ Module SensorWithDelayRangeSndOrder
           * assert (pre "Vmax" * d +
                     / 2 * post "a" * (d * (d * 1)) >= 0)%R
               by solve_linear. intuition.
-            rewrite H16. apply Rplus_le_compat; solve_linear.
-            clear - H H0 H14 H1 H4 H2.
+            rewrite H18. apply Rplus_le_compat; solve_linear.
+            clear - H H0 H14 H1 H4 H2 H15.
             destruct H1.
             { repeat rewrite <- Rmult_assoc in *.
               rewrite Rmult_1_r in *.
@@ -315,8 +286,8 @@ Module SensorWithDelayRangeSndOrder
           * assert (pre "Vmax" * d +
                     / 2 * 0 * (d * (d * 1)) >= 0)%R
               by solve_linear. intuition.
-            rewrite H16. apply Rplus_le_compat; solve_linear.
-            clear - H H14 H1 H4 H2.
+            rewrite H18. apply Rplus_le_compat; solve_linear.
+            clear - H H14 H1 H4 H2 H15.
             destruct H1.
             { repeat rewrite <- Rmult_assoc in *.
               rewrite Rmult_1_r in *.

@@ -75,9 +75,6 @@ Proof.
     eapply H; eauto. }
   { eapply forall_iff; intros.
     eapply H; eauto. }
-  { eapply exists_iff; intros.
-    destruct H0. rewrite H.
-    reflexivity. }
   { eapply forall_iff; intros.
     eapply IHx. reflexivity.
     eapply Stream.Proper_nth_suf_stream_eq; eauto. }
@@ -128,7 +125,6 @@ Fixpoint next (F:Formula) :=
     | Syntax.Exists _ f => Exists x, next (f x)
     | Syntax.Forall _ f => Forall x, next (f x)
     | PropF P => PropF P
-    | Enabled F => Enabled (next F)
     | Always F => Always (next F)
     | Eventually F => Eventually (next F)
     | Embed P => Embed (fun _ en => P en en)
@@ -554,17 +550,6 @@ Proof.
   eexists. eauto.
 Qed.
 
-(* Enabled *)
-Lemma Enabled_action : forall P,
-    (forall st, exists st',
-          eval_formula P (Stream.Cons st (Stream.forever st'))) ->
-    |-- Enabled P.
-Proof.
-  breakAbstraction; intros.
-  specialize (H (Stream.hd tr)). destruct H.
-  exists (Stream.forever x). auto.
-Qed.
-
 Lemma ex_state_flow_any : forall (P : (state * flow) -> Prop),
   (forall f, exists st, P (st, f)) ->
   exists stf, P stf.
@@ -638,7 +623,6 @@ Fixpoint rename_formula (m : RenameMap) (F:Formula) :=
     | Syntax.Exists _ f => Exists x, rename_formula m (f x)
     | Syntax.Forall _ f => Forall x, rename_formula m (f x)
     | PropF P => PropF P
-    | Enabled F => Rename m (Enabled F)
     | Always F => Always (rename_formula m F)
     | Eventually F => Eventually (rename_formula m F)
     | Embed P => Rename m (Embed P)
@@ -799,20 +783,6 @@ Proof.
     + erewrite IHm. auto.
 Qed.*)
 
-Lemma Rename_Enabled
-: forall P m,
-    Enabled (Rename m P) |-- Rename m (Enabled P).
-Proof.
-  Opaque Stream.stream_map.
-  breakAbstraction. intros.
-  destruct H.
-  simpl.
-  destruct tr. simpl in H.
-  eapply Proper_eval_formula in H. 2: reflexivity.
-  2: symmetry. 2: eapply Stream.stream_map_cons. 2: eauto.
-  eauto.
-Qed.
-
 Lemma Rename_Rename :
   forall P m m',
     (forall x, is_st_term (m x) = true) ->
@@ -839,7 +809,7 @@ Fixpoint st_term_renamings (F : Formula) : Prop :=
         st_term_renamings F1 /\ st_term_renamings F2
     | Syntax.Exists _ f | Syntax.Forall _ f =>
         forall x, st_term_renamings (f x)
-    | Enabled F | Always F | Eventually F => st_term_renamings F
+    | Always F | Eventually F => st_term_renamings F
     | Rename s P =>
        (forall x, is_st_term (s x) = true) /\ st_term_renamings P
   end.
@@ -891,7 +861,6 @@ Proof.
       breakAbstraction. intros. auto.
     + specialize (H x _ (Hst x) H0). destruct H. revert H H1.
       breakAbstraction. intros. auto.
-  - simpl rename_formula. auto.
   - rewrite Rename_Always. simpl rename_formula.
     split; tlaRevert; apply always_imp; rewrite IHF;
     auto; charge_tauto.
@@ -928,7 +897,7 @@ Hint Rewrite Rename_True Rename_False Rename_Comp
      Rename_and Rename_or Rename_impl Rename_PropF
      Rename_Exists Rename_Forall
      Rename_Always Rename_Eventually
-     Rename_Enabled using eauto with rw_rename : rw_rename.
+     using eauto with rw_rename : rw_rename.
 
 Ltac Rename_rewrite :=
   autorewrite with rw_rename.
@@ -944,15 +913,6 @@ Proof.
   breakAbstraction. subst. intuition.
 Qed.
 
-Global Instance Proper_Enabled :
-  Proper (lequiv ==> lequiv) Enabled.
-Proof.
-  red. red. unfold lequiv, lentails. simpl.
-  unfold tlaEntails. simpl. intros. split.
-  { intros. destruct H0. exists x0. intuition. }
-  { intros. destruct H0. exists x0. intuition. }
-Qed.
-
 Global Instance Proper_Always :
   Proper (lequiv ==> lequiv) Always.
 Proof.
@@ -961,14 +921,6 @@ Proof.
   charge_tauto.
   restoreAbstraction. tlaRevert.
   apply always_imp. charge_tauto.
-Qed.
-
-Global Instance Proper_Enabled_lentails : Proper (lentails ==> lentails) Enabled.
-Proof.
-  morphism_intro.
-  breakAbstraction.
-  intros.
-  destruct H0. exists x0. eauto.
 Qed.
 
 Require Import Coq.Classes.Morphisms.

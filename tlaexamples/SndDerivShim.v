@@ -4,10 +4,11 @@ Require Import TLA.BasicProofRules.
 Require Import TLA.DifferentialInduction.
 Require Import Examples.System.
 Require Import Examples.SensorWithError.
-Require Import SensorWithDelayRange.
-Require Import Examples.SensorWithDelayRangeSndOrder.
-Require Import Examples.SecondDerivShimCtrl.
+Require Import Examples.SensorDelayFstDeriv.
+Require Import Examples.SensorDelaySndDeriv.
+Require Import Examples.SndDerivShimCtrl.
 Require Import ChargeTactics.Lemmas.
+Require Import Coq.Lists.List.
 
 Open Scope HP_scope.
 Open Scope string_scope.
@@ -23,8 +24,6 @@ Module ShimParams <: SecondDerivShimParams.
   (* Our breaking acceleration. *)
   Parameter amin : R.
   Parameter amin_lt_0 : (amin < 0)%R.
-
-  Definition WC : Formula := ltrue.
 
 End ShimParams.
 
@@ -44,136 +43,221 @@ End DelayParams.
 Module DelayCompensator :=
   SensorWithDelayRangeSndOrder(DelayParams).
 
-Require Import Coq.Lists.List.
+Let rename_v :=
+  RenameListC (("x","v")::("Xmax","Vmax")::nil).
 
-Definition CtrlSenseErrorSysR err :=
-  SysCompose
-    (SysRename (VarRenameMap (("x","v")::("Xmax","Vmax")::("Xmin","Vmin")::nil))
-            (SensorWithError.SpecR err ShimParams.d))
-    (SysCompose
-       (SysRename (VarRenameMap (("x","y")::("Xmax","Ymax")::nil))
-                   (SensorWithError.SpecR err ShimParams.d))
-       ShimCtrl.SpecR).
+Let rename_y :=
+  RenameListC (("x","y")::("Xmax","Ymax")::nil).
 
-Definition CtrlSenseErrorSys err :=
-  SysD (CtrlSenseErrorSysR err).
-
-Theorem ctrl_sense_error_safe : forall err,
-  |-- CtrlSenseErrorSys err -->> []"y" <= ShimParams.ub.
+Definition SensorErrorY err :
+  { x : SysRec &
+        SysRec_equiv
+          (SysRename
+             (to_RenameMap rename_y)
+             (deriv_term_RenameList rename_y)
+             (SensorWithError.SpecR err ShimParams.d))
+          x}.
 Proof.
-  intro err.
-  apply imp_trans with
-  (F2:=[](Rename (VarRenameMap (("x","v")::("Xmax","Vmax")::("Xmin","Vmin")::nil))
-                 SensorWithError.SenseSafe //\\
-          Rename (VarRenameMap (("x","y")::("Xmax","Ymax")::nil))
-          SensorWithError.SenseSafe //\\
-          "y" <= ShimParams.ub)).
-  - apply Compose.
-    + apply SysSafe_rule; apply always_tauto.
-      enable_ex_st; repeat eexists; solve_linear.
-    + tlaIntro. rewrite <- Rename_always.
-      rewrite <- (SensorWithError.sense_safe err ShimParams.d).
-      rewrite SysRename_sound.
-      * charge_tauto.
-      * simpl. intuition.
-      * compute. intuition congruence.
-      * 
-    + apply Compose.
-      * apply SysSafe_rule; apply always_tauto.
-        enable_ex_st; repeat eexists; solve_linear.
-      * tlaIntro. tlaRevert. apply forget_prem.
-        tlaIntro. pose proof (SensorWithError.sense_safe err ShimParams.d).
-        apply Proper_Rename
-        with (m:=VarRenameMap (("x","y")::("Xmax","Ymax")::nil))
-          in H. revert H. unfold SensorWithError.SenseSafe.
-        Rename_rewrite; try solve [ apply VarRenameMap_is_st_term ].
-        simpl rename_formula. intro H. charge_apply H.
-        apply SysRename_sound.
-        { simpl. intuition. }
-        { compute. intuition congruence. }
-        { admit. }
-      * tlaIntro. pose proof ShimCtrl.ctrl_safe.
-        unfold ShimCtrl.Safe in *. charge_apply H.
-        unfold ShimCtrl.Spec. unfold SensorWithError.SenseSafe.
-        Rename_rewrite; try solve [apply VarRenameMap_is_st_term].
-        simpl rename_formula.
-        repeat rewrite <- Always_and.
-        repeat charge_split; try charge_assumption;
-        solve_linear.
-  - apply always_imp. charge_tauto.
+  discharge_sysrec_equiv_rename.
+Defined.
+
+Definition SensorErrorV err :
+  { x : SysRec &
+        SysRec_equiv
+          (SysRename
+             (to_RenameMap rename_v)
+             (deriv_term_RenameList rename_v)
+             (SensorWithError.SpecR err ShimParams.d))
+          x}.
+Proof.
+  discharge_sysrec_equiv_rename.
+Defined.
+
+Definition CtrlSenseErrorSysR errV errY :=
+  SysCompose (projT1 (SensorErrorV errV))
+             (SysCompose (projT1 (SensorErrorY errY))
+                         ShimCtrl.SpecR).
+
+Theorem ctrl_sense_error_safe : forall errV errY,
+  |-- SysD (CtrlSenseErrorSysR errV errY) -->>
+      []"y" <= ShimParams.ub.
+Proof.
+  intros errV errY.
+  charge_intros. eapply lcut.
+  { tlaRevert. apply Compose.
+    - rewrite_rename_pf (SensorErrorV errV).
+      rewrite SysRename_sound
+        by sysrename_side_cond.
+      pose proof
+           (SensorWithError.sense_safe errV ShimParams.d).
+      rename_hyp rename_v H.
+      rewrite Rename_Always in H.
+      charge_intros. apply H.
+    - rewrite landtrueL. apply Compose.
+      + rewrite_rename_pf (SensorErrorY errY).
+        rewrite SysRename_sound
+          by sysrename_side_cond.
+        pose proof
+             (SensorWithError.sense_safe errY ShimParams.d).
+        rename_hyp rename_y H.
+        rewrite Rename_Always in H.
+        charge_intros. rewrite H. rewrite Always_and.
+        charge_assumption.
+      + repeat rewrite <- Rename_ok by rw_side_condition.
+        simpl rename_formula. restoreAbstraction.
+        rewrite <- ShimCtrl.ctrl_safe.
+        repeat rewrite Always_and. tlaRevert.
+        apply always_imp. solve_linear. }
+  { unfold ShimCtrl.Safe. repeat rewrite <- Always_and.
+    charge_tauto. }
 Qed.
 
-Definition DelayCompensatorV :=
-  (SensorWithDelayRange.SpecR
-     "v" "Vmax_pre" "Vmin_pre" "Vmax"
-     "Vmin" "a" ShimParams.d ltrue).
+Let rename_v_delay :=
+  RenameListC (("x","v")::("v","a")::("Xmax","Vmax_pre")::
+               ("Xmax_post","Vmax")::nil).
+
+Definition DelayCompensatorV :
+  { x : SysRec &
+        SysRec_equiv
+          (SysRename
+             (to_RenameMap rename_v_delay)
+             (deriv_term_RenameList rename_v_delay)
+             (SensorDelayFstDeriv.SpecR ShimParams.d))
+          x}.
+Proof.
+  discharge_sysrec_equiv_rename.
+Defined.
+
+Let rename_y_delay :=
+  RenameListC (("x","y")::("Xmax","Ymax_pre")::
+               ("Xmax_post","Ymax")::("Vmax","Vmax_pre")::
+               ("Vmax_post","Vmax")::nil).
+
+Definition DelayCompensatorY :
+  { x : SysRec &
+        SysRec_equiv
+          (SysRename
+             (to_RenameMap rename_y_delay)
+             (deriv_term_RenameList rename_y_delay)
+             DelayCompensator.SpecR)
+          x}.
+Proof.
+  discharge_sysrec_equiv_rename.
+Defined.
 
 Definition CtrlSenseDelaySysR :=
-  SysCompose DelayCompensatorV
-    (SysCompose DelayCompensator.SpecR ShimCtrl.SpecR).
-
-Definition CtrlSenseDelaySys :=
-  SysD CtrlSenseDelaySysR.
+  SysCompose (projT1 DelayCompensatorV)
+    (SysCompose (projT1 DelayCompensatorY)
+                ShimCtrl.SpecR).
 
 Theorem ctrl_sense_delay_safe :
-  []"Vmin_pre" <= "v" //\\ []"v" <= "Vmax_pre"
-  //\\ []"y" <= "Ymax_pre"
-    |-- CtrlSenseDelaySys -->> []"y" <= ShimParams.ub.
+  []"v" <= "Vmax_pre" //\\ []"y" <= "Ymax_pre"
+    |-- SysD CtrlSenseDelaySysR -->> []"y" <= ShimParams.ub.
 Proof.
-  apply imp_trans with
-  (F2:=[](SensorWithDelayRange.SenseSafe "v" "Vmax" "Vmin"
-          //\\ DelayCompensator.SenseSafe
-          //\\ "y" <= ShimParams.ub)).
-  - apply Compose.
-    + tlaIntro.
+  charge_intros. eapply lcut.
+  { eapply landAdj. apply Compose.
+    - rewrite_rename_pf DelayCompensatorV.
+      rewrite SysRename_sound
+        by sysrename_side_cond.
       pose proof
-           (SensorWithDelayRange.sense_safe
-              "v" "Vmax_pre" "Vmin_pre" "Vmax" "Vmin" "a"
-              ShimParams.d (eq_refl _) (eq_refl _) (eq_refl _)
-              (eq_refl) ltrue).
-      charge_apply H. rewrite <- Always_and.
-      charge_tauto.
-    + apply Compose.
-      * tlaIntro. charge_apply DelayCompensator.sense_safe.
-        unfold SenseSafe. repeat rewrite <- Always_and.
-        charge_tauto.
-      * tlaIntro.
-        pose proof ShimCtrl.ctrl_safe.
-        unfold ShimCtrl.Safe in *. charge_apply H.
-        unfold Spec. unfold DelayCompensator.SenseSafe.
-        charge_split; try charge_assumption.
-        rewrite landC. tlaRevert. repeat rewrite Always_and.
-        apply always_imp. solve_linear.
-  - apply always_imp. charge_tauto.
+           (SensorDelayFstDeriv.sense_safe ShimParams.d).
+      rename_hyp rename_v_delay H.
+      rewrite Rename_Always in H.
+      charge_intros. rewrite <- H.
+      rewrite Rename_and. rewrite Rename_Always.
+      charge_split; [ | charge_tauto ].
+      rewrite landC. tlaRevert. apply forget_prem.
+      rewrite <- Rename_ok by rw_side_condition.
+      repeat rewrite Always_and. apply always_imp.
+      simpl rename_formula. charge_tauto.
+    - apply Compose.
+      + rewrite_rename_pf DelayCompensatorY.
+        rewrite SysRename_sound
+          by sysrename_side_cond.
+        pose proof DelayCompensator.sense_safe.
+        rename_hyp rename_y_delay H.
+        rewrite Rename_Always in H.
+        charge_intros. rewrite <- H.
+        rewrite Rename_and. rewrite Rename_Always.
+        charge_split; [ | charge_tauto ].
+        tlaAssert ([]"v" <= "Vmax_pre" //\\
+                   []"y" <= "Ymax_pre");
+          [ charge_tauto | apply forget_prem ].
+        rewrite <- Rename_ok by rw_side_condition.
+        simpl rename_formula. restoreAbstraction.
+        rewrite Always_and. charge_tauto.
+      + repeat rewrite <- Rename_ok by rw_side_condition.
+        simpl rename_formula. restoreAbstraction.
+        rewrite <- ShimCtrl.ctrl_safe.
+        repeat rewrite Always_and. tlaRevert.
+        apply always_imp. solve_linear. }
+  { unfold ShimCtrl.Safe. repeat rewrite <- Always_and.
+    charge_tauto. }
 Qed.
 
-Definition CtrlSenseErrorDelaySysR err :=
-  SysCompose
-    (SensorWithError.SpecR "v" "Vmax_pre" "Vmin_pre" err
-                           ShimCtrl.w ShimParams.d)
-    (SysCompose
-       (SensorWithError.SpecR "y" "Ymax_pre" "Ymin_pre" err
-                              ShimCtrl.w ShimParams.d)
-       CtrlSenseDelaySysR).
+Let rename_v_pre :=
+  RenameListC (("x","v")::("Xmax","Vmax_pre")::nil).
 
-Definition CtrlSenseErrorDelaySys err :=
-  SysD (CtrlSenseErrorDelaySysR err).
+Let rename_y_pre :=
+  RenameListC (("x","y")::("Xmax","Ymax_pre")::nil).
 
-Theorem ctrl_sense_error_delay_safe : forall err,
-  |-- CtrlSenseErrorDelaySys err -->> []"y" <= ShimParams.ub.
+Definition SensorErrorY_pre err :
+  { x : SysRec &
+        SysRec_equiv
+          (SysRename
+             (to_RenameMap rename_y_pre)
+             (deriv_term_RenameList rename_y_pre)
+             (SensorWithError.SpecR err ShimParams.d))
+          x}.
 Proof.
-  intros err.
-  apply imp_trans with
-  (F2:=[](SensorWithError.SenseSafe "v" "Vmax_pre" "Vmin_pre"
-          //\\ SensorWithError.SenseSafe "y" "Ymax_pre" "Ymin_pre"
-          //\\ "y" <= ShimParams.ub)).
-  - apply Compose.
-    + tlaIntro. apply SensorWithError.sense_safe; reflexivity.
-    + apply Compose.
-      * tlaIntro. tlaRevert. apply forget_prem.
-        tlaIntro. apply SensorWithError.sense_safe; reflexivity.
-      * tlaIntro. pose proof ctrl_sense_delay_safe.
-        charge_apply H. unfold SensorWithError.SenseSafe.
-        repeat rewrite <- Always_and. charge_tauto.
-  - apply always_imp. charge_tauto.
+  discharge_sysrec_equiv_rename.
+Defined.
+
+Definition SensorErrorV_pre err :
+  { x : SysRec &
+        SysRec_equiv
+          (SysRename
+             (to_RenameMap rename_v_pre)
+             (deriv_term_RenameList rename_v_pre)
+             (SensorWithError.SpecR err ShimParams.d))
+          x}.
+Proof.
+  discharge_sysrec_equiv_rename.
+Defined.
+
+Definition CtrlSenseErrorDelaySysR errV errY :=
+  SysCompose (projT1 (SensorErrorV_pre errV))
+             (SysCompose (projT1 (SensorErrorY_pre errY))
+                         CtrlSenseDelaySysR).
+
+Theorem ctrl_sense_error_delay_safe : forall errV errY,
+  |-- SysD (CtrlSenseErrorDelaySysR errV errY) -->>
+      []"y" <= ShimParams.ub.
+Proof.
+  intros errV errY.
+  charge_intros. eapply lcut.
+  { tlaRevert. apply Compose.
+    - rewrite_rename_pf (SensorErrorV_pre errV).
+      rewrite SysRename_sound
+        by sysrename_side_cond.
+      pose proof
+           (SensorWithError.sense_safe errV ShimParams.d).
+      rename_hyp rename_v_pre H.
+      rewrite Rename_Always in H.
+      charge_intros. apply H.
+    - rewrite landtrueL. apply Compose.
+      + rewrite_rename_pf (SensorErrorY_pre errY).
+        rewrite SysRename_sound
+          by sysrename_side_cond.
+        pose proof
+             (SensorWithError.sense_safe errY ShimParams.d).
+        rename_hyp rename_y_pre H.
+        rewrite Rename_Always in H.
+        charge_intros. rewrite <- H. charge_tauto.
+      + repeat rewrite <- Rename_ok by rw_side_condition.
+        simpl rename_formula. restoreAbstraction.
+        rewrite <- ctrl_sense_delay_safe.
+        repeat rewrite <- Always_and. charge_tauto. }
+  { unfold ShimCtrl.Safe. repeat rewrite <- Always_and.
+    charge_tauto. }
 Qed.

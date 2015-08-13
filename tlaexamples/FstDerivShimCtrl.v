@@ -23,7 +23,7 @@ Module FirstDerivShim (P : FirstDerivShimParams).
 
   (* The continuous dynamics of the system *)
   Definition w : Evolution :=
-    fun st' => st' "v" = "a" //\\ st' "a" = 0.
+    fun st' => st' "v" <= "a" //\\ st' "a" = 0.
 
   Definition SafeAcc (a v:Term) : Formula :=
     a*d + v <= ub.
@@ -32,7 +32,7 @@ Module FirstDerivShim (P : FirstDerivShimParams).
     a <= 0.
 
   Definition Ctrl : Formula :=
-    SafeAcc "a"! "v" \\// Default "a"!.
+    SafeAcc "a"! "Vmax" \\// Default "a"!.
 
   Definition I : Formula :=
     "v" <= ub //\\ "v" + "a"*d <= ub.
@@ -44,31 +44,21 @@ Module FirstDerivShim (P : FirstDerivShimParams).
        unch := (("a":Term)::("v":Term)::nil)%list;
        maxTime := d |}.
 
-  Definition Spec := PartialSysD SpecR.
-
   Definition IndInv : Formula :=
          ("a" <  0 -->> "v" <= ub)
     //\\ ("a" >= 0 -->> "a"*"t" + "v" <= ub).
 
-  Lemma SysSafe_ctrl : forall P, P |-- SysSafe SpecR.
-  Proof.
-    intros.
-    apply SysSafe_rule; apply always_tauto.
-    enable_ex_st; repeat eexists; solve_linear.
-  Qed.
-
   Theorem ctrl_safe :
-    |-- Spec -->> []"v" <= ub.
+    []"v" <= "Vmax" |-- SysD SpecR -->> []"v" <= ub.
   Proof.
     charge_intros.
-    eapply PartialSys_by_induction
-    with (IndInv:=IndInv) (A:=ltrue).
+    eapply Sys_by_induction
+    with (IndInv:=IndInv).
     - tlaIntuition.
-    - unfold Spec, SpecR. charge_assumption.
+    - unfold SpecR. charge_assumption.
     - tlaIntuition.
     - solve_nonlinear.
-    - apply Lemmas.forget_prem. apply always_tauto.
-      charge_tauto.
+    - charge_assumption.
     - solve_nonlinear.
     - unfold InvariantUnder. solve_linear.
       rewrite_next_st. solve_linear.
@@ -79,7 +69,7 @@ Module FirstDerivShim (P : FirstDerivShimParams).
       + tlaIntuition.
       + tlaAssume.
       + tlaIntuition.
-      + charge_tauto.
+      + restoreAbstraction. charge_tauto.
       + simpl deriv_formula. restoreAbstraction.
         charge_intros.
         repeat charge_split; charge_intros;
@@ -89,30 +79,6 @@ Module FirstDerivShim (P : FirstDerivShimParams).
                          solve_linear ] ].
         solve_nonlinear.
     - solve_nonlinear.
-  Qed.
-
-  (* Some useful renaming lemmas *)
-  Lemma Rename_SafeAcc :
-    forall a v m,
-      (forall x : Var, is_st_term (m x) = true) ->
-      Rename m (SafeAcc a v) -|-
-      SafeAcc (rename_term m a) (rename_term m v).
-  Proof.
-    intros; split; breakAbstraction; intros;
-    destruct tr as [? [? ?]]; simpl in *.
-    { repeat rewrite Rename_term_ok; auto. }
-    { repeat rewrite <- Rename_term_ok; auto. }
-  Qed.
-
-  Lemma Rename_Default :
-    forall a m,
-      (forall x : Var, is_st_term (m x) = true) ->
-      Rename m (Default a) -|- Default (rename_term m a).
-  Proof.
-    intros; split; breakAbstraction; intros;
-    destruct tr as [? [? ?]]; simpl in *.
-    { repeat rewrite Rename_term_ok; auto. }
-    { repeat rewrite <- Rename_term_ok; auto. }
   Qed.
 
 End FirstDerivShim.

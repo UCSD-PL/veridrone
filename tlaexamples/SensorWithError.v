@@ -23,17 +23,11 @@ Section SensorWithError.
     {| Init := I;
        Prog := Unchanged ("x"::"Xmax"::"Xmin"::nil)%list;
        world := fun _ => Sense;
-       unch := (("x":Term)::("Xmax":Term)::("Xmin":Term)::nil)%list;
+       unch := (("x":Term)::("Xmax":Term)::
+                ("Xmin":Term)::nil)%list;
        maxTime := d |}.
 
   Definition Spec := SysD SpecR.
-
-  Lemma SysSafe_sense : forall P, P |-- SysSafe SpecR.
-  Proof.
-    intros.
-    apply SysSafe_rule; apply always_tauto.
-    enable_ex_st. repeat eexists. solve_linear.
-  Qed.
 
   Theorem sense_safe :
     Spec |-- []SenseSafe.
@@ -43,12 +37,12 @@ Section SensorWithError.
     + tlaIntuition.
     + unfold Spec, SpecR. tlaAssume.
     + tlaIntuition.
-    + apply SysSafe_sense.
     + tlaAssume.
     + eapply BasicProofRules.always_tauto. charge_tauto.
     + tlaAssume.
     + red. solve_linear.
-    + unfold World. rewrite Continuous_st_formula with (F:=Sense).
+    + unfold World.
+      rewrite Continuous_st_formula with (F:=Sense).
       * solve_linear.
       * tlaIntuition.
       * tlaIntuition.

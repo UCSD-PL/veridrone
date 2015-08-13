@@ -55,7 +55,7 @@ Fixpoint get_next_vars_term (t : Term) : list Var :=
 
 Fixpoint get_next_vars_formula (f : Formula) : list Var :=
   match f with
-  | Always a | Eventually a | Enabled a =>
+  | Always a | Eventually a =>
                               get_next_vars_formula a
   | And a b | Or a b | Imp a b =>
                        get_next_vars_formula a ++
@@ -74,51 +74,10 @@ Fixpoint remove_dup (ls : list Var) : list Var :=
                then ls' else l :: ls'
   end.
 
-Ltac enable_ex_st :=
-  match goal with
-  | |- lentails _ (Enabled ?X) =>
-    let vars := eval compute in
-    (remove_dup (get_next_vars_formula X)) in
-        let rec foreach ls :=
-            match ls with
-            | @cons _ ?l ?ls => eapply (ex_state l); simpl;
-                                foreach ls
-            | _ => idtac
-            end
-        in
-        eapply Enabled_action; simpl; intros;
-        foreach vars
-  end; try (eapply ex_state_any; (let st := fresh in
-                                  intro st; clear st)).
-
 Ltac smart_repeat_eexists :=
   repeat match goal with
            |- exists x, _ => eexists
          end.
-
-(* The old tactic, very slow. *)
-(*
-Ltac enable_ex_st :=
-  eapply Enabled_action; intros; eapply ex_state_flow_any;
-  auto; simpl; intros;
-  repeat match goal with
-         | |- context [ ?X ] =>
-           match type of X with
-           | Var => idtac
-           | String.string => idtac
-           end ;
-             try match goal with
-                 | X := _ |- _ => unfold X
-                 end;
-             eapply (@ex_state X) ; simpl ;
-             match goal with
-             | |- exists x (y : _), (@?F x) => fail 1
-             | |- _ => idtac
-             end
-         end;
-  try (eapply ex_state_any ;
-       let st := fresh in intro st ; clear st).
-*)
 
 Ltac is_st_term_list :=
   simpl; intros;

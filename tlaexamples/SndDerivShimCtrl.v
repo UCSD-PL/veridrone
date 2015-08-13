@@ -6,7 +6,7 @@ Require Import TLA.ContinuousProofRules.
 Require Import TLA.BasicProofRules.
 Require Import TLA.ArithFacts.
 Require Import Examples.System.
-Require Import Examples.SecondDerivUtil.
+Require Import Examples.SndDerivUtil.
 
 Open Scope HP_scope.
 Open Scope string_scope.
@@ -33,7 +33,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
   (* The continuous dynamics of the system *)
   Definition w : state->Formula :=
     fun st' =>
-      st' "y" = "v" //\\ st' "v" = "a" //\\
+      st' "y" = "v" //\\ st' "v" <= "a" //\\
       AllConstant ("a"::"Y"::"V"::"T"::nil)%list st'.
 
   Definition Ctrl : Formula :=
@@ -65,7 +65,8 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
 
   Definition SpecR : SysRec :=
     {| Init := I;
-       Prog := Ctrl //\\ History //\\ Unchanged ("v"::"y"::nil)%list;
+       Prog := Ctrl //\\ History //\\
+               Unchanged ("v"::"y"::nil)%list;
        world := w;
        unch := (("a":Term)::("Y":Term)::("V":Term)::
                 ("T":Term)::("v":Term)::("y":Term)::nil)%list;
@@ -111,7 +112,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     repeat match goal with
            | H : _ /\ _ |- _ => destruct H
            end.
-    specialize (H7 ((Stream.hd tr) "T" - (Stream.hd tr) "t"))%R.
+    specialize (H8 ((Stream.hd tr) "T" - (Stream.hd tr) "t"))%R.
     destruct (Rle_dec R0
                       ((Stream.hd tr) "V"+
                        (Stream.hd tr) "a"*
@@ -135,13 +136,6 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
       solve_linear.
   Qed.
 
-  Lemma SysSafe_ctrl : forall P, P |-- SysSafe SpecR.
-  Proof.
-    intros.
-    apply SysSafe_rule; apply always_tauto.
-    enable_ex_st; repeat eexists; solve_linear.
-  Qed.
-
   Theorem ctrl_safe :
     []"Vmax" >= "v" //\\ []"Ymax" >= "y" |-- Spec -->> []Safe.
   Proof.
@@ -153,7 +147,6 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     - tlaIntuition.
     - unfold Spec, SpecR. tlaAssume.
     - tlaIntuition.
-    - apply SysSafe_ctrl.
     - charge_apply ind_inv_init. charge_tauto.
     - tlaIntuition.
     - charge_apply inv_safe. charge_tauto.
@@ -203,7 +196,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
               [ charge_tauto | tlaIntuition | ].
             solve_linear; rewrite_next_st;
             solve_linear. }
-          { solve_linear. rewrite H6. rewrite H4. rewrite H7.
+          { solve_linear. rewrite H6. rewrite H8. rewrite H7.
             solve_linear. }
           { eapply zero_deriv with (x:="a");
             [ charge_tauto | tlaIntuition | ].
@@ -211,7 +204,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
               [ charge_tauto | tlaIntuition | ].
             solve_linear; rewrite_next_st;
             solve_linear. }
-          { solve_linear. rewrite H6. rewrite H4. rewrite H7.
+          { solve_linear. rewrite H6. rewrite H8. rewrite H7.
             solve_linear. } }
       { match goal with
           |- _ |-- ?GG => eapply diff_ind
@@ -311,18 +304,18 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
                 { pose proof (sdist_tdist_tdist "v" x).
                   breakAbstraction. unfold eval_comp in *;
                                     simpl in *.
-                  specialize (H15 (Stream.Cons pre
+                  specialize (H2 (Stream.Cons pre
                                                (Stream.Cons
                                                   post tr))).
                   intuition. simpl in *.
                   pose proof (sdist_incr "v" ("V" + "a"*tdiff)).
                   breakAbstraction. unfold eval_comp in *;
                                     simpl in *.
-                  specialize (H15 (Stream.Cons pre
+                  specialize (H2 (Stream.Cons pre
                                                (Stream.Cons
                                                   post tr))).
                   intuition. simpl in *.
-                  eapply Rle_trans; [ | apply H15 ].
+                  eapply Rle_trans; [ | apply H2 ].
                   { eapply Rle_trans; eauto.
                     apply Rplus_le_compat.
                     { apply Rplus_le_compat_l.
@@ -349,29 +342,24 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
                        | [ H : eq (post _) _ |- _ ]
                          => rewrite H in *; clear H
                        end.
-                repeat match type of H23 with
-                       | ?H -> _ =>
-                         let HH := fresh "H" in
-                         assert H as HH by solve_linear;
-                           specialize (H23 HH); clear HH
-                       end.
+                specialize_arith_hyp H26.
                 eapply Rle_trans; eauto.
                 apply Rplus_le_compat.
                 { solve_linear. }
                 { pose proof (sdist_tdist "v" x).
                   breakAbstraction. unfold eval_comp in *;
                                     simpl in *.
-                  specialize (H13 (Stream.Cons pre
+                  specialize (H0 (Stream.Cons pre
                                                (Stream.Cons
                                                   post tr))).
                   intuition. simpl in *.
                   pose proof (sdist_incr "v" ("V" + "a"*tdiff)).
                   breakAbstraction.
-                  specialize (H13 (Stream.Cons pre
+                  specialize (H0 (Stream.Cons pre
                                                (Stream.Cons
                                                   post tr))).
                   intuition. simpl in *.
-                  eapply Rle_trans; [ | apply H13 ].
+                  eapply Rle_trans; [ | apply H0 ].
                   { eapply Rle_trans; eauto.
                     apply Rplus_le_compat; solve_linear.
                     repeat rewrite Rmult_assoc.
@@ -390,44 +378,11 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
                        => rewrite H in *; clear H
                      end.
                 eapply Rle_trans; eauto.
-                clear - H3 amin_lt_0 H2 H6 H18.
+                clear - H3 amin_lt_0 H2 H6 H18 H4.
                 solve_nonlinear. } }
       { solve_linear. }
       { solve_linear. }
   Qed.
-
-
-(* This was an idea for showing that the system
-   is a refinement of another system that does not have
-   a continuous evolution but instead replaces the continous
-   evolution with the solution to the differential equations.
-   This is specified by Evolve. However, I couldn't
-   figure out how to prove refinement. *)
-
-(*
-  Definition Evolve : Formula :=
-         "y"! = "y" + tdist "v" "a" ("t" - "t"!)
-    //\\ "v"! = "v" + "a"*("t" - "t"!).
-
-  Definition AbstractNext :=
-         Evolve
-    \\// (Ctrl //\\ History).
-
-  Definition AbstractSys : Formula :=
-    I //\\ []AbstractNext.
-
-  Theorem refinement :
-    |-- Spec -->> AbstractSys.
-  Proof.
-    unfold Spec, SpecR, AbstractSys. charge_intros.
-    charge_split.
-    - charge_assumption.
-    - unfold SysD. simpl. restoreAbstraction.
-      unfold sysD. tlaRevert. apply BasicProofRules.always_imp.
-      unfold Next, AbstractNext. charge_intros.
-      decompose_hyps.
-      + apply lorR1. unfold Evolve.
-        *)
 
 End SecondDerivShimCtrl.
 
