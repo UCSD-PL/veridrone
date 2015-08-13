@@ -15,24 +15,20 @@ tla/DifferentialInduction.v
 tla/ContinuousProofRules.v
 tla/ProofRules.v
 tla/ArithFacts.v
-tla/Substitution.v
 tla/Tactics.v
 tla/Automation.v
 tla/TLA.v
 tla/Morphisms.v
-tla/EnabledLemmas.v
 
 ChargeTactics/Tactics.v
 ChargeTactics/Lemmas.v
 
-tlaexamples/DiffEqSolutions.v
 tlaexamples/System.v
-tlaexamples/FirstDerivShimCtrl.v
-tlaexamples/SecondDerivShimCtrlToMiddle2.v
-tlaexamples/SecondDerivUtil.v
-tlaexamples/UpperLower.v
-tlaexamples/UpperLowerSecond.v
-tlaexamples/UpperLowerFirst.v
-tlaexamples/TheBox.v
-tlaexamples/ParLang.v
-tlaexamples/FirstOrderStability.v
+tlaexamples/FstDerivShimCtrl.v
+tlaexamples/FstDerivShim.v
+tlaexamples/SndDerivShimCtrl.v
+tlaexamples/SndDerivShim.v
+tlaexamples/SndDerivUtil.v
+tlaexamples/SensorDelayFstDeriv.v
+tlaexamples/SensorDelaySndDeriv.v
+tlaexamples/SensorWithError.v
