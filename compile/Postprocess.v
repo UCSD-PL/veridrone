@@ -1001,6 +1001,7 @@ Proof.
       eapply lequiv_rewrite_left.
       { crunch_embeds. }
       (* todo find a cbv list to control reduction, leaving as much abstracion as possible *)
+      (* maybe need two versions of bound_term: one for conjunct-of-disjuncts and one for disjunct-of-conjuncts *)
 
       Lemma limpl_lentail_limpl :
         forall A B C D,
@@ -1127,17 +1128,189 @@ Proof.
             unfold bound_fexpr in H5.
             simpl fexpr_to_NowTerm in H5.
 
-            simpl bound_term in H5.
-            unfold simpleBound2 in H5.
-            unfold simpleBound in H5.
-            simpl in H5.
+            (* idea: need a "pull out one possible bound" tactic when unfolding bound_term
+               apply it after solving each goal to "get" the next goal *)
 
+            unfold bound_term in H5.
 
-            Print lofst.
+            (* janky infrastructure for working with lists as sets *)
+
+            (* (* probably useless *)
+            Fixpoint removeNth {T : Type} (n : nat) (l : list T) :=
+              match l with
+                | nil => nil
+                | t :: l' =>
+                  match n with
+                  | O => l'
+                  | S n' => t :: removeNth n' l'
+                end
+              end.
+
+            Fixpoint eval_removals {T : Type} (rems : list nat) (l : list T) :=
+              match rems with
+              | nil => l
+              | t :: ts =>
+                match l with
+                | 
+
+            Definition isListWithElementsRemoved {T : Type}
+                       (big small : list T) (rems : list nat) :=
+              eval_removals big = small.
+             *)
+
+            Check In.
+            Definition isSubsetOf {T : Type} (X X' : list T) :=
+              forall (x : T), In x X -> In x X'.
+
+            Definition FilterBad {T : Type} (fs : fstate) (X X': list T) :=
+              isSubsetOf X X'.
+
+              (* Something like
+                   FilterBad X X' st -> FilterBad Y Y' st ->
+                   AnyOf (fun P => P) (cross X Y) st -> AnyOf (fun P => P) (cross X' Y') st 
+               *)
+
             unfold maybe_ge0 in H5.
-            unfold map in H5.
-            simpl in H5.
 
+            (* the following lemmas might not actually be useful *)
+            Transparent ILInsts.ILFun_Ops.
+            cbv beta iota zeta delta
+                [cross map flat_map
+                       combineTriplePlus combineTripleMinus combineTripleMult
+                       simpleBound simpleBound2 simpleBound3 simpleBound4 simpleBound5 simpleBound6 simpleBound7 simpleBound8 simpleBound9 simpleBound10
+                       lb ub premise c_lt c_gt c_le c_ge lofst a_mult a_plus a_minus
+                       Arithable_Lift Comparable_Lift Arithable_R fstate_lookup_force
+                       Comparable_R Comparable_Applicative Fun.Applicative_Fun Arithable_Applicative
+                       Applicative.ap Applicative.pure app land lor ILInsts.ILFun_Ops ILogicOps_Prop] in H5.
+
+            unfold fstate_lookupR in *.
+            unfold fstate_lookup_force in *.
+            generalize dependent (fstate_lookup x0 "a").
+            generalize dependent (fstate_lookup x0 "v").
+            intros; subst.
+            Check F2OR_FloatToR.
+            Lemma realMatch_F2OR_FloatToR :
+              forall (f f' : float) (r1 r2 : R), F2OR f = Some r1 -> FloatToR f' = r1 -> F2OR f' = Some r2 ->
+                                            FloatToR f = r1.
+            Proof.
+              intros.
+              unfold FloatToR, F2OR in *.
+              destruct f; try congruence; inv_all; rewrite <- H; reflexivity.
+            Qed.
+            idtac.
+            generalize (realMatch_F2OR_FloatToR _ _ _ _ (eq_sym H1) H7 H8). intro Hrew_a.
+            generalize (realMatch_F2OR_FloatToR _ _ _ _ (eq_sym H11) H9 H10). intro Hrew_v.
+            unfold floatMin, error, floatMax, custom_prec, custom_emax, prec, emax, custom_emin, emin, f10 in H5.
+            Time repeat match goal with
+                   | H : AnyOf _ |- _ => destruct H
+                                                
+                   end;
+            repeat match goal with
+            | H: context[Fappli_IEEE.B2R ?x1 ?x2 ?x3] |- _ => 
+              let X2 := eval lazy in (Fappli_IEEE.B2R x1 x2 x3) in change (Fappli_IEEE.B2R x1 x2 x3) with X2 in H
+                   end;
+            repeat match goal with
+                   | H : context[Fcore_Raux.bpow ?x1 ?x2] |- _ =>
+                                 let X2 := eval compute in (Fcore_Raux.bpow x1 x2) in
+                                     change (Fcore_Raux.bpow x1 x2) with X2 in H
+                                 end; try (z3 solve; admit).
+          }
+        }
+        {        
+            (*
+            repeat rewrite app_nil_r in H5.
+            unfold app in H5.
+            unfold cross in H5.
+            unfold cross in H5.
+            unfold cross, flat_map, map in H5.
+            unfold combineTripleMult in H5.
+
+            (* (map (thingToPred) (cross crossfn l1 l2))
+               thus we need crossfun to be present in our lemma as well. *)
+
+            (* we can generalize fstate into some other type T' of course *)
+            Lemma FilterBad_AnyOf_cross :
+              forall {T : Type} (X X' Y Y' : list T) (st : fstate)
+                (t2prop : fstate -> T -> Prop) (combiner : T -> T -> list T),
+                FilterBad st X X' -> FilterBad st Y Y' ->
+                AnyOf (map (t2prop st) (cross combiner X Y)) -> AnyOf (map (t2prop st) (cross combiner X' Y')).
+            Proof.
+              intros.
+              fwd.
+              unfold FilterBad, isSubsetOf in *.
+
+              Lemma FilterBad_cross1 :
+                forall {T : Type} (X X' Y  : list T) (combiner : T -> T -> list T),
+                  isSubsetOf X X' ->
+                  isSubsetOf (cross combiner X Y) (cross combiner X' Y).
+              Proof.
+                induction X.
+                - simpl. unfold isSubsetOf. intuition.
+                - intros. simpl.
+                  unfold isSubsetOf in *.
+                  intros.
+                  SearchAbout (In _ (_ ++ _)).
+                  apply Coqlib.in_app in H0.
+                  destruct H0.
+                  + assert (In a X').
+                    { apply H. constructor. reflexivity. }
+                    
+                    (* need a lemma saying:
+                       - if a is in X'
+                                    - then everything that's in flat_map (combiner a) Y
+                                                                - will be in cross combiner X' Y *)
+                    Lemma cross_in:
+                      forall {T : Type} (X Y : list T) (combiner : T -> T -> list T)
+                        (a x : T),
+                        In a X -> In x (flat_map (combiner a) Y) ->
+                        In x (cross combiner X Y).
+                    Proof.
+                      induction Y.
+                      - simpl. intros. contradiction.
+                      - simpl. intros.
+                        apply Coqlib.in_app in H0.
+                        destruct H0.
+                        + destruct X.
+                          * simpl in *. contradiction.
+                          * simpl.
+                            apply Coqlib.in_app.
+                      
+ 
+ 
+              
+              (* we must first prove that the cross generates a subset *)
+              Lemma FilterBad_cross :
+                forall {T : Type} (X X' Y Y' : list T) (combiner : T -> T -> list T),
+                  isSubsetOf X X' -> isSubsetOf Y Y' ->
+                  isSubsetOf (cross combiner X Y) (cross combiner X' Y').
+              Proof.
+                induction X.
+                - intros.
+                  simpl.
+                  unfold isSubsetOf.
+                  intuition.
+                - intros.
+                  simpl.
+                  destruct Y.
+                  + simpl.
+                    eapply IHX; eauto.
+                    admit.
+                  + simpl. 
+                  (* isSubsetOf (x :: X) X' -> isSubsetOf X X' *)
+                  (* isSubsetOf (X ++ X') Y -> isSubsetOf *)
+                  unfold flat_map.
+
+                  indection Y.
+                
+                intros.
+                  
+              
+              intuition.
+                
+              
+              admit.
+             *)
+          (*
             Lemma F2OR_FloatToR' :
               forall f f' r,
                 F2OR f = Some r -> F2OR f' = Some r -> FloatToR f = FloatToR f'.
@@ -1195,15 +1368,18 @@ Proof.
             (*(repeat match goal with
                    | H: ?A \/ ?B |- _=> destruct H
                     end); crunch_goals_post ; try (z3 solve; admit).*)
-
           }
         }
-        {
+        { *)
+          idtac.  
+          breakAbstraction.
+          intros.
+          fwd.
            repeat match goal with
                      | |- context[Fcore_defs.F2R ?X] =>
                        let Y := constr:(@Fcore_defs.F2R Fappli_IEEE.radix2 X) in
                        let Y' := eval compute in Y in
-                         change Y with Y' in H
+                         change Y with Y'
                      end;
               unfold fstate_lookup_force in *;
               unfold plusResultValidity, minusResultValidity in *;
@@ -1215,13 +1391,240 @@ Proof.
               let X := eval compute in floatMax in change floatMax with X in *;
                 let X := eval compute in floatMin in change floatMin with X in *;
                   let X := eval compute in error in change error with X in *.
-
-              breakAbstraction.
-              intros. fwd.
-              rewrite H. rewrite H0.
+              unfold lofst.
               unfold lift2.
+              Print fstate_lookupR.
 
-              unfold lofst in *;
+              assert (FloatToR res = Stream.hd tr "a") by admit.
+              assert (FloatToR res0 = Stream.hd tr "v") by admit.
+              idtac.
+              unfold float_one, float_plus, float_minus, float_mult, nat_to_float.
+              unfold floatMin, error, floatMax, custom_prec, custom_emax, prec, emax, custom_emin, emin, f10.
+              unfold plusResultValidity, minusResultValidity, multResultValidity.
+              unfold isFloatConstValid.
+              Check Fappli_IEEE_extra.BofZ.
+              Import Fappli_IEEE_extra.
+              Check BofZ.
+              Check eq_sym.
+              repeat match goal with
+                     | |- context[BofZ ?x1 ?x2 ?x3 ?x4 ?x5] =>
+                       idtac x5;
+                       let X := constr:(BofZ x1 x2 x3 x4 x5) in
+                       let X' := constr:(concretize_float X) in
+                       let X'' := eval lazy in X' in
+                           replace X with X''; [|rewrite <- concretize_float_correct; lazy; reflexivity]
+                     end.
+              unfold eval_NowTerm.
+              simpl eval_NowTerm.
+              unfold custom_nan.
+              unfold lift2.
+              rewrite H.
+              Check multRoundingTruth2.
+              Lemma is_finite_match :
+                forall (f : float),
+                  match f with
+                  | Fappli_IEEE.B754_zero _ => True
+                  | Fappli_IEEE.B754_infinity _ => False
+                  | Fappli_IEEE.B754_nan _ _ => False
+                  | Fappli_IEEE.B754_finite _ _ _ _ => True
+                  end <-> Fappli_IEEE.is_finite _ _ f = true.
+              Proof.
+                destruct f; intros; intuition.
+              Qed.
+              idtac.
+              rewrite -> (is_finite_match (Fappli_IEEE.Bmult custom_prec custom_emax custom_precGt0
+         custom_precLtEmax Floats.Float32.binop_pl Fappli_IEEE.mode_NE res
+         (Fappli_IEEE.B754_finite 24 128 false 8388608 (-23) eq_refl))).
+              (* begin arbitary branch picks to reduce formula siZe *)
+              left.
+              rewrite -> is_finite_match.
+              rewrite -> is_finite_match.
+              split; [auto|].
+              Check multRoundingTruth2.
+
+              Lemma multRounding_finite :
+                forall (f1 f2 : float) (r1 r2 : R),
+                  Some r1 = floatToReal f1 ->
+                  Some r2 = floatToReal f2 ->
+                  (Rbasic_fun.Rabs
+                     (Fcore_generic_fmt.round Fappli_IEEE.radix2
+                                              (Fcore_FLT.FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                              (Fappli_IEEE.round_mode Fappli_IEEE.mode_NE)
+                                              (Fappli_IEEE.B2R custom_prec custom_emax f1 *
+                                               Fappli_IEEE.B2R custom_prec custom_emax f2)) <
+                   Fcore_Raux.bpow Fappli_IEEE.radix2 custom_emax)%R ->
+                  Fappli_IEEE.is_finite custom_prec custom_emax
+                                        (Fappli_IEEE.Bmult custom_prec custom_emax custom_precGt0
+                                                           custom_precLtEmax custom_nan Fappli_IEEE.mode_NE f1 f2) = true.
+              Proof.
+                intros.
+                generalize (multRoundingTruth2 f1 f2 r1 r2 H H0 H1); intro Hmrt.
+                destruct Hmrt.
+                assumption.
+              Qed.
+
+              idtac.
+
+              repeat split.
+              Focus 6.
+              eapply multRounding_finite.
+              instantiate (1 := (Stream.hd tr "a")).
+              admit (* should be easily provable*).
+              reflexivity.
+              Check multRoundingTruth.
+              Check multRoundingTruth.
+              assert (Stream.hd tr "a" >= 1)%R by admit.
+              assert (Stream.hd tr "a" <= 101)%R by admit.
+              idtac.
+              
+              (* good for reducing B2Rs that can be reduced (those with concrete values) *)
+              (*
+              match goal with
+              | |- context[Fappli_IEEE.B2R ?x1 ?x2 ?x3] =>
+                match x3 with
+                | Fappli_IEEE.B754_zero _ _ _ => 
+                  let X2 := eval lazy in (Fappli_IEEE.B2R x1 x2 x3) in change (Fappli_IEEE.B2R x1 x2 x3) with X2
+                | Fappli_IEEE.B754_finite _ _ _ _ _ _ => 
+                  let X2 := eval lazy in (Fappli_IEEE.B2R x1 x2 x3) in change (Fappli_IEEE.B2R x1 x2 x3) with X2
+                end
+              end.
+             *)
+              
+              Check multRoundingTruth.
+              eapply multRoundingTruth with (lb1 := (1)%R) (ub1 := (101)%R).
+              instantiate (1 := (Stream.hd tr "a")). admit.
+              lazy.
+              reflexivity.
+              Lemma Rge_le :
+                forall (r1 r2 : R),
+                  (r1 >= r2)%R -> (r2 <= r1)%R.
+              Proof.
+                intros.
+                lra.
+              Qed.
+              idtac.
+              Focus 2.
+              apply Rge_le in H11.
+              apply H11.
+              Focus 2.
+
+              Ltac compute_concrete_B2R :=
+                match goal with
+                | |- context[Fappli_IEEE.B2R ?x1 ?x2 ?x3] =>
+                  match x3 with
+                  | Fappli_IEEE.B754_zero _ _ _ => 
+                    let X2 := eval lazy in (Fappli_IEEE.B2R x1 x2 x3) in change (Fappli_IEEE.B2R x1 x2 x3) with X2
+                  | Fappli_IEEE.B754_finite _ _ _ _ _ _ => 
+                    let X2 := eval lazy in (Fappli_IEEE.B2R x1 x2 x3) in change (Fappli_IEEE.B2R x1 x2 x3) with X2
+                  end
+                end.
+
+              apply Req_le.
+              reflexivity.
+              Focus 2.
+              apply H12.
+              Focus 2.
+              apply Req_le; reflexivity.
+              left.
+              repeat split.
+              unfold floatMin. lazy. psatz R.
+              lra.
+              lra.
+              unfold error, floatMax.
+              lazy.
+              lra.
+              unfold isVarValid.
+              unfold error, floatMax, floatMin, custom_emax, custom_emin, emax, emin.
+              unfold custom_prec, prec.
+              lazy.
+              clear.
+              assert (1 = 1)%R by lra.
+              left. split.
+              split.
+              clear.
+              z3 solve_dbg.
+              cbv beta zeta delta [Fappli_IEEE.radix2 Fcore_Raux.bpow].
+              
+              z3 solve_dbg.
+              apply H11.
+              rewrite Rle_ge in H11.
+              Check multRoundingTruth.
+              instantiate (1 := (-100)%R).
+              left.
+              split. split. z3 solve_dbg.
+              z3 solve_dbg.
+              z3 solve_dbg.
+              Focus 5.
+              compute.
+              
+              apply relErrorBasedOnFloatMinTruthMult.
+              
+              admit.
+              reflexivity.
+              simpl.
+              cbv beta zeta iota delta [Fcore_defs.F2R Fappli_IEEE.B2R].
+              cbv beta zeta iota delta [Fcore_Raux.Z2R Fcore_defs.Fnum Fcore_defs.Fexp].
+              cbv beta zeta iota delta [Fcore_Raux.P2R Fcore_Raux.bpow Fappli_IEEE.radix2].
+              cbv beta zeta iota delta [Fcore_Raux.Z2R Z.pow_pos Fcore_Zaux.radix_val].
+              cbv beta zeta iota delta [Pos.iter Z.mul].
+              cbv beta zeta iota delta [Fcore_generic_fmt.round Fcore_FLT.FLT_exp Fcore_generic_fmt.Znearest].
+              cbv beta zeta iota delta [Fcore_defs.F2R Fcore_Raux.P2R].
+              cbv beta zeta iota delta [Fcore_defs.Fnum].
+
+              
+              
+              
+              cbv beta zeta iota delta [Fcore_generic_fmt.scaled_mantissa].
+              cbv beta zeta iota delta [Fcore_Raux.Z2R Fcore_Raux.Rcompare].
+
+
+
+
+
+
+              lazy.
+              compute.
+              
+              
+              
+              
+              split.
+
+              idtac.
+              unfold custom_prec, custom_emax.
+              
+              (* res and res0 are quantified but our math is blocking on them
+                 what can we do to get them to compute so that we can evaluate the
+                 match statements that are matching on them? *)
+              admit.
+              rewrite <- concretize_float_correct. lazy.
+              Focus 2.
+              idtac.
+              Check concretize_float_correct.
+
+              Eval lazy in (concretize_float ((Fappli_IEEE_extra.BofZ 24 128 custom_precGt0 custom_precLtEmax
+                 (Z.of_nat 1)))).
+              unfold custom_precGt0.
+              
+
+              Eval compute in (concretize_float (Fappli_IEEE.Bplus 24 128 custom_precGt0 custom_precLtEmax custom_nan
+        Fappli_IEEE.mode_NE
+        (Fappli_IEEE.Bmult 24 128 custom_precGt0 custom_precLtEmax custom_nan
+           Fappli_IEEE.mode_NE res
+           (Fappli_IEEE_extra.BofZ 24 128 custom_precGt0 custom_precLtEmax
+              (Z.of_nat 1))) res0)).
+              
+              match goal with
+                     | |- context[Fappli_IEEE.Bplus ?x1 ?x2 ?x3 ?x4 ?x5 ?x6 ?x7 ?x8] => idtac "HI THERE"; idtac x1;
+                       let X' := eval lazy in (Fappli_IEEE.Bplus x1 x2 x3 x4 x5 x6 x7 x8) in
+                           change (Fappli_IEEE.Bplus ?x1 ?x2 ?x3 ?x4 ?x5 ?x6 ?x7 ?x8) with X'
+                     end.
+              Eval lazy in 
+                         
+
+              z3 solve_dbg.
+
+              Unfold Lofst in *;
               simpl in *;
               repeat match goal with
                      | |- context[Fcore_defs.F2R ?X] =>
