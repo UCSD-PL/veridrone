@@ -1533,6 +1533,29 @@ Proof.
               unfold error, floatMax.
               lazy.
               lra.
+
+              (* getting bounds using an external tool? *)
+              (* assert all bounds at beginning *)
+              (* eventually we need bounds for subnormals *)
+              
+              admit.
+              assert (Stream.hd tr "a" >= 1)%R by admit.
+              assert (Stream.hd tr "a" <= 101)%R by admit.
+              idtac.
+              try( z3 solve; admit).
+              assert (Stream.hd tr "a" >= 1)%R by admit.
+              assert (Stream.hd tr "a" <= 101)%R by admit.
+              try( z3 solve; admit).
+              admit.
+              lra.
+              admit.
+
+              assert (Stream.hd tr "v" >= 1)%R by admit.
+              assert (Stream.hd tr "v" <= 101)%R by admit.
+              assert (Stream.hd tr "a" >= 1)%R by admit.
+              assert (Stream.hd tr "a" <= 101)%R by admit.
+              try (z3 solve; admit).
+              
               unfold isVarValid.
               unfold error, floatMax, floatMin, custom_emax, custom_emin, emax, emin.
               unfold custom_prec, prec.
