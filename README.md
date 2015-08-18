@@ -1,7 +1,7 @@
 VeriDrone
 ==========
 
-This branch contains the code from our [MEMOCODE 2015](http://memocode.irisa.fr/2015/index.html) [paper](http://goto.ucsd.edu/veridrone/memocode2015.pdf).
+This branch contains the code from our [paper](http://goto.ucsd.edu/veridrone/memocode2015.pdf) appearing at [MEMOCODE 2015](http://memocode.irisa.fr/2015/index.html).
 
 Dependencies
 ------------
