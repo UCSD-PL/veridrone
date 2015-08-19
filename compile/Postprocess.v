@@ -1134,31 +1134,6 @@ Proof.
             unfold bound_term in H5.
 
             (* janky infrastructure for working with lists as sets *)
-
-            (* (* probably useless *)
-            Fixpoint removeNth {T : Type} (n : nat) (l : list T) :=
-              match l with
-                | nil => nil
-                | t :: l' =>
-                  match n with
-                  | O => l'
-                  | S n' => t :: removeNth n' l'
-                end
-              end.
-
-            Fixpoint eval_removals {T : Type} (rems : list nat) (l : list T) :=
-              match rems with
-              | nil => l
-              | t :: ts =>
-                match l with
-                | 
-
-            Definition isListWithElementsRemoved {T : Type}
-                       (big small : list T) (rems : list nat) :=
-              eval_removals big = small.
-             *)
-
-            Check In.
             Definition isSubsetOf {T : Type} (X X' : list T) :=
               forall (x : T), In x X -> In x X'.
 
@@ -1188,7 +1163,7 @@ Proof.
             generalize dependent (fstate_lookup x0 "a").
             generalize dependent (fstate_lookup x0 "v").
             intros; subst.
-            Check F2OR_FloatToR.
+
             Lemma realMatch_F2OR_FloatToR :
               forall (f f' : float) (r1 r2 : R), F2OR f = Some r1 -> FloatToR f' = r1 -> F2OR f' = Some r2 ->
                                             FloatToR f = r1.
@@ -1375,6 +1350,16 @@ Proof.
           breakAbstraction.
           intros.
           fwd.
+          (* assertions relating stream elements to variables (provable) *)
+          assert (FloatToR res = Stream.hd tr "a") by admit.
+          assert (FloatToR res0 = Stream.hd tr "v") by admit.
+
+          (* assertions bounding values of variables (hopefully provable later) *)
+          assert (Stream.hd tr "a" >= 1)%R by admit.
+          assert (Stream.hd tr "a" <= 101)%R by admit.
+          assert (Stream.hd tr "v" >= 1)%R by admit.
+          assert (Stream.hd tr "v" <= 101)%R by admit.
+                    
            repeat match goal with
                      | |- context[Fcore_defs.F2R ?X] =>
                        let Y := constr:(@Fcore_defs.F2R Fappli_IEEE.radix2 X) in
@@ -1393,19 +1378,13 @@ Proof.
                   let X := eval compute in error in change error with X in *.
               unfold lofst.
               unfold lift2.
-              Print fstate_lookupR.
 
-              assert (FloatToR res = Stream.hd tr "a") by admit.
-              assert (FloatToR res0 = Stream.hd tr "v") by admit.
               idtac.
               unfold float_one, float_plus, float_minus, float_mult, nat_to_float.
               unfold floatMin, error, floatMax, custom_prec, custom_emax, prec, emax, custom_emin, emin, f10.
               unfold plusResultValidity, minusResultValidity, multResultValidity.
               unfold isFloatConstValid.
-              Check Fappli_IEEE_extra.BofZ.
               Import Fappli_IEEE_extra.
-              Check BofZ.
-              Check eq_sym.
               repeat match goal with
                      | |- context[BofZ ?x1 ?x2 ?x3 ?x4 ?x5] =>
                        idtac x5;
@@ -1419,7 +1398,6 @@ Proof.
               unfold custom_nan.
               unfold lift2.
               rewrite H.
-              Check multRoundingTruth2.
               Lemma is_finite_match :
                 forall (f : float),
                   match f with
@@ -1436,11 +1414,31 @@ Proof.
          custom_precLtEmax Floats.Float32.binop_pl Fappli_IEEE.mode_NE res
          (Fappli_IEEE.B754_finite 24 128 false 8388608 (-23) eq_refl))).
               (* begin arbitary branch picks to reduce formula siZe *)
+              (* begin experimental new section *)
+              idtac.
+              Print Fappli_IEEE.B2R.
+              Print Fcore_defs.F2R.
+              Print Fcore_defs.Float.
+              right.
+              
+              Print floatToReal.
+              right.
+              left.
+
+              rewrite -> is_finite_match.
+              rewrite -> is_finite_match.
+              split; [auto|].
+              repeat split.
+
+              Focus 12.
+              psatz R.
+
+              (* end experimental new section *)
+
               left.
               rewrite -> is_finite_match.
               rewrite -> is_finite_match.
               split; [auto|].
-              Check multRoundingTruth2.
 
               Lemma multRounding_finite :
                 forall (f1 f2 : float) (r1 r2 : R),
@@ -1466,16 +1464,12 @@ Proof.
               idtac.
 
               repeat split.
-              Focus 6.
+              admit.
+              Focus 5.
               eapply multRounding_finite.
               instantiate (1 := (Stream.hd tr "a")).
               admit (* should be easily provable*).
               reflexivity.
-              Check multRoundingTruth.
-              Check multRoundingTruth.
-              assert (Stream.hd tr "a" >= 1)%R by admit.
-              assert (Stream.hd tr "a" <= 101)%R by admit.
-              idtac.
               
               (* good for reducing B2Rs that can be reduced (those with concrete values) *)
               (*
@@ -1490,11 +1484,9 @@ Proof.
               end.
              *)
               
-              Check multRoundingTruth.
               eapply multRoundingTruth with (lb1 := (1)%R) (ub1 := (101)%R).
               instantiate (1 := (Stream.hd tr "a")). admit.
-              lazy.
-              reflexivity.
+              lazy. reflexivity.
               Lemma Rge_le :
                 forall (r1 r2 : R),
                   (r1 >= r2)%R -> (r2 <= r1)%R.
@@ -1537,6 +1529,110 @@ Proof.
               (* getting bounds using an external tool? *)
               (* assert all bounds at beginning *)
               (* eventually we need bounds for subnormals *)
+              lra.
+              lra.
+              lra.
+              lra.
+              admit.
+              lra.
+              lra.
+              lra.
+
+              (* analogues to multRounding_finite *)
+              Lemma plusRounding_finite :
+                forall (f1 f2 : float) (r1 r2 : R),
+                  Some r1 = floatToReal f1 ->
+                  Some r2 = floatToReal f2 ->
+                  (Rbasic_fun.Rabs
+                     (Fcore_generic_fmt.round Fappli_IEEE.radix2
+                                              (Fcore_FLT.FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                              (Fappli_IEEE.round_mode Fappli_IEEE.mode_NE)
+                                              (Fappli_IEEE.B2R custom_prec custom_emax f1 +
+                                               Fappli_IEEE.B2R custom_prec custom_emax f2)) <
+                   Fcore_Raux.bpow Fappli_IEEE.radix2 custom_emax)%R ->
+                  Fappli_IEEE.is_finite custom_prec custom_emax
+                                        (Fappli_IEEE.Bplus custom_prec custom_emax custom_precGt0
+                                                           custom_precLtEmax custom_nan Fappli_IEEE.mode_NE f1 f2) = true.
+              Proof.
+                intros.
+                generalize (plusRoundingTruth2 f1 f2 r1 r2 H H0 H1); intro Hprt.
+                destruct Hprt.
+                assumption.
+              Qed.
+
+              Lemma minusRounding_finite :
+                forall (f1 f2 : float) (r1 r2 : R),
+                  Some r1 = floatToReal f1 ->
+                  Some r2 = floatToReal f2 ->
+                  (Rbasic_fun.Rabs
+                     (Fcore_generic_fmt.round Fappli_IEEE.radix2
+                                              (Fcore_FLT.FLT_exp (3 - custom_emax - custom_prec) custom_prec)
+                                              (Fappli_IEEE.round_mode Fappli_IEEE.mode_NE)
+                                              (Fappli_IEEE.B2R custom_prec custom_emax f1 -
+                                               Fappli_IEEE.B2R custom_prec custom_emax f2)) <
+                   Fcore_Raux.bpow Fappli_IEEE.radix2 custom_emax)%R ->
+                  Fappli_IEEE.is_finite custom_prec custom_emax
+                                        (Fappli_IEEE.Bminus custom_prec custom_emax custom_precGt0
+                                                            custom_precLtEmax custom_nan Fappli_IEEE.mode_NE f1 f2) = true.
+              Proof.
+                intros.
+                generalize (minusRoundingTruth2 f1 f2 r1 r2 H H0 H1); intro Hmrt.
+                destruct Hmrt.
+                assumption.
+              Qed.
+
+              (* need lemma relating is_finite to floatToReal *)
+              Lemma isFinite_floatToReal :
+                forall (f : float),
+                  Fappli_IEEE.is_finite _ _ f = true -> exists x, (Some x = floatToReal f)%R.
+              Proof.
+                destruct f; intros.
+                - simpl. eexists. reflexivity.
+                - simpl in H. congruence.
+                - simpl in H. congruence.
+                - simpl. eexists. reflexivity.
+              Qed.
+
+              (* goal 2 is unprovable here... *)
+
+              generalize (isFinite_floatToReal (Fappli_IEEE.Bmult 24 128 custom_precGt0 custom_precLtEmax
+        Floats.Float32.binop_pl Fappli_IEEE.mode_NE res
+        (Fappli_IEEE.B754_finite 24 128 false 8388608 (-23) eq_refl))); intro Hiff2r.
+              destruct Hiff2r.
+              eapply multRounding_finite.
+              instantiate (1 := (Stream.hd tr "a")). admit.
+              reflexivity.
+              eapply multRoundingTruth.
+              instantiate (1 := (Stream.hd tr "a")). admit.
+              reflexivity.
+
+              Focus 2.
+              instantiate (1 := 1%R).
+              lra.
+              Focus 3.
+              instantiate (1 := 101%R). lra.
+              Focus 2.
+              apply Req_le. lazy. reflexivity.
+              Focus 2.
+              apply Req_le. lazy. reflexivity.
+              unfold error, floatMin, floatMax, emax, emin.
+              unfold custom_prec, custom_emax, custom_emin.
+              unfold emin, emax, prec.
+              lazy.
+              lra.
+              Focus 2.
+              psatz R.
+
+              Focus 2.
+              eapply H15.
+              
+              
+              SearchAbout floatToReal Fappli_IEEE.Bmult.
+              Focus 2. instantiate (1 := (Stream.hd tr "v")). admit (*for later *).
+              
+              unfold floatToReal.
+              lazy.
+              lazy.
               
               admit.
               assert (Stream.hd tr "a" >= 1)%R by admit.
