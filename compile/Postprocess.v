@@ -1019,13 +1019,134 @@ Proof.
         cbv beta iota zeta delta [ fwp velshim fexprD ].
         rewrite H0; rewrite H.
         eexists; split; [ reflexivity | ].
+
+        assert (f = x0) by admit.
+        assert (f0 = x) by admit.
+
+        Definition Impl (A B : list singleBoundTerm) : Prop :=
+          List.Forall (fun a => (forall st, a.(premise) st -> False) \/ In a B) A.
+
+        Theorem optimize_bound_fexpr
+        : forall f opt_f,
+            Impl (bound_fexpr f) opt_f ->
+            forall P, P opt_f ->
+                      P (bound_fexpr f).
+        Admitted.
+        eapply (@optimize_bound_fexpr (FMinus (FConst f10)
+            (FPlus (FMult (FVar "a") (FConst float_one)) (FVar "v")))).
+        { Transparent ILInsts.ILFun_Ops.
+          cbv beta iota zeta delta
+              [ bound_fexpr bound_term fexpr_to_NowTerm cross flat_map app
+                            combineTripleMult combineTriplePlus
+                            combineTripleMinus simpleBound a_mult premise lb ub c_ge
+                            Arithable_Lift simpleBound2 Arithable_R Arithable_Applicative
+                            Fun.Applicative_Fun Applicative.ap
+                            Applicative.pure c_lt c_le
+                            Comparable_R Comparable_Lift simpleBound7 a_plus a_minus land 
+                            Comparable_Applicative ILInsts.ILFun_Ops 
+                            simpleBound3 simpleBound4 simpleBound5 simpleBound6 simpleBound7
+                            ILogicOps_Prop
+                            simpleBound8 simpleBound9 simpleBound6 simpleBound10 lofst fstate_lookup_force
+              ].
+          Lemma Impl_keep : forall A B D,
+              Impl B D ->
+              Impl (A :: B) (A :: D).
+          Proof. Admitted.
+          Lemma Impl_drop : forall A B D x,
+              (A.(premise) x -> False) ->
+              Impl B D ->
+              Impl (A :: B) D.
+          Proof. Admitted.
+          Lemma Impl_nil : Impl nil nil.
+                             constructor.
+          Qed.
+
+          Ltac show_value val :=
+            let x := eval compute in val in
+            assert (val = x) by reflexivity.
+
+          Ltac try_it HH :=
+            unfold premise;
+            show_value error; show_value floatMin; show_value floatMax;
+            intros;
+            repeat match goal with
+                   | H: context[Fappli_IEEE.B2R ?x1 ?x2 ?x3] |- _ => 
+                     let X2 := eval lazy in (Fappli_IEEE.B2R x1 x2 x3) in change (Fappli_IEEE.B2R x1 x2 x3) with X2 in H
+                   end;
+           repeat match goal with
+                  | H : context[Fcore_Raux.bpow ?x1 ?x2] |- _ =>
+                    let X2 := eval compute in (Fcore_Raux.bpow x1 x2) in
+                                               change (Fcore_Raux.bpow x1 x2) with X2 in H
+                  end;
+           repeat match type of HH with
+                  | context[nat_to_float ?x1]  =>
+                    idtac "1" x1 ; 
+                    let X2 := eval lazy in (nat_to_float x1) in
+                                            idtac "2" ;
+                                               change (nat_to_float x1) with X2 in HH
+                  end;
+           repeat match goal with
+                  | H : _ = _ |- _ => rewrite H in *
+                  end;
+                try (z3 solve; admit).
+          repeat first [ eapply Impl_drop with (x:=x3); [ solve [ try_it H9 ] | idtac "dropped" ]
+                       | eapply Impl_keep
+                       | simple eapply Impl_nil ]. }
+        { 
+
+
+(*
+        Print bound_term.
+        Print combineTriplePlus.
+        Print simpleBound.
+Print simpleBound4.
+
+simpleBound = 
+fun (triple1 triple2 : singleBoundTerm)
+  (combFunc : (fstate -> R) -> (fstate -> R) -> fstate -> R)
+  (fla : fstate -> Prop) =>
+{|
+lb := a_mult (combFunc (lb triple1) (lb triple2))
+        (fun _ : fstate => a_minus 1%R error);
+ub := a_mult (combFunc (ub triple1) (ub triple2))
+        (fun _ : fstate => a_plus 1%R error);
+premise := fla |}
+
+simpleBound4 = 
+fun (triple1 triple2 : singleBoundTerm)
+  (combFunc : (fstate -> R) -> (fstate -> R) -> fstate -> R)
+  (fla : fstate -> Prop) =>
+{|
+lb := a_mult (combFunc (lb triple1) (lb triple2))
+        (fun _ : fstate => a_plus 1%R error);
+ub := a_mult (combFunc (ub triple1) (ub triple2))
+        (fun _ : fstate => a_minus 1%R error);
+premise := fla |}
+*)
+        
+
+
+        Eval cbv beta iota zeta delta [ bound_fexpr bound_term fexpr_to_NowTerm cross flat_map app
+                                        combineTripleMult combineTriplePlus
+                                                             combineTripleMinus simpleBound a_mult premise lb ub c_ge
+Arithable_Lift simpleBound2 Arithable_R Arithable_Applicative Fun.Applicative_Fun Applicative.ap
+Applicative.pure 
+c_lt c_le
+Comparable_R Comparable_Lift simpleBound7 a_plus a_minus land 
+Comparable_Applicative ILInsts.ILFun_Ops 
+simpleBound3 simpleBound4 simpleBound5 simpleBound6 simpleBound7
+ILogicOps_Prop
+simpleBound8 simpleBound9 simpleBound6 simpleBound10 lofst
+ ]
+in (bound_fexpr
+         (FMinus (FConst f10)
+            (FPlus (FMult (FVar "a") (FConst float_one)) (FVar "v")))).
+Print singleBoundTerm.
+
+
+        
         Print bound_term.
         
-        Theorem optimize_bound_fexpr
-        : forall P f opt_f,
-            (AnyOf 
-            P opt_f ->
-            P (bound_fexpr f).
 
         
         split.
