@@ -700,10 +700,10 @@ Definition natBound (n:nat): list singleBoundTerm :=
 
   [ (mkSBT (lofst ((INR n) *(1-error)) )
            (lofst ((INR n) * (1+error)))
-           (lpofst ((floatMin <= (INR n)) //\\ (INR n >= 0%R) //\\  ((INR n)* (1%R+error) <  (floatMax)) //\\ ((isFloatConstValid (nat_to_float n))) ))) ;
+           (lpofst ((floatMin <= (INR n)) //\\ ((INR n)* (1%R+error) <  (floatMax)) //\\ ((isFloatConstValid (nat_to_float n))) ))) (* ;
     (mkSBT (lofst ((INR n) * (1+error)))
            (lofst ((INR n)*(1-error)))
-           (lpofst ((floatMin <= (0%R - INR n)) //\\ (INR n < 0%R) //\\  ((0%R - INR n)* (1%R+error) <  (floatMax)) //\\ ((isFloatConstValid (nat_to_float n))) )  ))].
+           (lpofst ((floatMin <= (0%R - INR n)) //\\ (INR n < 0%R) //\\  ((0%R - INR n)* (1%R+error) <  (floatMax)) //\\ ((isFloatConstValid (nat_to_float n))) )  ))*)].
 
 
 

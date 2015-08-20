@@ -962,8 +962,14 @@ Abort.
 (* Used to expose post-states, since fwp by default does not let us talk about both
    pre- and post-states *)
 Definition fstate_get_rval (v : Var) (P : R -> fstate -> Prop) (fs : fstate) : Prop :=
-  exists (vf : float), fstate_lookup fs v = Some vf /\
-                  exists (vr : R), F2OR vf = Some vr /\ P vr fs.
+  match fstate_lookup fs v with
+  | None => False
+  | Some vf =>
+    match F2OR vf with
+    | None => False
+    | Some vr => P vr fs
+    end
+  end.
 
 (* Used to get pre-state variable values *)
 Lemma inject_var :
@@ -991,6 +997,47 @@ Proof.
 
     erewrite -> Hoare__embed_rw.
     { (* main goal *)
+      Opaque fwp.
+      breakAbstraction.
+      intro.
+      generalize dependent (Stream.hd tr "a").
+      generalize dependent (Stream.hd tr "v").
+      generalize dependent (Stream.hd (Stream.tl tr) "a").
+      generalize dependent (Stream.hd (Stream.tl tr) "v").
+      clear tr.
+      intros.
+      fwd.
+      specialize (H (fstate_get_rval "a" (fun a fs => a = 0 \/ (v2 + a) < 10))%R).
+      fwd.
+      unfold Value in *.
+      subst.
+      unfold fstate_get_rval in H4.
+      unfold fstate_lookupR in H, H5.
+      forward.
+      destruct H4.
+      { Transparent fwp.
+        cbv beta iota zeta delta [ fwp velshim fexprD ].
+        rewrite H0; rewrite H.
+        eexists; split; [ reflexivity | ].
+        Print bound_term.
+        
+        Theorem optimize_bound_fexpr
+        : forall P f opt_f,
+            (AnyOf 
+            P opt_f ->
+            P (bound_fexpr f).
+
+        
+        split.
+        { intros; eexists; split; [ reflexivity | ].
+          admit. }
+        { Print maybe_ge0.
+          Print fwp.
+        
+        simpl.
+      
+      
+      
       eapply (inject_var "v").
       charge_intro.
       eapply lforallL.
@@ -1087,7 +1134,7 @@ Proof.
         charge_split; [apply PropF_tauto; tauto|].
 
         charge_intros.
-
+        
         Lemma fstate_set_fstate_get_rval :
           forall fs v f (P : R -> fstate -> Prop) r,
             F2OR f = Some r ->
