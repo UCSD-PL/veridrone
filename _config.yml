@@ -1,0 +1,27 @@
+# Site settings
+title: VeriDrone
+email: 
+description: > # this means to ignore newlines until "baseurl:"
+    This project investigates the application of a technique called
+    Foundational Verification to cyber-physical systems, paving the way to reaching
+    previously unattainable levels of safety for cyber-physical
+    systems. To make sure that the techniques in this project are
+    practical, they will be evaluated within the context of a real
+    flying quadcopter.
+baseurl: "" # the subpath of your site, e.g. /blog/
+url: "http://ucsd-pl.github.io/veridrone" # the base hostname & protocol for your site
+twitter_username:
+github_username:
+logo: veridrone-logo-grey.png
+cse-logo: CSELogo_4Cv.jpg
+both-logos: veridrone-cse.png
+
+# Authors
+authors:
+  daricket:
+    image-url: /images/dan-head.jpg
+    name: Dan Ricketts
+    webpage: http://cseweb.ucsd.edu/~daricket/
+
+# Build settings
+markdown: kramdown
