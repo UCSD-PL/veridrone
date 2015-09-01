@@ -2,23 +2,27 @@
 layout: default
 ---
 
-<div class="home">
+<h1 id="blog" class="page-heading">Newest Posts</h1>
 
-  <h1 id="blog" class="page-heading">Newest Posts</h1>
+<ul class="post-list">
+  {% for post in site.posts %}
+  <li>
 
-  <ul class="post-list">
-    {% for post in site.posts %}
-      <li>
-
-        <h2>
-          <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
-        </h2>
-	<h3 class="post-meta">{{ post.date | date: "%b %-d, %Y" }}</h3>
+    <div class="row">
+      <div class="col-md-1">
+	{% if post.author %}<img src="{{ site.authors[post.author].image-url }}">{% endif %}
+      </div>
+      <div class="col-md-11">
+	<h2>
+	  <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
+	  <h-secondary>({{ post.date | date: "%b %-d, %Y" }})</h-secondary>
+	</h2>
+<!--	<h3 class="post-meta">{{ post.date | date: "%b %-d, %Y" }}</h3>-->
 	{{ post.excerpt }}
-      </li>
+      </div>
+    </div>
+  </li>
     {% endfor %}
-  </ul>
+</ul>
 
-  <p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a></p>
-
-</div>
+<p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a></p>

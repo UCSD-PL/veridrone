@@ -22,7 +22,8 @@ $grey-color-light: lighten($grey-color, 40%);
 $grey-color-dark:  darken($grey-color, 25%);
 
 // Width of the content area
-$content-width:    800px;
+//$content-width:    800px;
+$content-width:    80%;
 
 $on-palm:          600px;
 $on-laptop:        800px;
@@ -94,4 +95,10 @@ $on-laptop:        800px;
 
 .header-pills > li > a:hover {
     color: black;
+}
+
+h-secondary {
+  font-size: 45%;
+  color: $grey-color;
+  vertical-align: middle;
 }
