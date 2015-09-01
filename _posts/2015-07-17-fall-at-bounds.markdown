@@ -179,7 +179,7 @@ throttle required to actually achieve a particular acceleration, and thus
 when the monitor issued a throttle that it intended to result in zero
 vertical acceleration (countering gravity), it actually issued an throttle
 resulting in a very negative vertical acceleration (much less than
-gravity). The result was a crash and a very interesting lesson in
+gravity). The result was a crash and a very interesting lesson in practical
 cyber-physical system verification.
 
 [^1]: In fact, we assume that the attitude controller achieves the input attitude instantaneously. This is a standard assumption made by control theorists if the attitude dynamics are significantly faster than velocity and position dynamics.
