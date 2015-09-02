@@ -9,10 +9,10 @@ layout: default
   <li>
 
     <div class="row">
-      <div class="col-md-1">
+      <div class="col-md-1 col-xs-2">
 	{% if post.author %}<img src="{{ site.authors[post.author].image-url }}" class="oval">{% endif %}
       </div>
-      <div class="col-md-11">
+      <div class="col-md-11 col-xs-10">
 	<h2>
 	  <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
 	  <h-secondary>({{ post.date | date: "%b %-d, %Y" }})</h-secondary>
