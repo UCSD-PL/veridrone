@@ -6,7 +6,7 @@ description: > # this means to ignore newlines until "baseurl:"
     Foundational Verification to cyber-physical systems, paving the way to reaching
     previously unattainable levels of safety for cyber-physical
     systems. To make sure that the techniques in this project are
-    practical, they will be evaluated within the context of a real
+    practical, we evaluate them within the context of a real
     flying quadcopter.
 baseurl: "" # the subpath of your site, e.g. /blog/
 url: "http://ucsd-pl.github.io/veridrone" # the base hostname & protocol for your site
