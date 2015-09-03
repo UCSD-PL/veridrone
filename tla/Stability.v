@@ -26,11 +26,23 @@ Lemma deriv_term_continuous :
     forall r, |-- Term_continuous_at t x r.
 Admitted.
 
+Lemma Exists_with_st : forall G P (t : Term),
+    (forall x : R, G |-- t = x -->> P x) ->
+    G |-- Exists x : R, P x.
+Proof.
+  breakAbstraction.
+  intros.
+  specialize (H _ tr H0 eq_refl).
+  eexists. eauto.
+Qed.
+
 Lemma lyapunov_fun_stability :
   forall (x:Var) (V:Term) (V':state->Term)
          (cp : Evolution) (G:Formula),
+    is_st_term V = true ->
     deriv_term V = Some V' ->
     (forall st', is_st_formula (cp st')) ->
+    x! = x |-- next_term V = V ->
     G |-- [](Continuous cp \\// x! = x) ->
       |-- Forall st', cp st' -->> V' st' <= 0 ->
       |-- x <> 0 -->> V > 0 ->
@@ -39,8 +51,33 @@ Lemma lyapunov_fun_stability :
           Exists b : R, b > 0 //\\
             (Abs x < b -->> []Abs x < a).
 Proof.
-  intros x V V' cp G Hderiv Hcp Hcont HVpos HVeq HV'.
-  charge_intros.
+  intros x V V' cp G HstV Hderiv Hcp HVx
+         Hcont HV' HVpos HVeq.
+  tlaAssert (Exists V0 : R, V = V0 //\\ []V <= V0).
+  { apply Exists_with_st with (t:=V). intro V0.
+    charge_intros. charge_split; [ charge_assumption | ].
+    rewrite Hcont. eapply discr_indX.
+     tlaIntuition.
+    - charge_assumption.
+    - solve_linear.
+    - rewrite Lemmas.land_lor_distr_R. apply lorL.
+      + eapply diff_ind with (Hyps:=TRUE).
+        { tlaIntuition. }
+        { tlaIntuition. }
+        { charge_assumption. }
+        { assumption. }
+        { charge_tauto. }
+        { charge_assumption. }
+        { restoreAbstraction. charge_tauto. }
+        { simpl deriv_formula. rewrite Hderiv.
+          restoreAbstraction. auto. }
+      + rewrite HVx. solve_linear. }
+  apply forget_prem. charge_intros. rewrite landexistsDL.
+  apply lexistsL. intro V0.
+  assert ((exists Vp : R, |-- x = x0 -->> V = Vp) /\
+          (exists Vn : R, |-- x = --x0 -->> V = Vn)).
+  { admit. }
+  destruct H as [[Vp HVp] [Vn HVn]].
   pose proof (deriv_term_continuous _ _ x Hderiv 0%R)
     as HcontV.
   unfold Term_continuous_at in HcontV.
@@ -50,6 +87,41 @@ Proof.
                clear HcontV; charge_intros ]
   end.
   rewrite landC. rewrite landforallDL.
+  apply (lforallL (Rbasic_fun.Rmin Vp Vn)).
+  apply limplL.
+  { unfold Rbasic_fun.Rmin. destruct_ite.
+    { reason_action_tac.
+      specialize (HVpos (Stream.forever
+                           (fun v =>
+                              if String.string_dec x v
+                              then x0 else R0))).
+      specialize (HVp (Stream.forever
+                         (fun v =>
+                            if String.string_dec x v
+                            then x0 else R0))).
+      simpl in *.
+      destruct (String.string_dec x x); try congruence.
+      specialize_arith_hyp HVpos.
+      specialize_arith_hyp HVp. solve_linear. }
+    { reason_action_tac.
+      specialize (HVpos (Stream.forever
+                           (fun v =>
+                              if String.string_dec x v
+                              then (-x0)%R else R0))).
+      specialize (HVn (Stream.forever
+                         (fun v =>
+                            if String.string_dec x v
+                            then (-x0)%R else R0))).
+      simpl in *.
+      destruct (String.string_dec x x); try congruence.
+      specialize_arith_hyp HVpos.
+      specialize_arith_hyp HVn. solve_linear. } }
+  rewrite landexistsDL. apply lexistsL. intro d.
+  apply (lexistsR d). charge_split; [ charge_assumption | ].
+  charge_intros.
+  eapply discr_indX.
+  - tlaIntuition.
+  - charge_tauto.
 (*
   apply (lforallL x0).
   apply limplL; [ charge_tauto | ].
@@ -100,7 +172,7 @@ Lemma lyapunov_fun_exponential_stability :
     (a > 0)%R ->
     deriv_term V = Some V' ->
     (forall st', |-- cp st' -->> st' t = 1) ->
-    G |-- [](Continuous cp \\// x! = x) ->
+    G |-- [](Continuous cp \\// (x! = x //\\ t! = t)) ->
       |-- Forall st', cp st' -->> V' st' < --a*V ->
       |-- x <> 0 -->> V > 0 ->
       |-- x = 0 -->> V = 0 ->
