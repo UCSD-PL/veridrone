@@ -171,6 +171,7 @@ Lemma lyapunov_fun_exponential_stability :
          (cp : Evolution) (G:Formula) (a:R),
     (a > 0)%R ->
     deriv_term V = Some V' ->
+    (forall st', is_st_formula (cp st')) ->
     (forall st', |-- cp st' -->> st' t = 1) ->
     G |-- [](Continuous cp \\// (x! = x //\\ t! = t)) ->
       |-- Forall st', cp st' -->> V' st' < --a*V ->
