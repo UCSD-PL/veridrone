@@ -6,7 +6,7 @@ author: daricket
 categories: quadcopter test
 ---
 
-As I mentioned in [this post]({% post_url 2015-07-17-fall-at-bounds %}),
+As I mentioned in [this post]({{ site.baseurl }}{% post_url 2015-07-17-fall-at-bounds %}),
 the first test of our rectangular bounding monitor had a few interesting
 problems. In order to discover the cause of the problems, we needed to run
 more tests. However, running new tests seemed to uncover a new problem: the
