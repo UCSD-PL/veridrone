@@ -8,8 +8,8 @@ description: > # this means to ignore newlines until "baseurl:"
     systems. To make sure that the techniques in this project are
     practical, we evaluate them within the context of a real
     flying quadcopter.
-baseurl: "" # the subpath of your site, e.g. /blog/
-url: "http://ucsd-pl.github.io/veridrone" # the base hostname & protocol for your site
+baseurl: "/veridrone" # the subpath of your site, e.g. /blog/
+url: "http://ucsd-pl.github.io" # the base hostname & protocol for your site
 twitter_username:
 github_username:
 logo: veridrone-logo-grey.png
