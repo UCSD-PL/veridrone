@@ -1,213 +1,28 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="">
-    <meta name="author" content="">
+---
+layout: default
+---
 
-    <title>Veridrone</title>
+<h1 id="blog" class="page-heading">Newest Posts</h1>
 
-    <!-- Bootstrap core CSS -->
-    <!-- <link rel="stylesheet" href="http://getbootstrap.com/dist/css/bootstrap.min.css"> -->
-    <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css">
-    <!-- <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-theme.css"> -->
+<ul class="post-list">
+  {% for post in site.posts %}
+  <li>
 
-    <!-- Custom styles for this template -->
-    <!-- <link href="justified-nav.css" rel="stylesheet"> -->
+    <div class="row">
+      <div class="col-md-1 col-xs-2">
+	{% if post.author %}<img src="{{ site.baseurl }}{{ site.authors[post.author].image-url }}" class="oval">{% endif %}
+      </div>
+      <div class="col-md-11 col-xs-10">
+	<h2>
+	  <a class="post-link" href="{{ post.url | prepend: site.baseurl }}#read-more">{{ post.title }}</a>
+	  <h-secondary>({{ post.date | date: "%b %-d, %Y" }})</h-secondary>
+	</h2>
+	<p>{{ post.excerpt | remove: '<p>' | remove: '</p>' }} <a href="{{ post.url | prepend: site.baseurl }}#read-more" role="button"><i class="fa fa-arrow-circle-right"></i></a></p>
+      </div>
+    </div>
+  </li>
+    {% endfor %}
+</ul>
 
-    <style>
-      body { padding-top: 50px; }
-      .panel-heading { font-size: 23px; }
-      .panel .btn { font-size: 18px; }
-      .navbar-brand { font-size: 20px; }
-      .nav { font-size: 18px; }
-      .navbar-form .btn { font-size: 18px; }
-      h1 { font-size: 80px; }
-      h2 { font-size: 35px; }
-      .jumbotron h1 { font-size: 80px; }
-      }
-    </style>
-
-    <!-- <link href="my.css" rel="stylesheet"> -->
-    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
-    <!--[if lt IE 9]>
-      <script src="../../assets/js/html5shiv.js"></script>
-      <script src="../../assets/js/respond.min.js"></script>
-    <![endif]-->
-  </head>
-
-  <body  data-spy="scroll" data-target="#main-nav-bar">
-
-    <div class="container">
-
-     <!-- <h1> <img src="veridrone-logo.png" height=140 alt="VD"  style="vertical-align:middle">&nbsp;&nbsp; Veridrone</h1> -->
-
-     <div class="jumbotron">
-       <h1><img src="veridrone-logo-grey.png" height=140 alt="VD" style="vertical-align:middle">&nbsp;&nbsp; Veridrone</h1>
-       <!-- <p class="lead">Funded by NSF Award  </p> -->
-     </div>
-
-     <!-- <hr style="height:2px;border:none;color:#333;background-color:#333;" /> -->
-     <!-- <iframe width="600" height="525" -->
-     <!-- src="https://www.youtube.com/embed/B1OkSM2knYI" frameborder="0"> -->
-     <!-- </iframe> -->
-
-     <p class="lead">Errors in cyber-physical systems can lead to
-     disastrous consequences. Classic examples date back to the
-     Therac-25 radiation incidents in 1987 and the Ariane 5 rocket
-     crash in 1996. More recently, Toyota's unintended acceleration
-     bug was caused by software errors, and certain cars were found
-     vulnerable to attacks that can take over key parts of the control
-     software, allowing attackers to even disable the brakes
-     remotely. Pacemakers have also been found vulnerable to attacks
-     that can cause deadly consequences for the patient.
-
-     <p class="lead">To reduce the chances of such errors happening,
-     this project investigates the application of a technique called
-     Foundational Verification to cyber-physical systems. In
-     Foundational Verification, the system being developed is proved
-     correct, in full formal detail, using a Proof Assistant. Because
-     proofs in Foundational Verification are carried out in such
-     complete detail, this project will pave the way to reaching
-     previously unattainable levels of safety for cyber-physical
-     systems. To make sure that the techniques in this project are
-     practical, they will be evaluated within the context of a real
-     flying quadcopter. Although the initial work focuses on
-     quadcopters, the concepts, ideas, and research contributions have
-     the potential for transformative impact on other kinds of
-     systems, including power-grid software, cars, avionics and
-     medical devices (from pacemakers and insulin pumps to
-     defibrillators and radiation machines).
-
-     <div class="page-header">
-      <h2>Papers</h2>
-     </div>
-
-     <p class="lead"><a href="memocode2015.pdf">Towards Foundational Verification of Hybrid Systems in a Foundational Proof Assistant</a> (<a href="http://memocode.irisa.fr/2015/index.html" target="_blank">MEMOCODE 2015</a>)
-      <br>
-      &nbsp;&nbsp;&nbsp; Daniel Ricketts, Gregory Malecha, Mario Alvarez, Vignesh Gowda, Sorin Lerner (UCSD)
-      <br></p>
-
-     <div class="page-header">
-      <h2>Videos</h2>
-     </div>
-
-     <p class="lead"> Here is a video of our quadcopter flying (if you cannot see the video
-       below, <a href="veridrone-video.mp4">here</a> is a
-       link)</p>
-
-     <center>
-       <video width="75%" controls>
-         <source src="first-heigth-shim-flight-short.mp4" type="video/mp4">
-           Your browser does not support the video tag.
-       </video>
-     </center>
-
-     <div class="page-header">
-      <h2>Code</h2>
-     </div>
-     <div class="lead">
-     	<p>Our code resides on <a href="https://github.com/ucsd-pl/veridrone" >Github</a>.
-     	   The repository contains a branch for each paper that we have published.
-     	   For example, the branch MEMOCODE-15 contains the code described in our
-     	   <a href="memocode2015.pdf" target="_blank">paper</a> from
-     	   <a href="http://memocode.irisa.fr/2015/index.html" target="_blank">MEMOCODE 2015</a>.</p>
-     </div>
-
-     <div class="page-header">
-      <h2>Contributors</h2>
-     </div>
-
-     <table width=100%>
-        <tr>
-          <td>
-            <p class="lead"><b>Students:</b></p>
-          </td>
-          <td align=center>
-              <img class="img-responsive" width=120 src='http://cseweb.ucsd.edu/~daricket/dan-head.jpg'>
-          </td>
-          <td align=center>
-              <img class="img-responsive" width=120 src='http://goto.ucsd.edu/~mario/images/mario-face2.jpg'>
-          </td>
-          <td align=center>
-	      <img class="img-responsive" width=120 src='vignesh.jpg'>
-          </td>
-        </tr>
-        <tr>
-          <td>
-          </td>
-          <td align=center>
-            <p class="lead"><a href='http://cseweb.ucsd.edu/~daricket/'>Daniel Ricketts</a></p>
-          </td>
-          <td align=center>
-            <p class="lead"><a href='http://goto.ucsd.edu/~mario/'>Mario Alvarez</a></p>
-          </td>
-          <td align=center>
-            <p class="lead">Vignesh Gowda</p>
-          </td>
-        </tr>
-
-
-        <tr>
-          <td>
-            <p class="lead"><b>Post-docs:</b></p>
-          </td>
-          <td align=center>
-              <img class="img-responsive" width=120 src='https://gmalecha.github.io/assets/gregory-malecha.jpg'>
-          </td>
-        </tr>
-        <tr>
-          <td>
-          </td>
-          <td align=center>
-            <p class="lead"><a href='https://gmalecha.github.io/'>Gregory Malecha</a></p>
-          </td>
-        </tr>
-
-
-        <tr>
-          <td>
-            <p class="lead"><b>Faculty:</b></p>
-          </td>
-          <td align=center>
-              <img class="img-responsive" width=120 src='http://cseweb.ucsd.edu/~lerner/sorin-head-2012.JPG'>
-          </td>
-          <td align=center>
-              <img class="img-responsive" width=120 src='http://kastner.ucsd.edu/ryankastner/wp-content/uploads/sites/5/wp%20photos/headshot2.jpg'>
-          </td>
-          <td align=center>
-              <img class="img-responsive" width=120 src='http://cdc2014.ieeecss.org/images/Krstic-2014-zoom.jpg'>
-          </td>
-
-
-
-        </tr>
-        <tr>
-          <td>
-          </td>
-          <td align=center>
-            <p class="lead"><a href='http://cseweb.ucsd.edu/~lerner/'>Sorin Lerner</a></p>
-          </td>
-          <td align=center>
-            <p class="lead"><a href='http://kastner.ucsd.edu/'>Ryan Kastner</a></p>
-          </td>
-          <td align=center>
-            <p class="lead"><a href='http://flyingv.ucsd.edu/'>Miroslav Krstic</a></p>
-          </td>
-        </tr>
-
-     </table>
-
-    </div> <!-- /container -->
-
-
-    <!-- Bootstrap core JavaScript
-    ================================================== -->
-    <!-- Placed at the end of the document so the pages load faster -->
-
-    <script src="jquery.js"></script>
-    <script src="http://netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
-    <!-- <script src="http://getbootstrap.com/dist/js/bootstrap.min.js"></script> -->
-  </body>
-</html>
+<p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a>
+{% if site.twitter_username %}or follow us on <a href="http://twitter.com/{{ site.twitter_username }}"><i class="fa fa-twitter fa-2x"></i></a>{% endif %}</p>

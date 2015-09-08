@@ -1,0 +1,90 @@
+---
+# Only the main Sass file needs front matter (the dashes are enough)
+---
+@charset "utf-8";
+
+
+
+// Our variables
+$base-font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+$base-font-size:   16px;
+$small-font-size:  $base-font-size * 0.875;
+$base-line-height: 1.5;
+
+$spacing-unit:     30px;
+
+$text-color:       #111;
+$background-color: #fdfdfd;
+$brand-color:      #2a7ae2;
+
+$grey-color:       #828282;
+$grey-color-light: lighten($grey-color, 40%);
+$grey-color-dark:  darken($grey-color, 25%);
+
+// Width of the content area
+//$content-width:    800px;
+$content-width:    90%;
+
+$on-palm:          768px;
+$on-laptop:        992px;
+
+
+
+// Using media queries with like this:
+// @include media-query($on-palm) {
+//     .wrapper {
+//         padding-right: $spacing-unit / 2;
+//         padding-left: $spacing-unit / 2;
+//     }
+// }
+@mixin media-query($device) {
+    @media screen and (max-width: $device) {
+        @content;
+    }
+}
+
+// Import partials from `sass_dir` (defaults to `_sass`)
+@import
+        "base",
+        "layout",
+        "syntax-highlighting"
+;
+
+.social {
+    margin: 0;
+    padding: 0;
+}
+
+.social ul {
+    margin: 0;
+    padding: 5px;
+}
+
+.social ul li {
+    margin: 5px;
+    list-style: none outside none;
+    display: inline-block;
+}
+
+.page-title {
+  font-weight: 500;
+}
+
+h-secondary {
+  font-size: 45%;
+  color: $grey-color;
+  vertical-align: middle;
+}
+
+.oval {
+  border-radius: 50%;
+}
+
+body { padding-top: 7vh; }
+
+.jumbotron h1 { font-size: 80px; }
+
+@include media-query($on-palm) {
+  .jumbotron h1 { font-size: 10vw; }
+  .jumbotron p { font-size: 16px; }
+}

@@ -1,0 +1,39 @@
+---
+navigation:
+- text: Blog
+  url: /index.html
+- text: Overview
+  url: /overview.html
+- text: Papers
+  url: /papers.html
+- text: Code
+  url: /code.html
+- text: Videos
+  url: /videos.html
+- text: People
+  url: /people.html 
+---
+
+<!DOCTYPE html>
+<html>
+
+  {% include head.html %}
+
+  <body>
+
+    <div class="container">
+      {% include header.html %}
+      
+      <div class="page-content">
+	<div class="wrapper">
+          {{ content }}
+	</div>
+      </div>
+    </div>
+
+    <div id="footer"></div>
+    {% include footer.html %}
+
+  </body>
+
+</html>
