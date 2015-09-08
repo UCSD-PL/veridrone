@@ -18,7 +18,7 @@ layout: default
 	  <h-secondary>({{ post.date | date: "%b %-d, %Y" }})</h-secondary>
 	</h2>
 <!--	<h3 class="post-meta">{{ post.date | date: "%b %-d, %Y" }}</h3>-->
-	{{ post.excerpt }}
+	{{ post.excerpt }} <a class="btn btn-xs btn-default" href="{{ post.url | prepend: site.baseurl }}" role="button">Read more &raquo;</a>
       </div>
     </div>
   </li>

@@ -43,13 +43,6 @@ $on-laptop:        800px;
     }
 }
 
-@mixin media-query-min($device) {
-    @media screen and (min-width: $device) {
-        @content;
-    }
-}
-
-
 // Import partials from `sass_dir` (defaults to `_sass`)
 @import
         "base",
@@ -73,92 +66,8 @@ $on-laptop:        800px;
     display: inline-block;
 }
 
-.flex-pills {
-  display: -webkit-box;
-  display: -webkit-flex;
-  display: -ms-flexbox;
-  display: flex;
-  justify-content: space-around;
-  align-content: space-between;
-  align-items: center;
-}
-
-@include media-query($on-palm) {
-  .flex-pills {
-    -webkit-flex-direction: column;
-    flex-direction: column;
-
-    li {
-      width: 50%;
-    }
-  }
-}
-
-ul.nav-pills {
-  margin-left: 0;
-}
-
-@media screen and (max-width: $on-palm) {
-  .btn-responsive {
-    padding:2px 4px;
-    font-size:80%;
-    line-height: 1;
-    border-radius:3px;
-  }
-}
-
 .page-title {
   font-weight: 500;
-}
-
-.veri-brand-description {
-  display: -webkit-box;
-  display: -webkit-flex;
-  display: -ms-flexbox;
-  display: flex;
-  align-items: center;
-}
-
-.veri-brand {
-  display: -webkit-box;
-  display: -webkit-flex;
-  display: -ms-flexbox;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  flex-shrink: 1.1;
-  -webkit-flex-direction: column;
-  flex-direction: column;
-}
-
-.veri-brand-logo {
-  width:45%;
-}
-
-@include media-query(700px) {
-  .veri-brand {
-    -webkit-flex-direction: row;
-    flex-direction: row;
-  }
-
-  .veri-brand-description {
-    -webkit-flex-direction: column;
-    flex-direction: column;
-  }
-}
-
-@media screen and (min-width: 500px) and (max-width: 700px) {
-  .veri-brand-logo {
-    width: 25%;
-  }
-}
-
-.project-description {
-  font-size: 1em;
-}
-
-.header-pills > li > a:hover {
-    color: black;
 }
 
 h-secondary {
@@ -171,6 +80,7 @@ h-secondary {
   border-radius: 50%;
 }
 
-.jumbotron {
-  padding-bottom: 2em;
-}
+body { padding-top: 50px; }
+
+.jumbotron h1 { font-size: 7vw; }
+.jumbotron p { font-size: 1.5vw; }

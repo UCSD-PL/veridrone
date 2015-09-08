@@ -1,35 +1,31 @@
-<div class="container" style="padding-top:1em">
+<div class="container">
   <div class="jumbotron">
-    <div class="container">
-      <div class="veri-brand-description">
-	<div class="veri-brand">
-	  <h1 class="page-title">{{ site.title }}</h1>
-          <img class="veri-brand-logo" src="{{ site.baseurl }}/images/{{ site.both-logos }}">
-	</div>
-	<div class="project-description">{{ site.description }}</div>
+
+    <div style="display:flex">
+      <div style="display: flex; flex:2.38 0 0; align-items: center">
+	<img src="{{ site.baseurl}}/images/{{ site.logo }}">
       </div>
-      
-      <div style="padding-top:1.8em">
-	<ul class="nav nav-pills flex-pills header-pills">
-	  <li><a class="btn btn-lg btn-responsive btn-primary" href="{{ site.baseurl }}/">Home</a></li>
-	  <li><a class="btn btn-lg btn-responsive btn-primary" href="{{ site.baseurl }}/#blog">Blog</a></li>
-	  <li><a class="btn btn-lg btn-responsive btn-primary" href="{{ site.baseurl }}/code-papers.html">Code and Papers</a></li>
-	  <li><a class="btn btn-lg btn-responsive btn-primary" href="{{ site.baseurl }}/about.html">About</a></li>
-	  <li><a class="btn btn-lg btn-responsive btn-primary" href="{{ site.baseurl }}/#footer">Contact</a></li>
-	</ul>
+      <div style="flex:9 0 0">
+	<center>
+          <h1>VeriDrone</h1>
+          <p class="lead">Foundational Verification of Cyber-Physical Systems</p>
+	</center>
+      </div>
+      <div style="display: flex; flex:2 0 0; align-items: center">
+	<img src="{{ site.baseurl }}/images/{{ site.ucsd-logo }}">
+      </div>      
+    </div>
+
+    <div style="padding-top:1.8em">
+
+      <div class="row">
+	{% for link in page.navigation %}
+	<div class="col-sm-2">
+	  <a class="btn btn-lg {% if page.url == link.url %}btn-primary{% else %}btn-default{% endif %} btn-block" href="{{ site.baseurl }}{{ link.url }}">{{ link.text }}</a>
+	</div>
+	{% endfor %}
       </div>
 
-<!--
-      <div class="text-center">
-	<div class="btn-group" role="group">
-	  <a class="btn btn-lg btn-primary" href="/">Home</a>
-	  <a class="btn btn-lg btn-primary" href="/#blog">Blog</a>
-	  <a class="btn btn-lg btn-primary" href="/code-papers.html">Code and Papers</a>
-	  <a class="btn btn-lg btn-primary" href="/about.html">About</a>
-	  <a class="btn btn-lg btn-primary" href="#footer">Contact</a>
-	</div>
-      </div>
--->
     </div>
   </div>
 </div>
