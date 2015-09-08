@@ -11,13 +11,6 @@ that illustrates the kinds of non-research fun we've been having!  A
 frustrating problem that took us a long time to fix, and caused us to
 cry out "D'oh"!
 
-<center>
-  <video width="75%" controls>
-    <source src="{{ site.baseurl }}/videos/controller-problems.mp4" type="video/mp4">
-      Your browser does not support the video tag.
-  </video>
-</center>
-
 So we were about to try a new test flight, and the quadcopter was
 resting on the athletic fields when we usually run our test flights. I
 started increasing upward thrust to get off the ground, and usually
@@ -31,6 +24,13 @@ the quacopter would rise on two legs I would bring it back down, for
 fear of flipping. This felt extremely unusual. Our monitors weren't
 even enabled yet! This video shows what was happening, and you can
 hear me complaining how something is wrong:
+
+<center>
+  <video width="75%" controls>
+    <source src="{{ site.baseurl }}/videos/controller-problems.mp4" type="video/mp4">
+      Your browser does not support the video tag.
+  </video>
+</center>
 
 "It's just wind!" said Dan. "Just gun it upwards and it will get past
 the turbulence!" And indeed it was windy... and indeed, turbulence
