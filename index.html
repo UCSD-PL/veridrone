@@ -14,11 +14,10 @@ layout: default
       </div>
       <div class="col-md-11 col-xs-10">
 	<h2>
-	  <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
+	  <a class="post-link" href="{{ post.url | prepend: site.baseurl }}#read-more">{{ post.title }}</a>
 	  <h-secondary>({{ post.date | date: "%b %-d, %Y" }})</h-secondary>
 	</h2>
-<!--	<h3 class="post-meta">{{ post.date | date: "%b %-d, %Y" }}</h3>-->
-	{{ post.excerpt }} <a class="btn btn-xs btn-default" href="{{ post.url | prepend: site.baseurl }}" role="button">Read more &raquo;</a>
+	<p>{{ post.excerpt | remove: '<p>' | remove: '</p>' }} <a href="{{ post.url | prepend: site.baseurl }}#read-more" role="button"><i class="fa fa-arrow-circle-right"></i></a></p>
       </div>
     </div>
   </li>
