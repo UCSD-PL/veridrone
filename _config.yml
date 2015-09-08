@@ -23,6 +23,10 @@ authors:
     image-url: /images/dan-head.jpg
     name: Dan Ricketts
     webpage: http://cseweb.ucsd.edu/~daricket/
+  lerner:
+    image-url: /images/dan-head.jpg
+    name: Sorin Lerner
+    webpage: http://cseweb.ucsd.edu/~lerner/
 
 # Build settings
 markdown: kramdown
