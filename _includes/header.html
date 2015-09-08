@@ -1,31 +1,29 @@
-<div class="container">
-  <div class="jumbotron">
+<div class="jumbotron">
 
-    <div style="display:flex">
-      <div style="display: flex; flex:2.38 0 0; align-items: center">
-	<img src="{{ site.baseurl}}/images/{{ site.logo }}">
-      </div>
-      <div style="flex:9 0 0">
-	<center>
-          <h1>VeriDrone</h1>
-          <p class="lead">Foundational Verification of Cyber-Physical Systems</p>
-	</center>
-      </div>
-      <div style="display: flex; flex:2 0 0; align-items: center">
-	<img src="{{ site.baseurl }}/images/{{ site.ucsd-logo }}">
-      </div>      
+  <div style="display:flex">
+    <div style="display: flex; flex:2.38 0 0; align-items: center">
+      <img src="{{ site.baseurl}}/images/{{ site.logo }}">
     </div>
-
-    <div style="padding-top:1.8em">
-
-      <div class="row">
-	{% for link in page.navigation %}
-	<div class="col-sm-2">
-	  <a class="btn btn-lg {% if page.url == link.url %}btn-primary{% else %}btn-default{% endif %} btn-block" href="{{ site.baseurl }}{{ link.url }}">{{ link.text }}</a>
-	</div>
-	{% endfor %}
-      </div>
-
+    <div style="flex:9 0 0">
+      <center>
+        <h1>VeriDrone</h1>
+        <p class="lead">Foundational Verification of Cyber-Physical Systems</p>
+      </center>
     </div>
+    <div style="display: flex; flex:2 0 0; align-items: center">
+      <img src="{{ site.baseurl }}/images/{{ site.ucsd-logo }}">
+    </div>      
+  </div>
+  
+  <div style="padding-top:1.8em">
+    
+    <div class="row">
+      {% for link in page.navigation %}
+      <div class="col-sm-2">
+	<a class="btn btn-lg {% if page.url == link.url %}btn-primary{% else %}btn-default{% endif %} btn-block" href="{{ site.baseurl }}{{ link.url }}">{{ link.text }}</a>
+      </div>
+      {% endfor %}
+    </div>
+    
   </div>
 </div>
