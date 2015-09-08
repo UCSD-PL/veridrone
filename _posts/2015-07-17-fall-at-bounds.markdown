@@ -59,7 +59,7 @@ that are irrelevant to this problem.
 
 Unmodified architecture | Architecture with our monitor
 :------------:|:-------------:
-![](/images/UAV-simple-arch-attitude.jpg){: style="width:65%"} | ![](/images/UAV-simple-arch-attitude-shim.jpg){: style="width:65%"}
+![]({{ site.baseurl }}/images/UAV-simple-arch-attitude.jpg){: style="width:65%"} | ![]({{ site.baseurl }}/images/UAV-simple-arch-attitude-shim.jpg){: style="width:65%"}
 
 In the unmodifed architecture, the pilot issues a desired throttle, roll,
 pitch, and yaw to the existing attitude controller software. The attitude
