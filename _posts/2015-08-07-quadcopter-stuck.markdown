@@ -22,7 +22,7 @@ the quadcopter was on the boundary; it only occurred sometimes.
 
 ### The cause
 
-In the [earlier post]({% post_url 2015-07-17-fall-at-bounds %}), I gave the
+In the [earlier post]({{ site.baseurl }}{% post_url 2015-07-17-fall-at-bounds %}), I gave the
 following pseudo-code for the monitor:
 
 {% highlight C %}
