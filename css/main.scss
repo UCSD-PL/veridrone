@@ -6,7 +6,7 @@
 
 
 // Our variables
-$base-font-family: Helvetica, Arial, sans-serif;
+$base-font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
 $base-font-size:   16px;
 $small-font-size:  $base-font-size * 0.875;
 $base-line-height: 1.5;
@@ -80,7 +80,11 @@ h-secondary {
   border-radius: 50%;
 }
 
-body { padding-top: 50px; }
+body { padding-top: 7vh; }
 
-.jumbotron h1 { font-size: 7vw; }
-.jumbotron p { font-size: 1.5vw; }
+.jumbotron h1 { font-size: 80px; }
+
+@include media-query($on-palm) {
+  .jumbotron h1 { font-size: 10vw; }
+  .jumbotron p { font-size: 16px; }
+}
