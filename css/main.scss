@@ -191,3 +191,9 @@ body { padding-top: 7vh; }
     background: #0087bd;
     color: #fff
 }
+
+@media (max-width: 600px) {
+  .btn-responsive {
+    font-size:80%;
+  }
+}
