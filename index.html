@@ -2,27 +2,33 @@
 layout: default
 ---
 
-<h1 id="blog" class="page-heading">Newest Posts</h1>
+<div class="page-content">
+  <div class="wrapper">
 
-<ul class="post-list">
-  {% for post in site.posts %}
-  <li>
+    <h1 id="blog" class="page-heading">Newest Posts</h1>
 
-    <div class="row">
-      <div class="col-md-1 col-xs-2">
-	{% if post.author %}<img src="{{ site.baseurl }}{{ site.authors[post.author].image-url }}" class="oval">{% endif %}
-      </div>
-      <div class="col-md-11 col-xs-10">
-	<h2>
-	  <a class="post-link" href="{{ post.url | prepend: site.baseurl }}#read-more">{{ post.title }}</a>
-	  <h-secondary>({{ post.date | date: "%b %-d, %Y" }})</h-secondary>
-	</h2>
-	<p>{{ post.excerpt | remove: '<p>' | remove: '</p>' }} <a href="{{ post.url | prepend: site.baseurl }}#read-more" role="button"><i class="fa fa-arrow-circle-right"></i></a></p>
-      </div>
-    </div>
-  </li>
-    {% endfor %}
-</ul>
+    <ul class="post-list">
+      {% for post in site.posts %}
+      <li>
 
-<p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a>
-{% if site.twitter_username %}or follow us on <a href="http://twitter.com/{{ site.twitter_username }}"><i class="fa fa-twitter fa-2x"></i></a>{% endif %}</p>
+	<div class="row">
+	  <div class="col-md-1 col-xs-2">
+	    {% if post.author %}<img src="{{ site.baseurl }}{{ site.authors[post.author].image-url }}" class="oval">{% endif %}
+	  </div>
+	  <div class="col-md-11 col-xs-10">
+	    <h2>
+	      <a class="post-link" href="{{ post.url | prepend: site.baseurl }}#read-more">{{ post.title }}</a>
+	      <h-secondary>({{ post.date | date: "%b %-d, %Y" }})</h-secondary>
+	    </h2>
+	    <p>{{ post.excerpt | remove: '<p>' | remove: '</p>' }} <a href="{{ post.url | prepend: site.baseurl }}#read-more" role="button"><i class="fa fa-arrow-circle-right"></i></a></p>
+	  </div>
+	</div>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a>
+      {% if site.twitter_username %}or follow us on <a href="http://twitter.com/{{ site.twitter_username }}"><i class="fa fa-twitter fa-2x"></i></a>{% endif %}</p>
+
+  </div>
+</div>
