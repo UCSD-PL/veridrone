@@ -192,7 +192,7 @@ body { padding-top: 7vh; }
     color: #fff
 }
 
-@media (max-width: 600px) {
+@include media-query($on-palm) {
   .btn-responsive {
     font-size:90%;
     margin: 3px auto;
