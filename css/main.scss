@@ -66,6 +66,38 @@ $on-laptop:        992px;
     display: inline-block;
 }
 
+.social ul li a i {
+ background: #205D7A;
+ color: #fff;
+ width: 40px;
+ height: 40px;
+ border-radius: 20px;
+ font-size: 25px;
+ text-align: center;
+ margin-right: 10px;
+ padding-top: 15%;
+}
+
+.social ul li a i {
+ transition: all 0.2s ease-in-out;
+}
+.social ul li a i:hover {
+ opacity: .7;
+}
+
+.social .fa-facebook {
+  background:#3b5998
+} 
+.social .fa-linkedin {
+  background:#007bb6
+}
+.social .fa-twitter {
+  background:#00aced
+}
+.social .fa-google-plus {
+  background:#dd4b39
+}
+
 .page-title {
   font-weight: 500;
 }
@@ -87,4 +119,49 @@ body { padding-top: 7vh; }
 @include media-query($on-palm) {
   .jumbotron h1 { font-size: 10vw; }
   .jumbotron p { font-size: 16px; }
+}
+
+.follow {
+  position: fixed;
+  top: 5px;
+  left: 5px;
+  z-index: 99999;
+
+}
+
+.btn-twitter {
+    background: #00acee;
+    border-radius: 0;
+    color: #fff
+}
+.btn-twitter:link, .btn-twitter:visited {
+    color: #fff
+}
+.btn-twitter:active, .btn-twitter:hover {
+    background: #0087bd;
+    color: #fff
+}
+.btn-facebook {
+    background: #3b5998;
+    border-radius: 0;
+    color: #fff
+}
+.btn-facebook:link, .btn-facebook:visited {
+    color: #fff
+}
+.btn-facebook:active, .btn-facebook:hover {
+    background: #30477a;
+    color: #fff
+}
+.btn-googleplus {
+    background: #e93f2e;
+    border-radius: 0;
+    color: #fff
+}
+.btn-googleplus:link, .btn-googleplus:visited {
+    color: #fff
+}
+.btn-googleplus:active, .btn-googleplus:hover {
+    background: #ba3225;
+    color: #fff
 }
