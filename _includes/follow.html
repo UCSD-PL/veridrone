@@ -1,5 +1,7 @@
 <div class="follow">
-  <a href="https://twitter.com/intent/follow?screen_name={{ site.twitter_username }}" class="btn btn-twitter">Follow @{{ site.twitter_username }}</a>
-  <a href="https://twitter.com/intent/follow?screen_name={{ site.twitter_username }}" class="btn btn-twitter">Follow <i class="fa fa-twitter"></i></a>
-  <a href="https://twitter.com/intent/follow?screen_name={{ site.twitter_username }}" class="btn btn-twitter"><i class="fa fa-twitter"></i> @{{ site.twitter_username }}</a>
+  <ul>
+<!--    <li><a href="https://twitter.com/intent/follow?screen_name={{ site.twitter_username }}" class="btn btn-twitter">Follow @{{ site.twitter_username }}</a></li>-->
+    <li><a href="https://twitter.com/intent/follow?screen_name={{ site.twitter_username }}" class="btn btn-twitter">Follow <i class="fa fa-twitter"></i></a></li>
+<!--    <li><a href="https://twitter.com/intent/follow?screen_name={{ site.twitter_username }}" class="btn btn-twitter"><i class="fa fa-twitter"></i> @{{ site.twitter_username }}</a></li>-->
+    <li><a href="{{ "/feed.xml" | prepend: site.baseurl }}" class="btn btn-rss">RSS <i class="fa fa-rss fa"></i></a></li>
 </div>

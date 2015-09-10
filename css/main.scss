@@ -123,10 +123,19 @@ body { padding-top: 7vh; }
 
 .follow {
   position: fixed;
-  top: 5px;
-  left: 5px;
+  top: 0px;
+  left: 0px;
   z-index: 99999;
+}
 
+.follow ul li {
+    margin: 5px;
+    margin-left: 5px;
+    list-style: none outside none;
+}
+
+.follow ul {
+    margin-left: 5px;
 }
 
 .btn-twitter {
@@ -163,5 +172,17 @@ body { padding-top: 7vh; }
 }
 .btn-googleplus:active, .btn-googleplus:hover {
     background: #ba3225;
+    color: #fff
+}
+.btn-rss {
+    background:#F60;
+    border-radius: 0;
+    color: #fff
+}
+.btn-rss:link, .btn-rss:visited {
+    color: #fff
+}
+.btn-rss:active, .btn-rss:hover {
+    background: #0087bd;
     color: #fff
 }
