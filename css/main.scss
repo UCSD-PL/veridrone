@@ -88,9 +88,6 @@ $on-laptop:        992px;
 .social .fa-facebook {
   background:#3b5998
 } 
-.social .fa-linkedin {
-  background:#007bb6
-}
 .social .fa-twitter {
   background:#00aced
 }
@@ -126,6 +123,14 @@ body { padding-top: 7vh; }
   top: 0px;
   left: 0px;
   z-index: 99999;
+}
+
+@include media-query($on-palm) {
+  .follow {
+    top: auto;
+    bottom: 0px;
+    left: 0px;
+  }
 }
 
 .follow ul li {
