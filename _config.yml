@@ -27,6 +27,27 @@ authors:
     image-url: /images/sorin-head.jpg
     name: Sorin Lerner
     webpage: http://cseweb.ucsd.edu/~lerner/
+  mmalvarez:
+    image-url: /images/mario-face2.jpg
+    name: Mario Alvarez
+    webpage: http://goto.ucsd.edu/~mario/
+  vgowda:
+    image-url: /images/vignesh.jpg
+    name: Vignesh Gowda
+    webpage:
+  gmalecha:
+    image-url: /images/gregory-malecha.jpg
+    name: Gregory Malecha
+    webpage: https://gmalecha.github.io/
+  rkastner:
+    image-url: /images/kastner-head.jpg
+    name: Ryan Kastner
+    webpage: http://kastner.ucsd.edu/
+  mkrstic:
+    image-url: /images/krstic-head.jpg
+    name: Miroslav Krstic
+    webpage: http://flyingv.ucsd.edu/
+
 
 # Build settings
 markdown: kramdown

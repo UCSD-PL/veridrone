@@ -13,7 +13,7 @@ layout: default
 
 	<div class="row">
 	  <div class="col-md-1 col-xs-2">
-	    {% if post.author %}<img src="{{ site.baseurl }}{{ site.authors[post.author].image-url }}" class="oval">{% endif %}
+	    {% if post.author %}<a href="{{ site.authors[post.author].webpage }}"><img src="{{ site.baseurl }}{{ site.authors[post.author].image-url }}" class="oval"></a>{% endif %}
 	  </div>
 	  <div class="col-md-11 col-xs-10">
 	    <h2>
