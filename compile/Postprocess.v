@@ -1088,7 +1088,7 @@ Proof.
            repeat match goal with
                   | H : _ = _ |- _ => rewrite H in *
                   end;
-                try (z3 solve; admit).
+           try (z3 solve; admit).
           repeat first [ eapply Impl_drop with (x:=x3); [ solve [ try_it H9 ] | idtac "dropped" ]
                        | eapply Impl_keep
                        | simple eapply Impl_nil ]. }
@@ -1125,7 +1125,7 @@ premise := fla |}
 *)
         
 
-
+(*
         Eval cbv beta iota zeta delta [ bound_fexpr bound_term fexpr_to_NowTerm cross flat_map app
                                         combineTripleMult combineTriplePlus
                                                              combineTripleMinus simpleBound a_mult premise lb ub c_ge
@@ -1141,13 +1141,113 @@ simpleBound8 simpleBound9 simpleBound6 simpleBound10 lofst
 in (bound_fexpr
          (FMinus (FConst f10)
             (FPlus (FMult (FVar "a") (FConst float_one)) (FVar "v")))).
-Print singleBoundTerm.
+ *)
+          unfold maybe_lt0, maybe_ge0, map, AnyOf, bound_fexpr, bound_term, fexpr_to_NowTerm,
+          bounds_to_formula, denote_singleBoundTermNew, isVarValid, lb, ub, premise.
+          rewrite H0.
+          rewrite H.
+          repeat rewrite fstate_lookup_update_match with (fst := x3) (v := "a").
+          repeat match goal with
+            | |- context[Fappli_IEEE.B2R ?x1 ?x2 ?x3] => idtac x3;
+              let X2 := eval lazy in (Fappli_IEEE.B2R x1 x2 x3) in change (Fappli_IEEE.B2R x1 x2 x3) with X2
+                 end.
+          repeat split.
 
+          Lemma crunch_or :
+            forall (P P' Q Q' : Prop),
+              (P' -> P) -> (Q' -> Q) ->
+              P' \/ Q' -> P \/ Q.
+          Proof.
+            intuition.
+          Qed.
 
-        
-        Print bound_term.
-        
+          idtac.
 
+          intros.
+          fwd.
+
+          eexists.
+          split.
+          erewrite <- fstate_lookup_update_match. reflexivity.
+          left.
+          split. eauto.
+          intros.
+          rewrite <- fstate_lookup_update_match. (* todo - previous ones rewrite in wrong direction *)
+          rewrite H9. left.
+          clear -H10. lra.
+
+          intros.
+          eexists.
+          rewrite <- fstate_lookup_update_match.
+          split; [reflexivity|].
+          left.
+          split.
+          
+          Lemma F2OR_isFloatConstValid :
+            forall (f : float) (r : R),
+              F2OR f = Some r ->
+              isFloatConstValid f.
+          Proof.
+            intros.
+            unfold isFloatConstValid.
+            destruct f; try constructor; unfold F2OR in *; try congruence.
+          Qed.
+
+          idtac.
+
+          eapply F2OR_isFloatConstValid. eauto.
+
+          intros.
+          rewrite <- fstate_lookup_update_match.
+          rewrite H9.
+
+          right.
+
+          show_value error.
+          show_value floatMin.
+          show_value floatMax.
+          unfold fstate_lookup_force in *.
+          rewrite H in H10.
+
+          destruct H8.
+
+          { admit. (* don't think this is provable *) }
+          
+          destruct H8.
+          { z3 solve_dbg; admit. }
+
+          {
+          repeat destruct H8;
+            try (z3 solve; admit).
+          {
+            unfold plusResultValidity, multResultValidity, minusResultValidity, eval_NowTerm in H14.
+            unfold lift2 in H14.
+            rewrite -> H in H14.
+            rewrite -> H0 in H14.
+            
+            unfold isFloatConstValid in H14.
+            fwd.
+          
+          z3 solve.
+          
+          destruct f0.
+
+          eapply crunch_or.
+
+          unfold isVarValid.
+          rewrite H0.
+          rewrite H.
+          unfold isVarValid.
+          
+          
+          
+
+          
+          
+
+            (* this is as far as Gregory and I got on 8/20 *)
+          simpl maybe_lt0.
+          unfold maybe_lt0.
         
         split.
         { intros; eexists; split; [ reflexivity | ].
@@ -1929,13 +2029,7 @@ Print singleBoundTerm.
                 intuition.
               Qed.
 
-              Lemma crunch_or :
-                forall (P P' Q Q' : Prop),
-                  (P' -> P) -> (Q' -> Q) ->
-                  P' \/ Q -> P \/ Q.
-              Proof.
-                intuition.
-              Qed.
+              
 
               Definition z3proved : Prop -> Prop :=
                 fun _ => True.
