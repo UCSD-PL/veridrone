@@ -19,7 +19,7 @@
     
     <div class="row">
       {% for link in page.navigation %}
-      <div class="col-sm-2 col-xs-4">
+      <div class="col-md-2 col-xs-4">
 	<a class="btn btn-responsive btn-lg {% if page.url == link.url %}btn-primary{% else %}btn-default{% endif %} btn-block" href="{{ site.baseurl }}{{ link.url }}">{{ link.text }}</a>
       </div>
       {% endfor %}
