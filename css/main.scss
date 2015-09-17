@@ -125,14 +125,6 @@ body { padding-top: 7vh; }
   z-index: 99999;
 }
 
-@include media-query($on-palm) {
-  .follow {
-    top: auto;
-    bottom: 0px;
-    left: 0px;
-  }
-}
-
 .follow ul li {
     margin: 5px;
     margin-left: 5px;
