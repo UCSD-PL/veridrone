@@ -5,8 +5,8 @@ date:   2015-09-17 11:00:00
 author: lerner
 categories: quadcopter test
 ---
-<div style="float:left;margin:0 15px 5px 0;">
-  <video width="50%" controls>
+<div style="float:left;margin:0 15px 5px 0; width:50%">
+  <video width="100%" controls>
     <source src="{{ site.baseurl }}/videos/agressive-flying-height-limiter.mp4" type="video/mp4">
       Your browser does not support the video tag.
   </video>
@@ -18,3 +18,4 @@ height boundary while flying aggressively to the right. Then, with
 throttle pushed all the way up, I try various motion in other
 directions, including so-called yaw (essentially pivoting).
 
+<div style="clear:both;"></div>
