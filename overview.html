@@ -32,13 +32,49 @@ layout: default
   devices (from pacemakers and insulin pumps to defibrillators and
   radiation machines).</p>
 
-<p class="lead"> Here is a video of our quadcopter flying (if you cannot see the video
-  below, <a href="{{ site.baseurl }}/videos/first-heigth-shim-flight-short.mp4">here</a> is a
-  link)</p>
+<p class="lead"> Here is a video of our quadcopter flying (if you
+cannot see the video below, <a href="{{ site.baseurl }}/videos/first-heigth-shim-flight-short.mp4">here</a> is a
+  link). Also note that there is audio! </p>
 
+<p>
 <center>
   <video width="75%" controls>
     <source src="{{ site.baseurl }}/videos/first-heigth-shim-flight-short.mp4" type="video/mp4">
       Your browser does not support the video tag.
   </video>
 </center>
+</p>
+
+<p class="lead">This video shows the first test flight for our verified altitude
+monitor, which enforces an upper bound on altitude. This monitor could
+for example be used to enforce the FAA regulation stating that
+recreational quadcopters stay below 400 feet. Our altitude monitor is
+placed between the pre-existing software controller that runs on the
+quadcopter and the four motors of the quadcopter. In particular, our
+monitor takes as input the four motor values produced by the
+pre-existing controller, and it produces four new motor values. If our
+monitor predicts that no violation of the altitude bound will occur
+(in essence because there is still enough time to act to avoid any
+violations), our monitor will pass the four motor values
+unchanged. However, if our monitor predicts that an intervention is
+needed to avoid an altitude bound violation, it produces a new set of
+motor values to slow the quadcopter's upward climb.</p>
+
+<p class="lead"> What you see in the video above is that pilot Sorin
+is pushing the upward throttle on the handleld remote controller,
+which makes the quadcopter climb steadily upward. It's important to
+realize that all through the video, Sorin is pushing the throttle
+upwards on the quadcopter handheld controller. The quadcopter climbs
+until it reaches close to the altitude limit (10 meters), at which
+point our monitor engages. Because our monitor engages, the quadcopter
+stops going upward, even though Sorin has the throttle all the way up
+on the handheld controller. Then at the end of the video, Sorin
+disables the monitor (with a switch on the handheld controller), and
+the quadcopter shoots up past the altitude bound. You can hear Gregory
+proclaim victory!</p>
+
+<p class="lead">You can hear in the video (and we observed in
+practice) that there was a slight violation of the bound, which is
+due to noise in sensors and actuators. This is a definitely a
+challenge we want to address in future work: how to reason formally
+and foundationally about this kind of noise.</p>
