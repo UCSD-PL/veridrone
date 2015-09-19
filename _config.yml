@@ -9,7 +9,7 @@ description: > # this means to ignore newlines until "baseurl:"
     practical, we evaluate them within the context of a real
     flying quadcopter.
 baseurl: "/veridrone" # the subpath of your site, e.g. /blog/
-url: "http://veridrone.ucsd.edu" # the base hostname & protocol for your site
+url: "http://ucsd-pl.github.io" # the base hostname & protocol for your site
 twitter_username: veridrone
 github_username:
 logo: veridrone-logo-grey.png
