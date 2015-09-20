@@ -202,9 +202,14 @@
     letter-spacing: -1px;
     line-height: 1;
 
-    @include media-query($on-laptop) {
-        font-size: 36px;
+    @include media-query($on-phone) {
+        font-size: 20px;
     }
+
+    @media screen and (max-width: $on-laptop) and (min-width: $on-phone) {
+        font-size: 25px;
+    }
+
 }
 
 .post-content {
