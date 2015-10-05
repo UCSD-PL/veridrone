@@ -15,19 +15,24 @@ categories: quadcopter floating-point semantics
 
 ### Introduction - The Problem
 
-In order to reason about quadcopters as a hybrid system, we by definition need to
-be able to reason about the copter's controller code in the context of the system's
-physical dynamics. That is to say, we need to be able to combine our source program
-that will run on the quadcopter and its semantics with the physical semantics of the
-quadcopter. This is the first of three blog posts on our infrastructure for
-embedding controller programs (written in a C-like language) into our logic
-for hybrid systems. Part two will focus on supporting additional language features
-(failure and nondeterminism) and part three will deal with the challenges that
-arise in supporting languages with floating-point number semantics. For now, however,
-we focus on real-valued, deterministic, total programs that can neither crash
-nor "get stuck".
+> Our VeriDrone model of hybrid systems is built on linear temporal logic (LTL).
+In LTL, we express valid transitions of the system using relations between a pre-state (before the transition occurs) and a post-state (after the transition occurs).
+> This description of transitions is very expressive; for example, it allows us to state interesting transitions such as evolution of the system by differential equations without extending our formalism.
+> However, this power also introduces a mismatch between the expressivity of the model and the actual software that controls the system.
+> In this post, we will discuss how we address this mismatch by demonstrating a general technique for embedding programs (expressed using standard programming-language techniques) in LTL formalas.
+> While the problem may seem trivial, there are several interesting caveats that arise when the language includes non-determinism (e.g. ```rand()```) and unrecoverable errors (e.g. segmentaion faults).
+
+> Maybe cut this paragraph into two pieces? One more motivation and the other more "what is our logic". The problem is that the two problems are intricately linked since the problem is "overcoming the semantic mismatch between two formalisms"
+
+In order to reason about quadcopters as a hybrid system, we need to be able to reason about the controller code in the context of the system's physical dynamics.
+That is to say, we need to be able to combine our source program that will run on the quadcopter and its semantics with the physical semantics of the quadcopter.
+This is the first of three blog posts on our infrastructure for embedding controller programs (written in a C-like language) into our logic for hybrid systems.
+Part two will focus on supporting additional language features (failure and nondeterminism) and part three will deal with the challenges that arise in supporting languages with floating-point number semantics.
+For now, however, we focus on real-valued, deterministic, total programs that can neither crash nor "get stuck".
 
 ### Our Logic
+
+> I'm not convinced that this is necessary. In particular, the discussion of always isn't important because we don't really need trace formulae, just action formulae.
 
 We use a Temporal Logic of Actions (TLA)-inspired variant of Linear Temporal Logic (LTL).
 For the purposes of this post I'll refer to this logic as RLTL, so called because it
@@ -76,6 +81,11 @@ creates some tricky corner-cases for embedding.
 
 ### Our Imperative Language Semantics (Version 1)
 
+> Embedding a Total, Deterministic Language
+
+> Let's begin by looking at a total, deterministic language.
+> We define the syntax of the programming language as the following inductive type.
+
 To embed programs in RLTL, we first need a semantics for the language
 we're embedding. In this case we follow the standard approach of giving
 the language an *operational semantics* in terms of an inductively-defined
@@ -89,13 +99,20 @@ Here's the data structure defining the syntactic constructs of
 the language we are going to embed into RLTL:
 
 {%highlight coq%}
-    Inductive cmd :=
-    | Seq (_ _ : cmd)
-    | Skip
-    | Asn (_ : nat) (_ : cexpr)
-    | Ite (_ : cexpr) (_ _ : cmd)
-    .
+Inductive cmd :=
+| Seq (_ _ : cmd)
+| Skip
+| Asn (_ : nat) (_ : cexpr)
+| Ite (_ : cexpr) (_ _ : cmd).
 {%endhighlight%}
+
+> Next, we need to describe the semantics, i.e. the meaning, of each construct.
+> For this simple definition, we will give a big-step operational semantics defined inductively.
+> First, a state of the programming language is an assignment of variables to values.
+> We will use an association list to make precise the fact that the state of the program is finite.
+> Next , ..
+> Intuitively, ```evals st p st'``` states that when the program ```p``` is run from the state ```st``` it will terminate in the state ```st'```.
+> (just a note about ```cexpr```, I don't think that we need to show the code).
 
 <tt>Seq</tt> here corresponds to sequencing (the semicolon
 in C); <tt>Skip</tt> is a no-op; <tt>Asn</tt> assigns
@@ -108,13 +125,12 @@ whether the given expression evaluates to a value equal to zero.
 For completeness, our expression language looks like this:
 
 {%highlight coq%}
-    Inductive cexpr :=
-    | CVar : nat -> cexpr
-    | CConst : R -> cexpr
-    | CPlus : cexpr -> cexpr -> cexpr
-    | CMinus : cexpr -> cexpr -> cexpr
-    | CMult : cexpr -> cexpr -> cexpr
-    .
+Inductive cexpr :=
+| CVar : nat -> cexpr
+| CConst : R -> cexpr
+| CPlus : cexpr -> cexpr -> cexpr
+| CMinus : cexpr -> cexpr -> cexpr
+| CMult : cexpr -> cexpr -> cexpr.
 {%endhighlight%}
 
 The semantics for the expression language are what one would naively
@@ -126,33 +142,42 @@ limited-precision datatypes we are used to programming with).
 Here is the semantics for the first version of our command language:
 
 {%highlight coq%}
-    Inductive eval : state -> cmd -> state -> Prop :=
-    | ESkip : forall s, eval s Skip s
-    | ESeq : forall s s' s'' a b,
-        eval s a s' ->
-        eval s' b s'' ->
-        eval s (Seq a b) s''
-    | EAsn : forall s v e val,
-        cexprD e s = val ->
-        eval s (Asn v e) (update s v val)
-    | EIteTrue :
-        forall s s' ex c1 c2,
-        cexprD ex s = Some 0%R ->
-        eval s c1 s' ->
-        eval s (Ite ex c1 c2) s'
-    | EIteFalse:
-        forall s s' ex c1 c2 r,
-        cexprD ex s = Some r ->
-        r <> 0%R ->
-        eval s c2 s' ->
-        eval s (Ite ex c1 c2) s'
+Inductive eval : state -> cmd -> state -> Prop :=
+| ESkip : forall s, eval s Skip s
+| ESeq : forall s s' s'' a b,
+  eval s a s' ->
+  eval s' b s'' ->
+  eval s (Seq a b) s''
+| EAsn : forall s v e val,
+  cexprD e s = val ->
+  eval s (Asn v e) (update s v val)
+| EIteTrue :
+  forall s s' ex c1 c2,
+    cexprD ex s = Some 0%R ->
+    eval s c1 s' ->
+    eval s (Ite ex c1 c2) s'
+| EIteFalse:
+  forall s s' ex c1 c2 r,
+    cexprD ex s = Some r ->
+    r <> 0%R ->
+    eval s c2 s' ->
+    eval s (Ite ex c1 c2) s'
 {%endhighlight%}
+
 
 Here <tt>state</tt> is any data structure mapping natural-number indices
 ("variable names") to real-number values. In our case we use an
 association-list. <tt>update</tt> does what one would expect, updating
 an entry in the mapping. Finally, <tt>cexprD</tt> is the function
 giving meaning to evaluation of <tt>cexpr</tt>s, omitted for brevity.
+
+> Embedding our simple language inside of LTL requires that we relate program states (association lists) to LTL states (functions).
+> There are two levels of mapping: first, we need to show how variables in the language map to variables in LTL, and second, we need a way to relate values in our language to LTL values.
+> The second is simple, since both LTL values and our language values are simply real numbers, therefore we can simply pick equality.
+> The first relation is slightly more complex. We need to relate the infinite set of LTL variables to the finite set of variables in our programming language.
+> We do this using the following defintion: (give the definition of models)
+> This definition states that every ...
+
 
 ### Embedding into RLTL
 
@@ -166,13 +191,13 @@ using different conventions or even different data-types.
 For our first language, the following embedding function suffices:
 
 {%highlight coq%}
-  Definition embedStep_ex (vars : list (string * nat)) (prg : cmd)
-  : Syntax.Formula :=
-    Syntax.Embed (fun pre post =>
-                    exists init_state post_state : state,
-                      models vars pre init_state /\
-                      eval init_state prg post_state /\
-                      models vars post post_state)%type.
+Definition embed_program (vars : list (LTLVar * PLVar)) (prg : cmd)
+: Formula :=
+  Embed (fun pre post =>
+           exists init_state post_state : state,
+              models vars pre init_state /\
+              eval init_state prg post_state /\
+              models vars post post_state).
 {%endhighlight%}
 
 In prose, this says more or less the following. The RLTL
@@ -180,14 +205,19 @@ formula corresponding to the embedding of a program is a
 "step-formula" (that is, a formula over two states, a pre-state
 and a post-state) requiring the following:
 
-- There exist an initial program state matching up with the
+- There exists an initial program state matching up with the
 starting RLTL state
-- There exist a final program state matching up with the
-final RLTL state
 - The program must cause the evaluation relation to step from
 the pre-state to the post-state
+- There exists a final program state matching up with the
+final RLTL state
+
+> Does it make sense to put non-deterministic and error programs into this post now?
+> It might be the case that the interesting issue comes from failure. With non-determinism, we just need to be explicit about backtracking failure and end-the-world failure.
 
 ### Discussion
+
+
 
 This embedding function seems intuitively correct, but it has some
 problematic corner cases related to crashing and nondeterministic
