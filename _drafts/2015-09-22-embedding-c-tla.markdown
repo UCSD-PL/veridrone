@@ -16,6 +16,18 @@ for embedding programs with standard programming-language style semantics into a
 (that is, RTLA formulas that can talk both about the state of the world "before" and "after"
 some event occurs - the event, in this case, would be running the program).
 
+*Point out that in TLA "x := 1" means "x gets 1 and everything else can change"; in
+PL/semantics style it just means "x gets 1 and everything else stays the same".*
+Thus, difficulty of implementing a "semicolon" operator in TLA
+
+Later: "all evaluations of the program have this property" rather than just
+"some evaluations have it"
+
+Ideas
+1. Logic vs. programs
+2. Nontotality/crashing
+3. Nondeterminism
+
 <head>
     <!-- MathJAX import -->
     <script type="text/javascript"
