@@ -1,29 +1,58 @@
 ---
 layout: post
-title:  "Quadcopter stuck outside boundaries: a solution"
+title:  "Model meets reality: practical monitor verification"
 date:   2015-10-20 11:12:27
 author: daricket
 categories: quadcopter test
 ---
 
-In a [prior post]({{ site.baseurl }}{% post_url 2015-08-07-quadcopter-stuck %}),
-I described an interesting problem we ran into in which the quadcopter
-would get stuck at the boundaries of the safety regions enforced by the
-rectangular bounding monitor. In this post, I'll describe a potential solution
-to this issue.
+Back in July, we built a software module to "guarantee" that a quadcopter
+never leaves a rectangular box. We spent months *proving* this guarantee as
+a mathematical theorem. We were pretty proud of ourselves, until we
+actually bothered to run our code. As it turns out, when it comes to
+cyber-physical systems, there's more to it then just proving theorems.
 
-To summarize, while running our rectangular bounding monitor, when the
-quadcopter was pushed outside any of the boundaries by wind or other
-unmodeled forces, the logic of the monitor prevented the quadcopter from
-moving back inside the boundaries, regardless of what the pilot did. This
-was not a violation of any property we verified. Within our model of the
-dynamics of the quadcopter, the monitor prevents the quadcopter from ever
-leaving the rectangular boundaries, so there is no need to prove anything
-about what happens when the quadcopter is outside. However, when working
-with cyber-physical systems, there is always a gap between model and
-reality. In order to build a practical verified monitor, we need to verify
-something about what happens when the quadcopter is outside the boundaries
-enforced by the monitor. What exactly should we verify?
+### The problem
+
+The purpose of the software module, which we call a monitor, is to allow
+the pilot or existing control software to move the quadcopter freely within
+a rectangular region but prevent it from ever leaving that rectangular
+region.
+
+Quadcopter inside boundary | Quadcopter approaching boundary
+:------------:|:-------------:
+![]({{ site.baseurl }}/images/pilot-within-box.jpg){: style="width:85%"} | ![]({{ site.baseurl }}/images/pilot-at-boundary.jpg){: style="width:85%"}
+
+We proved that our monitor guarantees that the quadcopter will never leave
+the safe rectangular box, *assuming a simple model of the quadcopter
+dynamics*. This is a key point. In particular, our model doesn't include a
+number of forces like wind. So as it turns out, when you actually fly a
+quadcopter with our monitor, it does occasionally leave the rectangular
+safe region. Minor violations are ok; in fact, they are inevitable in this
+domain since a model of the physical dynamics can never include all the
+details. But what happens when the quadcopter leaves the rectangular safe
+region? As the following figure depicts, the quadcopter gets stuck:
+
+![]({{ site.baseurl }}/images/pilot-outside-box.jpg){: style="width:45%"}
+
+A [prior post]({{ site.baseurl }}{% post_url 2015-08-07-quadcopter-stuck %})
+discusses why the quadcopter gets stuck. To summarize, while running
+our rectangular bounding monitor, when the quadcopter was pushed outside
+any of the boundaries by wind or other unmodeled forces, the logic of the
+monitor prevented the quadcopter from moving back inside the boundaries,
+regardless of what the pilot did.  In this post, I'm going to describe
+potential solutions to this issue.
+
+### Potential solutions
+
+This issue is not a violation of any property we verified. Within our model
+of the dynamics of the quadcopter, the monitor prevents the quadcopter from
+ever leaving the rectangular boundaries, so there is no need to prove
+anything about what happens when the quadcopter is outside. However, when
+working with cyber-physical systems, there is always a gap between model
+and reality. In order to build a practical verified monitor, we need to
+verify something about what happens when the quadcopter is outside the
+boundaries enforced by the monitor. What exactly should we verify?
 
 Informally, we want the quadcopter to behave reasonably with respect the
 the safe region defined by the monitor's boundaries. For example, we want
@@ -33,6 +62,8 @@ we want whatever property we verify to reduce to our original safety
 property when the quadcopter starts within the safe region (i.e. the
 quadcopter stays within the safe region if it starts within the safe
 region[^1]).
+
+![]({{ site.baseurl }}/images/move-back-inside.jpg){: style="width:45%"}
 
 These informal notions of reasonable behavior are very similar to several
 core notions in control theory called Lyapunov stability. Roughly speaking,
