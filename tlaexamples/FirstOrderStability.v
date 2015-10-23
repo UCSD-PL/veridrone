@@ -1,8 +1,11 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
 Require Import TLA.BasicProofRules.
-Require Import Examples.DiffEqSolutions.
+Require Import TLA.Stability.
+Require Import TLA.LyapunovFunctions.
+Require Import TLA.ArithFacts.
 Require Import Coq.Lists.List.
+Require Import Examples.DiffEqSolutions.
 
 Open Scope HP_scope.
 Open Scope string_scope.
@@ -19,24 +22,18 @@ Module Stability (Import P : Params).
   Definition Abs (x : Term) : Term :=
     MAX(x,--x).
 
-  Definition ExponentiallyStable : Formula :=
-    Exists y0 : R, "y" = y0 //\\
-    Exists a : R, a > 0 //\\
-    Exists b : R, b > 0 //\\
-      []Abs "y" <= a * Abs y0 * exp(--b * "t").
-
   Definition World : Evolution :=
     fun st' =>
       st' "y" = "v" //\\ st' "t" = 1 //\\
-      st' "v" = 0 //\\ st' "T" = 0.
+      st' "v" = 0 //\\ st' "T" = 0 //\\ "t" - "T" < d.
 
   Definition Ctrl (v : Term) : Formula :=
     v = --"y"/d.
 
   Definition Next : Formula :=
-    (Continuous World //\\ "t"! - "T"! < d) \\//
-    (Ctrl "v"! //\\ "T"! = "t" //\\
-     Unchanged ("t"::"y"::nil)).
+    Continuous World \\//
+   (Ctrl "v"! //\\ "T"! = "t" //\\
+    Unchanged ("t"::"y"::nil)).
 
   Definition Init : Formula :=
     "t" = 0 //\\ "T" = "t" //\\ Ctrl "v".
@@ -44,14 +41,44 @@ Module Stability (Import P : Params).
   Definition Spec : Formula :=
     Init //\\ []Next.
 
+  Definition AbstractWorld : Evolution :=
+    fun st' =>
+      st' "y" = --"y"/(d + "T" - "t") //\\  st' "t" = 1 //\\
+      st' "T" = 0 //\\ "t" - "T" < d.
+
   Definition AbstractNext : Formula :=
-    "y"! = "y"*(d + "T"! - "t"!)/(d + "T"! - "t") //\\
-    "t"! >= "t".
+    Continuous AbstractWorld \\// "T"! = "t" //\\
+    Unchanged ("t"::"y"::nil).
+
+  Definition velocity_formula : Formula :=
+    "v" = --"y"/(d + "T" - "t").
+
+  Lemma world_abstraction_ind :
+    velocity_formula //\\ Continuous World |--
+    next velocity_formula.
+  Proof.
+    zero_deriv_tac "v".
+    zero_deriv_tac "T".
+    tlaAssert ("t"! - "T"! < d).
+    { rewrite ContinuousProofRules.Continuous_st_formula
+      with (F:="t"-"T" < d).
+      - simpl next. restoreAbstraction. charge_assumption.
+      - tlaIntuition.
+      - tlaIntuition.
+      - solve_linear. }
+    assert (evolution_entails World sgl_int)
+      by (red; red; solve_linear).
+    rewrite H. clear H. rewrite solve_sgl.
+    reason_action_tac. intuition.
+    rewrite H1 in *. rewrite H2 in *. rewrite H3 in *.
+    rewrite H in *. clear H1 H2 H H3.
+    z3_solve; admit.
+  Qed.
 
   Lemma abstraction :
     Spec |-- Init //\\ []AbstractNext.
   Proof.
-    tlaAssert ([]"v" = --"y"/(d + "T" - "t")).
+    tlaAssert ([]velocity_formula).
     - eapply discr_indX.
       + tlaIntuition.
       + charge_assumption.
@@ -59,56 +86,57 @@ Module Stability (Import P : Params).
         rewrite_real_zeros. solve_linear.
       + unfold Next. rewrite Lemmas.land_lor_distr_R.
         apply lorL.
-        * zero_deriv_tac "v".
-          zero_deriv_tac "T".
-          assert (evolution_entails World sgl_int)
-            by (red; red; solve_linear).
-          rewrite H. clear H. rewrite solve_sgl.
-          reason_action_tac. intuition.
-          rewrite H1 in *. rewrite H2 in *. rewrite H3 in *.
-          rewrite H0 in *. clear H1 H2 H3 H0.
-          admit. (* z3 accepts this one *)
+        * apply world_abstraction_ind.
         * solve_linear. rewrite H1. rewrite H2. rewrite H3.
-          rewrite H. admit. (* z3 accepts this one *)
-    - charge_intros. charge_split; [ charge_assumption | ].
-      unfold Spec. rewrite landA. rewrite Always_and.
-      always_imp_tac. charge_intros.
-      unfold Next. rewrite Lemmas.land_lor_distr_R.
-      apply lorL.
-      + zero_deriv_tac "T".
-        assert (evolution_entails World sgl_int)
-            by (red; red; solve_linear).
-        rewrite H. clear H. rewrite solve_sgl.
-        solve_linear.
-        rewrite H1 in *. rewrite H2.
-        admit. (* z3 solves this one *)
-      + solve_linear. rewrite H1. rewrite H2. rewrite H3.
-        pose proof d_gt_0. admit. (* z3 solves this *)
+          rewrite H. z3_solve; admit.
+    - charge_intros.
+      charge_split.
+      + charge_tauto.
+      + tlaRevert. tlaRevert. apply Lemmas.forget_prem.
+        charge_intros. rewrite Always_and.
+        tlaRevert. apply always_imp. charge_intros.
+        unfold Next. rewrite Lemmas.land_lor_distr_R.
+        apply lorL.
+        * apply lorR1.
+          eapply Lemmas.lcut.
+          apply continuous_strengthen with (H:=velocity_formula).
+          { tlaIntuition. }
+          { charge_assumption. }
+          { charge_assumption. }
+          { apply world_abstraction_ind. }
+          { apply Lemmas.forget_prem.
+            charge_intros. apply Proper_Continuous_entails.
+            red. red. red. solve_linear. }
+        * apply lorR2.
+          charge_tauto.
   Qed.
 
-  Theorem exp_stability :
-    |-- Spec -->> ExponentiallyStable.
+  Theorem lyapunov_stability :
+    |-- Spec -->> LyapunovStable "y".
   Proof.
-    charge_intros. rewrite abstraction.
-    apply Exists_with_st with (t:="y").
-    intro y0. charge_intros.
-    charge_split; [ solve_linear | ].
-    apply lexistsR with (x:=1%R).
-    charge_split; [ solve_linear | ].
-    apply lexistsR with (x:=(1/d)%R).
-    charge_split;
-      [ pose proof d_gt_0; solve_linear;
-        assert (/d > 0)%R by solve_linear;
-        solve_linear | ].
-    eapply discr_indX.
+    charge_intros.
+    apply Lemmas.lcut with (R:=Init //\\ []AbstractNext).
+    { apply abstraction. }
+    apply Lemmas.forget_prem. charge_intros.
+    apply lyapunov_fun_stability
+    with (V:="y"*"y") (V':=fun st' => st' "y"*"y" + "y"*st' "y")
+                      (cp:=AbstractWorld).
+    - reflexivity.
+    - reflexivity.
     - tlaIntuition.
-    - charge_assumption.
-    - breakAbstraction. intuition.
-      rewrite H0. repeat rewrite_real_zeros.
-      rewrite Rtrigo_def.exp_0. subst.
-      solve_linear.
-    - reason_action_tac. intuition.
-      rewrite H. clear H.
-  Admitted.
-
+    - breakAbstraction. intros. congruence.
+    - tlaRevert. apply Lemmas.forget_prem.
+      apply always_imp. charge_intros.
+      apply lorL.
+      + charge_tauto.
+      + apply lorR2. simpl Unchanged. restoreAbstraction.
+        charge_assumption.
+    - breakAbstraction. intros. z3_solve; admit.
+    - breakAbstraction. intros.
+      apply RIneq.Rlt_gt.
+      apply RIneq.Rlt_0_sqr.
+      assumption.
+    - solve_linear.
+  Qed.
+  
 End Stability.

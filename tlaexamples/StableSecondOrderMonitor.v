@@ -10,6 +10,7 @@ Lemma concave_quadratic_ineq :
       ((-b + R_sqrt.sqrt (b*b - 4*a*c))*/2*/a <= x
        <= (-b - R_sqrt.sqrt (b*b - 4*a*c))*/2*/a ->
        a < 0 ->
+       0 <= b*b - 4*a*c ->
        a*x*x + b*x + c >= 0)%R.
   Admitted.
 
@@ -109,14 +110,233 @@ Module AbstractShim (Import P : Params).
       (0 <= t //\\ t <= d) -->>
       "y" + tdist "v" a t + sdist MAX("v" + a*t, 0) <= ub.
 
-  Definition SafeAccEquiv (a : Term) (d : Term) : Formula :=
+  Definition SafeAccZeroOrder (a : Term) (d : Term)
+    : Formula :=
+    (0 <= "v" + a*d -->>
+     "y" + tdist "v" a d + sdist ("v" + a*d) <= ub) //\\
+    (("v" + a*d <= 0 //\\ 0 < "v") -->>
+     "y" + tdist "v" a (--"v"/a) <= ub).
+
+  Lemma SafeAccZeroOrder_refines :
+    forall a,
+      SafeAccZeroOrder a d //\\ "y" <= ub //\\ SafeAcc amin d
+      |-- SafeAcc a d.
+  Proof.
+    intros. reason_action_tac.
+    pose proof d_gt_0.
+    unfold Rbasic_fun.Rmax. destruct_ite.
+    - rewrite_real_zeros.
+      destruct (RIneq.Rlt_dec 0 (pre "v"))%R.
+      + assert (pre "v" + eval_term a pre post * d <= 0)%R
+          by solve_nonlinear. intuition.
+        assert (eval_term a pre post <> 0%R)
+          by solve_nonlinear. intuition.
+        eapply Rle_trans; eauto.
+        field_simplify; auto. simpl.
+        apply Rmult_le_reg_r with (r:=2%R);
+          [ solve_linear | ].
+        apply Rmult_le_reg_r
+        with (r:=(-(eval_term a pre post))%R);
+          [ solve_nonlinear | ].
+        repeat rewrite Ropp_mult_distr_r_reverse.
+        field_simplify; auto. simpl.
+        unfold Rdiv. repeat rewrite RMicromega.Rinv_1.
+        solve_nonlinear.
+      + solve_nonlinear.
+    - destruct (RIneq.Rle_dec
+                  (pre "v" + eval_term a pre post * d) 0)%R.
+      + destruct (RIneq.Rlt_dec 0 (pre "v"))%R.
+        * intuition.
+          assert (eval_term a pre post <> 0%R)
+            by solve_nonlinear. intuition.
+          pose proof amin_lt_0.
+          assert (amin <> 0%R) by solve_linear.
+          destruct
+            (RIneq.Rle_dec amin (eval_term a pre post)).
+          { eapply Rle_trans; eauto.
+            field_simplify; auto. simpl.
+            apply Rmult_le_reg_r with (r:=2%R);
+              [ solve_linear | ].
+            apply Rmult_le_reg_r
+            with (r:=(-(eval_term a pre post))%R);
+              [ solve_nonlinear | ].
+            apply Rmult_le_reg_r with (r:=(-amin)%R);
+              [ solve_linear | ].
+            repeat rewrite Ropp_mult_distr_r_reverse.
+            field_simplify; auto. simpl.
+            unfold Rdiv. repeat rewrite RMicromega.Rinv_1.
+            clear - r1. solve_nonlinear. }
+          { specialize (H6 0%R). specialize_arith_hyp H6.
+            revert H6. unfold Rbasic_fun.Rmax.
+            repeat destruct_ite; rewrite_real_zeros.
+            { solve_linear. }
+            { intros. eapply Rle_trans; eauto.
+              assert (pre "v"+eval_term a pre post*x > 0)%R
+                by solve_linear.
+              field_simplify; auto. simpl.
+              apply Rmult_le_reg_r with (r:=2%R);
+                [ solve_linear | ].
+              apply Rmult_le_reg_r
+              with (r:=(-(eval_term a pre post))%R);
+                [ solve_nonlinear | ].
+              apply Rmult_le_reg_r with (r:=(-amin)%R);
+                [ solve_linear | ].
+              repeat rewrite Ropp_mult_distr_r_reverse.
+              field_simplify; auto. simpl.
+              unfold Rdiv. repeat rewrite RMicromega.Rinv_1.
+              clear - H9 n0 H7 H1 H. solve_nonlinear. } }
+        * solve_nonlinear.
+      + assert (0 <= pre "v" + eval_term a pre post * d)%R
+          as Hvd by solve_linear. intuition.
+        destruct
+            (RIneq.Rle_dec amin (eval_term a pre post)).
+        { eapply Rle_trans; eauto.
+          pose proof amin_lt_0.
+          assert (amin <> 0%R) by solve_linear.
+          assert (0 <= pre "v" + eval_term a pre post * x)%R
+            as Hvx by solve_linear.
+          apply Rmult_le_reg_l with (r:=(-amin)%R);
+            [ solve_linear | ].
+          ring_simplify; simpl; field_simplify; auto; simpl.
+          apply Rmult_le_reg_r with (r:=2%R);
+            [ solve_linear | ].
+          field_simplify; simpl.
+          unfold Rdiv. repeat rewrite RMicromega.Rinv_1.
+          clear - Hvd Hvx H4 r. solve_nonlinear. }
+        { pose proof amin_lt_0.
+          assert (amin <> 0%R) by solve_linear.
+          specialize (H6 0%R). specialize_arith_hyp H6.
+          revert H6. unfold Rbasic_fun.Rmax.
+          repeat destruct_ite; rewrite_real_zeros.
+          { intros. eapply Rle_trans; eauto.
+            assert (pre "v"+eval_term a pre post*x > 0)%R
+              by solve_linear.
+            field_simplify; auto. simpl.
+            apply Rmult_le_reg_r with (r:=2%R);
+              [ solve_linear | ].
+            apply Rmult_le_reg_r
+            with (r:=(-(eval_term a pre post))%R);
+              [ solve_nonlinear | ].
+            apply Rmult_le_reg_r with (r:=(-amin)%R);
+              [ solve_linear | ].
+            repeat rewrite Ropp_mult_distr_r_reverse.
+            field_simplify; auto. simpl.
+            unfold Rdiv. repeat rewrite RMicromega.Rinv_1.
+            clear - H8 r H5 n1 H. solve_nonlinear. }
+          { intros. eapply Rle_trans; eauto.
+            assert (pre "v"+eval_term a pre post*x > 0)%R
+              by solve_linear.
+            field_simplify; auto. simpl.
+            apply Rmult_le_reg_r with (r:=2%R);
+              [ solve_linear | ].
+            apply Rmult_le_reg_r
+            with (r:=(-(eval_term a pre post))%R);
+              [ solve_nonlinear | ].
+            apply Rmult_le_reg_r with (r:=(-amin)%R);
+              [ solve_linear | ].
+            repeat rewrite Ropp_mult_distr_r_reverse.
+            field_simplify; auto. simpl.
+            unfold Rdiv. repeat rewrite RMicromega.Rinv_1.
+            clear - H8 n2 H5 n1 H. solve_nonlinear. } }
+  Qed.
+
+  Definition SafeAccZeroOrderSolved (a : Term) (d : Term)
+    : Formula :=
+      (--"v"/d < a //\\
+       a <=
+       (--(amin*d*d-2%R*"v"*d) -
+        SqrtT ((amin*d*d-2%R*"v"*d)*(amin*d*d-2%R*"v"*d) -
+               4%R*(--d*d)*(2%R*amin*"y"-2%R*amin*ub +
+                            2%R*amin*"v"*d-"v"*"v")))
+        * /2%R * /(--d*d)) \\//
+      (a <= --"v"/d //\\ 0 < "v" //\\
+       a <= "v"*"v"/(2*("y"-ub))) \\//
+      (a <= --"v"/d //\\ "v" <= 0).
+
+  Lemma SafeAccZeroOrderSolved_refines :
+    forall a,
+      SafeAccZeroOrderSolved a d //\\ SafeAcc amin d
+      |-- SafeAccZeroOrder a d.
+  Proof.
+    intros. reason_action_tac.
+    pose proof d_gt_0.
+    pose proof amin_lt_0.
+    split.
+    - intuition.
+      + rewrite Rminus_0_l. repeat rewrite Rmult_1_r.
+        repeat rewrite <- Rmult_assoc.
+        apply SafeAcc_quadratic.
+        * exact amin_lt_0.
+        * solve_linear.
+        * match goal with
+            |- (?a*_*_ + ?b*_ + ?c >= _)%R
+            => pose (a2:=a); pose (a1:=b); pose (a0:=c)
+          end.
+          assert (0 <= a1*a1 - 4*a2*a0)%R as Hsqrt_ge_0.
+          { rewrite_real_zeros. intros.
+            pose proof amin_lt_0. unfold a1, a2, a0.
+            specialize (H4 0%R). specialize_arith_hyp H4.
+            revert H4. unfold Rbasic_fun.Rmax.
+            repeat destruct_ite; rewrite_real_zeros.
+            { revert r. rewrite_real_zeros. intros.
+              pose proof amin_lt_0. unfold a1, a2, a0.
+              clear - r H4 H0 H.
+              z3_solve; admit. }
+            { revert n. rewrite_real_zeros. intros.
+              pose proof amin_lt_0. unfold a1, a2, a0.
+              clear - n H4 H0 H.
+              z3_solve; admit. } }
+          apply concave_quadratic_ineq.
+          { split.
+            { pose proof (quadratic_axis_of_symmetry a2 a1 a0)
+                as Hsym.
+              assert (- d * d < 0)%R by (z3_solve; admit).
+              specialize_arith_hyp Hsym.
+              destruct Hsym as [Hsym1 Hsym2]. 
+              eapply Rle_trans; eauto.
+              unfold a0, a1, a2.
+              apply Rmult_le_reg_l with (r:=2%R);
+                [ solve_linear | ].
+              apply Rmult_le_reg_l with (r:=(d*d)%R);
+                [ solve_linear | ].
+              repeat rewrite Ropp_mult_distr_l_reverse.
+              rewrite <- Ropp_inv_permute; [ | solve_linear].
+              field_simplify; [ | solve_linear ].
+              simpl. unfold Rdiv. rewrite Rinv_1.
+              pose proof amin_lt_0. solve_nonlinear. }
+            { eapply Rle_trans; eauto.
+              repeat rewrite Rminus_0_l.
+              apply RIneq.Rle_refl. } }
+          { z3_solve; admit. }
+          { exact Hsqrt_ge_0. }
+      + specialize (H4 0%R). specialize_arith_hyp H4.
+        revert H4. unfold Rbasic_fun.Rmax.
+        repeat destruct_ite; rewrite_real_zeros.
+        * z3_solve; admit.
+        * z3_solve; admit.
+      + specialize (H4 0%R). specialize_arith_hyp H4.
+        revert H4. unfold Rbasic_fun.Rmax.
+        repeat destruct_ite; rewrite_real_zeros.
+        { z3_solve; admit. }
+        { z3_solve; admit. }
+    - intuition.
+      + z3_solve; admit.
+      + specialize (H4 0%R). specialize_arith_hyp H4.
+        revert H4. unfold Rbasic_fun.Rmax.
+        repeat destruct_ite; rewrite_real_zeros.
+        * z3_solve; admit.
+        * z3_solve; admit.
+      + solve_linear.
+  Qed.
+
+(*
     Forall t : R,
       (0 <= t //\\ t <= d) -->>
       (0 <= "v" + a*t -->>
        a <= (SqrtT (amin*(amin*t^^2+4*t*"v"-8*ub+8*"y")) +
              amin*t-2*"v")*(/2)%R*(/t)%R) //\\
       ("v" + a*t <= 0 -->>
-       a <= 2*(ub - "y" - "v"*t)*(/t)*(/t)).
+       a <= 2*(ub - "y" - "v"*t)*(/t)*(/t)).*)
 
 (*
   Lemma lower_bound_irrelevant :
@@ -132,6 +352,7 @@ Module AbstractShim (Import P : Params).
        2*t*a >= b*t-v*2)%R.
   Proof. solve_nonlinear. Qed.
 
+  Require Import TLA.ArithFacts.
   Lemma SafeAccEquiv_refines :
     forall a d,
       SafeAccEquiv a d //\\ SafeAcc amin d |-- SafeAcc a d.
@@ -149,7 +370,7 @@ Module AbstractShim (Import P : Params).
       specialize (H2 x). intuition.
       assert (eq (x*/x) 1)%R by solve_linear.
       generalize dependent (/x)%R. intros.
-      z3_solve. admit.
+      z3_solve; admit.
     - intuition. specialize (H2 x).
       intuition. specialize_arith_hyp H2.
       rewrite Rminus_0_l. repeat rewrite Rmult_1_r.
@@ -161,42 +382,46 @@ Module AbstractShim (Import P : Params).
         |- (?a*_*_ + ?b*_ + ?c >= _)%R
         => pose (a2:=a); pose (a1:=b); pose (a0:=c)
         end.
+        assert (0 <= a1*a1 - 4*a2*a0)%R as Hsqrt_ge_0.
+        { specialize (H3 R0). specialize_arith_hyp H3.
+          revert H3. unfold Rbasic_fun.Rmax.
+          repeat destruct_ite; rewrite_real_zeros.
+          { revert r. rewrite_real_zeros. intros.
+            pose proof amin_lt_0. unfold a1, a2, a0.
+            clear - r H3 H0 H.
+            z3_solve; admit. }
+          { revert n0. rewrite_real_zeros. intros.
+            pose proof amin_lt_0. unfold a1, a2, a0.
+            clear - n0 H3 H0 H.
+            z3_solve; admit. } }
         apply concave_quadratic_ineq.
         * split.
           { pose proof (quadratic_axis_of_symmetry a2 a1 a0)
               as Hsym.
-            unfold a2, a1, a0 in Hsym.
-            match type of Hsym with
-            | ?H -> _ => assert H
-            end.
-            { specialize (H3 R0). specialize_arith_hyp H3.
-              revert H3. unfold Rbasic_fun.Rmax.
-              repeat destruct_ite; rewrite_real_zeros.
-              { revert r. rewrite_real_zeros. intros.
-                pose proof amin_lt_0. clear - r H3 H0 H.
-                z3_solve. admit. }
-              { revert n0. rewrite_real_zeros. intros.
-                pose proof amin_lt_0. clear - n0 H3 H0 H.
-                z3_solve. admit. } }
-            { assert (0 < x)%R by solve_linear.
-              assert (- x * x < 0)%R by (z3_solve; admit).
-              specialize_arith_hyp Hsym.
-              destruct Hsym as [Hsym1 Hsym2]. 
-              eapply Rle_trans; eauto.
-              assert (pre "v"+eval_term a pre post*x > 0)%R
-                by solve_linear.
-              apply Rmult_le_reg_l with (r:=2%R);
-                [ solve_linear | ].
-              apply Rmult_le_reg_l with (r:=(x*x)%R);
-                [ solve_linear | ].
-              repeat rewrite Ropp_mult_distr_l_reverse.
-              rewrite <- Ropp_inv_permute; [ | solve_linear].
-              field_simplify; [ | solve_linear ].
-              simpl. unfold Rdiv. rewrite Rinv_1.
-              pose proof amin_lt_0. solve_nonlinear. } }
+            assert (0 < x)%R by solve_linear.
+            assert (- x * x < 0)%R by (z3_solve; admit).
+            specialize_arith_hyp Hsym.
+            destruct Hsym as [Hsym1 Hsym2]. 
+            eapply Rle_trans; eauto.
+            unfold a0, a1, a2.
+            assert (pre "v"+eval_term a pre post*x > 0)%R
+              by solve_linear.
+            apply Rmult_le_reg_l with (r:=2%R);
+              [ solve_linear | ].
+            apply Rmult_le_reg_l with (r:=(x*x)%R);
+              [ solve_linear | ].
+            repeat rewrite Ropp_mult_distr_l_reverse.
+            rewrite <- Ropp_inv_permute; [ | solve_linear].
+            field_simplify; [ | solve_linear ].
+            simpl. unfold Rdiv. rewrite Rinv_1.
+            pose proof amin_lt_0. solve_nonlinear. }
           { eapply Rle_trans; eauto.
-            R_simplify. simpl.
-  Admitted.
+            repeat rewrite Rminus_0_l.
+            reflexivity. }
+        * assert (0 < x)%R by solve_linear.
+          z3_solve; admit.
+        * exact Hsqrt_ge_0.
+  Qed.
 
   Definition AbstractPD (a : Term) : Formula :=
     Exists kP : R, kP < 0 //\\
