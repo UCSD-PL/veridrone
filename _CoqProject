@@ -22,7 +22,7 @@ tla/TLA.v
 tla/Morphisms.v
 tla/EnabledLemmas.v
 tla/Stability.v
-tla/LyapunovStability.v
+tla/LyapunovFunctions.v
 
 ChargeTactics/Tactics.v
 ChargeTactics/Lemmas.v
