@@ -289,6 +289,56 @@ Proof.
   rewrite H. reflexivity.
 Qed.
 
+Theorem Rename_Continuous' :
+  forall (r : RenameMap) (r' : state->Var->Term)
+         (c:Evolution),
+  (forall f (pf2:forall x : Var, derivable (fun t : R => f t x)),
+      exists (pf1:forall v,
+                 derivable (fun t : R =>
+                              eval_term (r v) (f t) (f t))),
+        forall v,
+        let e := r v in
+        let e' t := r' (fun x => deriv_stateF f pf2 x t) v in
+        forall z,
+          (0 <= z)%R ->
+          eq
+            (Ranalysis1.derive
+               (fun t => eval_term e (f t) (f t)) (pf1 v) z)
+            (eval_term (e' z) (f z) (f z))) ->
+    Continuous (fun st' => Forall st'' : state,
+                             (Forall x : Var, st'' x = r' st' x) -->> Rename r (c st''))
+    |-- Rename r (Continuous c).
+Proof.
+  breakAbstraction. intros.
+  forward_reason.
+  rewrite (Stream.trace_eta tr).
+  rewrite (Stream.trace_eta (Stream.tl tr)). simpl.
+  exists x. exists (fun t => subst_state r (x0 t)).
+  split; auto.
+  rewrite H2; clear H2; rewrite H3; clear H3.
+  split; auto.
+
+  unfold is_solution in *.
+  destruct H1 as [pf1 H1].
+  specialize (H x0 pf1).
+  destruct H as [pf2 H]. exists pf2.
+  unfold solves_diffeqs in *.
+  intros. specialize (H1 _ H2).
+  simpl in H1.
+  specialize (H1 (fun x1 : Var =>
+         deriv_stateF (fun t : R => subst_state r (x0 t)) pf2 x1 z)).
+  rewrite Stream.stream_map_forever in H1;
+    eauto with typeclass_instances.
+  unfold deriv_stateF, subst_state in *.
+  match type of H1 with
+  | ?H -> _ => assert H
+  end.
+  { intros; apply H; tauto. }
+  forward_reason.
+  eapply Proper_eval_formula; [ | reflexivity | eassumption ].
+  eapply lequiv_eq; eauto with typeclass_instances.
+Qed.
+
 Lemma UnchangedT_app :
   forall l1 l2,
     UnchangedT (l1 ++ l2) -|-
