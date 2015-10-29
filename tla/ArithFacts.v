@@ -228,6 +228,13 @@ Ltac tla_rewrite_0 :=
            rewrite minus_0_l_equiv |
            rewrite minus_0_r_equiv ].
 
+Lemma Rmin_Lt :
+  forall r1 r2 t,
+    t <= Rbasic_fun.Rmin r1 r2 -|- t <= r1 //\\ t <= r2.
+Proof.
+  intros; split; unfold Rbasic_fun.Rmin; destruct_ite; solve_linear.
+Qed.
+
 Lemma leq_eq_refine :
   forall t1 t2,
     t1 = t2 |-- t1 <= t2.

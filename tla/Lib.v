@@ -289,5 +289,16 @@ Proof.
   rewrite H. reflexivity.
 Qed.
 
+Lemma UnchangedT_app :
+  forall l1 l2,
+    UnchangedT (l1 ++ l2) -|-
+    UnchangedT l1 //\\ UnchangedT l2.
+Proof.
+  induction l1.
+  - simpl. restoreAbstraction. split; charge_tauto.
+  - simpl. restoreAbstraction. intros. rewrite IHl1.
+    split; charge_tauto.
+Qed.
+
 Close Scope string_scope.
 Close Scope HP_scope.

@@ -12,6 +12,11 @@ Require Import Coq.Strings.String.
 
 (* Some useful tactics for our examples. *)
 
+Ltac decompose_hyps :=
+  repeat rewrite Lemmas.land_lor_distr_R;
+  repeat rewrite Lemmas.land_lor_distr_L;
+  repeat apply lorL.
+
 Ltac destruct_ite :=
   match goal with
   | [ |- context [ if ?e then _ else _ ] ]

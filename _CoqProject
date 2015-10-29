@@ -10,6 +10,7 @@ tla/Stream.v
 tla/Syntax.v
 tla/Semantics.v
 tla/Lib.v
+tla/Inductively.v
 tla/BasicProofRules.v
 tla/DifferentialInduction.v
 tla/ContinuousProofRules.v

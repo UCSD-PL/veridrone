@@ -476,6 +476,15 @@ End in_context.
 Lemma always_tauto : forall G P, |-- P -> G |-- [] P.
 Proof. tlaIntuition. Qed.
 
+Lemma always_tauto_inv :
+  forall P,
+    |--[]P ->
+    |-- P.
+Proof.
+  breakAbstraction. intros.
+  specialize (H tr I 0). auto.
+Qed.
+
 Lemma next_inv : forall N I,
   is_st_formula I ->
   (|-- [](N //\\ I) -->> [](N //\\ I //\\ next I)).
@@ -961,6 +970,13 @@ Proof.
   charge_tauto.
   restoreAbstraction. tlaRevert.
   apply always_imp. charge_tauto.
+Qed.
+
+Global Instance Proper_Always_entails : Proper (lentails ==> lentails) Always.
+Proof.
+ red. red. intros.
+ tlaRevert.
+ eapply always_imp. charge_tauto.
 Qed.
 
 Global Instance Proper_Enabled_lentails : Proper (lentails ==> lentails) Enabled.

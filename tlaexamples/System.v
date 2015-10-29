@@ -7,6 +7,7 @@ Require Import TLA.ProofRules.
 Require Import TLA.ArithFacts.
 Require Import TLA.Automation.
 Require Import TLA.EnabledLemmas.
+Require Import TLA.Inductively.
 Require Import ChargeTactics.Lemmas.
 Require Import Coq.Lists.ListSet.
 
@@ -373,11 +374,6 @@ Proof.
   apply (H tr HP 0).
 Qed.
 
-Ltac decompose_hyps :=
-  repeat rewrite land_lor_distr_R;
-  repeat rewrite land_lor_distr_L;
-  repeat apply lorL.
-
 Definition TimeBound d : Formula :=
   0 <= "t" //\\ "t" <= "T" <= d.
 
@@ -675,6 +671,43 @@ Ltac sys_apply_with_weaken H :=
             | apply imp_id
             | reflexivity ].
 
+Definition SysInductively (P : Formula) (s : SysRec) : Formula :=
+  Inductively P (PartialNext s.(Prog) s.(world) s.(unch) s.(maxTime)).
+
+Theorem PartialSys_inductively :
+  forall P A Init Prog IndInv w unch (d:R),
+  is_st_formula IndInv ->
+  P |-- PartialSysD (Sys Init Prog w unch d) ->
+  (forall st', is_st_formula (w st')) ->
+  P |-- [] A ->
+  InvariantUnder (("t":Term)::("T":Term)::unch)%list IndInv ->
+  A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
+    //\\ World w |-- next IndInv ->
+  A //\\ IndInv //\\ TimeBound d //\\ next (TimeBound d)
+          //\\ Discr Prog d |-- next IndInv ->
+  P |-- SysInductively IndInv (Sys Init Prog w unch d).
+Proof.
+  intros P A Init Prog IndInv w unch d
+         Hst Hsys Hstw Ha InvUnder Hw Hdiscr.
+  unfold PartialSysD, Partial_sysD in *;
+    simpl in *. restoreAbstraction.
+  unfold SysInductively, Inductively.
+  tlaAssert P; [ charge_assumption | charge_intros ].
+  rewrite Ha at 1.
+  pose proof (PartialSys_bound_t P (Sys Init Prog w unch d)) as Hbound.
+  rewrite Hbound.
+  - unfold PartialNext. simpl. restoreAbstraction.
+    rewrite always_st with (Q:=TimeBound d); [ | tlaIntuition ].
+    rewrite Always_and.
+    always_imp_tac. charge_intros.
+    decompose_hyps.
+    + simpl. restoreAbstraction. charge_tauto.
+    + simpl. restoreAbstraction. charge_tauto.
+    + unfold InvariantUnder in *. simpl. restoreAbstraction. charge_tauto.
+  - tlaIntuition.
+  - assumption.
+Qed.
+
 Theorem PartialSys_by_induction :
   forall P A Init Prog Inv IndInv w unch (d:R),
   is_st_formula IndInv ->
@@ -690,51 +723,30 @@ Theorem PartialSys_by_induction :
           //\\ Discr Prog d |-- next IndInv ->
   P |-- [] Inv.
 Proof.
-  intros P A Init Prog Inv IndInv w unch d
-         Hst Hsys Hstw Hinit Ha Hinv InvUnder Hw Hdiscr.
-  unfold PartialSysD, Partial_sysD in *;
-    simpl in *. restoreAbstraction.
-  tlaAssert ([]TimeBound d).
-  - change d with (maxTime {|
-               Init := Init;
-               Prog := Prog;
-               world := w;
-               unch := unch;
-               maxTime := d |}).
-    eapply PartialSys_bound_t;
-      [ assumption | rewrite Hsys; charge_assumption ].
-  - tlaIntro. tlaAssert ([]IndInv).
-    + tlaAssert ([]A); [rewrite Ha; tlaAssume | tlaIntro ].
-      apply discr_indX with
-      (A:=PartialNext Prog w unch d //\\
-               TimeBound d //\\ next (TimeBound d) //\\ A).
-        { assumption. }
-        { restoreAbstraction.
-          rewrite Hsys.
-          repeat rewrite <- Always_and.
-          repeat charge_split.
-          - charge_tauto.
-          - charge_tauto.
-          - rewrite always_st with (Q:=TimeBound d);
-            (unfold TimeBound; simpl next;
-            repeat rewrite <- Always_and; charge_tauto)
-            || tlaIntuition.
-          - rewrite always_st with (Q:=TimeBound d);
-            (unfold TimeBound; simpl next;
-            repeat rewrite <- Always_and; charge_tauto)
-            || tlaIntuition. }
-        { rewrite <- Hinit. unfold SysD.
-          charge_split; [charge_tauto | ].
-          rewrite Hsys. charge_tauto. }
-        { unfold PartialNext. decompose_hyps.
-          - rewrite <- Hw. charge_tauto.
-          - rewrite <- Hdiscr. charge_tauto.
-          - unfold InvariantUnder in *. rewrite <- InvUnder.
-            charge_tauto. }
-    + rewrite Ha. tlaRevert. tlaRevert.
-      repeat rewrite <- uncurry. repeat rewrite Always_and.
-      apply always_imp. charge_intros. rewrite <- Hinv.
-      charge_tauto.
+  intros.
+  eapply lcut.
+  { eapply PartialSys_inductively; eauto. }
+  { charge_intros.
+    tlaAssert ([]IndInv).
+    { pose proof Inductively_Inv.
+      rewrite <- Inductively_Inv; auto. unfold SysInductively.
+      tlaAssert P; [ charge_assumption | charge_intros ].
+      rewrite H0 at 1. unfold PartialSysD, Partial_sysD.
+      simpl. restoreAbstraction.
+      repeat charge_split.
+      { charge_tauto. }
+      { rewrite <- Always_and at 1. charge_tauto. }
+      { charge_assumption. } }
+    { rewrite landC. tlaRevert. apply forget_prem.
+      charge_intros.
+      tlaAssert P; [ charge_assumption | charge_intros ].
+      rewrite H3 at 1.
+      pose proof (PartialSys_bound_t P (Sys Init0 Prog0 w unch0 d)) as Hbound.
+      rewrite Hbound.
+      { repeat rewrite Always_and. always_imp_tac.
+        charge_tauto. }
+      { assumption. }
+      { assumption. } } }
 Qed.
 
 Theorem Sys_by_induction :
@@ -1015,26 +1027,6 @@ Proof.
     charge_intros. charge_split; [ | charge_tauto ].
     decompose_hyps; try charge_tauto.
     { charge_exfalso. charge_tauto. }
-Qed.
-
-Definition Inductively (P I : Formula) : Formula :=
-  P //\\ [](P //\\ I -->> next P).
-
-Lemma InductivelyCompose : forall P Q E,
-    Inductively P (Q //\\ E) //\\
-    Inductively Q (P //\\ E)
-    |-- Inductively (P //\\ Q) E.
-Proof.
-  unfold Inductively.
-  intros. charge_split; try charge_tauto.
-  intros.
-  transitivity
-    ([](P //\\ (Q //\\ E) -->> next P) //\\
-       [](Q //\\ (P //\\ E) -->> next Q)).
-  - charge_tauto.
-  - rewrite Always_and.
-    tlaRevert. eapply BasicProofRules.always_imp.
-    charge_tauto.
 Qed.
 
 Lemma World_Compose : forall a b,
@@ -1341,3 +1333,91 @@ Ltac rewrite_rename_pf s :=
   let H := fresh in
   pose proof (projT2 s) as H;
     cbv beta in H; rewrite <- H; clear H.
+
+Definition SysDisjoin (a b : SysRec) (P Q : Formula) : SysRec :=
+  {| Init := a.(Init) \\// b.(Init);
+     Prog := (P //\\ a.(Prog)) \\// (Q //\\ b.(Prog));
+     world := fun st' => a.(world) st';
+     (* No reasonable choice for world unless a.(world) = b.(world) *)
+     unch := a.(unch) ++ b.(unch);
+     maxTime := Rmin (maxTime a) (maxTime b) |}.
+
+Lemma SysInductively_Disjoin :
+  forall a b P Q,
+    pointwise_relation state lequiv a.(world) b.(world) ->
+    is_st_formula P ->
+    is_st_formula Q ->
+    |-- SysInductively P a ->
+    |-- SysInductively Q b ->
+    |-- SysInductively (P \\// Q)
+                       (SysDisjoin a b P Q).
+Proof.
+  unfold SysInductively, Inductively, SysSafe, PartialNext. intros.
+  simpl. restoreAbstraction.
+  apply always_tauto. charge_intros.
+  apply always_tauto_inv in H2.
+  apply always_tauto_inv in H3.
+  rewrite UnchangedT_app.
+  unfold Discr, TDiscrete in *.
+  rewrite Rmin_Lt. decompose_hyps.
+  - charge_tauto.
+  - charge_tauto.
+  - charge_tauto.
+  - charge_tauto.
+  - apply lorR2. charge_apply H3.
+    charge_split; [ charge_assumption | ].
+    unfold World, mkEvolution.
+    apply lorR1. apply lorR1.
+    tlaRevert. apply forget_prem.
+    charge_intros.
+    apply Proper_Continuous_equiv.
+    unfold pointwise_relation in *.
+    intros. rewrite H. reflexivity.
+  - charge_tauto.
+  - charge_tauto.    
+  - charge_tauto.
+Qed.
+
+Lemma Enabled_Or :
+  forall P Q,
+    Enabled P |-- Enabled (P \\// Q).
+Proof.
+  breakAbstraction. intros.
+  destruct H. exists x. auto.
+Qed.
+
+Lemma SysSafe_Enabled :
+  forall a,
+    SysSafe a |-- []Enabled (Discr (Prog a) (maxTime a)).
+Proof.
+  intros.
+  unfold SysSafe, SysD, sysD, PartialSysD,
+  Partial_sysD, Next, PartialNext.
+Admitted.
+
+Lemma SysInv_rule :
+  forall a P,
+    is_st_formula P ->
+    |-- SysD a -->> []P ->
+    SysD {| Init := a.(Init) //\\ P;
+            Prog := a.(Prog) //\\ P //\\ next P;
+            world := fun st' => a.(world) st' //\\ P;
+            unch := a.(unch);
+            maxTime := a.(maxTime) |} |-- SysD a.
+Admitted.
+
+Lemma SysDisjoin_Safe :
+  forall a b P Q,
+    |-- SysSafe a ->
+    |-- SysSafe b ->
+    |-- SysInductively P a ->
+    |-- SysInductively Q b ->
+    |-- SysSafe (SysDisjoin a b P Q).
+Proof.
+  intros.
+  apply SysSafe_rule. unfold Discr, TDiscrete.
+  simpl. restoreAbstraction.
+  apply always_tauto.
+  repeat rewrite land_lor_distr_R.
+  rewrite <- Enabled_Or.
+Admitted.
