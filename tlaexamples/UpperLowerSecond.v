@@ -84,8 +84,8 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
         charge_split; try charge_tauto.
         clear. rewrite landC. tlaRevert.
         apply forget_prem. repeat rewrite Always_and.
-        apply always_imp. solve_linear. }
-      { clear. apply forget_prem. apply always_imp.
+        apply Always_imp. solve_linear. }
+      { clear. apply forget_prem. apply Always_imp.
         solve_linear. }
   Qed.
 

@@ -33,8 +33,8 @@ Proof.
       unfold Spec. unfold SensorWithDelay.SenseSafe.
       charge_split; try charge_assumption.
       rewrite landC. tlaRevert. rewrite curry.
-      tlaIntro. apply always_imp. solve_linear.
-  - apply always_imp. charge_tauto.
+      tlaIntro. apply Always_imp. solve_linear.
+  - apply Always_imp. charge_tauto.
 Qed.
 
 Definition CtrlSenseDelaySysR ub d :=
@@ -63,8 +63,8 @@ Proof.
       unfold Spec. unfold SensorWithDelay.SenseSafe.
       charge_split; try charge_assumption.
       rewrite landC. tlaRevert. rewrite Always_and.
-      apply always_imp. solve_linear.
-  - apply always_imp. charge_tauto.
+      apply Always_imp. solve_linear.
+  - apply Always_imp. charge_tauto.
 Qed.
 
 Definition CtrlSenseErrorDelaySysR ub d err :=
@@ -87,5 +87,5 @@ Proof.
     + tlaIntro.
       pose proof (ctrl_sense_delay_safe ub d).
       charge_apply H. charge_tauto.
-  - apply always_imp. charge_tauto.
+  - apply Always_imp. charge_tauto.
 Qed.

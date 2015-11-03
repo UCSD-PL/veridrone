@@ -184,7 +184,7 @@ Module Box (P : BoxParams).
       repeat rewrite Rename_impl in H. apply landAdj in H.
       restoreAbstraction. rewrite landtrueL in H. rewrite H.
       clear. rewrite <- Rename_ok by rw_side_condition.
-      simpl. restoreAbstraction. apply always_imp.
+      simpl. restoreAbstraction. apply Always_imp.
       unfold X.V.ub, X_Params.ubv,
       X.Position.Params.ub, X.Y.ub.
       charge_tauto.
@@ -199,7 +199,7 @@ Module Box (P : BoxParams).
       repeat rewrite Rename_impl in H. apply landAdj in H.
       restoreAbstraction. rewrite landtrueL in H. rewrite H.
       clear. rewrite <- Rename_ok by rw_side_condition.
-      simpl. restoreAbstraction. apply always_imp.
+      simpl. restoreAbstraction. apply Always_imp.
       unfold Y.V.ub, Y_Params.ubv,
       Y.Position.Params.ub, Y.Y.ub.
       charge_tauto.

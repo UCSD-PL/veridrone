@@ -179,7 +179,7 @@ Ltac always_imp_tac :=
        | context[ Always ?HH ] =>
          tlaAssert (Always HH);
            [ charge_tauto |
-             apply Lemmas.forget_prem; apply always_imp ]
+             apply Lemmas.forget_prem; apply Always_imp ]
        end
   end.
 
@@ -242,7 +242,7 @@ Ltac rewrite_real_zeros :=
                 rewrite Rplus_0_r |
                 rewrite Rplus_0_l].
 
-Open Scope HP_scope.
+Local Open Scope HP_scope.
 
 (* I'm not sure what the following three
    tactics do *)

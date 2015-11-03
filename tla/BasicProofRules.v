@@ -357,11 +357,6 @@ Lemma imp_trans : forall F1 F2 F3,
   (C |-- F1 -->> F3).
 Proof. intros; charge_tauto. Qed.
 
-Lemma always_imp : forall F1 F2,
-  (|-- F1 -->> F2) ->
-  (C |-- []F1 -->> []F2).
-Proof. tlaIntuition. Qed.
-
 Lemma eventually_imp : forall F1 F2,
   (|-- F1 -->> F2) ->
   (C |-- <>F1 -->> <>F2).
@@ -521,6 +516,11 @@ Qed.
 
 Lemma Always_or : forall P Q,
     []P \\// []Q |-- [](P \\// Q).
+Proof. tlaIntuition. Qed.
+
+Lemma Always_imp : forall C F1 F2,
+  (|-- F1 -->> F2) ->
+  (C |-- []F1 -->> []F2).
 Proof. tlaIntuition. Qed.
 
 Lemma always_st : forall Q,
@@ -902,7 +902,7 @@ Proof.
       breakAbstraction. intros. auto.
   - simpl rename_formula. auto.
   - rewrite Rename_Always. simpl rename_formula.
-    split; tlaRevert; apply always_imp; rewrite IHF;
+    split; tlaRevert; apply Always_imp; rewrite IHF;
     auto; charge_tauto.
   - rewrite Rename_Eventually. simpl rename_formula.
     split; tlaRevert; apply eventually_imp; rewrite IHF;
@@ -966,17 +966,17 @@ Global Instance Proper_Always :
   Proper (lequiv ==> lequiv) Always.
 Proof.
   red. red. unfold lequiv, lentails. simpl.
-  intuition. restoreAbstraction. tlaRevert. apply always_imp.
+  intuition. restoreAbstraction. tlaRevert. apply Always_imp.
   charge_tauto.
   restoreAbstraction. tlaRevert.
-  apply always_imp. charge_tauto.
+  apply Always_imp. charge_tauto.
 Qed.
 
 Global Instance Proper_Always_entails : Proper (lentails ==> lentails) Always.
 Proof.
  red. red. intros.
  tlaRevert.
- eapply always_imp. charge_tauto.
+ eapply Always_imp. charge_tauto.
 Qed.
 
 Global Instance Proper_Enabled_lentails : Proper (lentails ==> lentails) Enabled.

@@ -55,10 +55,9 @@ Ltac tlaIntro := charge_intro.
 Ltac tlaIntuition :=
   breakAbstraction ; intuition ; restoreAbstraction.
 
-Ltac tlaAssert H :=
-  apply Lemmas.lcut with (R:=H).
+Ltac tlaAssert H := charge_assert H.
 
-Ltac tlaRevert := first [ apply landAdj | apply Lemmas.lrevert ].
+Ltac tlaRevert := charge_revert.
 
 Ltac tlaCutByHyp H :=
   match type of H with

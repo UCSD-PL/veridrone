@@ -464,7 +464,7 @@ Ltac always_imp_tac :=
        | context[ []?HH ] =>
          tlaAssert ([]HH);
            [ charge_tauto |
-             apply Lemmas.forget_prem; apply always_imp ]
+             apply Lemmas.forget_prem; apply Always_imp ]
        end
   end.
 
@@ -595,6 +595,6 @@ Qed.
         charge_intros.
         tlaAssert ([]("a" = 0 //\\ "y" - ub < 0));
           [ charge_tauto | ].
-        apply Lemmas.forget_prem. apply always_imp.
+        apply Lemmas.forget_prem. apply Always_imp.
         solve_linear.
         

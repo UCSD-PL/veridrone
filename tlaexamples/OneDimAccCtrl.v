@@ -114,7 +114,7 @@ Proof.
   pose proof Hd. pose proof Hvt.
   apply and_right.
   - apply and_left1. apply imp_id.
-  - apply and_left2. apply always_imp.
+  - apply and_left2. apply Always_imp.
     repeat apply or_left.
     + unfold Evolve. apply or_right1.
       repeat apply and_right.

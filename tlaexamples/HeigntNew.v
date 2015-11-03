@@ -136,6 +136,6 @@ end
 => pose "Discrete";
 try abstract solve_linear
 end.
-+ apply always_imp. apply ind_inv_safe.
++ apply Always_imp. apply ind_inv_safe.
 Qed.
 End HeightCtrl.

@@ -94,7 +94,7 @@ Module Stability (Import P : Params).
       + charge_tauto.
       + tlaRevert. tlaRevert. apply Lemmas.forget_prem.
         charge_intros. rewrite Always_and.
-        tlaRevert. apply always_imp. charge_intros.
+        tlaRevert. apply Always_imp. charge_intros.
         unfold Next. rewrite Lemmas.land_lor_distr_R.
         apply lorL.
         * apply lorR1.
@@ -126,7 +126,7 @@ Module Stability (Import P : Params).
     - tlaIntuition.
     - breakAbstraction. intros. congruence.
     - tlaRevert. apply Lemmas.forget_prem.
-      apply always_imp. charge_intros.
+      apply Always_imp. charge_intros.
       apply lorL.
       + charge_tauto.
       + apply lorR2. simpl Unchanged. restoreAbstraction.
@@ -138,5 +138,5 @@ Module Stability (Import P : Params).
       assumption.
     - solve_linear.
   Qed.
-  
+
 End Stability.

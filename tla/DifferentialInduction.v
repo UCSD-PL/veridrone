@@ -10,7 +10,8 @@ Require Import TLA.BasicProofRules.
 Require Import TLA.Automation.
 Require Import Coq.Reals.R_sqrt.
 Require Import Coq.Lists.List.
-Open Scope HP_scope.
+
+Local Open Scope HP_scope.
 
 (* This file contains the statement and soundness
    proof of differential induction.
@@ -296,7 +297,8 @@ Proof.
   assert ((forall x, is_st_term (r x) = true) /\ (forall x st', is_st_term (r' st' x) = true)).
   { generalize (fun x => @deriv_st_term _ _ (H x)); clear. firstorder. }
   destruct H0 as [ Hst1 Hst2 ].
-  eapply Rename_Continuous; eauto. intros. simpl.
+  eapply Rename_Continuous; eauto.
+  red. intros. simpl.
   assert (forall v : Var,
              derivable (fun t : R => eval_term (r v) (f t) (f t))).
   { intros. specialize (H v).
@@ -349,7 +351,8 @@ Proof.
   assert ((forall x, is_st_term (r x) = true) /\ (forall x st', is_st_term (r' st' x) = true)).
   { generalize (fun x => @deriv_st_term _ _ (H x)); clear. firstorder. }
   destruct H0 as [ Hst1 Hst2 ].
-  eapply Rename_Continuous'; eauto. intros. simpl.
+  eapply Rename_Continuous'; eauto.
+  red. intros. simpl.
   assert (forall v : Var,
              derivable (fun t : R => eval_term (r v) (f t) (f t))).
   { intros. specialize (H v).
@@ -696,5 +699,3 @@ Proof.
       eapply Continuous_deriv_exists in Hcont2; destruct Hcont2 as [st Hcont2].
       specialize (Hind _ HhypsF _ Hcont2). apply Hind; auto. auto.
 Qed.
-
-Close Scope HP_scope.

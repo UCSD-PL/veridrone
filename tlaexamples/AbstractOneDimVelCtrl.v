@@ -119,7 +119,7 @@ Open Scope HP_scope.
                  end.
           destruct (Rle_dec (hd tr "v") R0);
             solve_nonlinear.
-      + apply always_imp. apply ind_inv_safe.
+      + apply Always_imp. apply ind_inv_safe.
   Qed.
 
 End AbstractOneDimCtrl.

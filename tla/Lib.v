@@ -3,18 +3,19 @@ Require Import Coq.Lists.List.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Ranalysis1.
 Require Import Coq.Reals.RIneq.
+Require Import Coq.Logic.FunctionalExtensionality.
+Require Import ExtLib.Tactics.
+Require Charge.Logics.ILInsts.
 Require Import TLA.Syntax.
 Require Import TLA.Semantics.
 Require Import TLA.BasicProofRules.
 Require Import TLA.Automation.
-Require Import ExtLib.Tactics.
-Require Import Coq.Logic.FunctionalExtensionality.
 
 (* A library of useful TLA formulas, built
    from TLA primitives. *)
 
-Open Scope HP_scope.
-Open Scope string_scope.
+Local Open Scope HP_scope.
+Local Open Scope string_scope.
 
 (* Action formula expressing that all variables
    in xs are unchanged. *)
@@ -59,7 +60,27 @@ Fixpoint AVarsAgree (xs:list Var) (st:state) : Formula :=
 
 (* Our shallow encoding of continuous evolutions. *)
 Definition DerivMap := (Var->Term).
-Definition Evolution := state->Formula.
+Definition Evolution : Type := state -> Formula.
+
+Global Instance ILogicOps_Evolution : ILogicOps Evolution :=
+  @Charge.Logics.ILInsts.ILFun_Ops _ _ _.
+Global Instance ILogic_Evolution : ILogic Evolution :=
+  @Charge.Logics.ILInsts.ILFun_ILogic _ _ _ _.
+
+Transparent Charge.Logics.ILInsts.ILFun_Ops.
+
+Lemma Evolution_lequiv_lequiv : forall (a b : Evolution),
+    (a -|- b) <-> (forall x, a x -|- b x).
+Proof.
+  unfold lequiv. simpl. intros. intuition.
+  apply H. apply H.
+Qed.
+
+Lemma Evolution_lentails_lentails : forall (a b : Evolution),
+    (a |-- b) <-> (forall x, a x |-- b x).
+Proof. intros. exact (conj (fun x => x) (fun x => x)). Qed.
+
+Opaque Charge.Logics.ILInsts.ILFun_Ops.
 
 Definition deriv_stateF
            (f : R -> state)
@@ -96,7 +117,7 @@ Definition Continuous (cp:Evolution) : Formula :=
     //\\ (PropF (is_solution f cp r))
     //\\ (Embed (fun st st' => f R0 = st /\ f r = st')).
 
-Global Instance Proper_is_solution
+Global Instance Proper_is_solution_lequiv
 : Proper (eq ==> pointwise_relation _ lequiv ==> eq ==> iff)
          is_solution.
 Proof.
@@ -114,9 +135,8 @@ Proof.
   destruct H0; intuition.
 Qed.
 
-Global Instance Proper_is_solution2
-: Proper (eq ==> (pointwise_relation _ term_equiv ==> lequiv)
-             ==> eq ==> iff)
+Global Instance Proper_is_solution_lequiv2
+: Proper (eq ==> (pointwise_relation _ term_equiv ==> lequiv) ==> eq ==> iff)
          is_solution.
 Proof.
   morphism_intro.
@@ -136,6 +156,25 @@ Proof.
   reflexivity.
 Qed.
 
+Instance Proper_is_solution_lentails
+  : Proper (eq ==> lentails ==> Rge ==> Basics.impl) is_solution.
+Proof.
+  morphism_intro. red. unfold is_solution.
+  subst.
+  intros. destruct H. exists x.
+  unfold solves_diffeqs in *.
+  intros.
+  assert (0 <= z <= x1)%R.
+  { destruct H2. split. assumption.
+    eapply Rle_trans. eassumption.
+    eapply Rge_le. assumption. }
+  eapply H in H3.
+  specialize (H0 (fun x2 : Var => deriv_stateF y x x2 z)
+                 (Stream.forever (y z))).
+  eauto.
+Qed.
+
+(** TODO: These should probably be done with subrelations **)
 Global Instance Proper_Continuous_entails
   : Proper ((pointwise_relation _ lentails) ==> lentails) Continuous.
 Proof.
@@ -171,6 +210,19 @@ Proof.
   rewrite H.
   eapply Proper_eval_formula; reflexivity.
 Qed.
+
+Instance Proper_Continuous_lentails:
+  Proper (lentails ==> lentails) Continuous.
+Proof. exact Proper_Continuous_entails. Qed.
+
+Instance Proper_Continuous_lequiv:
+  Proper (lequiv ==> lequiv) Continuous.
+Proof.
+  morphism_intro.
+  eapply Proper_Continuous_equiv.
+  red. eapply Evolution_lequiv_lequiv. assumption.
+Qed.
+
 
 (*
 Lemma VarRenameMap_derivable : forall f m,
@@ -241,24 +293,29 @@ Proof. intros; subst; reflexivity. Qed.
 
 
 Import Stream.
+
+Definition RenameDerivOk (r : RenameMap) (r' : state->Var->Term) : Prop :=
+  forall f (pf2:forall x : Var, derivable (fun t : R => f t x)),
+  exists (pf1:forall v,
+             derivable (fun t : R =>
+                          eval_term (r v) (f t) (f t))),
+  forall v,
+    let e := r v in
+    let e' t := r' (fun x => deriv_stateF f pf2 x t) v in
+    forall z,
+      (0 <= z)%R ->
+      eq
+        (Ranalysis1.derive
+           (fun t => eval_term e (f t) (f t)) (pf1 v) z)
+        (eval_term (e' z) (f z) (f z)).
+
+
 Theorem Rename_Continuous :
   forall (r : RenameMap) (r' : state->Var->Term)
          (c:Evolution),
-  (forall f (pf2:forall x : Var, derivable (fun t : R => f t x)),
-      exists (pf1:forall v,
-                 derivable (fun t : R =>
-                              eval_term (r v) (f t) (f t))),
-        forall v,
-        let e := r v in
-        let e' t := r' (fun x => deriv_stateF f pf2 x t) v in
-        forall z,
-          (0 <= z)%R ->
-          eq
-            (Ranalysis1.derive
-               (fun t => eval_term e (f t) (f t)) (pf1 v) z)
-            (eval_term (e' z) (f z) (f z))) ->
-    Continuous (fun st' => (Forall x : Var, st' x = r' st' x) //\\ Rename r (c st'))
-    |-- Rename r (Continuous c).
+  RenameDerivOk r r' ->
+      Continuous (fun st' => (Forall x : Var, st' x = r' st' x) //\\ Rename r (c st'))
+  |-- Rename r (Continuous c).
 Proof.
   breakAbstraction. intros.
   forward_reason.
@@ -292,22 +349,10 @@ Qed.
 Theorem Rename_Continuous' :
   forall (r : RenameMap) (r' : state->Var->Term)
          (c:Evolution),
-  (forall f (pf2:forall x : Var, derivable (fun t : R => f t x)),
-      exists (pf1:forall v,
-                 derivable (fun t : R =>
-                              eval_term (r v) (f t) (f t))),
-        forall v,
-        let e := r v in
-        let e' t := r' (fun x => deriv_stateF f pf2 x t) v in
-        forall z,
-          (0 <= z)%R ->
-          eq
-            (Ranalysis1.derive
-               (fun t => eval_term e (f t) (f t)) (pf1 v) z)
-            (eval_term (e' z) (f z) (f z))) ->
-    Continuous (fun st' => Forall st'' : state,
-                             (Forall x : Var, st'' x = r' st' x) -->> Rename r (c st''))
-    |-- Rename r (Continuous c).
+  RenameDerivOk r r' ->
+  Continuous (fun st' => Forall st'' : state,
+                            (Forall x : Var, st'' x = r' st' x) -->> Rename r (c st''))
+ |-- Rename r (Continuous c).
 Proof.
   breakAbstraction. intros.
   forward_reason.
@@ -349,6 +394,3 @@ Proof.
   - simpl. restoreAbstraction. intros. rewrite IHl1.
     split; charge_tauto.
 Qed.
-
-Close Scope string_scope.
-Close Scope HP_scope.

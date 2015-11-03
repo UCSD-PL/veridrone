@@ -3,7 +3,7 @@ Require Import TLA.BasicProofRules.
 Require Import TLA.Tactics.
 Require Import Coq.Classes.Morphisms.
 
-Open Scope HP_scope.
+Local Open Scope HP_scope.
 
 Definition Inductively (P A : Formula) : Formula :=
   [](P //\\ A -->> next P).
@@ -32,7 +32,7 @@ Proof.
        [](Q //\\ (P //\\ E) -->> next Q)).
   - charge_tauto.
   - rewrite Always_and.
-    tlaRevert. eapply always_imp.
+    tlaRevert. eapply Always_imp.
     charge_tauto.
 Qed.
 
@@ -45,7 +45,7 @@ Proof.
   intros.
   tlaRevert. tlaRevert.
   rewrite <- curry. rewrite Always_and.
-  apply always_imp. simpl. restoreAbstraction.
+  apply Always_imp. simpl. restoreAbstraction.
   charge_intro. charge_intro.
   rewrite <- landA.
   tlaRevert. apply landL1.

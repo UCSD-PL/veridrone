@@ -100,7 +100,7 @@ Proof.
         repeat rewrite <- Always_and.
         repeat charge_split; try charge_assumption;
         solve_linear.
-  - apply always_imp. charge_tauto.
+  - apply Always_imp. charge_tauto.
 Qed.
 
 Definition DelayCompensatorV :=
@@ -143,8 +143,8 @@ Proof.
         unfold Spec. unfold DelayCompensator.SenseSafe.
         charge_split; try charge_assumption.
         rewrite landC. tlaRevert. repeat rewrite Always_and.
-        apply always_imp. solve_linear.
-  - apply always_imp. charge_tauto.
+        apply Always_imp. solve_linear.
+  - apply Always_imp. charge_tauto.
 Qed.
 
 Definition CtrlSenseErrorDelaySysR err :=
@@ -175,5 +175,5 @@ Proof.
       * tlaIntro. pose proof ctrl_sense_delay_safe.
         charge_apply H. unfold SensorWithError.SenseSafe.
         repeat rewrite <- Always_and. charge_tauto.
-  - apply always_imp. charge_tauto.
+  - apply Always_imp. charge_tauto.
 Qed.

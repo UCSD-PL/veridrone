@@ -53,7 +53,7 @@ Module UpperLower (P : UpperLowerParams).
       rewrite <- Always_and.
       charge_apply Position.UpperLower_safe.
       repeat rewrite Always_and. tlaRevert.
-      apply always_imp. solve_linear.
+      apply Always_imp. solve_linear.
   Qed.
 
   Definition Constraint :=

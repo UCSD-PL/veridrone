@@ -65,7 +65,7 @@ Proof.
     [ charge_apply (vel_bound_acc ubv); charge_tauto |
       charge_intros ].
   repeat rewrite Always_and. tlaRevert.
-  apply always_imp. charge_intros. repeat decompose_hyps.
+  apply Always_imp. charge_intros. repeat decompose_hyps.
   - unfold SafeRegion, SafeAcc, Max.
     repeat (charge_split; charge_intros).
     + reason_action_tac. revert H2. rewrite_real_zeros.

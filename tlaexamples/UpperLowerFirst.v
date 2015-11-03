@@ -63,7 +63,7 @@ Module UpperLowerFirst (P : UpperLowerFirstParams).
       restoreAbstraction. apply landAdj in H.
       rewrite landtrueL in H. rewrite H. clear.
       rewrite <- Rename_ok by rw_side_condition.
-      tlaRevert. apply always_imp. unfold V.ub.
+      tlaRevert. apply Always_imp. unfold V.ub.
       solve_linear.
     - charge_intros. pose proof Vel.ctrl_safe.
       unfold V.ub in *. charge_apply H. charge_tauto. 

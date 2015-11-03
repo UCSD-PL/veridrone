@@ -89,7 +89,7 @@ apply imp_trans with (F2:=Ind_Inv /\ []Next).
     - apply imp_trans with (F2:=[]Ind_Inv).
       + apply inv_discr_ind; auto. unfold Next, Evolve.
         Time prove_inductive.
-      + apply always_imp. apply ind_inv_safe.
+      + apply Always_imp. apply ind_inv_safe.
 Qed.
 
 End HeightTwoDimensionCtrl.

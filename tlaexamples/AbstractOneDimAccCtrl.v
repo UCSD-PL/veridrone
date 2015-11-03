@@ -168,7 +168,7 @@ Module AbstractAccDimCtrl (Import Params : CtrlParameters).
   Proof.
     apply imp_trans with (F2:=[]Ctrlable).
     - apply AbstractCtrl.safety.
-    - apply always_imp. apply inv_safe.
+    - apply Always_imp. apply inv_safe.
   Qed.
 
 End AbstractAccDimCtrl.

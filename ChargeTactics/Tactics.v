@@ -109,3 +109,12 @@ Ltac charge_fwd :=
 
 Ltac charge_exfalso :=
   etransitivity; [ | eapply lfalseL ].
+
+Ltac charge_revert :=
+  first [ apply landAdj | apply Lemmas.lrevert ].
+
+Ltac charge_assert H :=
+  apply Lemmas.lcut with (R:=H).
+
+Ltac charge_exists x :=
+  apply (@lexistsR _ _ _ _ x).

@@ -8,7 +8,7 @@ Require Import Coq.Reals.Rdefinitions.
 Require Import Rbasic_fun.
 Require Import Ranalysis1.
 
-Open Scope HP_scope.
+Local Open Scope HP_scope.
 
 Notation "x <> y" := (Imp (Comp x y Eq) FALSE) : HP_scope.
 
@@ -171,7 +171,7 @@ Proof.
     tlaRevert. apply forget_prem. charge_intros.
     rewrite landC. repeat rewrite landA.
     rewrite Always_and. tlaRevert. apply forget_prem.
-    apply always_imp. charge_intros. rewrite land_lor_distr_R.
+    apply Always_imp. charge_intros. rewrite land_lor_distr_R.
     apply lorL.
     - apply lorR1. apply continuous_strengthen.
       + tlaIntuition.
@@ -188,7 +188,7 @@ Proof.
         { simpl deriv_formula. rewrite Hderiv.
           restoreAbstraction. auto. }
     - charge_tauto. }
-  
+
   charge_intros.
   pose proof (deriv_term_continuous _ _ x Hderiv (fun _ => R0))
     as HcontV.

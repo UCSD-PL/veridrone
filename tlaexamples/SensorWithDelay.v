@@ -93,7 +93,7 @@ Section SensorWithDelay.
       * rewrite sense_safe_ind. tlaAssume.
       * tlaRevert. apply forget_prem.
         rewrite <- uncurry. rewrite Always_and.
-        apply always_imp. solve_nonlinear.
+        apply Always_imp. solve_nonlinear.
   Qed.
 
 End SensorWithDelay.

@@ -264,7 +264,7 @@ Module AbstractIndAccCtrlMod (Import Params : InvParameters).
               apply H16; auto.
             - repeat apply subst_st_formula;
               simpl; auto. }
-      + apply always_imp. apply ind_inv_inv.
+      + apply Always_imp. apply ind_inv_inv.
 Qed.
 
 End AbstractIndAccCtrlMod.

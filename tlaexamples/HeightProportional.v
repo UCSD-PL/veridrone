@@ -73,7 +73,7 @@ Section Ctrl.
                end; solve_linear.
       rewrite <- Rmult_1_l.
       solve_nonlinear.
-    - apply and_left2. apply always_imp.
+    - apply and_left2. apply Always_imp.
       repeat apply or_left.
       + unfold Evolve. apply or_right1.
         repeat apply and_right.

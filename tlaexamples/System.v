@@ -499,8 +499,9 @@ Lemma exists_entails : forall T F1 F2,
   (forall x, F1 x |-- F2 x) ->
   Exists x : T, F1 x |-- Exists x : T, F2 x.
 Proof.
-  tlaIntuition.  destruct H0.
-  exists x. intuition.
+  tlaIntuition.
+  apply lexistsL. intro.
+  eapply lexistsR; instantiate (1:=x). auto.
 Qed.
 
 Lemma all_in_map : forall A B (l l':list A) (f:A->B),
@@ -586,7 +587,7 @@ Proof.
   repeat tlaSplit; try tlaAssume.
   { do 2 apply landL1. clear - Hd. solve_linear. }
   { tlaRevert.
-    apply always_imp. tlaIntro.
+    apply Always_imp. tlaIntro.
     repeat tlaSplit; try tlaAssume.
     rewrite landC. tlaRevert. apply forget_prem.
     tlaIntro. unfold Next.
@@ -604,7 +605,7 @@ Proof.
   SysD, sysD, Next; simpl; restoreAbstraction.
   charge_split.
   { charge_tauto. }
-  { tlaRevert. apply forget_prem. apply always_imp.
+  { tlaRevert. apply forget_prem. apply Always_imp.
     charge_intros. decompose_hyps.
     { charge_left. charge_left. charge_tauto. }
     { charge_left. charge_right. charge_tauto. }
@@ -761,7 +762,7 @@ Proof.
   { tlaRevert. apply forget_prem.
     charge_intros.
     rewrite Always_and.
-    tlaRevert. apply always_imp.
+    tlaRevert. apply Always_imp.
     charge_intros. decompose_hyps.
     - apply lorR1. apply lorR1.
       rewrite World_weaken.
@@ -804,7 +805,7 @@ Proof.
   { tlaRevert. apply forget_prem.
     charge_intros.
     rewrite Always_and.
-    tlaRevert. apply always_imp.
+    tlaRevert. apply Always_imp.
     charge_intros. decompose_hyps.
     - apply lorR1. apply lorR1.
       rewrite World_weaken.
@@ -831,7 +832,7 @@ Proof.
   { tlaRevert. apply forget_prem.
     charge_intros.
     rewrite Always_and.
-    tlaRevert. apply always_imp.
+    tlaRevert. apply Always_imp.
     charge_intros. decompose_hyps.
     - apply lorR1. apply lorR1.
       rewrite World_weaken.
@@ -954,7 +955,7 @@ Proof.
   charge_intro.
   rewrite Always_and.
   tlaRevert.
-  eapply always_imp.
+  eapply Always_imp.
   charge_tauto.
 Qed.
 
@@ -1079,7 +1080,7 @@ Proof.
   apply land_lentails_m.
   { simpl rename_formula.
     rewrite H1. rewrite H0. reflexivity. }
-  tlaRevert. eapply always_imp. charge_intro.
+  tlaRevert. eapply Always_imp. charge_intro.
   apply land_lentails_m.
   2: simpl rename_formula; rewrite H0; reflexivity.
   eapply lorL; [ charge_left | charge_right ];
@@ -1117,7 +1118,7 @@ Proof.
   apply land_lentails_m.
   { simpl rename_formula.
     rewrite H0. rewrite H1. reflexivity. }
-  tlaRevert. eapply always_imp. charge_intro.
+  tlaRevert. eapply Always_imp. charge_intro.
   apply land_lentails_m.
   2: simpl rename_formula; rewrite H0; reflexivity.
   eapply lorL; [ charge_left | charge_right ];

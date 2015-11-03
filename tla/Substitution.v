@@ -2,7 +2,7 @@ Require Import TLA.Semantics.
 Require Import TLA.ProofRules.
 Require Import TLA.Automation.
 
-Open Scope HP_scope.
+Local Open Scope HP_scope.
 
 (* Functions for substituting terms for
    variables in TLA Formulas and lemmas
@@ -426,5 +426,3 @@ Proof.
     apply H in H0; inversion H0;
     try eexists; eauto.
 Qed.
-
-Close Scope HP_scope.

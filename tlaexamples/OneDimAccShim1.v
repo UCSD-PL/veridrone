@@ -196,7 +196,7 @@ Proof.
   pose proof Hd. pose proof Hamax. pose proof Hamin.
   apply and_right.
   - apply and_left1. apply imp_id.
-  - apply and_left2. apply always_imp.
+  - apply and_left2. apply Always_imp.
     repeat apply or_left.
     + unfold Evolve. apply or_right1.
       repeat apply and_right.
@@ -459,5 +459,5 @@ Proof.
   - apply imp_trans
     with (F2:=[]InvParams.Inv).
     + apply AbstractCtrl.safety.
-    + apply always_imp. apply inv_safe.
+    + apply Always_imp. apply inv_safe.
 Qed.
