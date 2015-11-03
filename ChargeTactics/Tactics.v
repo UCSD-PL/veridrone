@@ -106,3 +106,6 @@ Ltac charge_fwd :=
   in
   repeat rewrite landA ;
   search_it ltac:(idtac).
+
+Ltac charge_exfalso :=
+  etransitivity; [ | eapply lfalseL ].

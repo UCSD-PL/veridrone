@@ -181,14 +181,6 @@ Ltac morphism_intro :=
                   | |- (_ ==> _)%signature _ _ => red
                   end; intros).
 
-Lemma lequiv_limpl : forall {L} (LL : ILogicOps L) {LLO : ILogic L} (P Q R S : L),
-    (P -|- R) ->
-    (Q -|- S) ->
-    (P -->> Q -|- R -->> S).
-Proof.
-  intros. rewrite H. rewrite H0. reflexivity.
-Qed.
-
 Lemma Proper_mkEvolution_lequiv
 : Proper (pointwise_relation _ lequiv ==> pointwise_relation _ lequiv) mkEvolution.
 Proof.
@@ -346,33 +338,6 @@ Proof.
   rewrite H. reflexivity.
 Qed.
 Existing Instance Proper_SysSafe.
-
-Lemma discr_indX : forall P A IndInv,
-    is_st_formula IndInv ->
-    P |-- [] A ->
-    P |-- IndInv ->
-    A //\\ IndInv |-- next IndInv ->
-    P |-- []IndInv.
-Proof.
-  intros.
-  intro. simpl; intros.
-  specialize (H0 _ H3).
-  induction n.
-  { simpl. intros; eapply H1. auto. }
-  { simpl. rewrite Stream.nth_suf_tl.
-    apply next_formula_tl; auto.
-    apply H2; auto.
-    split; auto. }
-Qed.
-
-Lemma Always_now : forall P I,
-  P |-- []I ->
-  P |-- I.
-Proof.
-  breakAbstraction.
-  intros P I H tr HP.
-  apply (H tr HP 0).
-Qed.
 
 Definition TimeBound d : Formula :=
   0 <= "t" //\\ "t" <= "T" <= d.
@@ -771,6 +736,7 @@ Proof.
 Qed.
 
 (** TODO: move this **)
+(*
 Lemma charge_and_use : forall P Q C,
     C |-- P ->
     C //\\ P |-- Q ->
@@ -778,21 +744,8 @@ Lemma charge_and_use : forall P Q C,
 Proof.
   intros. charge_tauto.
 Qed.
+*)
 
-Theorem Enabled_and (A B : Formula) :
-  Enabled (A //\\ B) |-- Enabled A //\\ Enabled B.
-Proof.
-  breakAbstraction. intros. split; destruct H;
-  exists x; tauto.
-Qed.
-
-Theorem Enabled_imp (A B : Formula) :
-  A |-- B ->
-  Enabled A |-- Enabled B.
-Proof.
-  breakAbstraction. intros. destruct H0.
-  eauto.
-Qed.
 
 Theorem PartialComposeRefine (a b : SysRec) :
   PartialSysD (SysCompose a b) |-- PartialSysD a.
@@ -889,7 +842,7 @@ Proof.
       + solve_linear. rewrite Rmin_comm. auto.
     - apply lorR2. apply lorR1. charge_intros. unfold Discr.
       charge_use. tlaRevert. apply forget_prem. charge_intros.
-      apply Enabled_imp. rewrite Rmin_comm.
+      apply Enabled_impl. rewrite Rmin_comm.
       repeat charge_split; try charge_tauto.
     - apply lorR2. apply lorR2.
       charge_split; try charge_assumption.
@@ -1004,9 +957,6 @@ Proof.
   eapply always_imp.
   charge_tauto.
 Qed.
-
-Ltac charge_exfalso :=
-  etransitivity; [ | eapply lfalseL ].
 
 Theorem SysSafe_rule
 : forall P S
@@ -1378,14 +1328,7 @@ Proof.
   - charge_tauto.
 Qed.
 
-Lemma Enabled_Or :
-  forall P Q,
-    Enabled P |-- Enabled (P \\// Q).
-Proof.
-  breakAbstraction. intros.
-  destruct H. exists x. auto.
-Qed.
-
+(*
 Lemma SysSafe_Enabled :
   forall a,
     SysSafe a |-- []Enabled (Discr (Prog a) (maxTime a)).
@@ -1405,6 +1348,7 @@ Lemma SysInv_rule :
             unch := a.(unch);
             maxTime := a.(maxTime) |} |-- SysD a.
 Admitted.
+*)
 
 Lemma SysDisjoin_Safe :
   forall a b P Q,
@@ -1419,5 +1363,5 @@ Proof.
   simpl. restoreAbstraction.
   apply always_tauto.
   repeat rewrite land_lor_distr_R.
-  rewrite <- Enabled_Or.
+  rewrite <- Enabled_or.
 Admitted.

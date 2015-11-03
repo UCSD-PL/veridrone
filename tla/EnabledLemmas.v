@@ -461,6 +461,31 @@ Proof.
   apply BasicProofRules.Rename_True.
 Qed.
 
+Theorem Enabled_and (A B : Formula) :
+  Enabled (A //\\ B) |-- Enabled A //\\ Enabled B.
+Proof.
+  breakAbstraction. intros. split; destruct H;
+  exists x; tauto.
+Qed.
+
+Lemma Enabled_or :
+  forall P Q,
+    Enabled P |-- Enabled (P \\// Q).
+Proof.
+  breakAbstraction. intros.
+  destruct H. exists x. auto.
+Qed.
+
+
+Theorem Enabled_impl (A B : Formula) :
+  A |-- B ->
+  Enabled A |-- Enabled B.
+Proof.
+  breakAbstraction. intros. destruct H0.
+  eauto.
+Qed.
+
+
 (** This lemma shows that we can push state formulas inside
  ** of Enabled which allows us to move the inductive invariant inside
  ** of the controller
