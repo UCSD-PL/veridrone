@@ -8,6 +8,7 @@ open Printf
 open Unix
 open Errors
 
+(** TODO(gmalecha): This should use CoqPluginUtils **)
 module type TM =
 sig
   type ('a,'b,'c) pattern =
@@ -61,7 +62,6 @@ struct
 
   let get x =
     As (Ignore, x)
-
 
   (** NOTE: This function does not clear writes by failed choices **)
   let rec match_pattern p e ctx s =
@@ -203,7 +203,7 @@ struct
 	let _ = debug := copy in
 	raise f
 
-  let debug f = if !debug then f () else ()
+  let debug f = if !debug then Pp.msg_debug (f ()) else ()
 
   let resolve_symbol (path : string list) (tm : string) : Term.constr =
     let re = Coqlib.find_reference contrib_name path tm in
@@ -325,6 +325,7 @@ struct
 
   let ptrn_success = Str.regexp "^unsat (\\([^)]*\\))"
   let ptrn_failure = Str.regexp "^sat ([^)]*) (model\\(.+\\)) ?$"
+  let ptrn_unknown = Str.regexp "^unknown"
   let ptrn_split = Str.regexp " "
 
   let ptrn_def = Str.regexp "(define-fun x\\([0-9]+\\) () Real[ \n\r\t]+(?\\(-? [0-9]*.[0-9]*\\))?)"
@@ -332,10 +333,12 @@ struct
   type z3_result =
       Sat of (int * float) list
     | Unsat of Names.identifier list
+    | Unknown
 
 
   let rec extract_model start result =
-    debug (fun _ -> Printf.eprintf "extract model: %s\n" (String.sub result start (String.length result - start))) ;
+    debug (fun _ -> Pp.(str "extract model: " ++ fnl () ++
+                        str (String.sub result start (String.length result - start)) ++ fnl ())) ;
     try
       let _ = Str.search_forward ptrn_def result start in
       let num = int_of_string (Str.matched_group 1 result) in
@@ -354,21 +357,21 @@ struct
 
   let parse_Z3_result result =
     let _ =
-      debug (fun _ ->
-	     Pp.msg_debug (Pp.str ("Z3 output\n" ^ result)))
+      debug (fun _ -> Pp.(str "Z3 output" ++ fnl () ++ str result))
     in
     let result = Str.global_replace (Str.regexp (Str.quote "\n")) " " result in
     let result = Str.global_replace (Str.regexp (Str.quote "\r")) "" result in
     if Str.string_partial_match ptrn_success result 0 then
       let lst = Str.matched_group 1 result in
       Unsat (List.map Names.id_of_string (Str.split ptrn_split lst))
+    else if Str.string_match ptrn_failure result 0 then
+      let result = Str.matched_group 1 result in
+      Sat (extract_model 0 result)
+    else if Str.string_match ptrn_unknown result 0 then
+      Unknown
     else
-      if Str.string_match ptrn_failure result 0 then
-	let result = Str.matched_group 1 result in
-	Sat (extract_model 0 result)
-      else
-	let _ = Format.eprintf "Bad Z3 output:\n%s" result in
-	assert false
+      let _ = Format.eprintf "Bad Z3 output:\n%s" result in
+      assert false
 
   let runZ3 tbl stmts =
     let (in_channel,out_channel) = Unix.open_process "z3 -in -smt2" in
@@ -487,14 +490,14 @@ struct
     in
     let pp_assign (x,v) =
       let vv : float = v in
-      Pp.(   (Printer.pr_constr (find x))
-	  ++ (str (Printf.sprintf " = %f" vv)))
+      Pp.(   Printer.pr_constr (find x)
+	  ++ str " = " ++ real vv)
     in
     begin
     fun x ->
       match x with
       | [] -> assert false
-      | _ -> 
+      | _ ->
 	pp_list pp_assign Pp.fnl x
     end
 
@@ -535,22 +538,28 @@ struct
 		let _ = Format.fprintf Format.str_formatter "%a" (pr_smt2 "\n") (tbl,hyps) in
 		let msg = Format.flush_str_formatter () in
 		let _ = Format.eprintf "%a" (pr_smt2 "\n") (tbl, hyps) in
-		Pp.msg_debug (Pp.str msg))
+		Pp.str msg)
        in
        match runZ3 tbl hyps with
          Sat model ->
 	 let msg =
-	   Pp.(   (str "z3 failed to solve the goal.")
-               ++ (fnl ())
-	       ++ (pr_model tbl model))
+	   Pp.(   str "z3 failed to solve the goal."
+               ++ fnl ()
+	       ++ pr_model tbl model)
 	 in
 	 Tacticals.tclFAIL 0 msg gl
        | Unsat core ->
 	  let msg =
-	    Pp.(++) (Pp.str "z3 solved the goal using only")
-		    (Pp.(++) (Pp.spc ()) (pr_unsat_core core))
+	    Pp.(   str "z3 solved the goal using only"
+                ++ spc ()
+                ++ pr_unsat_core core)
 	  in
 	  Tacticals.tclIDTAC_MESSAGE msg gl
+       | Unknown ->
+         let msg =
+           Pp.(str "z3 returned unknown")
+         in
+         Tacticals.tclFAIL 0 msg gl
 
 end
 
