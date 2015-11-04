@@ -285,20 +285,18 @@ Qed.
 Hint Extern 0 (forall x, is_st_term _ = true) =>
   (intros; eapply deriv_st_term; eauto) : rw_rename.
 
-Theorem Rename_Continuous_deriv_term :
-  forall (r : RenameMap) (r' : state->Var->Term)
+Theorem RenameDerivOk_deriv_term
+: forall (r : RenameMap) (r' : state->Var->Term)
          (c:Evolution),
     (forall x,
         deriv_term (r x) = Some (fun st' => r' st' x)) ->
-    Continuous (fun st' => (Forall x : Var, st' x = r' st' x) //\\ Rename r (c st'))
-    |-- Rename r (Continuous c).
+    RenameDerivOk r r'.
 Proof.
-  intros.
+  red. intros.
   assert ((forall x, is_st_term (r x) = true) /\ (forall x st', is_st_term (r' st' x) = true)).
   { generalize (fun x => @deriv_st_term _ _ (H x)); clear. firstorder. }
   destruct H0 as [ Hst1 Hst2 ].
-  eapply Rename_Continuous; eauto.
-  red. intros. simpl.
+  simpl.
   assert (forall v : Var,
              derivable (fun t : R => eval_term (r v) (f t) (f t))).
   { intros. specialize (H v).
@@ -337,6 +335,18 @@ Proof.
     auto. }
 Qed.
 
+Theorem Rename_Continuous_deriv_term :
+  forall (r : RenameMap) (r' : state->Var->Term)
+         (c:Evolution),
+    (forall x,
+        deriv_term (r x) = Some (fun st' => r' st' x)) ->
+    Continuous (fun st' => (Forall x : Var, st' x = r' st' x) //\\ Rename r (c st'))
+    |-- Rename r (Continuous c).
+Proof.
+  intros.
+  eapply Rename_Continuous; eauto using RenameDerivOk_deriv_term.
+Qed.
+
 Theorem Rename_Continuous_deriv_term' :
   forall (r : RenameMap) (r' : state->Var->Term)
          (c:Evolution),
@@ -348,47 +358,7 @@ Theorem Rename_Continuous_deriv_term' :
     |-- Rename r (Continuous c).
 Proof.
   intros.
-  assert ((forall x, is_st_term (r x) = true) /\ (forall x st', is_st_term (r' st' x) = true)).
-  { generalize (fun x => @deriv_st_term _ _ (H x)); clear. firstorder. }
-  destruct H0 as [ Hst1 Hst2 ].
-  eapply Rename_Continuous'; eauto.
-  red. intros. simpl.
-  assert (forall v : Var,
-             derivable (fun t : R => eval_term (r v) (f t) (f t))).
-  { intros. specialize (H v).
-    eapply term_deriv in H; eauto.
-    destruct H. clear e. revert x.
-    instantiate (2 := f).
-    instantiate (1 := fun _ => R0).
-    intros.
-    match goal with
-    | _ : derivable ?X |- derivable ?Y =>
-      cutrewrite (eq Y X); eauto
-    end.
-    eapply FunctionalExtensionality.functional_extensionality.
-    intros.
-    eapply st_term_hd; eauto. }
-  { exists H0. intros.
-    specialize (H v).
-    unfold deriv_stateF.
-    eapply term_deriv in H.
-    revert H. instantiate (2 := f).
-    instantiate (1 := fun _ => R0).
-    instantiate (1 := pf2).
-    instantiate (1:=z).
-    destruct 1.
-    simpl in e. specialize (e z).
-    rewrite st_term_hd with (s3:=fun _ : Var => 0%R).
-    rewrite <- e.
-    apply Ranalysis4.pr_nu_var.
-    eapply FunctionalExtensionality.functional_extensionality.
-    intros. apply st_term_hd.
-    apply Hst1.
-    psatzl R.
-    apply Hst2.
-    Grab Existential Variables.
-    exact R0.
-    auto. }
+  eapply Rename_Continuous'; eauto using RenameDerivOk_deriv_term.
 Qed.
 
 Definition deriv_term_succeed (t : Term) :=

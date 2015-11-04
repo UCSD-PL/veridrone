@@ -97,7 +97,7 @@ Definition solves_diffeqs (f : R -> state)
     forall z, (R0 <= z <= r)%R ->
               eval_formula (cp (fun x =>
                                   deriv_stateF f is_derivable x z))
-                           (Stream.forever (f z)).
+                           (Stream.forever (f z)). (* TODO: This should change to quantify over the rest of the trace *)
 
 (* Prop expressing that f is a solution to diffeqs in
    [0,r]. *)

@@ -16,7 +16,6 @@ tla/DifferentialInduction.v
 tla/ContinuousProofRules.v
 tla/ProofRules.v
 tla/ArithFacts.v
-tla/Substitution.v
 tla/Tactics.v
 tla/Automation.v
 tla/TLA.v

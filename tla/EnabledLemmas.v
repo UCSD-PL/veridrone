@@ -1,7 +1,8 @@
-Require Import TLA.TLA.
-Require Import TLA.BasicProofRules.
 Require Import Coq.Lists.List.
 Require Import Coq.Strings.String.
+Require Import ExtLib.Tactics.
+Require Import TLA.TLA.
+Require Import TLA.BasicProofRules.
 
 Definition traces_agree (tr1 tr2 : trace)
            (xs : list Var) : Prop :=
@@ -468,14 +469,8 @@ Proof.
   exists x; tauto.
 Qed.
 
-Lemma Enabled_or :
-  forall P Q,
-    Enabled P |-- Enabled (P \\// Q).
-Proof.
-  breakAbstraction. intros.
-  destruct H. exists x. auto.
-Qed.
-
+Lemma Enabled_or : forall P Q, Enabled P \\// Enabled Q |-- Enabled (P \\// Q).
+Proof. breakAbstraction; intros. destruct H; forward_reason; eauto. Qed.
 
 Theorem Enabled_impl (A B : Formula) :
   A |-- B ->
