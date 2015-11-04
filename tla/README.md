@@ -1,8 +1,17 @@
 This directory contains:
 
-1. Our embedding of TLA (Syntax.v, Stream.v, Semantics.v)
-2. Useful definitions for writing TLA specifications (Lib.v)
-3. A number of general proof rules (BasicProofRules.v) and proof rules specific to continous transitions (DifferentialInduction.v and ContinuousProofRules.v)
-4. Definitions and lemmas for substitution of terms for variables (Substitution.v)
-5. Automation (Tactics.v, Automation.v, LogicLemmas.v)
-6. Some useful arithmetic facts (ArithFacts.v).
+- A model of discrete time temporal logic (Stream.v)
+- The syntax and semantics of a discrete time linear temporal logic built on top of the model (Syntax.v, Semantics.v)
+- General proof rules for LTL (BasicProofRules.v)
+- Useful definitions for writing hybrid specifications (Lib.v)
+- Proof rules for continous transitions (ContinuousProofRules.v)
+- Proof of differential induction (DifferentialInduction.v)
+- Automation (Tactics.v, Automation.v)
+- Some useful arithmetic facts (ArithFacts.v)
+- Description of properties being preserved by transitions (Inductively.v)
+
+
+Things that exist in here but should probably move:
+
+- Stability.v
+- LyapunovFunctions.v
