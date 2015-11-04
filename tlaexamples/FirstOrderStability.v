@@ -1,4 +1,5 @@
 Require Import Coq.Reals.Rdefinitions.
+Require Import ExtLib.Tactics.
 Require Import TLA.TLA.
 Require Import TLA.BasicProofRules.
 Require Import TLA.Stability.
@@ -7,8 +8,8 @@ Require Import TLA.ArithFacts.
 Require Import Coq.Lists.List.
 Require Import Examples.DiffEqSolutions.
 
-Open Scope HP_scope.
-Open Scope string_scope.
+Local Open Scope HP_scope.
+Local Open Scope string_scope.
 
 Module Type Params.
 
@@ -131,7 +132,27 @@ Module Stability (Import P : Params).
       + charge_tauto.
       + apply lorR2. simpl Unchanged. restoreAbstraction.
         charge_assumption.
-    - breakAbstraction. intros. z3_solve; admit.
+    - breakAbstraction. intros.
+      forward_reason.
+      generalize dependent (Stream.hd tr "y").
+      generalize dependent (Stream.hd tr "t").
+      generalize dependent (Stream.hd tr "T").
+      generalize dependent (x "y"). clear.
+      intros.
+      assert ((0 - v2) * v2 <= 0)%R.
+      { solve_nonlinear. }
+      assert (v * v2 <= 0)%R.
+      { subst.
+        match goal with
+        | |- Rle (_ * ?X * _)%R _ =>
+          assert (0 <= X)%R by (eapply inv_0_le; solve_linear) ; generalize dependent X
+        end.
+        intros.
+        cutrewrite (eq ((0 - v2) * r * v2) (((0 - v2) * v2) * r))%R.
+        { generalize dependent ((0 - v2) * v2)%R.
+          intros. rewrite Raxioms.Rmult_comm. eapply Rmult_le_0; auto. }
+        solve_linear. }
+      solve_linear.
     - breakAbstraction. intros.
       apply RIneq.Rlt_gt.
       apply RIneq.Rlt_0_sqr.
