@@ -12,6 +12,7 @@ tla/Semantics.v
 tla/Lib.v
 tla/Inductively.v
 tla/BasicProofRules.v
+tla/RenameProofRules.v
 tla/DifferentialInduction.v
 tla/ContinuousProofRules.v
 tla/ProofRules.v

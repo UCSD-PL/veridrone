@@ -19,5 +19,6 @@
 *)
 
 Require Export TLA.BasicProofRules.
+Require Export TLA.RenameProofRules.
 Require Export TLA.DifferentialInduction.
 Require Export TLA.ContinuousProofRules.

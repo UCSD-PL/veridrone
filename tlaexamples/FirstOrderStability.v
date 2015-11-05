@@ -67,8 +67,8 @@ Module Stability (Import P : Params).
       - tlaIntuition.
       - tlaIntuition.
       - solve_linear. }
-    assert (evolution_entails World sgl_int)
-      by (red; red; solve_linear).
+    assert (World |-- sgl_int)
+      by (apply Evolution_lentails_lentails; red; red; solve_linear).
     rewrite H. clear H. rewrite solve_sgl.
     reason_action_tac. intuition.
     rewrite H1 in *. rewrite H2 in *. rewrite H3 in *.

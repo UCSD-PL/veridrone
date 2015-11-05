@@ -326,7 +326,7 @@ Lemma Assign_refine :
   forall x t,
     is_st_term t = true ->
     tlaParD (Assign x _ (projT2 (Term_to_ParTerm t))) |--
-    x! = t.
+    (x! = t)%HP.
 Proof.
   intros; breakAbstraction; intros;
   rewrite <- Term_to_ParTerm_sound; auto;

@@ -1,8 +1,8 @@
-Require Import Rdefinitions.
-Require Import RIneq.
+Require Import Coq.Reals.Rdefinitions.
+Require Import Coq.Reals.RIneq.
 Require Import Coq.Reals.Rtrigo1.
 Require Import TLA.TLA.
-Require Import BasicProofRules.
+Require Import TLA.BasicProofRules.
 
 (* Some obvious but useful real arithmetic
    facts. *)
@@ -214,6 +214,8 @@ Lemma minus_0_l_equiv :
   forall x,
     term_equiv (0%R-x) --x.
 Proof. unfold term_equiv; solve_linear. Qed.
+
+Local Open Scope HP_scope.
 Lemma minus_eq :
   forall x y,
     --x = --y -|- x = y.
@@ -221,12 +223,12 @@ Proof. split; solve_linear. Qed.
 
 Ltac tla_rewrite_0 :=
   repeat first
-         [ rewrite mult_0_l_equiv |
-           rewrite mult_0_r_equiv |
-           rewrite plus_0_l_equiv |
-           rewrite plus_0_r_equiv |
-           rewrite minus_0_l_equiv |
-           rewrite minus_0_r_equiv ].
+         [ rewrite mult_0_l_equiv
+         | rewrite mult_0_r_equiv
+         | rewrite plus_0_l_equiv
+         | rewrite plus_0_r_equiv
+         | rewrite minus_0_l_equiv
+         | rewrite minus_0_r_equiv ].
 
 Lemma Rmin_Lt :
   forall r1 r2 t,
@@ -258,7 +260,7 @@ Proof.
 Qed.
 
 Require Import Setoid Relation_Definitions Reals.
-Open Scope R.
+Local Open Scope R.
 
 Add Parametric Relation : R Rle
 reflexivity proved by Rle_refl
@@ -276,5 +278,3 @@ intros ; unfold Rminus ;
 apply Rplus_le_compat;
 [assumption | apply Ropp_le_contravar ; assumption].
 Qed.
-
-Close Scope R.

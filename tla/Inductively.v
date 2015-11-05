@@ -5,7 +5,10 @@ Require Import Coq.Classes.Morphisms.
 
 Local Open Scope HP_scope.
 
-Definition Inductively (P A : Formula) : Formula :=
+Definition Preserves (P : StateFormula) (A : ActionFormula) : Formula :=
+  A -->> (P -->> next P).
+
+Definition Inductively (P : StateFormula) (A : ActionFormula) : Formula :=
   [](P //\\ A -->> next P).
 
 Lemma Inductively_Inv :
@@ -52,12 +55,11 @@ Proof.
   charge_intros. decompose_hyps; charge_tauto.
 Qed.
 
-(** TODO: Using [eq] here is a hack that we should fix! **)
 Lemma Proper_Inductively
 : Proper (eq ==> lequiv ==> lequiv)%signature Inductively.
 Proof.
  red. do 2 red. unfold Inductively. intros.
- apply Proper_Always.
+ apply Proper_Always_lequiv.
  eapply limpl_lequiv_m.
  { rewrite H. rewrite H0. reflexivity. }
  { subst. reflexivity. }
@@ -72,7 +74,7 @@ Proof.
 Qed.
 
 Lemma Inductively_equiv
-  : forall a b : Formula,
+: forall a b : StateFormula,
     is_st_formula a -> is_st_formula b ->
     a -|- b ->
     forall c d : Formula,
@@ -80,7 +82,7 @@ Lemma Inductively_equiv
       Inductively a c -|- Inductively b d.
 Proof.
   unfold Inductively. intros.
-  apply Proper_Always.
+  apply Proper_Always_lequiv.
   rewrite H2; clear H2.
   eapply limpl_lequiv_m.
   { rewrite H1. reflexivity. }
@@ -111,5 +113,3 @@ Proof.
   intros. charge_apply (Inductively_Or P Q S1 S2).
   charge_tauto.
 Qed.
-
-Close Scope HP_scope.

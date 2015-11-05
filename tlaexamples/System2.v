@@ -2,14 +2,15 @@ Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Rbasic_fun.
 Require Import Coq.Classes.RelationClasses.
 Require Import Coq.Classes.Morphisms.
+Require Import Coq.Lists.ListSet.
+Require Import ChargeTactics.Lemmas.
+Require Import ExtLib.Tactics.
 Require Import TLA.TLA.
 Require Import TLA.ProofRules.
 Require Import TLA.ArithFacts.
 Require Import TLA.Automation.
 Require Import TLA.EnabledLemmas.
 Require Import TLA.Inductively.
-Require Import ChargeTactics.Lemmas.
-Require Import Coq.Lists.ListSet.
 
 Local Open Scope HP_scope.
 Local Open Scope string_scope.
@@ -24,13 +25,13 @@ Definition mkEvolution (world : Evolution) : Evolution :=
 Definition World (world : Evolution) : Formula :=
   Continuous (mkEvolution world) //\\ 0 < "T" //\\ 0 <= "T"!.
 
-Definition Discr (Prog : Formula) (d : R) : Formula :=
+Definition Discr (Prog : ActionFormula) (d : R) : ActionFormula :=
   Prog //\\ "T" = 0 //\\ 0 <= "T"! <= d.
 
-Definition Sys (P : Formula) (w : Evolution) (d : R) : Formula :=
+Definition Sys (P : ActionFormula) (w : Evolution) (d : R) : ActionFormula :=
   "T" <= d //\\ (Discr P d \\// World w).
 
-Definition System (P : Formula) (w : Evolution) (d : R) : Formula :=
+Definition System (P : ActionFormula) (w : Evolution) (d : R) : ActionFormula :=
   Sys P w d \\// (Enabled (Sys P w d) -->> lfalse).
 
 (*
@@ -38,14 +39,20 @@ Definition System' (P : Formula) (w : Evolution) (d : R) : Formula :=
   Sys P w d \\// (Enabled (Discr P d) -->> lfalse).
 *)
 
-Definition NeverStuck (I : Formula) (A : Formula) : Formula :=
+Definition TimedInductively (delta : R) (P : StateFormula) (A : ActionFormula) : Formula :=
+  Inductively (P //\\ 0 <= "T" <= delta) A.
+
+Definition NeverStuck (I : StateFormula) (A : ActionFormula) : Formula :=
   [] (I -->> Enabled A).
 
+
+(*
 Ltac morphism_intro :=
   repeat (intros; match goal with
                   | |- Proper (_ ==> _)%signature _ => red
                   | |- (_ ==> _)%signature _ _ => red
                   end; intros).
+*)
 
 Instance Proper_mkEvolution_lentails
 : Proper (lentails ==> lentails) mkEvolution.
@@ -66,7 +73,6 @@ Proof.
   eapply Evolution_lequiv_lequiv with (x:=x0) in H.
   rewrite H. reflexivity.
 Qed.
-
 
 Instance Proper_World_lequiv
 : Proper (lequiv ==> lequiv) World.
@@ -100,6 +106,13 @@ Instance Proper_Sys_lentails
 : Proper (lentails ==> lentails ==> eq ==> lentails) Sys.
 Proof.
   unfold Sys, Discr, World. morphism_intro.
+  subst. rewrite H; clear H. rewrite H0; clear H0. reflexivity.
+Qed.
+
+Instance Proper_System_lequiv
+: Proper (lequiv ==> lequiv ==> eq ==> lequiv) System.
+Proof.
+  unfold System, Discr, World. morphism_intro.
   subst. rewrite H; clear H. rewrite H0; clear H0. reflexivity.
 Qed.
 
@@ -143,6 +156,7 @@ Proof.
       solve_linear. } }
 Qed.
 
+(** TODO: Move this **)
 Lemma land_dup : forall A : Formula, A -|- A //\\ A.
 Proof. intros; split; charge_tauto. Qed.
 
@@ -166,28 +180,6 @@ Proof.
   - charge_exfalso. charge_tauto.
 Qed.
 
-(*
-Theorem SysSystem'
-: forall G I P w d,
-  G |-- Inductively I (Sys P w d) ->
-  G |-- NeverStuck I (Discr P d) ->
-  G |-- Inductively I (System' P w d).
-Proof.
-  intros. unfold NeverStuck, Inductively in *.
-  rewrite (land_dup G).
-  rewrite H at 1.
-  rewrite H0.
-  rewrite Always_and.
-  charge_revert.
-  apply Always_imp.
-  unfold System'.
-  charge_intros.
-  decompose_hyps.
-  - charge_tauto.
-  - charge_exfalso. charge_tauto.
-Qed.
-*)
-
 Theorem SystemSys
 : forall G I P w d,
     G |-- Inductively I (System P w d) ->
@@ -198,17 +190,6 @@ Proof.
   always_imp_tac.
   unfold System. charge_tauto.
 Qed.
-
-
-(*
-System D W d = Sys D W d \\// ~Enabled (Sys D W d)
-
-NeverStuck (Sys D W d)
-Inductively P (Sys D W d)
------------------------
-System D W d -->> P -->> [] P
-*)
-
 
 Definition SysDisjoin_simpl
 : forall D1 D2 W d,
@@ -330,23 +311,6 @@ Proof.
     eapply Ranalysis1.pr_nu. }
 Qed.
 
-(* MOVE *)
-Instance Proper_PropF_lequiv
-  : Proper (iff ==> lequiv) PropF.
-Proof.
-  morphism_intro. compute. tauto.
-Qed.
-
-(* MOVE *)
-Instance Proper_PropF_lentails
-  : Proper (Basics.impl ==> lentails) PropF.
-Proof.
-  morphism_intro. compute. tauto.
-Qed.
-
-(* MOVE *)
-Lemma PropF_and : forall P Q, PropF (P /\ Q) -|- PropF P //\\ PropF Q.
-Proof. compute. tauto. Qed.
 
 (* MOVE
 Lemma Continuous_and_lequiv
@@ -451,12 +415,6 @@ Proof.
       rewrite mkEvolution_and. charge_tauto. }
 *)
 Qed.
-
-(** TODO: Move this **)
-Definition RenameMapOk (sigma : RenameMap) : Prop :=
-  forall x : Var, is_st_term (sigma x) = true.
-
-Require Import ExtLib.Tactics.
 
 Definition SysRename_rule
 : forall D W d sigma sigma',

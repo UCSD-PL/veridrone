@@ -19,10 +19,10 @@ Inductive Term :=
 | PlusT : Term -> Term -> Term
 | MinusT : Term -> Term -> Term
 | MultT : Term -> Term -> Term
-| InvT : Term -> Term 
+| InvT : Term -> Term
 | CosT : Term -> Term
 | SinT : Term -> Term
-| SqrtT : Term -> Term 
+| SqrtT : Term -> Term
 | ArctanT : Term -> Term
 | ExpT : Term -> Term
 | MaxT : Term -> Term -> Term
@@ -56,6 +56,10 @@ Inductive Formula :=
 | Eventually : Formula -> Formula
 | Embed : (state -> state -> Prop) -> Formula
 | Rename : RenameMap -> Formula -> Formula.
+
+(* Aliases for documentation purposes *)
+Definition StateFormula := Formula.
+Definition ActionFormula := Formula.
 
 (************************************************)
 (* Some notation for the logic.                 *)
@@ -111,3 +115,6 @@ Notation "[] f" := (Always f)
                      (at level 72) : HP_scope.
 Notation "<> f" := (Eventually f)
                      (at level 72) : HP_scope.
+
+Bind Scope HP_scope with Term.
+Bind Scope HP_scope with Formula.

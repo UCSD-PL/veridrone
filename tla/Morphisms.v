@@ -67,6 +67,3 @@ Proof.
   morphism_intro; unfold term_equiv in *;
   simpl; intuition congruence.
 Qed.
-
-Definition evolution_entails :=
-  Morphisms.pointwise_relation state lentails.

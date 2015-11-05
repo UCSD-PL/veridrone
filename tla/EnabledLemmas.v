@@ -3,6 +3,7 @@ Require Import Coq.Strings.String.
 Require Import ExtLib.Tactics.
 Require Import TLA.TLA.
 Require Import TLA.BasicProofRules.
+Require Import TLA.RenameProofRules.
 
 Definition traces_agree (tr1 tr2 : trace)
            (xs : list Var) : Prop :=
@@ -388,7 +389,7 @@ Lemma subst_enabled_noenv :
     |-- Enabled (Rename m A).
 Proof.
   intros. rewrite <- subst_enabled with (G:=ltrue); eauto.
-  apply BasicProofRules.Rename_True.
+  apply Rename_True.
 Qed.
 
 Definition predicated_witness_function (m:RenameMap)
@@ -459,7 +460,7 @@ Proof.
   intros.
   rewrite <- subst_enabled_predicated_witness
   with (G:=ltrue); eauto.
-  apply BasicProofRules.Rename_True.
+  apply Rename_True.
 Qed.
 
 Theorem Enabled_and (A B : Formula) :
