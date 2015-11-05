@@ -223,69 +223,38 @@ Proof.
   red. eapply Evolution_lequiv_lequiv. assumption.
 Qed.
 
+Transparent Charge.Logics.ILInsts.ILFun_Ops.
 
-(*
-Lemma VarRenameMap_derivable : forall f m,
-    (forall x, Ranalysis1.derivable (fun t => f t x)) ->
-    forall x,
-      Ranalysis1.derivable
-        (fun t => subst_state (VarRenameMap m) (f t) x).
+Lemma is_solution_and : forall f P Q r,
+    is_solution f (P //\\ Q) r <-> is_solution f P r /\ is_solution f Q r.
 Proof.
-  intros.
-  induction m.
-  - simpl. auto.
-  - simpl. destruct a. simpl.
-    destruct (String.string_dec x v).
-    + subst. apply H.
-    + auto.
-Qed.*)
-
-(*
-Lemma subst_VarRenameMap_derive_distr :
-  forall m f z pf1 pf2,
-    subst_state (VarRenameMap m)
-          (fun x =>
-             Ranalysis1.derive (fun t : R => f t x) (pf1 x) z) =
-    fun x =>
-      Ranalysis1.derive (fun t : R =>
-                           subst_state (VarRenameMap m) (f t) x) (pf2 x)
-                        z.
-Proof.
-  intros. apply functional_extensionality.
-  intros. generalize (pf2 x). clear pf2.
-  induction m; intros.
-  - simpl. apply Ranalysis4.pr_nu_var. auto.
-  - destruct a. simpl in *.
-    destruct (String.string_dec x v).
-    + subst. apply Ranalysis4.pr_nu_var.
-      auto.
-    + erewrite IHm. auto.
+  unfold is_solution.
+  intros. split.
+  { intros. destruct H.
+    split; exists x.
+    - unfold solves_diffeqs in *.
+      intros. eapply H in H0.
+      simpl in *. tauto.
+    - unfold solves_diffeqs in *.
+      intros. eapply H in H0.
+      simpl in *. tauto. }
+  { intros. destruct H. destruct H. destruct H0.
+    exists x.
+    unfold solves_diffeqs in *.
+    intros.
+    specialize (H _ H1).
+    specialize (H0 _ H1).
+    simpl. split; auto.
+    revert H0.
+    match goal with
+    | |- ?X -> ?Y => cutrewrite (eq X Y); auto
+    end.
+    f_equal. f_equal.
+    apply FunctionalExtensionality.functional_extensionality.
+    intros. unfold deriv_stateF.
+    unfold Ranalysis1.derive.
+    eapply Ranalysis1.pr_nu. }
 Qed.
-*)
-
-(*
-Lemma subst_VarRenameMap_derive_distr :
-  forall m f z pf1 pf2,
-    subst_derivmap (VarRenameMap m)
-          (fun x =>
-             Ranalysis1.derive (fun t : R => f t x) (pf1 x) z) =
-    fun x =>
-      Ranalysis1.derive
-        (fun t : R =>
-           subst_derivmap (VarRenameMap m) (f t) x) (pf2 x)
-        z.
-Proof.
-  intros. apply functional_extensionality.
-  intros. generalize (pf2 x). clear pf2.
-  induction m; intros.
-  - simpl. apply Ranalysis4.pr_nu_var. auto.
-  - destruct a. simpl in *.
-    destruct (String.string_dec x v).
-    + subst. apply Ranalysis4.pr_nu_var.
-      auto.
-    + erewrite IHm. auto.
-Qed.
-*)
 
 Lemma lequiv_eq : forall {T} (lo : ILogicOps T) (IL : ILogic T) (a b : T),
     a = b -> a -|- b.
@@ -394,3 +363,71 @@ Proof.
   - simpl. restoreAbstraction. intros. rewrite IHl1.
     split; charge_tauto.
 Qed.
+
+(* MOVE
+Lemma Continuous_and_lequiv
+  : forall P Q, Continuous P //\\ Continuous Q -|- Continuous (P //\\ Q).
+Proof.
+  unfold Continuous; split.
+  { charge_fwd.
+    destruct (RIneq.Rtotal_order x x1) as [ ? | [ ? | ? ] ].
+    - charge_exists x.
+      charge_exists x0.
+      charge_split; [ charge_assumption | ].
+      rewrite is_solution_and.
+      rewrite PropF_and.
+      charge_split; [ | charge_assumption ].
+      charge_split; try charge_assumption.
+      breakAbstraction. intros.
+      Require Import ExtLib.Tactics.
+      unfold is_solution in *.
+      forward_reason.
+      exists x4. unfold solves_diffeqs in *.
+      intros.
+      assert (x0 z = x2 z) by admit.
+      rewrite H9 in *.
+      clear H5.
+      assert (0 <= z <= x1)%R.
+      { solve_linear. }
+      eapply H3 in H5.
+      revert H5.
+      admit.
+    - charge_exists x.
+      charge_exists x0.
+      subst.
+      charge_split; [ charge_assumption | ].
+      rewrite is_solution_and.
+      rewrite PropF_and.
+      charge_split; [ | charge_assumption ].
+      charge_split; try charge_assumption.
+      admit.
+    - charge_exists x1.
+      charge_exists x2.
+      charge_split; [ charge_assumption | ].
+      rewrite is_solution_and.
+      rewrite PropF_and.
+      charge_split; [ | charge_assumption ].
+      charge_split; try charge_assumption.
+      admit. }
+  { repeat (eapply lexistsL; intros).
+    charge_split; do 2 eapply lexistsR;
+    instantiate (1:= x); instantiate (1:=x0);
+    repeat charge_split; try charge_tauto.
+    - charge_assert (PropF (is_solution x0 (P //\\ Q) x)).
+      + charge_assumption.
+      + apply forget_prem.
+        breakAbstraction. intros.
+        eapply Proper_is_solution_lentails; [ | | | eassumption ].
+        * reflexivity.
+        * simpl. restoreAbstraction. intros. charge_tauto.
+        * reflexivity.
+    - charge_assert (PropF (is_solution x0 (P //\\ Q) x)).
+      + charge_assumption.
+      + apply forget_prem.
+        breakAbstraction. intros.
+        eapply Proper_is_solution_lentails; [ | | | eassumption ].
+        * reflexivity.
+        * simpl. restoreAbstraction. intros. charge_tauto.
+        * reflexivity. }
+Qed.
+*)
