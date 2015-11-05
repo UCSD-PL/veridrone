@@ -44,14 +44,16 @@ Definition System' (P : Formula) (w : Evolution) (d : R) : Formula :=
   Sys P w d \\// (Enabled (Discr P d) -->> lfalse).
 *)
 
-Definition TimedInductively (delta : R) (P : StateFormula) (A : ActionFormula) : Formula :=
-  Inductively (P //\\ 0 <= "T" <= delta) A.
+Definition TimedPreserves (delta : R) (P : StateFormula) (A : ActionFormula) : Formula :=
+  Preserves (P //\\ 0 <= "T" <= delta) A.
 
+(*
 Definition NeverStuck (I : StateFormula) (A : ActionFormula) : Formula :=
-  [] (I -->> Enabled A).
+  (I -->> Enabled A).
+*)
 
 Definition SysNeverStuck (delta : R) (I : StateFormula) (A : ActionFormula) : Formula :=
-  [] (0 <= "T" <= delta //\\ I -->> Enabled A).
+  0 <= "T" <= delta //\\ I -->> Enabled A.
 
 Global Instance Proper_mkEvolution_lentails
 : Proper (lentails ==> lentails) mkEvolution.
@@ -115,21 +117,19 @@ Proof.
   subst. rewrite H; clear H. rewrite H0; clear H0. reflexivity.
 Qed.
 
-Theorem Inductively_Sys
-: forall P A Prog IndInv (w : Evolution) (d:R),
+Theorem Preserves_Sys
+: forall P Prog IndInv (w : Evolution) (d:R),
   (forall st', is_st_formula (w st')) ->
-  P |-- [] A ->
-  A //\\ IndInv //\\ 0 <= "T"! <= "T" //\\ "T" <= d (* This could be "T"! < "T" *)
+  P //\\ IndInv //\\ 0 <= "T"! <= "T" //\\ "T" <= d (* This could be "T"! < "T" *)
     //\\ World w |-- next IndInv ->
-  A //\\ IndInv //\\ "T" = 0 //\\ 0 <= "T"! <= d
+  P //\\ IndInv //\\ "T" = 0 //\\ 0 <= "T"! <= d
     //\\ Discr Prog d |-- next IndInv ->
-  P |-- Inductively IndInv (Sys Prog w d).
+  P |-- Preserves IndInv (Sys Prog w d).
 Proof.
-  intros P A Prog IndInv world delta.
-  intros Hst_world H Hworld Hdiscr.
-  rewrite H; clear H.
-  unfold Inductively.
-  tlaRevert. apply Always_imp.
+  intros P Prog IndInv world delta.
+  intros Hst_world Hworld Hdiscr.
+  unfold Preserves.
+  charge_revert.
   charge_intros. unfold Sys.
   decompose_hyps.
   { rewrite <- Hdiscr. unfold Discr.
@@ -157,17 +157,15 @@ Qed.
 
 Theorem SysSystem
 : forall G I P w d,
-  G |-- Inductively I (Sys P w d) ->
-  G |-- NeverStuck I (Sys P w d) ->
-  G |-- Inductively I (System P w d).
+  G |-- TimedPreserves d I (Sys P w d) ->
+  G |-- SysNeverStuck  d I (Sys P w d) ->
+  G |-- TimedPreserves d I (System P w d).
 Proof.
-  intros. unfold NeverStuck, Inductively in *.
+  intros. unfold SysNeverStuck, TimedPreserves, Preserves in *.
   rewrite (land_dup G).
   rewrite H at 1.
   rewrite H0.
-  rewrite Always_and.
   charge_revert.
-  apply Always_imp.
   unfold System.
   charge_intros.
   decompose_hyps.
@@ -177,12 +175,11 @@ Qed.
 
 Theorem SystemSys
 : forall G I P w d,
-    G |-- Inductively I (System P w d) ->
-    G |-- Inductively I (Sys P w d).
+    G |-- TimedPreserves d I (System P w d) ->
+    G |-- TimedPreserves d I (Sys P w d).
 Proof.
-  unfold Inductively. intros.
+  unfold TimedPreserves, Preserves. intros.
   rewrite H.
-  always_imp_tac.
   unfold System. charge_tauto.
 Qed.
 
@@ -196,59 +193,82 @@ Proof.
   { unfold Discr. decompose_hyps; charge_tauto. }
 Qed.
 
+Instance Proper_Preserves : Proper (eq ==> lequiv ==> lequiv) Preserves.
+Proof.
+  morphism_intro. unfold Preserves.
+  subst. rewrite H0. reflexivity.
+Qed.
+
+Theorem Preserves_Or
+  : forall (P Q : StateFormula) (S1 S2 : ActionFormula),
+    Preserves P S1 //\\ Preserves Q S2
+              |-- Preserves (P \\// Q) (P //\\ S1 \\// Q //\\ S2).
+Proof.
+  unfold Preserves.
+  simpl; restoreAbstraction.
+  intros.
+  charge_intro.
+  charge_assert (next P \\// next Q); [ | charge_intros; charge_assumption ].
+  charge_cases; solve [ charge_left; charge_use; charge_tauto
+                      | charge_right; charge_use; charge_tauto ].
+Qed.
+
 Theorem SysDisjoin_compose
 : forall G D1 D2 w d P Q,
-    G |-- Inductively P (Sys D1 w d) ->
-    G |-- Inductively Q (Sys D2 w d) ->
-    G |-- Inductively (P \\// Q) (Sys ((P //\\ D1) \\// (Q //\\ D2)) w d).
+    G |-- TimedPreserves d P (Sys D1 w d) ->
+    G |-- TimedPreserves d Q (Sys D2 w d) ->
+    G |-- TimedPreserves d (P \\// Q) (Sys ((P //\\ D1) \\// (Q //\\ D2)) w d).
 Proof.
   intros.
   etransitivity.
-  2: eapply Proper_Inductively. 3: symmetry; eapply SysDisjoin_simpl. 2: reflexivity.
+  2: eapply Proper_Preserves. 3: symmetry; eapply SysDisjoin_simpl. 2: reflexivity.
   rewrite land_dup.
   rewrite H at 1; rewrite H0.
-  rewrite Inductively_Or.
-  unfold Inductively.
-  always_imp_tac.
+  unfold TimedPreserves.
+  rewrite Preserves_Or.
+  unfold Preserves.
   charge_intros.
-  charge_use.
-  charge_revert.
-  apply forget_prem.
-  charge_intros.
-  unfold Sys, Discr.
-  charge_cases; charge_tauto.
+  simpl next; restoreAbstraction.
+  charge_assert (next P //\\ 0 <= ("T") ! //\\ ("T") ! <= d \\//
+                 next Q //\\ 0 <= ("T") ! //\\ ("T") ! <= d).
+  { charge_use.
+    - charge_revert. charge_revert. charge_clear.
+      charge_intros.
+      unfold Sys, Discr.
+      charge_cases; charge_tauto.
+    - charge_revert. charge_clear. charge_intros.
+      charge_cases; charge_tauto. }
+  { charge_clear. charge_intros; charge_cases; charge_tauto. }
 Qed.
 
 Theorem NeverStuck_disjoin
 : forall G D1 D2 w d P Q,
     is_st_formula P ->
     is_st_formula Q ->
-    G |-- NeverStuck P (Sys D1 w d) ->
-    G |-- NeverStuck Q (Sys D2 w d) ->
-    G |-- NeverStuck (P \\// Q) (Sys ((P //\\ D1) \\// (Q //\\ D2)) w d).
+    G |-- SysNeverStuck d P (Sys D1 w d) ->
+    G |-- SysNeverStuck d Q (Sys D2 w d) ->
+    G |-- SysNeverStuck d (P \\// Q) (Sys ((P //\\ D1) \\// (Q //\\ D2)) w d).
 Proof.
-  unfold NeverStuck.
+  unfold SysNeverStuck.
   do 7 intro. intros Hst_P Hst_Q.
   intros.
   rewrite land_dup.
   rewrite H at 1; rewrite H0.
-  rewrite Always_and.
-  always_imp_tac.
   rewrite <- SysDisjoin_simpl.
   rewrite <- Enabled_or.
-  charge_intros. decompose_hyps.
+  charge_intros. charge_cases.
   - charge_left.
     charge_assert (P //\\ Enabled (Sys D1 w d)); [ charge_tauto | ].
     rewrite Enabled_and_push by assumption.
-    apply forget_prem.
+    charge_clear.
     charge_intro. apply Proper_Enabled_lentails.
-    unfold Sys, Discr. decompose_hyps; charge_tauto.
+    unfold Sys, Discr. charge_cases; charge_tauto.
   - charge_right.
     charge_assert (Q //\\ Enabled (Sys D2 w d)); [ charge_tauto | ].
     rewrite Enabled_and_push by assumption.
     apply forget_prem.
     charge_intro. apply Proper_Enabled_lentails.
-    unfold Sys, Discr. decompose_hyps; charge_tauto.
+    unfold Sys, Discr. charge_cases; charge_tauto.
 Qed.
 
 (* MOVE *)
@@ -268,12 +288,12 @@ Definition SysCompose_simpl
     Sys (D1 //\\ D2) (W1 //\\ W2) d |-- Sys D1 W1 d //\\ Sys D2 W2 d.
 Proof.
   unfold Sys, Discr, World; intros.
-  { repeat decompose_hyps. charge_tauto.
+  { repeat charge_cases. charge_tauto.
     charge_right. charge_right.
     rewrite <- mkEvolution_and. rewrite Continuous_and.
     charge_tauto. }
 (*
-  { repeat decompose_hyps.
+  { repeat charge_cases.
     - charge_tauto.
     - charge_exfalso. solve_linear.
     - charge_exfalso. solve_linear.
@@ -306,7 +326,7 @@ Proof.
                | rewrite Rename_Comp by apply H ].
   simpl; restoreAbstraction. rewrite H0.
   charge_split; [ charge_assumption | ].
-  decompose_hyps; [ charge_left | charge_right ].
+  charge_cases; [ charge_left | charge_right ].
   { simpl. restoreAbstraction. charge_tauto. }
   { simpl. restoreAbstraction.
     charge_split; try charge_tauto.
