@@ -1,7 +1,8 @@
+Require Import Coq.Lists.List.
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
 Require Import TLA.ProofRules.
-Require Import Examples.System.
+Require Import Examples.System2.
 
 Local Open Scope HP_scope.
 Local Open Scope string_scope.
@@ -14,6 +15,8 @@ Module Type FirstDerivShimParams.
   Parameter d : R.
   Parameter d_gt_0 : (d > 0)%R.
 End FirstDerivShimParams.
+
+
 
 Module FirstDerivShim (P : FirstDerivShimParams).
 
@@ -29,64 +32,55 @@ Module FirstDerivShim (P : FirstDerivShimParams).
   Definition Default (a:Term) : Formula :=
     a <= 0.
 
-  Definition Ctrl : Formula :=
+  Definition Ctrl : ActionFormula :=
     SafeAcc "a"! "v" \\// Default "a"!.
 
-  Definition I : Formula :=
-    "v" <= ub //\\ "v" + "a"*d <= ub.
 
-  Definition SpecR : SysRec :=
-    {| Init := I;
-       Prog := Ctrl //\\ Unchanged ("v"::nil)%list;
-       world := w;
-       unch := (("a":Term)::("v":Term)::nil)%list;
-       maxTime := d |}.
-
-  Definition Spec := PartialSysD SpecR.
+  Definition Next : ActionFormula :=
+    Sys (Ctrl //\\ Unchanged ("v"::nil)) w d.
 
   Definition IndInv : Formula :=
          ("a" <  0 -->> "v" <= ub)
-    //\\ ("a" >= 0 -->> "a"*"t" + "v" <= ub).
+    //\\ ("a" >= 0 -->> "a"*"T" + "v" <= ub).
 
-  Lemma SysSafe_ctrl : forall P, P |-- SysSafe SpecR.
+  Theorem IndInv_impl_Inv : IndInv //\\ 0 <= "T" <= d |-- "v" <= ub.
+  Proof. solve_nonlinear. Qed.
+
+  Theorem SysNeverStuck_Next
+  : |-- SysNeverStuck d IndInv Next.
   Proof.
-    intros.
-    apply SysSafe_rule; apply always_tauto.
-    enable_ex_st; repeat eexists; solve_linear.
+    eapply SysNeverStuck_Sys'; [ refine _ | pose proof d_gt_0 ; solve_linear | | ].
+    { enable_ex_st.
+      pose proof d_gt_0.
+      do 2 eexists; exists d; solve_linear. }
+    { admit. (** Provable, but we won't worry about it *) }
   Qed.
 
-  Theorem ctrl_safe :
-    |-- Spec -->> []"v" <= ub.
+  Theorem SysInductively_Next
+  : |-- TimedPreserves d IndInv Next.
   Proof.
-    charge_intros.
-    eapply PartialSys_by_induction
-    with (IndInv:=IndInv) (A:=ltrue).
-    - tlaIntuition.
-    - unfold Spec, SpecR. charge_assumption.
-    - tlaIntuition.
-    - solve_nonlinear.
-    - apply Lemmas.forget_prem. apply always_tauto.
-      charge_tauto.
-    - solve_nonlinear.
-    - unfold InvariantUnder. solve_linear.
-      rewrite_next_st. solve_linear.
-    - eapply diff_ind with (Hyps:=TRUE).
-      + tlaIntuition.
-      + tlaIntuition.
-      + unfold World. tlaAssume.
-      + tlaIntuition.
-      + tlaAssume.
-      + tlaIntuition.
-      + charge_tauto.
-      + simpl deriv_formula. restoreAbstraction.
-        charge_intros.
-        repeat charge_split; charge_intros;
-          try solve [solve_linear |
-                     eapply zero_deriv with (x:="a");
-                       [ charge_tauto | tlaIntuition |
-                         solve_linear ] ].
-        solve_nonlinear.
-    - solve_nonlinear.
+    eapply Preserves_Sys.
+    { refine _. }
+    { charge_split; fold next.
+      - eapply diff_ind with (Hyps:=ltrue).
+        + tlaIntuition.
+        + tlaIntuition.
+        + unfold World. tlaAssume.
+        + tlaIntuition.
+        + tlaAssume.
+        + tlaIntuition.
+        + charge_tauto.
+        + simpl deriv_formula. restoreAbstraction.
+          charge_intros.
+          unfold lift2, mkEvolution, w.
+          repeat charge_split; charge_intros;
+          try solve [ solve_linear
+                    | eapply zero_deriv with (x:="a");
+                      [ charge_tauto | tlaIntuition |
+                        solve_linear ] ].
+          solve_nonlinear.
+      - solve_linear. }
+    { solve_nonlinear. }
   Qed.
 
   (* Some useful renaming lemmas *)

@@ -473,13 +473,26 @@ Qed.
 Lemma Enabled_or : forall P Q, Enabled P \\// Enabled Q |-- Enabled (P \\// Q).
 Proof. breakAbstraction; intros. destruct H; forward_reason; eauto. Qed.
 
-Theorem Enabled_impl (A B : Formula) :
-  A |-- B ->
-  Enabled A |-- Enabled B.
+Global Instance Proper_Enabled_lentails
+: Proper (lentails ==> lentails) Enabled.
 Proof.
+  morphism_intro.
   breakAbstraction. intros. destruct H0.
   eauto.
 Qed.
+
+Lemma Enabled_limpl_st
+  : forall P Q,
+    is_st_formula P ->
+    Enabled (P -->> Q) |-- P -->> Enabled Q.
+Proof.
+  intros.
+  { breakAbstraction.
+    intros. destruct H0. exists x.
+    eapply H0.
+    eapply st_formula_hd; eauto. }
+Qed.
+
 
 
 (** This lemma shows that we can push state formulas inside

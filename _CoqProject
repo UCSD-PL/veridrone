@@ -27,6 +27,7 @@ tla/LyapunovFunctions.v
 
 ChargeTactics/Tactics.v
 ChargeTactics/Lemmas.v
+ChargeTactics/Indexed.v
 
 tlaexamples/DiffEqSolutions.v
 tlaexamples/System.v

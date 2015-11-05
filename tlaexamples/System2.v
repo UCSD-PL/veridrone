@@ -4,6 +4,7 @@ Require Import Coq.Classes.RelationClasses.
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Lists.ListSet.
 Require Import ChargeTactics.Lemmas.
+Require Import ChargeTactics.Indexed.
 Require Import ExtLib.Tactics.
 Require Import TLA.TLA.
 Require Import TLA.ProofRules.
@@ -368,4 +369,55 @@ Proof.
     unfold Ranalysis1.derive.
     eapply Ranalysis1.pr_nu.
     auto. }
+Qed.
+
+Theorem SysNeverStuck_Sys : forall (d :R) I W D,
+    (d >= 0)%R ->
+    I |-- Enabled ("T" = 0 -->> 0 <= "T"! <= d //\\ D) ->
+    I |-- Enabled (0 < "T" <= d -->> World W) ->
+    |-- SysNeverStuck d I (Sys D W d).
+Proof.
+  intros d I W D Hd. intros. unfold SysNeverStuck.
+  charge_intros.
+  charge_assert ("T" = 0 \\// 0 < "T" <= d).
+  { solve_linear. }
+  charge_revert.
+  charge_clear.
+  split_n 1; charge_intros.
+  { unfold Sys.
+    etransitivity;
+      [ | eapply Proper_Enabled_lentails; rewrite Lemmas.land_lor_distr_L; reflexivity ].
+    rewrite <- EnabledLemmas.Enabled_or.
+    charge_left.
+    charge_revert.
+
+    rewrite <- Enabled_limpl_st; [ | refine _ ].
+    rewrite H. eapply Proper_Enabled_lentails.
+    unfold Discr. charge_intros.
+    charge_assert (0 <= "T"! <= d //\\ D); [ charge_use; charge_assumption | ].
+    charge_intros.
+    repeat charge_split; try charge_assumption.
+    solve_linear. }
+  { unfold Sys.
+    etransitivity;
+      [ | eapply Proper_Enabled_lentails; rewrite Lemmas.land_lor_distr_L; reflexivity ].
+    rewrite <- EnabledLemmas.Enabled_or.
+    charge_right.
+    charge_revert.
+    rewrite H0.
+    rewrite <- Enabled_limpl_st; [ | refine _ ].
+    apply Proper_Enabled_lentails.
+    charge_intros. charge_split. solve_linear. charge_tauto. }
+Qed.
+
+Theorem SysNeverStuck_Sys' : forall (d :R) I W D,
+    is_st_formula I ->
+    (d >= 0)%R ->
+    |-- Enabled (I -->> "T" = 0 -->> 0 <= "T"! <= d //\\ D) ->
+    |-- Enabled (I -->> 0 < "T" <= d -->> World W) ->
+    |-- SysNeverStuck d I (Sys D W d).
+Proof.
+  intros. eapply SysNeverStuck_Sys; eauto.
+  - charge_revert. rewrite <- Enabled_limpl_st; [ | refine _ ]. eauto.
+  - charge_revert. rewrite <- Enabled_limpl_st; [ | refine _ ]. eauto.
 Qed.
