@@ -249,12 +249,12 @@ Proof. split; solve_linear. Qed.
 
 Require Import Coq.Classes.RelationClasses.
 Require Import RIneq.
-Instance Reflexive_Rge : Reflexive Rge.
+Global Instance Reflexive_Rge : Reflexive Rge.
 Proof.
   red. intro. apply Req_ge. reflexivity.
 Qed.
 
-Instance Reflexive_Rle : Reflexive Rle.
+Global Instance Reflexive_Rle : Reflexive Rle.
 Proof.
   red. intro. apply Req_ge. reflexivity.
 Qed.

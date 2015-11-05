@@ -2,8 +2,7 @@ Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 Require Import TLA.TLA.
 Require Import TLA.DifferentialInduction.
-Require Import TLA.ContinuousProofRules.
-Require Import TLA.BasicProofRules.
+Require Import TLA.ProofRules.
 Require Import TLA.ArithFacts.
 Require Import Examples.System.
 Require Import Examples.SecondDerivUtil.

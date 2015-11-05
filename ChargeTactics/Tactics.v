@@ -118,3 +118,11 @@ Ltac charge_assert H :=
 
 Ltac charge_exists x :=
   apply (@lexistsR _ _ _ _ x).
+
+Ltac charge_cases :=
+  repeat first [ rewrite Lemmas.land_lor_distr_R
+               | rewrite Lemmas.land_lor_distr_L ] ;
+  repeat apply lorL.
+
+Ltac charge_clear :=
+  eapply Lemmas.forget_prem.

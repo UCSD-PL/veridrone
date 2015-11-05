@@ -1,12 +1,10 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
-Require Import TLA.BasicProofRules.
-Require Import TLA.DifferentialInduction.
-Require Import TLA.ContinuousProofRules.
+Require Import TLA.ProofRules.
 Require Import Examples.System.
 
-Open Scope HP_scope.
-Open Scope string_scope.
+Local Open Scope HP_scope.
+Local Open Scope string_scope.
 
 Module Type FirstDerivShimParams.
   (* Upper bound on velocity. *)
@@ -116,6 +114,3 @@ Module FirstDerivShim (P : FirstDerivShimParams).
   Qed.
 
 End FirstDerivShim.
-
-Close Scope HP_scope.
-Close Scope string_scope.

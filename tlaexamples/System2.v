@@ -15,6 +15,11 @@ Require Import TLA.Inductively.
 Local Open Scope HP_scope.
 Local Open Scope string_scope.
 
+(** TODO: Move this **)
+Lemma land_dup : forall A : Formula, A -|- A //\\ A.
+Proof. intros; split; charge_tauto. Qed.
+
+
 (* Adds time derivative to an Evolution.
  * - the global time is stored in [t]
  * - the time until the next discrete step is stored in [T]
@@ -45,16 +50,10 @@ Definition TimedInductively (delta : R) (P : StateFormula) (A : ActionFormula) :
 Definition NeverStuck (I : StateFormula) (A : ActionFormula) : Formula :=
   [] (I -->> Enabled A).
 
+Definition SysNeverStuck (delta : R) (I : StateFormula) (A : ActionFormula) : Formula :=
+  [] (0 <= "T" <= delta //\\ I -->> Enabled A).
 
-(*
-Ltac morphism_intro :=
-  repeat (intros; match goal with
-                  | |- Proper (_ ==> _)%signature _ => red
-                  | |- (_ ==> _)%signature _ _ => red
-                  end; intros).
-*)
-
-Instance Proper_mkEvolution_lentails
+Global Instance Proper_mkEvolution_lentails
 : Proper (lentails ==> lentails) mkEvolution.
 Proof.
   unfold mkEvolution. morphism_intro.
@@ -64,7 +63,7 @@ Proof.
   intros. rewrite H. reflexivity.
 Qed.
 
-Instance Proper_mkEvolution_lequiv
+Global Instance Proper_mkEvolution_lequiv
 : Proper (lequiv ==> lequiv) mkEvolution.
 Proof.
   unfold mkEvolution. morphism_intro.
@@ -74,51 +73,51 @@ Proof.
   rewrite H. reflexivity.
 Qed.
 
-Instance Proper_World_lequiv
+Global Instance Proper_World_lequiv
 : Proper (lequiv ==> lequiv) World.
 Proof.
   unfold World; morphism_intro.
   rewrite H. reflexivity.
 Qed.
 
-Instance Proper_World_lentails
+Global Instance Proper_World_lentails
 : Proper (lentails ==> lentails) World.
 Proof.
   unfold World; morphism_intro.
   rewrite H. reflexivity.
 Qed.
 
-Instance Proper_Discr
+Global Instance Proper_Discr
 : Proper (lequiv ==> eq ==> lequiv) Discr.
 Proof.
   morphism_intro; unfold Discr.
   subst. rewrite H. reflexivity.
 Qed.
 
-Instance Proper_Sys_lequiv
+Global Instance Proper_Sys_lequiv
 : Proper (lequiv ==> lequiv ==> eq ==> lequiv) Sys.
 Proof.
   unfold Sys, Discr, World. morphism_intro.
   subst. rewrite H; clear H. rewrite H0; clear H0. reflexivity.
 Qed.
 
-Instance Proper_Sys_lentails
+Global Instance Proper_Sys_lentails
 : Proper (lentails ==> lentails ==> eq ==> lentails) Sys.
 Proof.
   unfold Sys, Discr, World. morphism_intro.
   subst. rewrite H; clear H. rewrite H0; clear H0. reflexivity.
 Qed.
 
-Instance Proper_System_lequiv
+Global Instance Proper_System_lequiv
 : Proper (lequiv ==> lequiv ==> eq ==> lequiv) System.
 Proof.
   unfold System, Discr, World. morphism_intro.
   subst. rewrite H; clear H. rewrite H0; clear H0. reflexivity.
 Qed.
 
-Theorem SysInductively
+Theorem Inductively_Sys
 : forall P A Prog IndInv (w : Evolution) (d:R),
-  (forall st', is_st_formula (w st')) -> (* TODO: Do we really want this? *)
+  (forall st', is_st_formula (w st')) ->
   P |-- [] A ->
   A //\\ IndInv //\\ 0 <= "T"! <= "T" //\\ "T" <= d (* This could be "T"! < "T" *)
     //\\ World w |-- next IndInv ->
@@ -155,10 +154,6 @@ Proof.
       charge_fwd.
       solve_linear. } }
 Qed.
-
-(** TODO: Move this **)
-Lemma land_dup : forall A : Formula, A -|- A //\\ A.
-Proof. intros; split; charge_tauto. Qed.
 
 Theorem SysSystem
 : forall G I P w d,
@@ -221,7 +216,7 @@ Proof.
   apply forget_prem.
   charge_intros.
   unfold Sys, Discr.
-  repeat decompose_hyps; try charge_tauto.
+  charge_cases; charge_tauto.
 Qed.
 
 Theorem NeverStuck_disjoin
@@ -254,28 +249,6 @@ Proof.
     apply forget_prem.
     charge_intro. apply Proper_Enabled_lentails.
     unfold Sys, Discr. decompose_hyps; charge_tauto.
-Qed.
-
-Lemma Continuous_and
-: forall P Q, Continuous (P //\\ Q) |-- Continuous P //\\ Continuous Q.
-Proof.
-  unfold Continuous; intros.
-  repeat (eapply lexistsL; intros).
-  charge_split; do 2 eapply lexistsR;
-  instantiate (1:= x); instantiate (1:=x0);
-  repeat charge_split; try charge_tauto.
-  - charge_assert (PropF (is_solution x0 (P //\\ Q) x)).
-    + charge_assumption.
-    + apply forget_prem.
-      breakAbstraction. intros.
-      eapply Proper_is_solution_lentails. 4: eassumption.
-      reflexivity. charge_tauto. reflexivity.
-  - charge_assert (PropF (is_solution x0 (P //\\ Q) x)).
-    + charge_assumption.
-    + apply forget_prem.
-      breakAbstraction. intros.
-      eapply Proper_is_solution_lentails. 4: eassumption.
-      reflexivity. charge_tauto. reflexivity.
 Qed.
 
 (* MOVE *)

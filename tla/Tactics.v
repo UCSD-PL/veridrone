@@ -13,8 +13,8 @@ Require Import Coq.Strings.String.
 (* Some useful tactics for our examples. *)
 
 Ltac decompose_hyps :=
-  repeat rewrite Lemmas.land_lor_distr_R;
-  repeat rewrite Lemmas.land_lor_distr_L;
+  repeat first [ rewrite Lemmas.land_lor_distr_R
+               | rewrite Lemmas.land_lor_distr_L ] ;
   repeat apply lorL.
 
 Ltac destruct_ite :=
