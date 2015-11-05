@@ -1,5 +1,6 @@
 Require Import Coq.Lists.List.
 Require Import Coq.Strings.String.
+Require Import Coq.Classes.Morphisms.
 Require Import ExtLib.Tactics.
 Require Import TLA.TLA.
 Require Import TLA.BasicProofRules.
@@ -37,7 +38,6 @@ Definition disjoint_states_aux (A B : Formula)
 Definition disjoint_states (A B : Formula) :=
   exists xs ys, disjoint_states_aux A B xs ys.
 
-Require Import Coq.Classes.Morphisms.
 Global Instance Proper_disjoint_states :
   Proper (lequiv ==> lequiv ==> iff) disjoint_states.
 Proof.
@@ -479,6 +479,14 @@ Proof.
   morphism_intro.
   breakAbstraction. intros. destruct H0.
   eauto.
+Qed.
+
+Global Instance Proper_Enabled_lequiv
+: Proper (lequiv ==> lequiv) Enabled.
+Proof.
+  morphism_intro. split.
+  - eapply Proper_Enabled_lentails; eapply H.
+  - eapply Proper_Enabled_lentails; eapply H.
 Qed.
 
 Lemma Enabled_limpl_st

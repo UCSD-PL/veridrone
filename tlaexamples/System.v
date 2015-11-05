@@ -843,7 +843,7 @@ Proof.
       + solve_linear. rewrite Rmin_comm. auto.
     - apply lorR2. apply lorR1. charge_intros. unfold Discr.
       charge_use. tlaRevert. apply forget_prem. charge_intros.
-      apply Enabled_impl. rewrite Rmin_comm.
+      apply Proper_Enabled_lentails. rewrite Rmin_comm.
       repeat charge_split; try charge_tauto.
     - apply lorR2. apply lorR2.
       charge_split; try charge_assumption.
