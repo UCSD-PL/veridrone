@@ -84,17 +84,17 @@ Proof.
 Qed.
 
 Lemma Rename_Comp : forall m t1 t2 op,
-  (forall x, is_st_term (m x) = true) ->
+  RenameMapOk m ->
   Rename m (Comp t1 t2 op) -|-
   rename_formula m (Comp t1 t2 op).
 Proof.
   split; breakAbstraction; intros.
-    + unfold eval_comp in *.
-      repeat (rewrite Rename_term_ok; auto).
-      destruct tr as [st1 [st2 tr]]. auto.
-    + unfold eval_comp in *.
-      repeat (rewrite Rename_term_ok in H0; auto).
-      destruct tr as [st1 [st2 tr]]. auto.
+  + unfold eval_comp in *.
+    repeat (rewrite Rename_term_ok; auto).
+    destruct tr as [st1 [st2 tr]]. auto.
+  + unfold eval_comp in *.
+    repeat (rewrite Rename_term_ok in H0; auto).
+    destruct tr as [st1 [st2 tr]]. auto.
 Qed.
 
 Lemma Rename_and : forall m F1 F2,
@@ -183,7 +183,7 @@ Qed.
 
 Lemma Rename_Rename :
   forall P m m',
-    (forall x, is_st_term (m x) = true) ->
+    RenameMapOk m ->
     Rename m (Rename m' P) -|-
     Rename (RenameMap_compose m m') P.
 Proof.
@@ -227,7 +227,7 @@ Qed.
 
 Lemma Rename_ok : forall F m
   (Hst : st_term_renamings F),
-  (forall x, is_st_term (m x) = true) ->
+  RenameMapOk m ->
   rename_formula m F -|- Rename m F.
 Proof.
   induction F; intros.
@@ -271,14 +271,15 @@ Proof.
     rewrite <- IHF.
     + reflexivity.
     + simpl in Hst. tauto.
-    + unfold RenameMap_compose. simpl in Hst.
+    + unfold RenameMapOk, RenameMap_compose. simpl in Hst.
       destruct Hst. intros. apply rename_term_st_term; auto.
 Qed.
 
-Lemma is_st_term_to_RenameMap : forall ls (x : Var),
+Lemma is_st_term_to_RenameMap : forall ls,
     forallb (fun x => is_st_term (snd x)) ls = true ->
-    is_st_term (to_RenameMap ls x) = true.
+    RenameMapOk (to_RenameMap ls).
 Proof.
+  unfold RenameMapOk.
   induction ls.
   { simpl in *. reflexivity. }
   { simpl in *. intros.
@@ -288,6 +289,17 @@ Proof.
     destruct (String.string_dec x v); subst; auto. }
 Qed.
 
+Hint Extern 1 (RenameMapOk (to_RenameMap ?X)) => solve [ eapply (is_st_term_to_RenameMap X) ; reflexivity ] : rw_rename.
+
+Ltac is_st_term_list :=
+  simpl; intros;
+  repeat match goal with
+           |- context [ String.string_dec ?e1 ?e2 ] =>
+           destruct (String.string_dec e1 e2)
+         end; try reflexivity; try tauto.
+
+Hint Extern 1 (st_term_renamings _) => solve [ is_st_term_list ] : rw_rename.
+
 Ltac rw_side_condition :=
   repeat first [ split | intros ];
   try solve [ apply is_st_term_to_RenameMap ; reflexivity ].
@@ -296,7 +308,7 @@ Hint Rewrite Rename_True Rename_False Rename_Comp
      Rename_and Rename_or Rename_impl Rename_PropF
      Rename_Exists Rename_Forall
      Rename_Always Rename_Eventually
-     Rename_Enabled using eauto with rw_rename : rw_rename.
+     Rename_Enabled using solve [ eauto with rw_rename ] : rw_rename.
 
 Ltac Rename_rewrite :=
   autorewrite with rw_rename.
@@ -319,6 +331,16 @@ Proof.
   - rewrite H0; subst; reflexivity.
   - rewrite <- H0; subst; reflexivity.
 Qed.
+
+Lemma Proper_Rename_True : forall sigma P,
+    |-- P ->
+    |-- Rename sigma P.
+Proof.
+  intros.
+  eapply Proper_Rename_lentails in H; [ | reflexivity ].
+  rewrite <- H. autorewrite with rw_rename. charge_tauto.
+Qed.
+
 
 Ltac rename_hyp m H :=
   apply (Proper_Rename_lentails (to_RenameMap m) (to_RenameMap m))

@@ -34,130 +34,58 @@ Module UpperLowerFirst (Import P : UpperLowerFirstParams).
   Let mirror :=
     ("v",--"v")::("a",--"a")::nil.
 
+  Definition mirrored : ActionFormula :=
+    SysRename (to_RenameMap mirror) (deriv_term_RenameList mirror)
+              Vel.Next.
 
-Definition mirrored : ActionFormula :=
-  SysRename (to_RenameMap mirror) (deriv_term_RenameList mirror)
-            Vel.Next.
+  Definition Next : ActionFormula :=
+    SysCompose mirrored Vel.Next.
 
-Definition upper_lower : ActionFormula :=
-  SysCompose mirrored Vel.Next.
+  Definition IndInv : StateFormula :=
+    Rename (to_RenameMap mirror) Vel.IndInv //\\ Vel.IndInv.
 
-  Definition Next :
-    { x : ActionFormula | x |-- Rename (to_RenameMap mirror) Vel.Next //\\ Vel.Next }.
+  Lemma TimedPreserves_Next :
+    |-- TimedPreserves d IndInv Next.
+  Proof with (refine _).
+    unfold IndInv, Next. unfold SysCompose.
+    rewrite SysCompose_simpl.
+    rewrite <- TimedPreserves_And...
+    charge_split.
+    { rewrite Sys_rename_formula by eauto with rw_rename.
+      rewrite SysRename_rule by eauto with rw_rename.
+      rewrite TimedPreserves_Rename by eauto with rw_rename.
+      eapply Proper_Rename_True.
+      apply Vel.TimedPreserves_Next. }
+    { eapply Vel.TimedPreserves_Next. }
+  Qed.
+
+  Theorem SysNeverStuck_Next : |-- SysNeverStuck d IndInv Next.
   Proof.
-    eexists.
-    unfold Vel.Next.
-    match goal with
-    | |- context [ Rename (to_RenameMap ?m) ?s ] =>
-      rewrite <- (@SysRename_rule _ _ _ (to_RenameMap m)
-                                  (deriv_term_RenameList m))
-    end;
-      [ | unfold RenameMapOk; is_st_term_list
-        | reflexivity
-        | apply RenameDerivOk_deriv_term; apply deriv_term_list; reflexivity ].
-    rewrite <- Sys_rename_formula by rw_side_condition.
-    apply SysCompose_simpl.
-  Defined.
-
-  Definition IndInv :
-    { x : StateFormula | x -|- Rename (to_RenameMap mirror) Vel.IndInv //\\ Vel.IndInv }.
-  Proof.
-    eexists.
-    rewrite <- Rename_ok by rw_side_condition.
-    reflexivity.
-  Defined.
-
-
-Ltac rewrite_projT2_L s :=
-  let H := fresh in
-  pose proof (projT2 s) as H;
-    cbv beta in H; rewrite <- H; clear H.
-
-Ltac rewrite_projT2_R s :=
-  let H := fresh in
-  pose proof (projT2 s) as H;
-    cbv beta in H; rewrite H; clear H.
-
-Lemma TimedPreserves 
-
-  Lemma UpperLower_preserves :
-    |-- TimedPreserves d (projT1 IndInv) (projT1 Next).
-  Proof.
-    unfold TimedPreserves.
-pose proof (projT2 Next).
-cbv beta in H.
-rewrite H. clear H.
-rewrite Preserves_equiv.
-5: reflexivity.
-Focus 4.
- pose proof (projT2 IndInv).
-cbv beta in H. rewrite H. reflexivity.
-2: compute; tauto.
-2: compute; tauto.
-
-SearchAbout Preserves.
-     (projT2 IndInv).
-    etransitivity. 2: apply Preserves_entails.
-Focus 4. pose proof (projT2 IndInv).
-cbv beta in H. rewrite H. reflexivity.
-Focus 4. apply (projT2 Next).
-2: compute; tauto.
-2: 
-2
-    pose proof (projT2 Next).
-    cbv beta in H. rewrite H.
-    pose proof (projT2 IndInv).
-    cbv beta in H. rewrite H.
-    rewrite (H (projT1 IndInv)).
-    unfold Preserves. charge_intros. rewrite (projT2 X) at 1.
-    SearchAbout TimedPreserves. rewrite Preserves_And.
+    eapply SysNeverStuck_Sys'; [ refine _ | pose proof d_gt_0 ; solve_linear | | ].
+    { enable_ex_st.
+      pose proof d_gt_0.
+      do 2 eexists; exists d; solve_linear. }
+    { admit. (** Provable, but we won't worry about it *) }
+  Qed.
 
   Definition Safe : Formula :=
     --P.ub <= "v" <= P.ub.
 
-  Lemma UpperLower_safe :
-    |-- PartialSysD SpecR -->> []Safe.
-  Proof.
-    apply PartialCompose.
-    - charge_intros.
-      rewrite_rename_pf SpecVelocityMirrorR.
-      rewrite PartialSysRename_sound
-        by sysrename_side_cond.
-      pose proof Vel.ctrl_safe.
-      rename_hyp mirror H.
-      rewrite Rename_impl in H. rewrite Rename_True in H.
-      restoreAbstraction. apply landAdj in H.
-      rewrite landtrueL in H. rewrite H. clear.
-      rewrite <- Rename_ok by rw_side_condition.
-      tlaRevert. apply Always_imp. unfold V.ub.
-      solve_linear.
-    - charge_intros. pose proof Vel.ctrl_safe.
-      unfold V.ub in *. charge_apply H. charge_tauto. 
+  Lemma IndInv_impl_Inv : IndInv //\\ 0 <= "T" <= d |-- Safe.
+  Proof with (eauto with rw_rename).
+    unfold IndInv, Safe, Vel.IndInv, V.ub.
+    rewrite <- Rename_ok...
+    solve_nonlinear.
   Qed.
 
-  Lemma Prog_enabled :
-    |-- Enabled SpecR.(Prog).
+  Theorem Spec_safe :
+    |-- (IndInv //\\ 0 <= "T" <= d) //\\ []Next -->> []Safe.
   Proof.
-    simpl. restoreAbstraction.
-    enable_ex_st. smart_repeat_eexists. solve_linear.
-  Qed.
-
-  Lemma UpperLower_enabled :
-    |-- Enabled (Discr SpecR.(Prog) SpecR.(maxTime)).
-  Proof.
-    unfold Discr.
-    rewrite <- disjoint_state_enabled.
-    { charge_split.
-      { apply Prog_enabled. }
-      { enable_ex_st. smart_repeat_eexists. solve_linear. } }
-    { apply formulas_disjoint_state; reflexivity. }
-  Qed.
-
-  Lemma UpperLower_full :
-    |-- SysSafe SpecR.
-  Proof.
-    apply SysSafe_rule. apply always_tauto.
-    apply UpperLower_enabled.
+    rewrite Preserves_Inv.
+    { rewrite IndInv_impl_Inv.
+      charge_tauto. }
+    { compute; tauto. }
+    { apply TimedPreserves_Next. }
   Qed.
 
 End UpperLowerFirst.

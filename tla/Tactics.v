@@ -125,13 +125,6 @@ Ltac enable_ex_st :=
        let st := fresh in intro st ; clear st).
 *)
 
-Ltac is_st_term_list :=
-  simpl; intros;
-  repeat match goal with
-           |- context [ String.string_dec ?e1 ?e2 ] =>
-           destruct (String.string_dec e1 e2)
-         end; try reflexivity; try tauto.
-
 Lemma reason_action : forall P Q,
     (forall a b tr,
         eval_formula
@@ -361,4 +354,12 @@ Ltac prove_inductive :=
       try abstract (solve_linear)
   end.
 
-Close Scope HP_scope.
+Ltac rewrite_projT2_L s :=
+  let H := fresh in
+  pose proof (projT2 s) as H;
+    cbv beta in H; rewrite <- H; clear H.
+
+Ltac rewrite_projT2_R s :=
+  let H := fresh in
+  pose proof (projT2 s) as H;
+    cbv beta in H; rewrite H; clear H.

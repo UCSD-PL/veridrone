@@ -49,6 +49,9 @@ Definition lift2 {A B C D} (f:A->B->C)
   : (D->A)->(D->B)->(D->C) :=
   fun a b c => f (a c) (b c).
 
+(** TODO: This should probably be moved to another file b/c it is used
+ ** when renaming [Continuous].
+ **)
 (* Tries to take the derivative of a term and substitute
    in the right hand side of differential equations. If
    a variable has no corresponding differential equation
@@ -335,8 +338,11 @@ Proof.
     auto. }
 Qed.
 
+(** TODO: Move this **)
+Hint Extern 1 (RenameDerivOk _ _) => solve [ eapply RenameDerivOk_deriv_term ; is_st_term_list ] : rw_rename.
+
 Theorem Rename_Continuous_deriv_term :
-  forall (r : RenameMap) (r' : state->Var->Term)
+  forall (r : RenameMap) (r' : RenameMapDeriv)
          (c:Evolution),
     (forall x,
         deriv_term (r x) = Some (fun st' => r' st' x)) ->
@@ -348,7 +354,7 @@ Proof.
 Qed.
 
 Theorem Rename_Continuous_deriv_term' :
-  forall (r : RenameMap) (r' : state->Var->Term)
+  forall (r : RenameMap) (r' : RenameMapDeriv)
          (c:Evolution),
     (forall x,
         deriv_term (r x) = Some (fun st' => r' st' x)) ->

@@ -202,7 +202,7 @@ Theorem SysDisjoin_compose
 Proof.
   intros.
   etransitivity.
-  2: eapply Proper_Preserves. 3: symmetry; eapply SysDisjoin_simpl. 2: reflexivity.
+  2: eapply Proper_Preserves_lequiv. 3: symmetry; eapply SysDisjoin_simpl. 2: reflexivity.
   rewrite land_dup.
   rewrite H at 1; rewrite H0.
   unfold TimedPreserves.
@@ -353,7 +353,7 @@ Qed.
 
 Definition Sys_rename_formula
 : forall D W d sigma sigma',
-      (forall x : Var, is_st_term (sigma x) = true) ->
+      RenameMapOk sigma ->
       st_term_renamings D ->
       (forall st', st_term_renamings (W st')) ->
     Sys (rename_formula sigma D)
@@ -433,6 +433,50 @@ Proof.
   - charge_revert. rewrite <- Enabled_limpl_st; [ | refine _ ]. eauto.
   - charge_revert. rewrite <- Enabled_limpl_st; [ | refine _ ]. eauto.
 Qed.
+
+(** TODO: Move Up **)
+Lemma TimedPreserves_And
+  : forall d I1 I2 A B,
+    is_st_formula I1 -> is_st_formula I2 ->
+    TimedPreserves d I1 A //\\ TimedPreserves d I2 B
+                   |-- TimedPreserves d (I1 //\\ I2) (A //\\ B).
+Proof.
+  intros. unfold TimedPreserves.
+  rewrite Preserves_And.
+  eapply Preserves_equiv.
+  { simpl; tauto. }
+  { simpl; tauto. }
+  { split; charge_tauto. }
+  { reflexivity. }
+Qed.
+
+Global Instance Proper_TimedPreserves_lentails
+  : Proper (eq ==> eq ==> lentails --> lentails) TimedPreserves.
+Proof.
+  morphism_intro. unfold Basics.flip in *.
+  unfold TimedPreserves. subst. rewrite H1. reflexivity.
+Qed.
+
+Global Instance Proper_TimedPreserves_lequiv
+  : Proper (eq ==> eq ==> lequiv ==> lequiv) TimedPreserves.
+Proof.
+  morphism_intro. unfold Basics.flip in *.
+  unfold TimedPreserves. subst. rewrite H1. reflexivity.
+Qed.
+
+
+Lemma TimedPreserves_Rename
+  : forall d (sigma : RenameMap) I A,
+    sigma "T" = "T" ->
+    RenameMapOk sigma ->
+    TimedPreserves d (Rename sigma I) (Rename sigma A) -|- Rename sigma (TimedPreserves d I A).
+Proof.
+  unfold TimedPreserves, Preserves. intros.
+  simpl next. restoreAbstraction.
+  autorewrite with rw_rename.
+  simpl rename_formula. rewrite H. simpl next_term. restoreAbstraction. reflexivity.
+Qed.
+
 
 (** "Parsing" of [Sys] allows us to recover the benefits of the
  ** deep embedding.
