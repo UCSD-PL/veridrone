@@ -287,8 +287,7 @@ Hint Extern 0 (forall x, is_st_term _ = true) =>
   (intros; eapply deriv_st_term; eauto) : rw_rename.
 
 Theorem RenameDerivOk_deriv_term
-: forall (r : RenameMap) (r' : state->Var->Term)
-         (c:Evolution),
+: forall (r : RenameMap) (r' : state->Var->Term),
     (forall x,
         deriv_term (r x) = Some (fun st' => r' st' x)) ->
     RenameDerivOk r r'.

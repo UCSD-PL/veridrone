@@ -1,17 +1,18 @@
 Require Import Coq.Reals.Rdefinitions.
+Require Import Coq.Strings.String.
+Require Import Coq.Lists.List.
 Require Import TLA.TLA.
 Require Import TLA.EnabledLemmas.
-Require Import TLA.DifferentialInduction.
-Require Import Examples.System.
+Require Import TLA.ProofRules.
+Require Import Examples.System2.
 Require Import Examples.FirstDerivShimCtrl.
 Require Import ChargeTactics.Lemmas.
-Require Import Coq.Strings.String.
-Local Open Scope string_scope.
-Require Import BasicProofRules.
-Require Import Coq.Lists.List.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+
+Local Open Scope string_scope.
+Local Open Scope HP_scope.
 
 Module Type UpperLowerFirstParams.
   Parameter ub : R.
@@ -31,15 +32,82 @@ Module UpperLowerFirst (P : UpperLowerFirstParams).
   Let mirror :=
     ("v",--"v")::("a",--"a")::nil.
 
+  Definition Next' : ActionFormula :=
+    Rename (to_RenameMap mirror) Vel.Next //\\ Vel.Next.
+
+(*
+  Inductive SysCombine : Formula -> Formula -> Type :=
+  | SysCombine_X : forall {D1 D2 W1 W2 d}, SysCombine (Sys D1 W1 d) (Sys D2 W2 d).
+
+  Definition SysFromCombine A B (SC : SysCombine A B) : Formula :=
+    match SC with
+    | SysCombine_X D1 D2 W1 W2 d =>
+      Sys (D1 //\\ D2) (W1 //\\ W2) d
+    end.
+
+  Definition SC_Next : Formula :=
+    Eval cbv beta iota zeta delta [ SysFromCombine ] in @SysFromCombine (Vel.Next) (Vel.Next) (SysCombine_X).
+
+  Definition SC_Next : SysCombine (Vel.Next) Vel.Next.
+  Proof. constructor. Defined.
+    constructor.
+*)
+(*
+  Definition Next' : ActionFormula :=
+    Rename (to_RenameMap mirror) Vel.Next //\\ Vel.Next.
+*)
+
+
   Definition SpecVelocityMirrorR :
-    { x : SysRec &
-          SysRec_equiv
-            (SysRename
-               (to_RenameMap mirror)
-               (deriv_term_RenameList mirror)
-               Vel.SpecR)
-            x}.
+    { x : ActionFormula | x |-- Next' }.
   Proof.
+eexists.
+    unfold Next'.
+Check SysRename_rule.
+Print RenameMapOk.
+Check Rename_ok.
+unfold Vel.Next.
+match goal with
+  | |- context [ Rename (to_RenameMap ?m) ?s ] =>
+    rewrite <- (@SysRename_rule _ _ _ (to_RenameMap m) (deriv_term_RenameList m))
+end.
+Focus 2. simpl. red. intros. destruct (string_dec x "v"); auto. destruct (string_dec x "a"); auto.
+Focus 2. reflexivity.
+Focus 2. apply RenameDerivOk_deriv_term. apply deriv_term_list. reflexivity.
+repeat rewrite <- Rename_ok. simpl rename_formula. restoreAbstraction.
+unfold Sys, World, mkEvolution.
+SearchAbout Continuous  Morphisms.Proper.
+rewrite <- Rename_ok.
+Focus.
+eapply land_lentails_m; [ | reflexivity ].
+eapply Proper_Sys_lentails; [ reflexivity | | reflexivity ].
+Lemma X : forall (X Y : _ -> Evolution),
+    (forall x y, X x y = Y x y) ->
+    (fun st' => Forall st'' : state, (Forall x : Var, st'' x = deriv_term_RenameList mirror st' x) -->> X st' st'')
+    |-- (fun st' => Forall st'' : state, (Forall x : Var, st'' x = deriv_term_RenameList mirror st' x) -->> Y st' st'').
+Proof. Admitted.
+eapply X. intros.
+
+    exists
+      (Sys_rename_formula (to_RenameMap m)
+                           s)
+  end.
+  apply SysRename_rename_formula_equiv;
+  rw_side_condition.
+
+
+    eexists.
+    unfold Next'. SearchAbout Rename Sys.
+    unfold Vel.Next.
+
+rewrite <- SysRename_rule.
+    4: eapply RenameDerivOk_deriv_term.
+    Focus 4. simpl.
+    RenameDerivOk.
+    { rewrite <- Rename_ok.
+      simpl rename_formula. restoreAbstraction.
+      
+rewrite_rename_ok. apply SysCompose_simpl. }
     discharge_sysrec_equiv_rename.
   Defined.
 
