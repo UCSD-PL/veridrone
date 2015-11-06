@@ -194,26 +194,6 @@ Proof.
   { unfold Discr. decompose_hyps; charge_tauto. }
 Qed.
 
-Instance Proper_Preserves : Proper (eq ==> lequiv ==> lequiv) Preserves.
-Proof.
-  morphism_intro. unfold Preserves.
-  subst. rewrite H0. reflexivity.
-Qed.
-
-Theorem Preserves_Or
-  : forall (P Q : StateFormula) (S1 S2 : ActionFormula),
-    Preserves P S1 //\\ Preserves Q S2
-              |-- Preserves (P \\// Q) (P //\\ S1 \\// Q //\\ S2).
-Proof.
-  unfold Preserves.
-  simpl; restoreAbstraction.
-  intros.
-  charge_intro.
-  charge_assert (next P \\// next Q); [ | charge_intros; charge_assumption ].
-  charge_cases; solve [ charge_left; charge_use; charge_tauto
-                      | charge_right; charge_use; charge_tauto ].
-Qed.
-
 Theorem SysDisjoin_compose
 : forall G D1 D2 w d P Q,
     G |-- TimedPreserves d P (Sys D1 w d) ->
@@ -371,6 +351,38 @@ Proof.
     auto. }
 Qed.
 
+Definition Sys_rename_formula
+: forall D W d sigma sigma',
+      (forall x : Var, is_st_term (sigma x) = true) ->
+      st_term_renamings D ->
+      (forall st', st_term_renamings (W st')) ->
+    Sys (rename_formula sigma D)
+        (fun st' : state =>
+           Forall st'' : state,
+                         (Forall x : Var, st'' x = sigma' st' x) -->> rename_formula sigma (W st''))
+        d |--
+    Sys (Rename sigma D)
+        (fun st' : state =>
+           Forall st'' : state,
+                         (Forall x : Var, st'' x = sigma' st' x) -->> Rename sigma (W st''))
+        d.
+Proof.
+  intros. unfold Sys.
+  charge_split.
+  { charge_assumption. }
+  { charge_revert. charge_clear.
+    charge_intros. apply lorL.
+    { apply lorR1.
+      rewrite Rename_ok; [ reflexivity | assumption | assumption ]. }
+    { apply lorR2.
+      apply Proper_World_lentails.
+      apply Evolution_lentails_lentails.
+      intros.
+      apply lforall_lentails_m.
+      red. intros.
+      rewrite Rename_ok; [ reflexivity | auto | assumption ]. } }
+Qed.
+
 Theorem SysNeverStuck_Sys : forall (d :R) I W D,
     (d >= 0)%R ->
     I |-- Enabled ("T" = 0 -->> 0 <= "T"! <= d //\\ D) ->
@@ -421,3 +433,33 @@ Proof.
   - charge_revert. rewrite <- Enabled_limpl_st; [ | refine _ ]. eauto.
   - charge_revert. rewrite <- Enabled_limpl_st; [ | refine _ ]. eauto.
 Qed.
+
+(** "Parsing" of [Sys] allows us to recover the benefits of the
+ ** deep embedding.
+ **)
+
+Inductive SysParse (D : ActionFormula) (w : Evolution) (d : R)
+: ActionFormula -> Prop :=
+| Parsed : SysParse D w d (Sys D w d).
+
+Existing Class SysParse.
+Existing Instance Parsed.
+
+
+Definition SysRename (sigma : RenameMap) (sigma' : RenameMapDeriv)
+           (A : ActionFormula) {D w d} {SP : SysParse D w d A}
+  : ActionFormula :=
+    Sys (rename_formula sigma D)
+        (fun st' : state =>
+           Forall st'' : state,
+             (Forall x : Var, st'' x = sigma' st' x) -->>
+             rename_formula sigma (w st''))
+        d.
+Arguments SysRename _ _ _ {_ _ _ _} : clear implicits.
+
+Definition SysCompose (A : ActionFormula) (B : ActionFormula)
+           {DA DB wA wB d} {SP_A : SysParse DA wA d A}
+           {SP_B : SysParse DB wB d B}
+  : ActionFormula :=
+  Sys (DA //\\ DB) (wA //\\ wB) d.
+Arguments SysCompose _ _ {_ _ _ _ _ _ _} : clear implicits.

@@ -30,14 +30,9 @@ ChargeTactics/Lemmas.v
 ChargeTactics/Indexed.v
 
 tlaexamples/DiffEqSolutions.v
-tlaexamples/System.v
 tlaexamples/System2.v
 tlaexamples/FirstDerivShimCtrl.v
 tlaexamples/SecondDerivShimCtrlToMiddle4.v
 tlaexamples/SecondDerivUtil.v
-tlaexamples/UpperLower.v
-tlaexamples/UpperLowerSecond.v
 tlaexamples/UpperLowerFirst.v
-tlaexamples/TheBox.v
-tlaexamples/ParLang.v
 tlaexamples/FirstOrderStability.v

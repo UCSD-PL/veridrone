@@ -3,7 +3,7 @@ Require Import TLA.TLA.
 Require Import TLA.EnabledLemmas.
 Require Import TLA.DifferentialInduction.
 Require Import Examples.System.
-Require Import Examples.SecondDerivShimCtrlToMiddle2.
+Require Import Examples.SecondDerivShimCtrlToMiddle4.
 Require Import ChargeTactics.Lemmas.
 Require Import Coq.Strings.String.
 Local Open Scope string_scope.

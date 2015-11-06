@@ -2,6 +2,7 @@ Require Import Coq.Lists.List.
 Require Import Coq.Reals.Rdefinitions.
 Require Import TLA.TLA.
 Require Import TLA.ProofRules.
+Require Import TLA.Inductively.
 Require Import Examples.System2.
 
 Local Open Scope HP_scope.
@@ -56,7 +57,7 @@ Module FirstDerivShim (P : FirstDerivShimParams).
     { admit. (** Provable, but we won't worry about it *) }
   Qed.
 
-  Theorem SysInductively_Next
+  Theorem TimedPreserves_Next
   : |-- TimedPreserves d IndInv Next.
   Proof.
     eapply Preserves_Sys.
@@ -81,6 +82,17 @@ Module FirstDerivShim (P : FirstDerivShimParams).
           solve_nonlinear.
       - solve_linear. }
     { solve_nonlinear. }
+  Qed.
+
+  (* Our main safety theorem. *)
+  Theorem Spec_safe :
+    |-- (IndInv //\\ 0 <= "T" <= d) //\\ []Next -->> []"v" <= ub.
+  Proof.
+    rewrite Preserves_Inv.
+    { rewrite IndInv_impl_Inv.
+      charge_tauto. }
+    { compute; tauto. }
+    { apply TimedPreserves_Next. }
   Qed.
 
   (* Some useful renaming lemmas *)

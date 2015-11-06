@@ -263,7 +263,9 @@ Proof. intros; subst; reflexivity. Qed.
 
 Import Stream.
 
-Definition RenameDerivOk (r : RenameMap) (r' : state->Var->Term) : Prop :=
+Definition RenameMapDeriv := state -> Var -> Term.
+
+Definition RenameDerivOk (r : RenameMap) (r' : RenameMapDeriv) : Prop :=
   forall f (pf2:forall x : Var, derivable (fun t : R => f t x)),
   exists (pf1:forall v,
              derivable (fun t : R =>
@@ -280,7 +282,7 @@ Definition RenameDerivOk (r : RenameMap) (r' : state->Var->Term) : Prop :=
 
 
 Theorem Rename_Continuous :
-  forall (r : RenameMap) (r' : state->Var->Term)
+  forall (r : RenameMap) (r' : RenameMapDeriv)
          (c:Evolution),
   RenameDerivOk r r' ->
       Continuous (fun st' => (Forall x : Var, st' x = r' st' x) //\\ Rename r (c st'))
@@ -316,7 +318,7 @@ Proof.
 Qed.
 
 Theorem Rename_Continuous' :
-  forall (r : RenameMap) (r' : state->Var->Term)
+  forall (r : RenameMap) (r' : RenameMapDeriv)
          (c:Evolution),
   RenameDerivOk r r' ->
   Continuous (fun st' => Forall st'' : state,
