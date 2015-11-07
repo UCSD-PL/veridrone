@@ -159,13 +159,35 @@ Proof.
     exists n. rewrite Stream.stream_map_nth_suf; auto. }
 Qed.
 
-Fixpoint to_RenameMap (m : list (Var * Term)) : RenameMap :=
+Require Import Coq.Strings.String.
+
+Definition RenameList : Type := list (Var * Term).
+
+Delimit Scope rename_scope with rn.
+Bind Scope rename_scope with RenameList.
+Bind Scope rename_scope with RenameMap.
+Bind Scope rn with RenameMap.
+
+Definition RLcons : (Var * Term) -> RenameList -> RenameList :=
+  @cons _.
+Definition RLnil : RenameList :=
+  @nil _.
+
+Notation "X ~> Y" := (@pair Var Term X%string Y%HP%string) (at level 20) : rename_scope.
+
+Notation "{{  X ; .. ; Y }}" := ((RLcons X%rn ( .. (@RLcons Y%rn RLnil) .. ))) : rename_scope.
+
+Fixpoint to_RenameMap (m : RenameList) : RenameMap :=
   match m with
   | nil => fun x => x
   | (y, t) :: m =>
     fun x => if String.string_dec x y
              then t else to_RenameMap m x
   end.
+
+Coercion to_RenameMap : RenameList >-> RenameMap.
+
+Arguments Rename _%rename_scope _.
 
 Lemma Rename_Enabled
 : forall P m,
@@ -275,9 +297,12 @@ Proof.
       destruct Hst. intros. apply rename_term_st_term; auto.
 Qed.
 
-Lemma is_st_term_to_RenameMap : forall ls,
-    forallb (fun x => is_st_term (snd x)) ls = true ->
-    RenameMapOk (to_RenameMap ls).
+Definition RenameListOk (r : RenameList) : Prop :=
+  eq (forallb (fun x => is_st_term (snd x)) r) true.
+
+Lemma is_st_term_to_RenameMap : forall (ls : RenameList),
+    RenameListOk ls ->
+    RenameMapOk ls.
 Proof.
   unfold RenameMapOk.
   induction ls.
@@ -289,7 +314,10 @@ Proof.
     destruct (String.string_dec x v); subst; auto. }
 Qed.
 
-Hint Extern 1 (RenameMapOk (to_RenameMap ?X)) => solve [ eapply (is_st_term_to_RenameMap X) ; reflexivity ] : rw_rename.
+Hint Extern 1 (RenameListOk _) => reflexivity : rw_rename.
+
+Hint Extern 1 (RenameMapOk (to_RenameMap ?X)) =>
+  solve [ eapply (is_st_term_to_RenameMap X) ; reflexivity ] : rw_rename.
 
 Ltac is_st_term_list :=
   simpl; intros;
@@ -312,10 +340,6 @@ Hint Rewrite Rename_True Rename_False Rename_Comp
 
 Ltac Rename_rewrite :=
   autorewrite with rw_rename.
-
-Definition RenameListC (l : list (String.string * String.string)) :
-  list (Var * Term) :=
-  List.map (fun p => (fst p, VarNowT (snd p))) l.
 
 Global Instance Proper_Rename_lentails :
   Proper (eq ==> lentails ==> lentails) Rename.
@@ -345,3 +369,8 @@ Qed.
 Ltac rename_hyp m H :=
   apply (Proper_Rename_lentails (to_RenameMap m) (to_RenameMap m))
   in H; [ | reflexivity ].
+
+Definition NotRenamed (m : RenameMap) (x : Var) :=
+  eq (m x) x.
+
+Hint Extern 1 (NotRenamed _ _) => reflexivity : rw_rename.

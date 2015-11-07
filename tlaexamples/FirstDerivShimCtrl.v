@@ -88,7 +88,7 @@ Module FirstDerivShim (P : FirstDerivShimParams).
   Theorem Spec_safe :
     |-- (IndInv //\\ 0 <= "T" <= d) //\\ []Next -->> []"v" <= ub.
   Proof.
-    rewrite Preserves_Inv.
+    rewrite Preserves_Inv_simple.
     { rewrite IndInv_impl_Inv.
       charge_tauto. }
     { compute; tauto. }
@@ -97,8 +97,8 @@ Module FirstDerivShim (P : FirstDerivShimParams).
 
   (* Some useful renaming lemmas *)
   Lemma Rename_SafeAcc :
-    forall a v m,
-      (forall x : Var, is_st_term (m x) = true) ->
+    forall a v (m : RenameMap),
+      RenameMapOk m ->
       Rename m (SafeAcc a v) -|-
       SafeAcc (rename_term m a) (rename_term m v).
   Proof.
@@ -109,8 +109,8 @@ Module FirstDerivShim (P : FirstDerivShimParams).
   Qed.
 
   Lemma Rename_Default :
-    forall a m,
-      (forall x : Var, is_st_term (m x) = true) ->
+    forall a (m : RenameMap),
+      RenameMapOk m ->
       Rename m (Default a) -|- Default (rename_term m a).
   Proof.
     intros; split; breakAbstraction; intros;

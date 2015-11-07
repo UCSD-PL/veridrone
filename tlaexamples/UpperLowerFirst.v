@@ -31,18 +31,18 @@ Module UpperLowerFirst (Import P : UpperLowerFirstParams).
 
   Module Vel := FirstDerivShim V.
 
-  Let mirror :=
-    ("v",--"v")::("a",--"a")::nil.
+  Let mirror : RenameList :=
+    {{ "v" ~> --"v" ; "a" ~> --"a" }}%rn.
 
   Definition mirrored : ActionFormula :=
-    SysRename (to_RenameMap mirror) (deriv_term_RenameList mirror)
+    SysRename mirror (deriv_term_RenameList mirror)
               Vel.Next.
 
   Definition Next : ActionFormula :=
     SysCompose mirrored Vel.Next.
 
   Definition IndInv : StateFormula :=
-    Rename (to_RenameMap mirror) Vel.IndInv //\\ Vel.IndInv.
+    Rename mirror Vel.IndInv //\\ Vel.IndInv.
 
   Lemma TimedPreserves_Next :
     |-- TimedPreserves d IndInv Next.
@@ -81,7 +81,7 @@ Module UpperLowerFirst (Import P : UpperLowerFirstParams).
   Theorem Spec_safe :
     |-- (IndInv //\\ 0 <= "T" <= d) //\\ []Next -->> []Safe.
   Proof.
-    rewrite Preserves_Inv.
+    rewrite Preserves_Inv_simple.
     { rewrite IndInv_impl_Inv.
       charge_tauto. }
     { compute; tauto. }

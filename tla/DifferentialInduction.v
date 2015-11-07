@@ -373,17 +373,17 @@ Definition deriv_term_succeed (t : Term) :=
   | None => fun _ => R0
   end.
 
-Fixpoint deriv_term_RenameList (l : list (Var*Term))
-         (st' : state) : RenameMap :=
+Fixpoint deriv_term_RenameList (l : RenameList) : RenameMapDeriv :=
   match l with
-  | nil => st'
+  | nil => fun st' => st'
   | (v, t) :: l =>
-    fun x => if String.string_dec x v
+    fun st' x => if String.string_dec x v
              then deriv_term_succeed t st'
              else deriv_term_RenameList l st' x
   end.
 
-Lemma deriv_term_list : forall l,
+(** TODO: Don't think this is needed **)
+Lemma deriv_term_list : forall (l : RenameList),
   List.forallb (fun p => match deriv_term (snd p) with
                          | None => false
                          | Some _ => true

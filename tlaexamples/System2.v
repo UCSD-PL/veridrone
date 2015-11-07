@@ -31,6 +31,9 @@ Definition mkEvolution (world : Evolution) : Evolution :=
 Definition World (world : Evolution) : Formula :=
   Continuous (mkEvolution world) //\\ 0 < "T" //\\ 0 <= "T"!.
 
+Definition TimeBound (d : R) : Formula :=
+  0 <= "T" <= d.
+
 Definition Discr (Prog : ActionFormula) (d : R) : ActionFormula :=
   Prog //\\ "T" = 0 //\\ 0 <= "T"! <= d.
 

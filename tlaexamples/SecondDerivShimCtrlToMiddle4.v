@@ -4,6 +4,7 @@ Require Import Coq.Reals.RIneq.
 Require Import TLA.TLA.
 Require Import TLA.ProofRules.
 Require Import TLA.ArithFacts.
+Require Import TLA.Inductively.
 Require Import Examples.System2.
 Require Import Examples.SecondDerivUtil.
 Require Import Examples.DiffEqSolutions.
@@ -68,25 +69,17 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
               ((0 <= t <= "T" //\\ "v" + "a"*t < 0) -->>
                      "y" + (tdist "v" "a" t) <= ub).
 
-(*
-  Definition IndInv_exec : Formula :=
-    Max "a" 0 (fun mx => "v" + mx *"t" <= ubv) -->>
-      ((0 <= "v" + "a"*"t" -->>
-        "y" + tdist "v" "a" "t" + sdist ("v" + "a"*"t") <= ub) //\\
-       (("v" + "a"*"t" <= 0 //\\ 0 < "v") -->>
-         "y" + tdist "v" "a" (--"v"/"a") <= ub)).
-*)
-
   Definition Next : Formula :=
     Sys (Ctrl //\\ Unchanged ("v"::"y"::nil)) w d.
-  Definition TimeBound (d : R) : Formula :=
-    0 <= "T" <= d.
+
+  Definition Next_Assumption : StateFormula :=
+    "v" <= ubv.
 
   (* A proof that the inductive safety condition
      Inv implies the safety contition
      we actually care about, Safe. *)
-  Lemma inv_safe :
-    "v" <= ubv //\\ IndInv //\\ TimeBound d |-- Safe.
+  Lemma IndInv_impl_Safe :
+    Next_Assumption //\\ IndInv //\\ TimeBound d |-- Safe.
   Proof.
     pose proof d_gt_0.
     pose proof amin_lt_0.
@@ -95,7 +88,7 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     rewrite_real_zeros. intros.
     destruct (Rle_dec R0 (Stream.hd tr "v")).
     - intuition. specialize_arith_hyp H6.
-      z3_solve; admit.
+      z3_solve; admit. (** TODO **)
     - solve_linear.
   Qed.
 
@@ -112,9 +105,6 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     { admit. (** Provable, but we won't worry about it *) }
   Qed.
 
-  Definition NotRenamed (m : RenameMap) (x : Var) :=
-    eq (m x) x.
-
   Ltac sysrename_side_cond :=
     match goal with
     | [ |- forall _ : state, is_st_formula _ ]
@@ -124,8 +114,8 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     | [ |- _ ] => apply deriv_term_list; reflexivity
     end.
 
-  Theorem SysInductively_Next
-  : "v" < ubv |-- TimedPreserves d IndInv Next.
+  Theorem TimedPreserves_Next
+  : Next_Assumption |-- TimedPreserves d IndInv Next.
   Proof.
     pose proof amin_lt_0 as amin_lt_0.
     pose proof d_gt_0 as d_gt_0.
@@ -174,7 +164,18 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
     { simpl next; restoreAbstraction.
       charge_split; [ | charge_tauto ].
       charge_intros.
-      admit. }
+      admit. (** TODO **) }
+  Qed.
+
+  Theorem Spec_safe :
+    [] Next_Assumption |-- (IndInv //\\ TimeBound d) //\\ []Next -->> []Safe.
+  Proof.
+    rewrite <- IndInv_impl_Safe.
+    rewrite <- Always_and.
+    charge_intros. charge_split; [ charge_assumption | ].
+    charge_revert.
+    eapply Preserves_Inv; [ compute; tauto | reflexivity | ].
+    apply TimedPreserves_Next.
   Qed.
 
 (*   Theorem ctrl_safe : *)

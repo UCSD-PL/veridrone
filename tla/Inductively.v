@@ -36,8 +36,8 @@ Proof.
                       | charge_right; charge_use; charge_tauto ].
 Qed.
 
-Lemma Preserves_Inv:
-  forall P A : Formula,
+Lemma Preserves_Inv_simple
+: forall (P : StateFormula) (A : ActionFormula),
     is_st_formula P ->
     |-- Preserves P A ->
     P //\\ []A |-- []P.
@@ -46,6 +46,24 @@ Proof.
   eapply discr_indX.
   - assumption.
   - charge_assumption.
+  - charge_assumption.
+  - unfold Preserves in *.
+    charge_tauto.
+Qed.
+
+Lemma Preserves_Inv
+: forall (P X : StateFormula) (A : ActionFormula) (G : Formula),
+    is_st_formula P ->
+    G |-- [] X ->
+    X |-- Preserves P A ->
+    G |-- P //\\ []A -->> []P.
+Proof.
+  intros.
+  rewrite landC. rewrite curry.
+  charge_intros.
+  eapply discr_indX.
+  - assumption.
+  - rewrite H0. rewrite Always_and. charge_assumption.
   - charge_assumption.
   - unfold Preserves in *.
     charge_tauto.

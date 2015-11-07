@@ -1,14 +1,14 @@
-Require Import Coq.Reals.Rdefinitions.
-Require Import TLA.TLA.
-Require Import TLA.EnabledLemmas.
-Require Import TLA.DifferentialInduction.
-Require Import Examples.System.
-Require Import Examples.SecondDerivShimCtrlToMiddle4.
-Require Import ChargeTactics.Lemmas.
-Require Import Coq.Strings.String.
-Local Open Scope string_scope.
-Require Import BasicProofRules.
 Require Import Coq.Lists.List.
+Require Import Coq.Strings.String.
+Require Import Coq.Reals.Rdefinitions.
+Require Import ChargeTactics.Lemmas.
+Require Import TLA.TLA.
+Require Import TLA.DifferentialInduction.
+Require Import TLA.ProofRules.
+Require Import Examples.System2.
+Require Import Examples.SecondDerivShimCtrlToMiddle4.
+
+Local Open Scope string_scope.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -23,11 +23,12 @@ Module Type UpperLowerSecondParams.
   Axiom amin_lt_0 : (amin < 0)%R.
 
   Parameter ubv : R.
-  Parameter ub_ubv : (ubv*d - ubv*ubv*(/2)*(/amin) <= ub)%R.
+  Parameter ub_ubv : (ubv*d + ubv*ubv*(0-/2)*(/amin) <= ub)%R.
 
 End UpperLowerSecondParams.
 
-Module UpperLowerSecond (P : UpperLowerSecondParams).
+Module UpperLowerSecond (Import P : UpperLowerSecondParams).
+
   Module Params <: SecondDerivShimParams.
     Definition ub := P.ub.
     Definition d := P.d.
@@ -40,87 +41,86 @@ Module UpperLowerSecond (P : UpperLowerSecondParams).
 
   Module Monitor := SecondDerivShimCtrl Params.
 
-  Let mirror :=
-    (("y",--"y")::("v",--"v")::("a",--"a")::
-     ("Y",--"Y")::("V",--"V")::("A",--"A")::nil).
+  Let mirror : RenameList :=
+    {{ "y" ~> --"y" ; "v" ~> --"v" ; "a" ~> --"a" }}%rn.
 
-  Definition SpecMirrorR :
-    { x : SysRec &
-          SysRec_equiv
-            (SysRename
-               (to_RenameMap mirror)
-               (deriv_term_RenameList mirror)
-               Monitor.SpecR)
-            x}.
+  Definition mirrored : ActionFormula :=
+    SysRename mirror (deriv_term_RenameList mirror)
+              Monitor.Next.
+
+  Definition Next : ActionFormula :=
+    SysCompose mirrored Monitor.Next.
+
+  Definition IndInv : StateFormula :=
+    Rename mirror Monitor.IndInv //\\ Monitor.IndInv.
+
+  Definition Next_Assumption : StateFormula :=
+    Rename mirror Monitor.Next_Assumption //\\ Monitor.Next_Assumption.
+
+  Lemma TimedPreserves_Next :
+    Next_Assumption |-- TimedPreserves d IndInv Next.
+  Proof with (refine _).
+    unfold IndInv, Next. unfold SysCompose.
+    rewrite SysCompose_simpl.
+    rewrite <- TimedPreserves_And...
+    unfold Next_Assumption.
+    charge_split.
+    { rewrite Sys_rename_formula by eauto with rw_rename.
+      rewrite SysRename_rule by eauto with rw_rename.
+      rewrite TimedPreserves_Rename by eauto with rw_rename.
+      rewrite <- Monitor.TimedPreserves_Next.
+      charge_tauto. }
+    { rewrite <- Monitor.TimedPreserves_Next.
+      charge_tauto. }
+  Qed.
+
+  Theorem SysNeverStuck_Next : |-- SysNeverStuck d IndInv Next.
   Proof.
-    discharge_sysrec_equiv_rename.
-  Defined.
+    eapply SysNeverStuck_Sys'; [ refine _ | pose proof d_gt_0 ; solve_linear | | ].
+    { enable_ex_st.
+      pose proof P.amin_lt_0. pose proof P.d_gt_0.
+      destruct (RIneq.Rge_dec (st "y") R0).
+      { do 3 eexists; exists d; solve_linear. }
+      { do 3 eexists; exists d.
+        repeat split.
+        { solve_linear. }
+        { solve_linear. }
+        { right. instantiate (1:=(-Params.amin)%R).
+          solve_linear. }
+        { right. intros. apply RIneq.Rgt_ge in H3.
+          contradiction. } } }
+    { admit. (** Provable, but we won't worry about it *) }
+  Qed.
 
-  Definition SpecR :=
-    SysCompose Monitor.SpecR (projT1 SpecMirrorR).
+  Definition Safe : StateFormula :=
+    Rename mirror Monitor.Safe //\\ Monitor.Safe.
 
-  Definition Safe :=
-    "y" <= Params.ub //\\ --Params.ub <= "y".
+  Lemma IndInv_impl_Safe : Next_Assumption //\\ IndInv //\\ TimeBound d |-- Safe.
+  Proof with (eauto with rw_rename).
+    charge_split.
+    { rewrite <- Monitor.IndInv_impl_Safe.
+      unfold IndInv, Next_Assumption.
+      Rename_rewrite.
+      do 2 (charge_split; try charge_assumption).
+      repeat rewrite <- Rename_ok...
+      simpl rename_formula. charge_tauto. }
+    { rewrite <- Monitor.IndInv_impl_Safe.
+      charge_tauto. }
+  Qed.
+
+  Local Open Scope HP_scope.
 
   Lemma UpperLower_safe :
-    []"v" <= Params.ubv //\\ []"v" >= --Params.ubv
-    |-- PartialSysD SpecR -->> []Safe.
+    []Next_Assumption |-- (IndInv //\\ TimeBound d) //\\ []Next -->> []Safe.
   Proof.
-    apply PartialCompose.
-    - charge_intros. pose proof Monitor.ctrl_safe.
-      unfold Monitor.Safe in *.
-      charge_apply H. charge_tauto.
-    - charge_intros.
-      rewrite_rename_pf SpecMirrorR.
-      rewrite PartialSysRename_sound
-        by sysrename_side_cond.
-      pose proof Monitor.ctrl_safe.
-      rename_hyp mirror H.
-      rewrite Rename_impl in H.
-      repeat rewrite <- (Rename_ok (Always _)) in H
-        by is_st_term_list. simpl rename_formula in H.
-      tlaCutByHyp H.
-      { charge_apply H. 
-        charge_split; try charge_tauto.
-        clear. rewrite landC. tlaRevert.
-        apply forget_prem. repeat rewrite Always_and.
-        apply Always_imp. solve_linear. }
-      { clear. apply forget_prem. apply Always_imp.
-        solve_linear. }
-  Qed.
-
-  Lemma Prog_enabled :
-    |-- Enabled SpecR.(Prog).
-  Proof.
-    simpl. restoreAbstraction.
-    enable_ex_st.
-    pose proof P.amin_lt_0. pose proof P.d_gt_0.
-    destruct (RIneq.Rge_dec (st "y") R0).
-    { smart_repeat_eexists; solve_linear. }
-    { smart_repeat_eexists;
-      repeat split.
-      { right. intros. apply RIneq.Rgt_ge in H1.
-        contradiction. }
-      { right. instantiate (1:=(-Params.amin)%R).
-        solve_linear. } }
-  Qed.
-
-  Lemma UpperLower_enabled :
-    |-- Enabled (Discr SpecR.(Prog) SpecR.(maxTime)).
-  Proof.
-    unfold Discr.
-    rewrite <- disjoint_state_enabled.
-    { charge_split.
-      { apply Prog_enabled. }
-      { enable_ex_st. smart_repeat_eexists. solve_linear. } }
-    { apply formulas_disjoint_state; reflexivity. }
-  Qed.
-
-  Lemma UpperLower_full :
-    |-- SysSafe SpecR.
-  Proof.
-    apply SysSafe_rule. apply always_tauto.
-    apply UpperLower_enabled.
+    rewrite <- IndInv_impl_Safe.
+    rewrite <- Always_and.
+    charge_intros; charge_split; try charge_assumption.
+    charge_revert.
+    eapply Inductively.Preserves_Inv.
+    - compute; tauto.
+    - reflexivity.
+    - eapply TimedPreserves_Next.
   Qed.
 
 End UpperLowerSecond.
