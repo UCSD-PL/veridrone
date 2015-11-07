@@ -205,7 +205,9 @@ Theorem SysDisjoin_compose
 Proof.
   intros.
   etransitivity.
-  2: eapply Proper_Preserves_lequiv. 3: symmetry; eapply SysDisjoin_simpl. 2: reflexivity.
+  2: eapply Proper_Preserves_lequiv.
+  3: symmetry; eapply SysDisjoin_simpl.
+  2: reflexivity.
   rewrite land_dup.
   rewrite H at 1; rewrite H0.
   unfold TimedPreserves.
@@ -510,3 +512,11 @@ Definition SysCompose (A : ActionFormula) (B : ActionFormula)
   : ActionFormula :=
   Sys (DA //\\ DB) (wA //\\ wB) d.
 Arguments SysCompose _ _ {_ _ _ _ _ _ _} : clear implicits.
+
+Definition SysDisjoin (IA : StateFormula) (A : ActionFormula)
+           (IB : StateFormula) (B : ActionFormula)
+           {DA DB wA wB d} {SP_A : SysParse DA wA d A}
+           {SP_B : SysParse DB wB d B}
+  : ActionFormula :=
+  Sys ((IA //\\ DA) \\// (IB //\\ DB)) (wA \\// wB) d.
+Arguments SysDisjoin _ _ _ _ {_ _ _ _ _ _ _} : clear implicits.
