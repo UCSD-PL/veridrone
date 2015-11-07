@@ -515,8 +515,8 @@ Arguments SysCompose _ _ {_ _ _ _ _ _ _} : clear implicits.
 
 Definition SysDisjoin (IA : StateFormula) (A : ActionFormula)
            (IB : StateFormula) (B : ActionFormula)
-           {DA DB wA wB d} {SP_A : SysParse DA wA d A}
-           {SP_B : SysParse DB wB d B}
+           {DA DB w d} {SP_A : SysParse DA w d A}
+           {SP_B : SysParse DB w d B}
   : ActionFormula :=
-  Sys ((IA //\\ DA) \\// (IB //\\ DB)) (wA \\// wB) d.
-Arguments SysDisjoin _ _ _ _ {_ _ _ _ _ _ _} : clear implicits.
+  Sys ((IA //\\ DA) \\// (IB //\\ DB)) w d.
+Arguments SysDisjoin _ _ _ _ {_ _ _ _ _ _} : clear implicits.
