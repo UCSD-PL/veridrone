@@ -62,7 +62,7 @@ Module UpperLowerSecond (Import P : UpperLowerSecondParams).
   Proof with (refine _).
     unfold IndInv, Next. unfold SysCompose.
     rewrite SysCompose_simpl.
-    rewrite <- TimedPreserves_And...
+    rewrite <- TimedPreserves_And_simple...
     unfold Next_Assumption.
     charge_split.
     { rewrite Sys_rename_formula by eauto with rw_rename.

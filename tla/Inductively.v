@@ -69,12 +69,31 @@ Proof.
     charge_tauto.
 Qed.
 
-Lemma Preserves_And : forall P Q A B,
+Lemma Preserves_And_simple : forall P Q A B,
     Preserves P A //\\
     Preserves Q B
     |-- Preserves (P //\\ Q) (A //\\ B).
 Proof.
   unfold Preserves. intros.
+  charge_tauto.
+Qed.
+
+Lemma Preserves_And
+  : forall (P Q : StateFormula) (A B : ActionFormula),
+    Preserves P (Q //\\ A) //\\ Preserves Q (P //\\ B)
+    |-- Preserves (P //\\ Q) (A //\\ B).
+Proof.
+  unfold Preserves. intros.
+  charge_tauto.
+Qed.
+
+Lemma Preserves_intro
+  : forall (I P G : Formula) (A : ActionFormula),
+    G //\\ P |-- Preserves I A ->
+    G |-- Preserves I (P //\\ A).
+Proof.
+  unfold Preserves. intros.
+  charge_intros. charge_apply H.
   charge_tauto.
 Qed.
 

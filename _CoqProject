@@ -35,4 +35,6 @@ tlaexamples/FirstDerivShimCtrl.v
 tlaexamples/SecondDerivShimCtrlToMiddle4.v
 tlaexamples/SecondDerivUtil.v
 tlaexamples/UpperLowerFirst.v
+tlaexamples/UpperLowerSecond.v
+tlaexamples/UpperLower.v
 tlaexamples/FirstOrderStability.v

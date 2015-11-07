@@ -440,19 +440,45 @@ Proof.
 Qed.
 
 (** TODO: Move Up **)
-Lemma TimedPreserves_And
+Lemma TimedPreserves_And_simple
   : forall d I1 I2 A B,
     is_st_formula I1 -> is_st_formula I2 ->
     TimedPreserves d I1 A //\\ TimedPreserves d I2 B
                    |-- TimedPreserves d (I1 //\\ I2) (A //\\ B).
 Proof.
   intros. unfold TimedPreserves.
+  rewrite Preserves_And_simple.
+  eapply Preserves_equiv.
+  { simpl; tauto. }
+  { simpl; tauto. }
+  { split; charge_tauto. }
+  { reflexivity. }
+Qed.
+
+Lemma TimedPreserves_And
+  : forall (d : R) (I1 I2 : StateFormula) (A B : ActionFormula),
+   is_st_formula I1 ->
+   is_st_formula I2 ->
+   TimedPreserves d I1 ((I2 //\\ TimeBound d) //\\ A) //\\
+   TimedPreserves d I2 ((I1 //\\ TimeBound d) //\\ B)
+   |-- TimedPreserves d (I1 //\\ I2) (A //\\ B).
+Proof.
+  intros. unfold TimedPreserves, TimeBound.
   rewrite Preserves_And.
   eapply Preserves_equiv.
   { simpl; tauto. }
   { simpl; tauto. }
   { split; charge_tauto. }
   { reflexivity. }
+Qed.
+
+Lemma TimedPreserves_intro
+  : forall (d : R) (I P G : Formula) (A : ActionFormula),
+    G //\\ P |-- TimedPreserves d I A ->
+    G |-- TimedPreserves d I (P //\\ A).
+Proof.
+  unfold TimedPreserves. intros.
+  apply Preserves_intro; assumption.
 Qed.
 
 Global Instance Proper_TimedPreserves_lentails
