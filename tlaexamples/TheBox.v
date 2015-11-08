@@ -149,52 +149,6 @@ Module Box (P : BoxParams).
 
   Opaque ILInsts.ILFun_Ops.
 
-(*
-  (* The safety of the full system. *)
-  Theorem box_safe :
-    |-- PartialSysD SpecR -->>
-        []((--P.ubv_X <= "vx" <= P.ubv_X //\\
-            --P.ub_X <= "x" <= P.ub_X) //\\
-           (--P.ubv_Y <= "vy" <= P.ubv_Y //\\
-            --P.ub_Y <= "y" <= P.ub_Y)).
-  Proof.
-    unfold SpecR. rewrite PartialComposeRefine.
-    rewrite_rename_pf SpecPolarR.
-    unfold SpecRectR. rewrite SysCompose_SysRename.
-    apply PartialCompose.
-    - rewrite PartialSysRename_sound
-        by sysrename_side_cond.
-      rewrite_rename_pf X_SpecR.
-      rewrite PartialSysRename_sound
-        by sysrename_side_cond.
-      pose proof X.safety.
-      rename_hyp rename_x H. rename_hyp rename_polar H.
-      repeat rewrite Rename_True in H.
-      repeat rewrite Rename_impl in H. apply landAdj in H.
-      restoreAbstraction. rewrite landtrueL in H. rewrite H.
-      clear. rewrite <- Rename_ok by rw_side_condition.
-      simpl. restoreAbstraction. apply Always_imp.
-      unfold X.V.ub, X_Params.ubv,
-      X.Position.Params.ub, X.Y.ub.
-      charge_tauto.
-    - rewrite PartialSysRename_sound
-        by sysrename_side_cond.
-      rewrite_rename_pf Y_SpecR.
-      rewrite PartialSysRename_sound
-        by sysrename_side_cond.
-      pose proof Y.safety.
-      rename_hyp rename_y H. rename_hyp rename_polar H.
-      repeat rewrite Rename_True in H.
-      repeat rewrite Rename_impl in H. apply landAdj in H.
-      restoreAbstraction. rewrite landtrueL in H. rewrite H.
-      clear. rewrite <- Rename_ok by rw_side_condition.
-      simpl. restoreAbstraction. apply Always_imp.
-      unfold Y.V.ub, Y_Params.ubv,
-      Y.Position.Params.ub, Y.Y.ub.
-      charge_tauto.
-  Qed.
-*)
-
 (* The following helps generate code. *)
 (*
 Definition shift (ub lb:R) (x:Var) : list (Var*Term) :=
