@@ -159,7 +159,7 @@ Proof.
       solve_linear. } }
 Qed.
 
-Theorem SysSystem
+Theorem SysSystem_TimedPreserves
 : forall G I P w d,
   G |-- TimedPreserves d I (Sys P w d) ->
   G |-- SysNeverStuck  d I (Sys P w d) ->
@@ -554,11 +554,34 @@ Definition SysDisjoin (IA : StateFormula) (A : ActionFormula)
   Sys ((IA //\\ DA) \\// (IB //\\ DB)) w d.
 Arguments SysDisjoin _ _ _ _ {_ _ _ _ _ _} : clear implicits.
 
+Definition SysSystem (A : ActionFormula)
+           {D w d} {SP : SysParse D w d A} : ActionFormula :=
+  System D w d.
+Arguments SysSystem _ {_ _ _ _} : clear implicits.
+
 Lemma SysCompose_abstract :
   forall A B {DA DB wA wB d} {SP_A : SysParse DA wA d A}
          {SP_B : SysParse DB wB d B},
-    @SysCompose A B DA DB wA wB d SP_A SP_B |-- A.
+    SysCompose A B |-- A.
 Proof.
   intros. unfold SysCompose. rewrite SysCompose_simpl.
   inversion SP_A. charge_tauto.
+Qed.
+
+Lemma SysDisjoin_System :
+  forall A B {DA DB w d} {SP_A : SysParse DA w d A}
+         {SP_B : SysParse DB w d B} IA IB G,
+    is_st_formula IA ->
+    is_st_formula IB ->
+    G |-- TimedPreserves d IA A ->
+    G |-- TimedPreserves d IB B ->
+    G |-- SysNeverStuck d IA A ->
+    G |-- SysNeverStuck d IB B ->
+    G |-- TimedPreserves d (IA \\// IB)
+                         (SysSystem (SysDisjoin IA A IB B)).
+Proof.
+  intros. inversion SP_A. inversion SP_B. subst.
+  apply SysSystem_TimedPreserves.
+  { apply SysDisjoin_compose; assumption. }
+  { apply NeverStuck_disjoin; assumption. }
 Qed.
