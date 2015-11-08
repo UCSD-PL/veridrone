@@ -37,4 +37,5 @@ tlaexamples/SecondDerivUtil.v
 tlaexamples/UpperLowerFirst.v
 tlaexamples/UpperLowerSecond.v
 tlaexamples/UpperLower.v
+tlaexamples/TheBox.v
 tlaexamples/FirstOrderStability.v
