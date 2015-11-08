@@ -479,6 +479,31 @@ Close Scope HP_scope.
 
 End in_context.
 
+Lemma next_And :
+  forall A B,
+    next (A //\\ B) -|- next A //\\ next B.
+Proof. reflexivity. Qed.
+
+Lemma next_Rename :
+  forall A sigma,
+    next (Rename sigma A) -|- Rename sigma (next A).
+Proof. reflexivity. Qed.
+
+Lemma land_limpl :
+  forall P Q R,
+    P -->> (Q //\\ R) -|- (P -->> Q) //\\ (P -->> R).
+Proof.
+  split.
+  { charge_split; charge_intros.
+    { eapply Lemmas.lcut.
+      { charge_use; charge_assumption. }
+      { charge_tauto. } }
+    { eapply Lemmas.lcut.
+      { charge_use; charge_assumption. }
+      { charge_tauto. } } }
+  { charge_tauto. }
+Qed.
+
 Lemma always_tauto : forall G P, |-- P -> G |-- [] P.
 Proof. tlaIntuition. Qed.
 

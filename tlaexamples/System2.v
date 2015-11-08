@@ -390,8 +390,8 @@ Qed.
 
 Theorem SysNeverStuck_Sys : forall (d :R) I W D,
     (d >= 0)%R ->
-    I |-- Enabled ("T" = 0 -->> 0 <= "T"! <= d //\\ D) ->
-    I |-- Enabled (0 < "T" <= d -->> World W) ->
+    I //\\ "T" = 0 |-- Enabled (0 <= "T"! <= d //\\ D) ->
+    I //\\ 0 < "T" <= d |-- Enabled (World W) ->
     |-- SysNeverStuck d I (Sys D W d).
 Proof.
   intros d I W D Hd. intros. unfold SysNeverStuck.
@@ -402,29 +402,20 @@ Proof.
   charge_clear.
   split_n 1; charge_intros.
   { unfold Sys.
-    etransitivity;
-      [ | eapply Proper_Enabled_lentails; rewrite Lemmas.land_lor_distr_L; reflexivity ].
+    rewrite <- Enabled_and_push by (compute; tauto).
+    charge_split; [ solve_linear | ].
     rewrite <- EnabledLemmas.Enabled_or.
-    charge_left.
-    charge_revert.
-
-    rewrite <- Enabled_limpl_st; [ | refine _ ].
-    rewrite H. eapply Proper_Enabled_lentails.
-    unfold Discr. charge_intros.
-    charge_assert (0 <= "T"! <= d //\\ D); [ charge_use; charge_assumption | ].
-    charge_intros.
-    repeat charge_split; try charge_assumption.
-    solve_linear. }
+    charge_left. unfold Discr.
+    rewrite (landC D). repeat rewrite landA.
+    rewrite <- Enabled_and_push by (compute; tauto).
+    charge_split; [ charge_assumption | ].
+    assumption. }
   { unfold Sys.
-    etransitivity;
-      [ | eapply Proper_Enabled_lentails; rewrite Lemmas.land_lor_distr_L; reflexivity ].
+    rewrite <- Enabled_and_push by (compute; tauto).
+    charge_split;
+      [ simpl; restoreAbstraction; charge_assumption | ].
     rewrite <- EnabledLemmas.Enabled_or.
-    charge_right.
-    charge_revert.
-    rewrite H0.
-    rewrite <- Enabled_limpl_st; [ | refine _ ].
-    apply Proper_Enabled_lentails.
-    charge_intros. charge_split. solve_linear. charge_tauto. }
+    charge_right. assumption. }
 Qed.
 
 Theorem SysNeverStuck_Sys' : forall (d :R) I W D,
@@ -435,8 +426,12 @@ Theorem SysNeverStuck_Sys' : forall (d :R) I W D,
     |-- SysNeverStuck d I (Sys D W d).
 Proof.
   intros. eapply SysNeverStuck_Sys; eauto.
-  - charge_revert. rewrite <- Enabled_limpl_st; [ | refine _ ]. eauto.
-  - charge_revert. rewrite <- Enabled_limpl_st; [ | refine _ ]. eauto.
+  - do 2 charge_revert.
+    repeat (rewrite <- Enabled_limpl_st; [ | refine _ ]).
+    assumption.
+  - do 2 charge_revert.
+    repeat (rewrite <- Enabled_limpl_st; [ | refine _ ]).
+    assumption.
 Qed.
 
 (** TODO: Move Up **)
@@ -520,6 +515,18 @@ Inductive SysParse (D : ActionFormula) (w : Evolution) (d : R)
 Existing Class SysParse.
 Existing Instance Parsed.
 
+(* Some projection functions. *)
+Definition Sys_D (A : ActionFormula)
+           {D w d} {SP : SysParse D w d A} : ActionFormula := D.
+Arguments Sys_D _ {_ _ _ _} : clear implicits.
+
+Definition Sys_w (A : ActionFormula)
+           {D w d} {SP : SysParse D w d A} : Evolution := w.
+Arguments Sys_w _ {_ _ _ _} _ : clear implicits.
+
+Definition Sys_d (A : ActionFormula)
+           {D w d} {SP : SysParse D w d A} : R := d.
+Arguments Sys_d _ {_ _ _ _} : clear implicits.
 
 Definition SysRename (sigma : RenameMap) (sigma' : RenameMapDeriv)
            (A : ActionFormula) {D w d} {SP : SysParse D w d A}
@@ -546,3 +553,12 @@ Definition SysDisjoin (IA : StateFormula) (A : ActionFormula)
   : ActionFormula :=
   Sys ((IA //\\ DA) \\// (IB //\\ DB)) w d.
 Arguments SysDisjoin _ _ _ _ {_ _ _ _ _ _} : clear implicits.
+
+Lemma SysCompose_abstract :
+  forall A B {DA DB wA wB d} {SP_A : SysParse DA wA d A}
+         {SP_B : SysParse DB wB d B},
+    @SysCompose A B DA DB wA wB d SP_A SP_B |-- A.
+Proof.
+  intros. unfold SysCompose. rewrite SysCompose_simpl.
+  inversion SP_A. charge_tauto.
+Qed.

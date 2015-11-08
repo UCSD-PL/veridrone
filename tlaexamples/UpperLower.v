@@ -75,21 +75,35 @@ Module UpperLower (Import P : UpperLowerParams).
       charge_tauto. }
   Qed.
 
+  Definition Constraint :=
+    P.amin <= "a" <= --P.amin.
+
+  Lemma SysNeverStuck_Discr :
+    |-- Enabled ((0 <= "T"! <= d //\\ Sys_D Next) //\\
+                  next Constraint).
+  Proof.
+    enable_ex_st.
+    pose proof P.amin_lt_0. pose proof P.d_gt_0.
+    pose proof P.ubv_gt_amin_d.
+    unfold Vel.V.ub, Vel.V.d, V.ub, V.d.
+    unfold Position.Params.amin.
+    unfold Y.amin.
+    destruct (RIneq.Rgt_dec (st "y") R0);
+      destruct (RIneq.Rgt_dec (st "v") R0).
+    { exists amin; do 2 eexists; exists d; solve_linear. }
+    { do 3 eexists; exists d; solve_linear. }
+    { do 3 eexists; exists d; solve_linear. }
+    { exists (-amin)%R; do 2 eexists; exists d; solve_linear. }
+  Qed.
+
   Theorem SysNeverStuck_Next : |-- SysNeverStuck d IndInv Next.
   Proof.
-    eapply SysNeverStuck_Sys'; [ refine _ | pose proof d_gt_0 ; solve_linear | | ].
-    { enable_ex_st.
-      pose proof P.amin_lt_0. pose proof P.d_gt_0.
-      pose proof P.ubv_gt_amin_d.
-      unfold Vel.V.ub, Vel.V.d, V.ub, V.d.
-      unfold Position.Params.amin.
-      unfold Y.amin.
-      destruct (RIneq.Rgt_dec (st "y") R0);
-        destruct (RIneq.Rgt_dec (st "v") R0).
-      { do 2 eexists; exists P.amin; exists d; solve_linear. }
-      { do 3 eexists; exists d; solve_linear. }
-      { do 3 eexists; exists d; solve_linear. }
-      { do 2 eexists; exists (-P.amin)%R; exists d; solve_linear. } }
+    eapply SysNeverStuck_Sys';
+    [ refine _ | pose proof d_gt_0 ; solve_linear | | ].
+    { pose proof SysNeverStuck_Discr.
+      etransitivity; [ apply H; clear H |
+                       apply Proper_Enabled_lentails ].
+      charge_tauto. }
     { admit. (** Provable, but we won't worry about it *) }
   Qed.
 
@@ -117,8 +131,5 @@ Module UpperLower (Import P : UpperLowerParams).
     - compute; tauto.
     - apply always_tauto. charge_tauto.
   Qed.
-
-  Definition Constraint :=
-    P.amin <= "a" <= --P.amin.
 
 End UpperLower.
