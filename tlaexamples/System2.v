@@ -159,7 +159,11 @@ Proof.
       solve_linear. } }
 Qed.
 
-Theorem SysSystem_TimedPreserves
+Definition SafeAndReactive d (I : StateFormula) (S : ActionFormula)
+  : Formula :=
+  TimedPreserves d I S //\\ SysNeverStuck d I S.
+
+Lemma SysSystem_TimedPreserves
 : forall G I P w d,
   G |-- TimedPreserves d I (Sys P w d) ->
   G |-- SysNeverStuck  d I (Sys P w d) ->
@@ -175,6 +179,15 @@ Proof.
   decompose_hyps.
   - charge_tauto.
   - charge_exfalso. charge_tauto.
+Qed.
+
+Theorem SafeAndReactive_TimedPreserves
+: forall G I D w d,
+  G |-- SafeAndReactive d I (Sys D w d) ->
+  G |-- TimedPreserves d I (System D w d).
+Proof.
+  intros. rewrite H. unfold SafeAndReactive.
+  apply SysSystem_TimedPreserves; charge_tauto.
 Qed.
 
 Theorem SystemSys
@@ -568,20 +581,19 @@ Proof.
   inversion SP_A. charge_tauto.
 Qed.
 
-Lemma SysDisjoin_System :
-  forall A B {DA DB w d} {SP_A : SysParse DA w d A}
-         {SP_B : SysParse DB w d B} IA IB G,
+Theorem SysDisjoin_SafeAndReactive :
+  forall DA DB w d IA IB G,
     is_st_formula IA ->
     is_st_formula IB ->
-    G |-- TimedPreserves d IA A ->
-    G |-- TimedPreserves d IB B ->
-    G |-- SysNeverStuck d IA A ->
-    G |-- SysNeverStuck d IB B ->
-    G |-- TimedPreserves d (IA \\// IB)
-                         (SysSystem (SysDisjoin IA A IB B)).
+    G |-- SafeAndReactive d IA (Sys DA w d) ->
+    G |-- SafeAndReactive d IB (Sys DB w d) ->
+    G |-- SafeAndReactive d (IA \\// IB)
+                  (SysDisjoin IA (Sys DA w d) IB (Sys DB w d)).
 Proof.
-  intros. inversion SP_A. inversion SP_B. subst.
-  apply SysSystem_TimedPreserves.
-  { apply SysDisjoin_compose; assumption. }
-  { apply NeverStuck_disjoin; assumption. }
+  unfold SafeAndReactive. intros. charge_split.
+  { apply SysDisjoin_compose; [ rewrite H1 | rewrite H2 ];
+    charge_tauto. }
+  { apply NeverStuck_disjoin; try assumption;
+    [ rewrite H1 | rewrite H2 ];
+    charge_tauto. }
 Qed.
