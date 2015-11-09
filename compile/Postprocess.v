@@ -378,9 +378,9 @@ Qed.
 
 Require Import bound.
 Require Import source.
-Definition FP2RP (ivs : list (Var * Var)) (P : fstate -> Prop) : state -> Prop :=
+Definition FP2RP (vs : list Var) (P : fstate -> Prop) : state -> Prop :=
   (fun st =>
-     exists (fst : fstate), vmodels ivs st fst /\ P fst).
+     exists (fst : fstate), vmodels vs fst st /\ P fst).
 
 (* Version of HoareA_embed_ex we can use for rewriting. *)
 Require Import source.
@@ -456,16 +456,45 @@ Admitted.
 Require Import ExtLib.Tactics.
 Lemma Hoare__embed_rw :
   forall (c : fcmd)
-         (vs1 : list (Var * Var)),
-    var_spec_valid' vs1 ->
-    varmap_check_fcmd vs1 c ->
-    oembed_fcmd vs1 vs1 c |--
+         (vs : list string),
+    (*var_spec_valid' vs ->*)
+    (*varmap_check_fcmd vs c ->*)
+    fembed_ex vs c |--
                 Forall Q : fstate -> Prop,
   let P := fwp c Q in
   Embed (fun st st' : state =>
            (exists fst : fstate,
-             vmodels vs1 st fst /\
-             (P fst -> exists fst' : fstate, vmodels vs1 st' fst' /\ Q fst'))).
+             vmodels vs fst st /\
+             (P fst -> exists fst' : fstate, vmodels vs fst' st' /\ Q fst'))).
+Proof.
+  intros.
+  breakAbstraction.
+  intros.
+  fwd.
+  exists x0.
+  split; auto.
+  intros.
+  eapply fwp_correct in H2.
+  fwd.
+  specialize (H3 _ H2).
+  exists x2.
+  split; auto.
+  unfold vmodels, models in *.
+  intros.
+  split.
+  - intros.
+    specialize (H s). specialize (H0 s). fwd.
+    (* apply determinism of eval *)
+  
+
+  destruct H2; try congruence.
+  fwd.
+  consider x1; intros; try congruence; subst.
+  exists x2.
+  split; auto.
+Qed.
+
+(*
 Proof.
   intros.
   breakAbstraction.
@@ -482,6 +511,7 @@ Proof.
   exists x2.
   split; auto.
 Qed.
+*)
 
 Check fwp.
 Print SEMR.
@@ -767,6 +797,8 @@ Proof.
   tlaIntuition.
 Qed.
 
+Print simpler_prog.
+
 Fact fwp_simpler_full : preVarIsFloat "x" //\\ "x" > 0 //\\
                                 [](oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog \\//
                                                (Enabled (oembed_fcmd simple_prog_ivs simple_prog_ivs simpler_prog) -->> lfalse))
@@ -986,6 +1018,15 @@ Fact fwp_velshim_full : preVarIsFloat "a" //\\ preVarIsFloat "v" //\\
                                       (oembed_fcmd velshim_ivs velshim_ivs velshim \\//
                                                    (Enabled (oembed_fcmd velshim_ivs velshim_ivs velshim) -->> lfalse))
                                       |-- (VarNextT "a" = 0 \\// "v" + ((VarNextT "a") * NatT 1) < NatT 10 )%HP.
+(*
+Fact fwp_velshim_full : preVarIsFloat "a" //\\ preVarIsFloat "v" //\\
+                                       ("a" <  0 -->> "v" <= NatT 10)%HP //\\
+                                       ("a" >= 0 -->> "a"* (NatT 1) + "v" <= NatT 10)%HP //\\
+                                      (oembed_fcmd velshim_ivs velshim_ivs velshim \\//
+                                                   (Enabled (oembed_fcmd velshim_ivs velshim_ivs velshim) -->> lfalse))
+                                      |-- (VarNextT "a" = 0 \\// "v" + ((VarNextT "a") * NatT 1) < NatT 10 )%HP.
+*)
+(* TODO need to refactor body of proof to take new hypotheses into account *)
 Proof.
   repeat rewrite Lemmas.land_lor_distr_L.
   apply lorL.
@@ -1007,12 +1048,14 @@ Proof.
       clear tr.
       intros.
       fwd.
-      specialize (H (fstate_get_rval "a" (fun a fs => a = 0 \/ (v2 + a) < 10))%R).
+      Print fstate_get_rval.
+      (* v2 or v1? i think v1 *)
+      specialize (H (fstate_get_rval "a" (fun a fs => a = 0 \/ (v1 + a) < 10))%R).
       fwd.
       unfold Value in *.
       subst.
-      unfold fstate_get_rval in H4.
-      unfold fstate_lookupR in H, H5.
+      unfold fstate_get_rval in *.
+      unfold fstate_lookupR in *.
       forward.
       destruct H4.
       { Transparent fwp.
@@ -1137,7 +1180,7 @@ Comparable_Applicative ILInsts.ILFun_Ops
 simpleBound3 simpleBound4 simpleBound5 simpleBound6 simpleBound7
 ILogicOps_Prop
 simpleBound8 simpleBound9 simpleBound6 simpleBound10 lofst
- ]
+ 
 in (bound_fexpr
          (FMinus (FConst f10)
             (FPlus (FMult (FVar "a") (FConst float_one)) (FVar "v")))).
@@ -1151,7 +1194,14 @@ in (bound_fexpr
             | |- context[Fappli_IEEE.B2R ?x1 ?x2 ?x3] => idtac x3;
               let X2 := eval lazy in (Fappli_IEEE.B2R x1 x2 x3) in change (Fappli_IEEE.B2R x1 x2 x3) with X2
                  end.
-          repeat split.
+
+          (* assertions bounding values of variables (hopefully provable later) *)
+          (*
+          assert (FloatToR x >= 1)%R as Halow by admit.
+          assert (FloatToR x <= 101)%R as Haup by admit.
+          assert (FloatToR x0 >= 1)%R as Hvlow by admit.
+          assert (FloatToR x0 <= 101)%R as Hvup by admit.
+           *)
 
           Lemma crunch_or :
             forall (P P' Q Q' : Prop),
@@ -1161,28 +1211,6 @@ in (bound_fexpr
             intuition.
           Qed.
 
-          idtac.
-
-          intros.
-          fwd.
-
-          eexists.
-          split.
-          erewrite <- fstate_lookup_update_match. reflexivity.
-          left.
-          split. eauto.
-          intros.
-          rewrite <- fstate_lookup_update_match. (* todo - previous ones rewrite in wrong direction *)
-          rewrite H9. left.
-          clear -H10. lra.
-
-          intros.
-          eexists.
-          rewrite <- fstate_lookup_update_match.
-          split; [reflexivity|].
-          left.
-          split.
-          
           Lemma F2OR_isFloatConstValid :
             forall (f : float) (r : R),
               F2OR f = Some r ->
@@ -1192,57 +1220,255 @@ in (bound_fexpr
             unfold isFloatConstValid.
             destruct f; try constructor; unfold F2OR in *; try congruence.
           Qed.
+          
+          repeat split.
+          {
+            intros.
+            fwd.
+            eexists.
+            split.
+            erewrite <- fstate_lookup_update_match. reflexivity.
+            left.
+            split. eauto.
+            intros.
+            rewrite <- fstate_lookup_update_match. (* todo - previous ones rewrite in wrong direction *)
+            rewrite H9. left.
+            clear -H10. lra.
+          }
+
+          {
+            intros.
+            eexists.
+            rewrite <- fstate_lookup_update_match.
+            split; [reflexivity|].
+            left.
+            split.
+            
+            eapply F2OR_isFloatConstValid. eauto.
+
+            intros.
+            rewrite <- fstate_lookup_update_match.
+            rewrite H9.
+
+            show_value error.
+            show_value floatMin.
+            show_value floatMax.
+            unfold fstate_lookup_force in *.
+            rewrite H in H10.
+            
+            subst.
+
+            z3 solve; admit.
+          }
+
+          (* Fappli_IEEE.bounded_lt_emax will let us prove half of this theorem
+             (rx <= floatMax) but we can't find any similar theorems in the Flocq library
+             that talk about floatMin... *)
+          Require Import compcert.flocq.Core.Fcore_generic_fmt.
+          Lemma isFloatConstValid_F2OR : forall x : float,
+              isFloatConstValid x <->
+              exists rx,
+                F2OR x = Some rx /\
+                (floatMin <=  rx <= floatMax \/
+                 floatMin <= -rx <= floatMax \/
+                 rx = 0)%R.
+          Proof.
+            (*  (* failed proof attempt - subnormal_exponent is probably not the right theorem here *)
+            intros.
+            split.
+            { unfold isFloatConstValid. intros.
+              destruct x; try contradiction; simpl.
+              { eexists. split; auto. }
+              { eexists. split; [reflexivity|].
+                destruct b.
+                { (* negative case *)
+                  right; left.
+                  generalize subnormal_exponent; intro Hsne.
+                  Print Fappli_IEEE.
+                  specialize (Hsne Fappli_IEEE.radix2 (Fcore_FLT.FLT_exp prec emax)).
+                  
+                  Require Import compcert.flocq.Core.Fcore_FLT.
+                  SearchAbout Valid_exp.
+                  assert (Valid_exp (FLT_exp prec emax)).
+                  {
+                    generalize (Fappli_IEEE.fexp_correct). prec emax).
+                    intros.
+                    unfold Fcore_FLX.Prec_gt_0, prec, emax in *.
+                    assert (0 < 24)%Z by lia.
+                    specialize (H0 H1); clear H1.
+                    unfold prec, e
+                    
+                    compute; reflexivity.
+                  }
+                  specialize (Hsne H0); clear H0.
+                  SearchAbout Exp_not_FTZ.
+                  assert (Exp_not_FTZ (FLT_exp prec emax)).
+                  unfold prec, emax.
+                  lazy.
+                  intros.
+                  cbv beta zeta delta [Exp_not_FTZ FLT_exp generic_format Fcore_Raux.Ztrunc] in Hsne.
+                  lazy in Hsne.
+                  SearchAbout (Exp_not_FTZ).
+                  Print Fcore_FLT.
+
+                  generalize (forall P, Fcore_FLT.FLT_exp_valid prec emax P).
+                  Print Valid_exp.
+                  Print generic_format.
+                  simpl in e0.
+                  Pr
+                  specialize (Hsne 
+                  
+                  
+              split.
+              - simpl.
+             *)
+          Admitted.
 
           idtac.
 
-          eapply F2OR_isFloatConstValid. eauto.
+          assert (isFloatConstValid f10) by auto.
+          assert (isFloatConstValid float_one) by auto.
+          
+          replace (isFloatConstValid f10) with True by (lazy; reflexivity).
+          replace (isFloatConstValid float_one) with True by auto.
+          assert (isFloatConstValid f0) by admit.
+          assert (isFloatConstValid f) by admit.
+         
+          unfold plusResultValidity, minusResultValidity, multResultValidity.
+          Opaque Fappli_IEEE.Bminus Fappli_IEEE.Bmult Fappli_IEEE.Bplus.
+          simpl. rewrite H0. rewrite H.
+          simpl.
+          (* relate isFloatConstValid to being between max float and min float *)
 
-          intros.
-          rewrite <- fstate_lookup_update_match.
-          rewrite H9.
+          (* isFloatConstValid lemmas from Gregory's whiteboard *)
+          Lemma isFloatConstValid_Bplus : forall a b : float,
+              Basics.impl (exists ra,
+                 F2OR a = Some ra /\
+                 exists rb, F2OR b = Some rb /\
+                       (floatMin <=  ra + rb <= floatMax \/
+                        floatMin <= -(ra + rb) <= floatMax \/
+                        ra + rb = 0))%R
+              (isFloatConstValid (Fappli_IEEE.Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                                   custom_nan Fappli_IEEE.mode_NE a b)).
+          Proof.
+            (* again, unsure how exactly to go about proving this *)
+          Admitted.
 
-          right.
+          Lemma isFloatConstValid_Bminus : forall a b : float,
+              Basics.impl (exists ra,
+                 F2OR a = Some ra /\
+                 exists rb, F2OR b = Some rb /\
+                       (floatMin <=  ra - rb <= floatMax \/
+                        floatMin <= -(ra - rb) <= floatMax \/
+                        ra - rb = 0))%R
+              (isFloatConstValid (Fappli_IEEE.Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                                   custom_nan Fappli_IEEE.mode_NE a b)).
+          Proof.
+            (* again, unsure how exactly to go about proving this *)
+          Admitted.
 
-          show_value error.
+          Check Fappli_IEEE.Bmult_correct.
+          (* look at bound.v to see how to change - make the others like this  *)
+          Lemma isFloatConstValid_Bmult : forall a b : float,
+              Basics.impl (exists ra,
+                 F2OR a = Some ra /\
+                 exists rb, F2OR b = Some rb /\
+                       (floatMin <= (ra * rb) /\
+                        floatMax >= (ra * rb) * (1 + error)) \/
+                       (floatMin <= - (ra * rb) /\
+                        floatMax >= - (ra * rb) * (1 - error)))%R
+              (isFloatConstValid (Fappli_IEEE.Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax
+                                                   custom_nan Fappli_IEEE.mode_NE a b)).
+          Proof.
+            (* again, unsure how exactly to go about proving this *)
+          Admitted.
+
+          idtac.
+
+          rewrite <- isFloatConstValid_Bplus.
+          rewrite <- isFloatConstValid_Bminus.
+          rewrite <- isFloatConstValid_Bmult.
+
+          apply isFloatConstValid_F2OR in H10.
+          apply isFloatConstValid_F2OR in H11.
+
+          assert (isFloatConstValid f) by admit.
+          assert (isFloatConstValid f0) by admit.
+          fwd.
+          assert (x5 = FloatToR x) by admit.
+          assert (x4 = FloatToR x0) by admit.
+          
+          
           show_value floatMin.
           show_value floatMax.
-          unfold fstate_lookup_force in *.
-          rewrite H in H10.
+          show_value error.
+          subst.
 
-          destruct H8.
+          (*
+          assert (FloatToR x0 <  100000)%R by admit.
+          assert (FloatToR x0 > -100000)%R by admit.
+          assert (FloatToR x  <  100000)%R by admit.
+          assert (FloatToR x  > -100000)%R by admit.
+           *)
 
-          { admit. (* don't think this is provable *) }
+          assert (FloatToR x0 <  100000)%R by admit.
+          assert (FloatToR x0 > 1/10)%R by admit.
+          assert (FloatToR x  <  100000)%R by admit.
+          assert (FloatToR x  > 1/10)%R by admit.
+
+
+          (* options for solving this problem:
+             1. Change semantics so inf/nan is not a stuchk state. Requires changes to Vignesh's code
+             2. Add constructs to language such as "safe_plus a b" returns true if (a + b) guaranteed to be a valid float, and false otherwise.
+             3. Just add bounds to the variables. We'll need to do this in any case. This is our approach for now. *)
+
+          destruct H14 as [?|[?|?]]; destruct H15 as [?|[?|?]]; try (z3 solve; admit).
+          idtac.
+
+          (* trying to figure out why it still isn't working *)
+          left.
+          repeat split; try (z3 solve; admit).
+          exists (FloatToR x). split; [auto|].
+          eexists. split; [reflexivity|].
+          left. assert (FloatToR float_one = 1)%R by admit.
+          try (z3 solve; admit).
+
+          Locate Bmult_correct.
+          Check Fappli_IEEE.Bmult_correct.
+
+          unfold float_mult.
           
-          destruct H8.
-          { z3 solve_dbg; admit. }
+          eexists. split.
 
-          {
-          repeat destruct H8;
-            try (z3 solve; admit).
-          {
-            unfold plusResultValidity, multResultValidity, minusResultValidity, eval_NowTerm in H14.
-            unfold lift2 in H14.
-            rewrite -> H in H14.
-            rewrite -> H0 in H14.
-            
-            unfold isFloatConstValid in H14.
-            fwd.
           
+
+          Print float_mult.
+          SearchAbout Fappli_IEEE.Bmult.
+          Check Fprop_relative.relative_error.
+          (* Bmult_correct *)
+          reflexivity.
+          
+          repeat split.
+
           z3 solve.
-          
-          destruct f0.
+          Focus 9.
 
-          eapply crunch_or.
+          (* we need to prove this theorem, then go back and clean things up
+             then, finally, we need to figure out what's left to do *)
+          z3 solve.
 
-          unfold isVarValid.
-          rewrite H0.
-          rewrite H.
-          unfold isVarValid.
-          
-          
+          left.
+
+          repeat split; try tauto. Focus 9.
+          rewrite <- isFloatConstValid_Bplus.
+Print Basics.impl.
           
 
+          isFloatConstValid a <-> exists ra, F2OR a = Some ra.
           
+          Print f0.
+
+          left.
           
 
             (* this is as far as Gregory and I got on 8/20 *)
@@ -2188,6 +2414,7 @@ in (bound_fexpr
 
 (* sample abstractor outputs *)
 (* this section now defunct... *)
+(* Bmult_correct - theorem we want! *)
 (*
 Section fwp.
   Parameter st : state.

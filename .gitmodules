@@ -4,3 +4,6 @@
 [submodule "FeSi"]
 	path = FeSi
 	url = https://github.com/mmalvarez/Synthesis
+[submodule "coq-extensible-records"]
+	path = coq-extensible-records
+	url = https://github.com/gmalecha/coq-extensible-records
