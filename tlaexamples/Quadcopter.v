@@ -24,6 +24,7 @@ Section quadcopter.
       //\\ st' "vx" = "a" * cos( pitch ) * sin( roll )
       //\\ st' "vy" = "a" * sin( pitch )
       //\\ st' "vz" = "a" * cos( pitch ) * cos( roll )
+      //\\ st' pitch = 0 //\\ st' roll = 0
       //\\ -- max_angle <= pitch <= max_angle
       //\\ -- max_angle <= roll <= max_angle.
 
