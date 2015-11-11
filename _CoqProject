@@ -31,6 +31,7 @@ ChargeTactics/Indexed.v
 
 tlaexamples/DiffEqSolutions.v
 tlaexamples/System2.v
+tlaexamples/Quadcopter.v
 tlaexamples/FirstDerivShimCtrl.v
 tlaexamples/SecondDerivShimCtrlToMiddle4.v
 tlaexamples/SecondDerivUtil.v
