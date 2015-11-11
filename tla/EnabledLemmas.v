@@ -397,6 +397,14 @@ Definition predicated_witness_function (m:RenameMap)
   witness_function m f xs /\
   forall tr, eval_formula A (Stream.stream_map f tr).
 
+Lemma predicated_witness_to_witness_function :
+  forall f m xs F,
+    predicated_witness_function m f xs F ->
+    witness_function m f xs.
+Proof.
+  unfold predicated_witness_function. tauto.
+Qed.
+
 Lemma subst_enabled_predicated_witness :
   forall A xs G m (f:state->state) I
     (Hst : is_st_formula I),
