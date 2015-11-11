@@ -450,7 +450,7 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("theta"!)) P.d = 0.
           eapply subst_enabled_predicated_witness
           with (f:=x).
           { simpl; tauto. }
-          {  apply get_vars_next_state_vars; reflexivity. }
+          { apply get_vars_next_state_vars; reflexivity. }
           { apply H; reflexivity. }
           { clear. pose proof xy_constraint_refinement.
             apply next_st_formula_entails in H;
@@ -530,7 +530,7 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("theta"!)) P.d = 0.
       simpl. restoreAbstraction. charge_tauto. }
   Qed.
 
-  Lemma UpperLower_safe :
+  Lemma Box_safe :
     |-- (IndInv //\\ TimeBound P.d) //\\ []Next -->> []Safe.
   Proof.
     rewrite <- IndInv_impl_Safe.
