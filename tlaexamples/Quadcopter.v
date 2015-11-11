@@ -13,6 +13,7 @@ Section quadcopter.
 
   Definition roll  : Var := "theta".
   Definition pitch : Var := "phi".
+  Definition gravity : R := (- 98 / 10)%R.
 
   Definition max_angle : R := Rdiv PI 6.
 
@@ -23,10 +24,24 @@ Section quadcopter.
            st' "x" = "vx" //\\ st' "y" = "vy" //\\ st' "z" = "vz"
       //\\ st' "vx" = "a" * cos( pitch ) * sin( roll )
       //\\ st' "vy" = "a" * sin( pitch )
-      //\\ st' "vz" = "a" * cos( pitch ) * cos( roll )
+      //\\ st' "vz" = "a" * cos( pitch ) * cos( roll ) + gravity
       //\\ st' pitch = 0 //\\ st' roll = 0 //\\ st' "a" = 0
       //\\ -- max_angle <= pitch <= max_angle
       //\\ -- max_angle <= roll <= max_angle.
+
+  Definition W_quadcopter_plane : Evolution :=
+    fun st' =>
+           st' "x" = "vx" //\\ st' "y" = "vy"
+      //\\ st' "vx" = "a" * cos( "theta" )
+      //\\ st' "vy" = "a" * sin( "theta" )
+      //\\ st' pitch = 0 //\\ st' roll = 0 //\\ st' "a" = 0.
+
+(*
+  Require Import TLA.ProofRules.
+
+  Theorem W_quadcopter_plane_refinement
+  : Continuous W_quadcopter |-- Rename ({{ "a" ~> "a" * }})%rename_scope (Continuous W_quadcopter_plane).
+*)
 
   Definition quadcopter : ActionFormula :=
     Sys D W_quadcopter delta.
