@@ -1,4 +1,4 @@
-Require Import Coq.Reals.Rdefinitions.
+Require Import Coq.Reals.Reals.
 Require Import TLA.TLA.
 Require Import TLA.ArithFacts.
 Require Import TLA.EnabledLemmas.
@@ -21,9 +21,9 @@ Module Type BoxParams.
   Parameter d : R.
   Axiom d_gt_0 : (d > 0)%R.
 
-  Parameter theta_min : R.
-  Definition theta_max := (-theta_min)%R.
-  Axiom theta_min_bound : (-PI/2 < theta_min < 0)%R.
+  Parameter pitch_min : R.
+  Definition pitch_max := (-pitch_min)%R.
+  Axiom pitch_min_bound : (-PI/2 < pitch_min < 0)%R.
 
   (* Gravitational constant *)
   Parameter g : R.
@@ -32,7 +32,7 @@ Module Type BoxParams.
   Axiom amin_Z_lt_0 : (amin_Z < 0)%R.
   Axiom amin_Z_lt_g : (amin_Z > -g)%R.
   Definition amin_X :=
-    ((amin_Z + g) * tan theta_min)%R.
+    ((amin_Z + g) * tan pitch_min)%R.
 
   Parameter ubv_X : R.
   Parameter ubv_Z : R.
@@ -56,9 +56,9 @@ Module Box (P : BoxParams).
     Theorem amin_lt_0 : (amin < 0)%R.
     Proof.
       unfold amin, P.amin_X.
-      pose proof P.theta_min_bound.
-      assert (tan P.theta_min < 0)%R
-      by (pose proof P.theta_min_bound;
+      pose proof P.pitch_min_bound.
+      assert (tan P.pitch_min < 0)%R
+      by (pose proof P.pitch_min_bound;
           apply tan_lt_0; solve_linear).
       pose proof P.amin_Z_lt_0.
       pose proof P.g_gt_0.
@@ -100,7 +100,7 @@ Module Box (P : BoxParams).
   (* theta is the angle between the y axis and
      the a vector *)
   Let rename_polar : RenameList :=
-    {{ "ax" ~> ("a"*sin("theta")) ; "az" ~> ("a"*cos("theta") - P.g) }}%rn.
+    {{ "ax" ~> ("a"*sin("pitch")) ; "az" ~> ("a"*cos("pitch") - P.g) }}%rn.
 
   (* The system in polar coordinates, without the
      constraint on theta. *)
@@ -108,7 +108,7 @@ Module Box (P : BoxParams).
     SysRename rename_polar (deriv_term_RenameList rename_polar) NextRect.
 
   Definition InputConstraint : Formula :=
-      P.theta_min <= "theta" <= P.theta_max.
+      P.pitch_min <= "pitch" <= P.pitch_max.
 
   (* The full system, in polar coordinates, with
      control input constraints. *)
@@ -215,15 +215,15 @@ restoreAbstraction.
 
 simpl; restoreAbstraction.
 Check SecondDerivUtil.tdist.
-SecondDerivUtil.tdist "vx" ("a"!*sin("theta"!)) P.d = 0.
+SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
 *)
 
   (* Now we move on to Enabled *)
 
   Definition InputConstraintRect : Formula :=
      "az" + P.g > 0 //\\
-     P.theta_min <= ArctanT ("ax"/("az" + P.g))
-                 <= P.theta_max.
+     P.pitch_min <= ArctanT ("ax"/("az" + P.g))
+                 <= P.pitch_max.
 
   Definition XZConstraint :=
     Rename rename_x X.Constraint //\\
@@ -237,41 +237,19 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("theta"!)) P.d = 0.
     breakAbstraction. intros.
     generalize dependent (Stream.hd tr). intros.
     unfold X_Params.amin, Z_Params.amin, P.amin_X in *.
-    assert (tan P.theta_min < 0)%R
-      by (pose proof P.theta_min_bound;
-          apply tan_lt_0; solve_linear).
-    pose proof P.theta_min_bound.
+    pose proof P.pitch_min_bound.
     pose proof P.amin_Z_lt_0.
     pose proof P.amin_Z_lt_g.
     pose proof P.g_gt_0.
-    unfold P.theta_max.
+    unfold P.pitch_max.
     split; [ solve_linear | ].
-    split.
-    { apply ArithFacts.tan_increasing_1.
-      { solve_linear. }
-      { pose proof atan_bound as Hatan.
-        match goal with
-          |- context [atan ?e] => specialize (Hatan e)
-        end. solve_linear. }
-      { rewrite atan_right_inv.
-        generalize dependent (tan P.theta_min).
-        intuition. apply Rmult_le_algebra2; solve_linear.
-        solve_nonlinear. } }
-    { apply ArithFacts.tan_increasing_1.
-      { pose proof atan_bound as Hatan.
-        match goal with
-          |- context [atan ?e] => specialize (Hatan e)
-        end. solve_linear. }
-      { solve_linear. }
-      { rewrite atan_right_inv.
-        rewrite tan_neg.
-        generalize dependent (tan P.theta_min).
-        intuition. apply Rmult_le_algebra; solve_linear.
-        solve_nonlinear. } }
+    apply arctan_constraint_refinement
+    with (b:=(-(P.amin_Z + P.g))%R);
+      solve_linear.
   Qed.
 
   Definition PolarBounds : Formula :=
-    0 <= "a" //\\ --PI <= "theta" <= PI.
+    0 <= "a" //\\ --PI <= "pitch" <= PI.
 
   Lemma x_witness_function :
     exists f,
@@ -319,7 +297,7 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("theta"!)) P.d = 0.
       List.forallb (fun x => if String.string_dec x "a"
                              then false else true) xs =
       true ->
-      List.forallb (fun x => if String.string_dec x "theta"
+      List.forallb (fun x => if String.string_dec x "pitch"
                              then false else true) xs =
       true ->
       predicated_witness_function
@@ -333,7 +311,7 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("theta"!)) P.d = 0.
                                      (st "ax")) in
          if String.string_dec x "a"
          then fst witness
-         else if String.string_dec x "theta"
+         else if String.string_dec x "pitch"
               then snd witness
               else st x)%R.
     unfold predicated_witness_function, witness_function.
@@ -341,7 +319,7 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("theta"!)) P.d = 0.
     { intros. simpl.
       rewrite List.forallb_forall in *.
       specialize (H "a").
-      specialize (H0 "theta").
+      specialize (H0 "pitch").
       repeat match goal with
              | [ |- context [if ?e then _ else _] ]
                => destruct e; simpl
@@ -354,7 +332,7 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("theta"!)) P.d = 0.
         simpl. unfold Value. solve_linear. }
       { destruct (String.string_dec "a" "a");
         intuition congruence. }
-      { destruct (String.string_dec "theta" "theta");
+      { destruct (String.string_dec "pitch" "pitch");
         intuition congruence. }
       { reflexivity. } }
     { intros. destruct tr. simpl.
@@ -371,58 +349,19 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("theta"!)) P.d = 0.
     rewrite <- Rename_ok by rw_side_condition.
     breakAbstraction. intros.
     generalize dependent (Stream.hd tr). intros.
-    assert (tan P.theta_min < 0)%R
-      by (pose proof P.theta_min_bound;
-          apply tan_lt_0; solve_linear).
-    pose proof P.theta_min_bound.
-    pose proof P.amin_Z_lt_0.
-    pose proof P.amin_Z_lt_g.
-    pose proof P.g_gt_0.
-    unfold P.theta_max in *.
-    decompose [and] H. clear H.
-    apply ArithFacts.tan_increasing_2 in H5.
-    { apply ArithFacts.tan_increasing_2 in H9.
-      { rewrite atan_right_inv in *. unfold tan in *.
-        rewrite sin_antisym in *. rewrite <- cos_sym in *.
-        unfold Rminus in *.
-        repeat rewrite Raxioms.Rplus_assoc in *.
-        rewrite RIneq.Rplus_opp_l in *.
-        rewrite RIneq.Rplus_0_r in *.
-        assert ((s "a" * cos (s "theta"))%R <> 0%R)
-          by solve_linear.
-        assert (s "a" <> R0) by solve_linear.
-        assert (cos (s "theta") <> R0) by solve_linear.
-        rewrite Raxioms.Rmult_comm
-        with (r2:= cos (s "theta")) in *.
-        rewrite RIneq.Rinv_mult_distr in *; auto.
-        repeat rewrite Raxioms.Rmult_assoc in *.
-        rewrite Raxioms.Rmult_comm in *.
-        repeat rewrite Raxioms.Rmult_assoc in *.
-        rewrite Raxioms.Rinv_l in *; auto.
-        rewrite RIneq.Rmult_1_r in *.
-        unfold Rdiv in *.
-        rewrite RIneq.Ropp_mult_distr_l_reverse in H9.
-        change (sin (s "theta") * / cos (s "theta"))%R
-        with (tan (s "theta")) in *.
-        change (sin P.theta_min * / cos P.theta_min)%R
-        with (tan P.theta_min) in *.
-        assert (-PI/2 < s "theta" < PI/2)%R.
-        { apply cos_pos; [ solve_nonlinear | solve_linear ]. }
-        { apply ArithFacts.tan_increasing_1 in H5; auto.
-          { rewrite <- tan_neg in *.
-            apply ArithFacts.tan_increasing_1 in H9; auto.
-            solve_linear. }
-          { solve_linear. } } }
-      { pose proof atan_bound as Hatan.
-        match goal with
-          |- context [atan ?e] => specialize (Hatan e)
-        end. solve_linear. }
-      { solve_linear. } }
-    { solve_linear. }
-    { pose proof atan_bound as Hatan.
-      match goal with
-        |- context [atan ?e] => specialize (Hatan e)
-      end. solve_linear. }
+    match goal with
+    | [ _ : context [ atan ?e ] |- _ ]
+      => replace e with  (tan (s "pitch")) in *
+    end.
+    { rewrite <- atan_tan with (x:=s "pitch");
+      [ tauto | ].
+      apply cos_pos; [ | solve_linear ].
+      generalize dependent (cos (s "pitch")).
+      solve_nonlinear. }
+    { unfold tan, Rdiv. field.
+      split. solve_linear. decompose [and] H. clear H.
+      generalize dependent (cos (s "pitch")). intros.
+      solve_nonlinear. }
   Qed.
 
   Theorem SysNeverStuck_Next : |-- SysNeverStuck P.d IndInv Next.

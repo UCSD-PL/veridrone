@@ -1,6 +1,4 @@
-Require Import Coq.Reals.Rdefinitions.
-Require Import Coq.Reals.RIneq.
-Require Import Coq.Reals.Rtrigo1.
+Require Import Coq.Reals.Reals.
 Require Import TLA.TLA.
 Require Import TLA.BasicProofRules.
 
@@ -189,6 +187,51 @@ Lemma rectangular_to_polar :
        eq x ((fst p) * Rtrigo_def.cos (snd p)) /\
        eq y ((fst p) * Rtrigo_def.sin (snd p)))%R }.
 Admitted.
+
+Lemma atan_tan :
+  forall x,
+    (-PI/2 < x < PI/2 ->
+     atan (tan x) = x)%R.
+Proof.
+  unfold atan. intros.
+  destruct (pre_atan (tan x)).
+  apply tan_is_inj; tauto.
+Qed.
+
+Lemma arctan_constraint_refinement :
+  forall x y theta b,
+    (-b <= y -> b < 0 ->
+     -b*tan theta <= x <= b*tan theta ->
+     -PI/2 < theta < 0 ->
+     theta <= atan (x / y) <= -theta)%R.
+Proof.
+  intros.
+  assert (tan theta < 0)%R
+    by (apply tan_lt_0; solve_linear).
+  split.
+  { apply tan_increasing_1.
+    { solve_linear. }
+    { pose proof atan_bound as Hatan.
+      match goal with
+        |- context [atan ?e] => specialize (Hatan e)
+      end. solve_linear. }
+    { rewrite atan_right_inv.
+      generalize dependent (tan theta).
+      intuition. apply Rmult_le_algebra2; solve_linear.
+      solve_nonlinear. } }
+  { apply tan_increasing_1.
+    { pose proof atan_bound as Hatan.
+      match goal with
+        |- context [atan ?e] => specialize (Hatan e)
+      end. solve_linear. }
+    { solve_linear. }
+    { rewrite atan_right_inv.
+      rewrite tan_neg.
+      generalize dependent (tan theta).
+      intuition. apply Rmult_le_algebra; solve_linear.
+      eapply RIneq.Rle_trans; eauto.
+      solve_nonlinear. } }
+Qed.
 
 Lemma mult_0_l_equiv :
   forall x,
