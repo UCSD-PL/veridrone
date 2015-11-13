@@ -364,82 +364,102 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
       solve_nonlinear. }
   Qed.
 
+  Lemma SysNeverStuck_Discr :
+    |-- Enabled (Sys_D Next //\\
+                       Rename rename_polar (next XZConstraint) //\\ next PolarBounds).
+  Proof.
+    unfold Sys_D.
+    pose proof rect_input_refines_polar.
+    apply next_st_formula_entails in H;
+      [ | simpl; tauto | simpl; tauto ].
+    rewrite <- H. clear H.
+    pose proof xy_constraint_refinement.
+    apply next_st_formula_entails in H;
+      [ | simpl; tauto | simpl; tauto ].
+    rewrite next_And. rewrite next_Rename.
+    rewrite <- H. clear H.
+    match goal with
+      |- |-- Enabled ((?S //\\ ?X) //\\ ?X) =>
+      assert ((S //\\ X) //\\ X -|- S //\\ (X //\\ X))
+        as H by (split; charge_tauto); rewrite H; clear H
+    end.
+    rewrite <- land_dup.
+    rewrite Rename_ok by eauto with rw_rename.
+    rewrite <- landA. rewrite <- Rename_and.
+    unfold XZConstraint. rewrite next_And. repeat rewrite next_Rename.
+    rewrite <- Rename_ok with (m:=to_RenameMap rename_x) by eauto with rw_rename.
+    rewrite <- Rename_ok with (m:=to_RenameMap rename_z) by eauto with rw_rename.
+    pose proof polar_predicated_witness_function.
+    destruct H.
+    eapply subst_enabled_predicated_witness_simple_noenv
+    with (f:=x).
+    { simpl; tauto. }
+    { apply get_vars_next_state_vars; reflexivity. }
+    { apply H; reflexivity. }
+    { clear.
+      (* Very brittle match ahead. Basically
+               just want to group the X monitor
+               with the X constraint and the Z monitor
+               with the Z constraint. *)
+      repeat rewrite landA.
+      match goal with
+        |- _ |-- Enabled (?X //\\ ?Z //\\ ?XC //\\ ?ZC) =>
+        assert (X //\\ Z //\\ XC //\\ ZC -|-
+                  (X //\\ XC) //\\ (Z //\\ ZC))
+          as H by (split; charge_tauto);
+          rewrite H; clear H
+      end.
+      rewrite <- disjoint_state_enabled.
+      { charge_split.
+        { pose proof x_witness_function. destruct H.
+          repeat rewrite Rename_ok with (m:=to_RenameMap rename_x) by eauto with rw_rename.
+          rewrite <- Rename_and.
+          eapply subst_enabled_noenv with (f:=x).
+          { apply get_vars_next_state_vars; reflexivity. }
+          { apply H; reflexivity. }
+          { clear. pose proof X.SysNeverStuck_Discr.
+            charge_clear.
+            etransitivity; [ apply H |
+                             apply Proper_Enabled_lentails ].
+            charge_tauto. } }
+        { pose proof z_witness_function. destruct H.
+          repeat rewrite Rename_ok with (m:=to_RenameMap rename_z) by eauto with rw_rename.
+          rewrite <- Rename_and.
+          eapply subst_enabled_noenv with (f:=x).
+          { apply get_vars_next_state_vars; reflexivity. }
+          { apply H; reflexivity. }
+          { clear. pose proof Z.SysNeverStuck_Discr.
+            charge_clear.
+            etransitivity; [ apply H |
+                             apply Proper_Enabled_lentails ].
+            charge_tauto. } } }
+      { apply formulas_disjoint_state; reflexivity. } }
+  Qed.
+
   Theorem SysNeverStuck_Next : |-- SysNeverStuck P.d IndInv Next.
   Proof.
     eapply SysNeverStuck_Sys;
     [ pose proof P.d_gt_0 ; solve_linear | | ].
-    { pose proof rect_input_refines_polar.
-      apply next_st_formula_entails in H;
-        [ | simpl; tauto | simpl; tauto ].
-      rewrite <- H. clear H.
-      rewrite Rename_ok by eauto with rw_rename.
-      rewrite <- disjoint_state_enabled.
+    { rewrite <- disjoint_state_enabled.
       { charge_split.
         { charge_clear. enable_ex_st.
           pose proof P.d_gt_0.
           unfold X.Vel.V.d, X.V.d, X_Params.d. 
           exists R0. solve_linear. }
-        { rewrite next_And. rewrite next_Rename.
-          (* Annoying manipulation. *)
-          rewrite landC. charge_revert.
-          charge_clear. charge_intros.
-          rewrite <- landA. rewrite <- Rename_and.
-          pose proof polar_predicated_witness_function.
-          destruct H.
-          eapply subst_enabled_predicated_witness_simple
-          with (f:=x).
-          { simpl; tauto. }
-          { apply get_vars_next_state_vars; reflexivity. }
-          { apply H; reflexivity. }
-          { clear. pose proof xy_constraint_refinement.
-            apply next_st_formula_entails in H;
-              [ | simpl; tauto | simpl; tauto ].
-            rewrite <- H. clear.
-            unfold XZConstraint. rewrite next_And.
-            (* Very brittle match ahead. Basically
-               just want to group the X monitor
-               with the X constraint and the Z monitor
-               with the Z constraint. *)
-            repeat rewrite landA.
-            match goal with
-            |- _ |-- Enabled (?X //\\ ?Z //\\ ?XC //\\ ?ZC) =>
-            assert (X //\\ Z //\\ XC //\\ ZC -|-
-                    (X //\\ XC) //\\ (Z //\\ ZC))
-              as H by (split; charge_tauto);
-              rewrite H; clear H
-            end.
-            rewrite <- disjoint_state_enabled.
-            { charge_split.
-              { pose proof x_witness_function. destruct H.
-                rewrite next_Rename.
-                rewrite Rename_ok by eauto with rw_rename.
-                rewrite <- Rename_and. apply landL1.
-                eapply subst_enabled with (f:=x).
-                { apply get_vars_next_state_vars; reflexivity. }
-                { apply H; reflexivity. }
-                { clear. pose proof X.SysNeverStuck_Discr.
-                  charge_clear.
-                  etransitivity; [ apply H |
-                                   apply Proper_Enabled_lentails ].
-                  charge_tauto. } }
-              { pose proof z_witness_function. destruct H.
-                rewrite next_Rename.
-                rewrite Rename_ok by eauto with rw_rename.
-                rewrite <- Rename_and. apply landL2.
-                eapply subst_enabled with (f:=x).
-                { apply get_vars_next_state_vars; reflexivity. }
-                { apply H; reflexivity. }
-                { clear. pose proof Z.SysNeverStuck_Discr.
-                  charge_clear.
-                  etransitivity; [ apply H |
-                                   apply Proper_Enabled_lentails ].
-                  charge_tauto. } } }
-            { repeat rewrite next_Rename.
-              repeat rewrite <- Rename_ok by eauto with rw_rename.
-              apply formulas_disjoint_state; reflexivity. } } } }
-      { rewrite next_And. rewrite next_Rename.
-        repeat rewrite <- Rename_ok by rw_side_condition.
-        apply formulas_disjoint_state; reflexivity. } }
+        { rewrite land_dup with (A:=next InputConstraint).
+          pose proof rect_input_refines_polar.
+          apply next_st_formula_entails in H;
+            [ | simpl; tauto | simpl; tauto ].
+          rewrite <- H at 2. clear H.
+          pose proof xy_constraint_refinement.
+          apply next_st_formula_entails in H;
+            [ | simpl; tauto | simpl; tauto ].
+          rewrite next_And. rewrite next_Rename.
+          rewrite <- H. clear H.
+          charge_clear. pose proof SysNeverStuck_Discr.
+          unfold Sys_D in *. repeat rewrite landA in H.
+          apply H. } }
+      { apply formulas_disjoint_state; reflexivity. } }
     { admit. (** Provable, but we won't worry about it *) }
   Qed.
 

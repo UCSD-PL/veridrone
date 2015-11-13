@@ -293,7 +293,8 @@ Proof. z3_solve; admit. Qed.
       {  unfold Rsqr. field. } }
   Qed.
 
-(*  Lemma x_witness_function :
+(*
+  Lemma x_witness_function :
     exists f,
     forall xs,
       List.forallb
@@ -310,7 +311,7 @@ Proof. z3_solve; admit. Qed.
     try (rewrite List.forallb_forall in H;
          specialize (H _ H0); discriminate).
   Qed.
-
+*)
   Lemma y_witness_function :
     exists f,
     forall xs,
@@ -319,10 +320,8 @@ Proof. z3_solve; admit. Qed.
                           (fun x => if String.string_dec x y
                                     then true else false)
                           (List.remove
-                             String.string_dec "Y"
-                             (List.remove
                                 String.string_dec "y"
-                                (get_image_vars rename_y)))))
+                                (get_image_vars rename_y))))
         xs = true ->
       witness_function (to_RenameMap rename_y) f xs.
   Proof.
@@ -332,7 +331,6 @@ Proof. z3_solve; admit. Qed.
     try (rewrite List.forallb_forall in H;
          specialize (H _ H0); discriminate).
   Qed.
-*)
 
   Lemma spherical_predicated_witness_function :
     exists f,
@@ -346,7 +344,6 @@ Proof. z3_solve; admit. Qed.
       predicated_witness_function rename_polar f xs
                                   XZ.PolarBounds SphericalBounds.
   Proof.
-(*
     exists
       (fun st x =>
          let witness :=
@@ -383,8 +380,23 @@ Proof. z3_solve; admit. Qed.
       destruct (rectangular_to_polar (s "ay" + P.g)
                                      (s "ax")).
       simpl. solve_linear. }
-  Qed.*)
+  Qed.
   Admitted.
+
+Lemma Rename_polar_y_noop :
+  Rename XZ.rename_polar (Rename rename_y Y.Constraint) -|-
+  Rename rename_y Y.Constraint.
+Proof.
+  rewrite <- Rename_ok. simpl.
+  rewrite <- Rename_ok. reflexivity.
+  eauto with rw_rename.
+  unfold RenameMapOk. is_st_term_list.
+  is_st_term_list.
+  repeat split. 
+  intros. is_st_term_list.
+  eauto with rw_rename.
+Qed.
+
 
   Theorem SysNeverStuck_Next : |-- SysNeverStuck d IndInv Next.
   Proof.
@@ -400,55 +412,54 @@ Proof. z3_solve; admit. Qed.
           apply next_st_formula_entails in H;
             [ | simpl; tauto | simpl; tauto ].
           rewrite <- H. clear H.
-Check subst_enabled_predicated_witness.
           rewrite Rename_ok by eauto with rw_rename.
-          { rewrite next_And. rewrite next_Rename.
-            (* Annoying manipulation. *)
+          rewrite next_And. rewrite next_Rename.
+          (* Annoying manipulation. *)
           rewrite landC. charge_revert.
           charge_clear. charge_intros.
           rewrite <- landA. rewrite <- Rename_and.
-          pose proof polar_predicated_witness_function.
+          pose proof spherical_predicated_witness_function.
           destruct H.
+          rewrite next_Rename.
+          rewrite <- Rename_ok with (m:=to_RenameMap XZ.rename_polar)
+            by eauto with rw_rename.
           eapply subst_enabled_predicated_witness
-          with (f:=x).
-          { simpl; tauto. }
+          with (f:=x) (P:=XZ.PolarBounds).
+          { compute; tauto. }
+          { compute; tauto. }
           { apply get_vars_next_state_vars; reflexivity. }
           { apply H; reflexivity. }
-          { clear. pose proof xy_constraint_refinement.
+          { clear. pose proof yw_constraint_refinement.
             apply next_st_formula_entails in H;
               [ | simpl; tauto | simpl; tauto ].
+            rewrite Rename_ok
+            with (m:=to_RenameMap XZ.rename_polar) (F:=(next RollConstraintRect))
+              by eauto with rw_rename.
             rewrite <- H. clear.
-            unfold XYConstraint. rewrite next_And.
+            unfold YWConstraint. rewrite next_And.
             (* Very brittle match ahead. Basically
                just want to group the X monitor
                with the X constraint and the Y monitor
                with the Y constraint. *)
+            rewrite Rename_and. repeat rewrite <- next_Rename.
             repeat rewrite landA.
             match goal with
-            |- _ |-- Enabled (?X //\\ ?Y //\\ ?XC //\\ ?YC) =>
-            assert (X //\\ Y //\\ XC //\\ YC -|-
-                    (X //\\ XC) //\\ (Y //\\ YC))
+            |- _ |-- Enabled (?Y //\\ ?W //\\ ?YC //\\ ?WC1 //\\ ?WC2) =>
+            assert (Y //\\ W //\\ YC //\\ WC1 //\\ WC2 -|-
+                    (Y //\\ YC) //\\ (W //\\ WC1 //\\ WC2))
               as H by (split; charge_tauto);
               rewrite H; clear H
             end.
+            rewrite <- next_st_formula_entails
+            with (A:=Rename rename_y Y.Constraint)
+                   (B:=Rename XZ.rename_polar (Rename rename_y Y.Constraint));
+              [ | compute; tauto | compute; tauto | rewrite Rename_polar_y_noop; reflexivity ].
             rewrite <- disjoint_state_enabled.
             { charge_split.
-              { pose proof x_witness_function. destruct H.
-                rewrite next_Rename.
-                rewrite Rename_ok by eauto with rw_rename.
-                rewrite <- Rename_and. apply landL1.
-                eapply subst_enabled with (f:=x).
-                { apply get_vars_next_state_vars; reflexivity. }
-                { apply H; reflexivity. }
-                { clear. pose proof X.SysNeverStuck_Discr.
-                  charge_clear.
-                  etransitivity; [ apply H |
-                                   apply Proper_Enabled_lentails ].
-                  charge_tauto. } }
-              { pose proof y_witness_function. destruct H.
-                rewrite next_Rename.
-                rewrite Rename_ok by eauto with rw_rename.
-                rewrite <- Rename_and. apply landL2.
+              { rewrite Rename_ok by eauto with rw_rename.
+                rewrite next_Rename. rewrite <- Rename_and.
+                apply landL1.
+                pose proof y_witness_function. destruct H.
                 eapply subst_enabled with (f:=x).
                 { apply get_vars_next_state_vars; reflexivity. }
                 { apply H; reflexivity. }
@@ -456,13 +467,15 @@ Check subst_enabled_predicated_witness.
                   charge_clear.
                   etransitivity; [ apply H |
                                    apply Proper_Enabled_lentails ].
-                  charge_tauto. } } }
+                  charge_tauto. } }
+              { rewrite next_Rename. charge_clear.
+                apply XZ.SysNeverStuck_Discr. } }
             { repeat rewrite next_Rename.
               repeat rewrite <- Rename_ok by eauto with rw_rename.
+              rewrite <- Rename_ok
+                by (eauto with rw_rename || simpl; repeat split; is_st_term_list).
               apply formulas_disjoint_state; reflexivity. } } } }
-      { rewrite next_And. rewrite next_Rename.
-        repeat rewrite <- Rename_ok by rw_side_condition.
-        apply formulas_disjoint_state; reflexivity. } }
+      { apply formulas_disjoint_state; reflexivity. } }
     { admit. (** Provable, but we won't worry about it *) }
   Qed.
 
