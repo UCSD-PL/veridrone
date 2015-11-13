@@ -173,9 +173,10 @@ Definition RLcons : (Var * Term) -> RenameList -> RenameList :=
 Definition RLnil : RenameList :=
   @nil _.
 
-Notation "X ~> Y" := (@pair Var Term X%string Y%HP%string) (at level 20) : rename_scope.
+Notation "X ~> Y" := (@pair Var Term X%string Y%HP%string) (at level 60) : rename_scope.
 
-Notation "{{  X ; .. ; Y }}" := ((RLcons X%rn ( .. (@RLcons Y%rn RLnil) .. ))) : rename_scope.
+Notation "{{  X & .. & Y }}" := ((RLcons X%rn ( .. (@RLcons Y%rn RLnil) .. ))) (X at level 100) : rename_scope.
+Notation "{{  }}" := (RLnil) : rename_scope.
 
 Fixpoint to_RenameMap (m : RenameList) : RenameMap :=
   match m with

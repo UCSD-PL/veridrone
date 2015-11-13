@@ -32,7 +32,7 @@ Module UpperLowerFirst (Import P : UpperLowerFirstParams).
   Module Vel := FirstDerivShim V.
 
   Let mirror : RenameList :=
-    {{ "v" ~> --"v" ; "a" ~> --"a" }}%rn.
+    {{ "v" ~> --"v" & "a" ~> --"a" }}%rn.
 
   Definition mirrored : ActionFormula :=
     SysRename mirror (deriv_term_RenameList mirror)

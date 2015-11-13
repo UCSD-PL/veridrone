@@ -153,6 +153,27 @@ Proof.
     apply Stream.Symmetric_stream_eq; auto. }
 Qed.
 
+Lemma disjoint_statespace_enabled :
+  forall (P Q : StateFormula) (A B : ActionFormula),
+    is_st_formula P -> is_st_formula Q ->
+    (P \\// Q) //\\
+    (P -->> Q -->> lfalse) //\\
+    Enabled (P -->> A) //\\
+    Enabled (Q -->> B)
+    |-- Enabled ((P -->> A) //\\ (Q -->> B)).
+Proof.
+  intros.
+  breakAbstraction.
+  intros. forward_reason.
+  destruct H1.
+  { exists x0. split; auto.
+    intros. exfalso; eapply H2; eauto.
+    eapply st_formula_hd; eauto. }
+  { exists x. split; auto.
+    intros. exfalso; eapply H2; eauto.
+    eapply st_formula_hd; eauto. }
+Qed.
+
 Definition not_in_dec
            {T} (f : forall x y, {x = y} + {x <> y})
            (a : list T) x : bool :=

@@ -42,7 +42,7 @@ Module UpperLowerSecond (Import P : UpperLowerSecondParams).
   Module Monitor := SecondDerivShimCtrl Params.
 
   Let mirror : RenameList :=
-    {{ "y" ~> --"y" ; "v" ~> --"v" ; "a" ~> --"a" }}%rn.
+    {{ "y" ~> --"y" & "v" ~> --"v" & "a" ~> --"a" }}%rn.
 
   Definition mirrored : ActionFormula :=
     SysRename mirror (deriv_term_RenameList mirror)

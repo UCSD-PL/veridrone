@@ -56,7 +56,7 @@ Section quadcopter.
     let theta : Term := roll in
         Continuous W_quadcopter
     |-- Rename ({{ "a" ~> A
-                 ; "theta" ~> theta }})%rn
+                 & "theta" ~> theta }})%rn
                (Continuous W_quadcopter_vplane).
   Proof.
     cbv zeta.
@@ -89,7 +89,7 @@ Section quadcopter.
     let theta : Term := ArctanT (ay / ax) in
         Continuous W_quadcopter
     |-- Rename ({{ "a" ~> A
-                 ; "theta" ~> theta }})%rn
+                 & "theta" ~> theta }})%rn
                (Continuous W_quadcopter_plane).
   Proof.
     intros.
