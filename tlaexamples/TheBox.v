@@ -85,10 +85,10 @@ Module Box (P : BoxParams).
   Module Z := UpperLower Z_Params.
 
   Let rename_z : RenameList :=
-    {{ "y" ~> "z" ; "v" ~> "vz" ; "a" ~> "az" }}%rn.
+    {{ "y" ~> "z" & "v" ~> "vz" & "a" ~> "az" }}%rn.
 
   Let rename_x : RenameList :=
-    {{ "y" ~> "x" ; "v" ~> "vx" ; "a" ~> "ax" }}%rn.
+    {{ "y" ~> "x" & "v" ~> "vx" & "a" ~> "ax" }}%rn.
 
   (* The velocity and position monitors
      in rectangular coordinates without
@@ -100,7 +100,7 @@ Module Box (P : BoxParams).
   (* theta is the angle between the y axis and
      the a vector *)
   Let rename_polar : RenameList :=
-    {{ "ax" ~> ("a"*sin("pitch")) ; "az" ~> ("a"*cos("pitch") - P.g) }}%rn.
+    {{ "ax" ~> "a"*sin("pitch") & "az" ~> "a"*cos("pitch") - P.g }}%rn.
 
   (* The system in polar coordinates, without the
      constraint on theta. *)
@@ -301,7 +301,7 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
                              then false else true) xs =
       true ->
       predicated_witness_function
-        (to_RenameMap rename_polar) f xs PolarBounds.
+        (to_RenameMap rename_polar) f xs ltrue PolarBounds.
   Proof.
     exists
       (fun st x =>
@@ -386,7 +386,7 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
           rewrite <- landA. rewrite <- Rename_and.
           pose proof polar_predicated_witness_function.
           destruct H.
-          eapply subst_enabled_predicated_witness
+          eapply subst_enabled_predicated_witness_simple
           with (f:=x).
           { simpl; tauto. }
           { apply get_vars_next_state_vars; reflexivity. }

@@ -414,30 +414,23 @@ Proof.
 Qed.
 
 Definition predicated_witness_function (m:RenameMap)
-  (f:state->state) (xs : list Var) (A : Formula) : Prop :=
+  (f:state->state) (xs : list Var) (P Q : StateFormula) : Prop :=
   witness_function m f xs /\
-  forall tr, eval_formula A (Stream.stream_map f tr).
-
-Lemma predicated_witness_to_witness_function :
-  forall f m xs F,
-    predicated_witness_function m f xs F ->
-    witness_function m f xs.
-Proof.
-  unfold predicated_witness_function. tauto.
-Qed.
+  forall tr, eval_formula P tr -> eval_formula Q (Stream.stream_map f tr).
 
 Lemma subst_enabled_predicated_witness :
-  forall A xs G m (f:state->state) I
-    (Hst : is_st_formula I),
+  forall A xs G m (f:state->state) P Q
+    (HstP : is_st_formula P)
+    (HstQ : is_st_formula Q),
     next_state_vars A xs ->
-    predicated_witness_function m f xs I ->
-    G |-- Enabled A ->
-    Rename m G |-- Enabled ((Rename m A) //\\ next I).
+    predicated_witness_function m f xs P Q ->
+    G |-- Enabled (A //\\ next P) ->
+    Rename m G |-- Enabled ((Rename m A) //\\ next Q).
 Proof.
   breakAbstraction. intros. unfold next_state_vars in *.
   specialize (H1 _ H2).
   destruct tr.
-  destruct H1 as [tr' HA].
+  destruct H1 as [tr' [HA HP]].
   exists (Stream.stream_map f tr').
   rewrite Stream.stream_map_cons
     by eauto with typeclass_instances.
@@ -450,7 +443,9 @@ Proof.
         { reflexivity. }
         { reflexivity. } } }
     { unfold predicated_witness_function in *.
-      rewrite next_formula_tl; auto. simpl. intuition. } }
+      rewrite next_formula_tl; auto. simpl.
+      apply H0. apply next_formula_tl in HP; [ | assumption ].
+      assumption. } }
   { unfold predicated_witness_function, witness_function,
     traces_agree in *. intros.
     unfold subst_state.
@@ -479,15 +474,52 @@ Proof.
 Qed.
 
 Lemma subst_enabled_predicated_witness_noenv :
+  forall A xs m (f:state->state) P Q
+    (HstP : is_st_formula P)
+    (HstQ : is_st_formula Q),
+    next_state_vars A xs ->
+    predicated_witness_function m f xs P Q ->
+    |-- Enabled (A //\\ next P) ->
+    |-- Enabled ((Rename m A) //\\ next Q).
+Proof.
+  intros.
+  rewrite <- subst_enabled_predicated_witness
+  with (G:=ltrue) (P:=P) (Q:=Q); eauto.
+  apply Rename_True.
+Qed.
+
+Lemma predicated_witness_to_witness_function :
+  forall f m xs P Q,
+    predicated_witness_function m f xs P Q ->
+    witness_function m f xs.
+Proof.
+  unfold predicated_witness_function. tauto.
+Qed.
+
+Lemma subst_enabled_predicated_witness_simple :
+  forall A xs G m (f:state->state) I
+    (Hst : is_st_formula I),
+    next_state_vars A xs ->
+    predicated_witness_function m f xs ltrue I ->
+    G |-- Enabled A ->
+    Rename m G |-- Enabled ((Rename m A) //\\ next I).
+Proof.
+  intros. eapply subst_enabled_predicated_witness with (P:=ltrue); eauto.
+  - compute; tauto.
+  - simpl next. restoreAbstraction. rewrite landtrueR.
+    assumption.
+Qed.
+
+Lemma subst_enabled_predicated_witness_simple_noenv :
   forall A xs m (f:state->state) I
     (Hst : is_st_formula I),
     next_state_vars A xs ->
-    predicated_witness_function m f xs I ->
+    predicated_witness_function m f xs ltrue I ->
     |-- Enabled A ->
     |-- Enabled ((Rename m A) //\\ next I).
 Proof.
   intros.
-  rewrite <- subst_enabled_predicated_witness
+  rewrite <- subst_enabled_predicated_witness_simple
   with (G:=ltrue); eauto.
   apply Rename_True.
 Qed.
