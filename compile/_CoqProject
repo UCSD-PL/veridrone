@@ -12,6 +12,7 @@
 -R ../compcert/flocq/Prop compcert.flocq.Prop
 -R ../compcert/ia32 compcert.ia32
 -R ../coq-ext-lib/theories ExtLib
+-R ../coq-extensible-records/theories Records
 -I ../Z3-plugin/src
 -R ../Z3-plugin/theories Z3
 -R ../Charge/Charge!/bin/Charge/Logics Charge.Logics
@@ -19,3 +20,7 @@
 -R ../Charge/Charge!/bin/Charge/Open Charge.Open
 -R ../Charge/Charge!/bin/Charge/SepAlg Charge.SepAlg
 -R ../ChargeTactics ChargeTactics
+source.v
+bound.v
+Embedding.v
+FloatEmbed.v
