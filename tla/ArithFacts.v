@@ -147,6 +147,24 @@ Proof.
   apply Rmult_le_algebra in H0; auto.
 Qed.
 
+Lemma sqr_le_compat :
+  forall r1 r2,
+    (0 <= r1 -> 0 <= r2 ->
+     r1 * r1 <= r2 * r2 ->
+     r1 <= r2)%R.
+Proof.
+  intros; apply Rsqr_incr_0; solve_linear.
+Qed.
+
+Lemma sqr_lt_compat :
+  forall r1 r2,
+    (0 <= r1 -> 0 <= r2 ->
+     r1 * r1 < r2 * r2 ->
+     r1 < r2)%R.
+Proof.
+  intros; apply Rsqr_incrst_0; solve_linear.
+Qed.
+
 Lemma sin_atan : forall x,
   Rtrigo_def.sin (Ratan.atan x) =
   (x/R_sqrt.sqrt (1 + x*x))%R.
@@ -163,14 +181,6 @@ Lemma tan_increasing_1 :
      -PI/2 < r2 < PI/2 ->
      tan r1 <= tan r2 ->
      r1 <= r2)%R.
-Admitted.
-
-Lemma tan_increasing_2 :
-  forall r1 r2,
-    (-PI/2 < r1 < PI/2 ->
-     -PI/2 < r2 < PI/2 ->
-     r1 <= r2 ->
-     tan r1 <= tan r2)%R.
 Admitted.
 
 Lemma cos_pos :

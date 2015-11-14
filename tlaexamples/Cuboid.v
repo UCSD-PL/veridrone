@@ -182,20 +182,6 @@ Module Cuboid (Import P : CuboidParams).
     Rename rename_y Y.Constraint //\\
     XZ.XZConstraint.
 
-Lemma sqr_le_compat :
-  forall r1 r2,
-    (0 <= r1 -> 0 <= r2 ->
-     r1 * r1 <= r2 * r2 ->
-     r1 <= r2)%R.
-Proof. z3_solve; admit. Qed.
-
-Lemma sqr_lt_compat :
-  forall r1 r2,
-    (0 <= r1 -> 0 <= r2 ->
-     r1 * r1 < r2 * r2 ->
-     r1 < r2)%R.
-Proof. z3_solve; admit. Qed.
-
   Lemma yw_constraint_refinement :
     YWConstraint |-- RollConstraintRect.
   Proof.
@@ -293,25 +279,6 @@ Proof. z3_solve; admit. Qed.
       {  unfold Rsqr. field. } }
   Qed.
 
-(*
-  Lemma x_witness_function :
-    exists f,
-    forall xs,
-      List.forallb
-        (fun y => negb (List.existsb
-                          (fun x => if String.string_dec x y
-                                    then true else false)
-                          (get_image_vars rename_x)))
-        xs = true ->
-      witness_function (to_RenameMap rename_x) f xs.
-  Proof.
-    exists (get_witness rename_x).
-    intros. simpl. unfold witness_function. intros.
-    repeat (destruct_ite; simpl); subst; try reflexivity;
-    try (rewrite List.forallb_forall in H;
-         specialize (H _ H0); discriminate).
-  Qed.
-*)
   Lemma y_witness_function :
     exists f,
     forall xs,
@@ -346,57 +313,79 @@ Proof. z3_solve; admit. Qed.
   Proof.
     exists
       (fun st x =>
-         let witness :=
-             proj1_sig
-               (rectangular_to_polar (st "ay" + P.g)
-                                     (st "ax")) in
-         if String.string_dec x "a"
-         then fst witness
-         else if String.string_dec x "theta"
-              then snd witness
-              else st x)%R.
-    unfold predicated_witness_function, witness_function.
+         if Req_EM_T (st "a") R0
+         then if Rle_dec R0 (st "ay")
+              then if String.string_dec x "A"
+                   then st "ay"
+                   else if String.string_dec x "roll"
+                        then PI/2
+                        else st x
+              else if String.string_dec x "A"
+                   then -(st "ay")
+                   else if String.string_dec x "roll"
+                        then -(PI/2)
+                        else st x
+         else let witness :=
+                  proj1_sig
+                    (rectangular_to_polar (st "a")
+                                          (st "ay")) in
+              if String.string_dec x "A"
+              then fst witness
+              else if String.string_dec x "roll"
+                   then snd witness
+                   else st x)%R.
+    intros.
     split.
-    { intros. simpl.
+    { unfold witness_function. intros. simpl.
       rewrite List.forallb_forall in *.
-      specialize (H "a").
-      specialize (H0 "theta").
+      specialize (H "A").
+      specialize (H0 "roll").
       repeat match goal with
              | [ |- context [if ?e then _ else _] ]
                => destruct e; simpl
-             end; subst; simpl.
-      { destruct (rectangular_to_polar (st "ay" + P.g)
-                                       (st "ax")).
+             end; subst; simpl;
+      try solve [destruct (String.string_dec "A" "A");
+                  intuition congruence |
+                 destruct (String.string_dec "roll" "roll");
+                   intuition congruence ].
+      { rewrite sin_PI2. solve_linear. }
+      { rewrite sin_neg. rewrite sin_PI2.
+        unfold Value. solve_linear. }
+      { destruct (rectangular_to_polar (st "a")
+                                       (st "ay")).
         simpl. tauto. }
-      { destruct (rectangular_to_polar (st "ay" + P.g)
-                                       (st "ax")).
-        simpl. unfold Value. solve_linear. }
-      { destruct (String.string_dec "a" "a");
-        intuition congruence. }
-      { destruct (String.string_dec "theta" "theta");
-        intuition congruence. }
-      { reflexivity. } }
-    { intros. destruct tr. simpl.
-      destruct (rectangular_to_polar (s "ay" + P.g)
-                                     (s "ax")).
-      simpl. solve_linear. }
+      { rewrite cos_PI2. rewrite_real_zeros. assumption. }
+      { rewrite cos_neg. rewrite cos_PI2. rewrite_real_zeros. assumption. }
+      { destruct (rectangular_to_polar (st "a")
+                                       (st "ay")).
+        simpl. unfold Value. solve_linear. } }
+    { intros. destruct tr. simpl in *.
+      repeat destruct_ite.
+      { solve_linear. }
+      { solve_linear. }
+      { destruct (rectangular_to_polar (s "a")
+                                       (s "ay")).
+        simpl. split; [ tauto | ].
+        assert (-PI/2 < snd x < PI/2)%R.
+        { apply cos_pos.
+          { solve_nonlinear. }
+          { solve_linear. } }
+        { solve_linear. } } }
   Qed.
-  Admitted.
 
-Lemma Rename_polar_y_noop :
-  Rename XZ.rename_polar (Rename rename_y Y.Constraint) -|-
-  Rename rename_y Y.Constraint.
-Proof.
-  rewrite <- Rename_ok. simpl.
-  rewrite <- Rename_ok. reflexivity.
-  eauto with rw_rename.
-  unfold RenameMapOk. is_st_term_list.
-  is_st_term_list.
-  repeat split. 
-  intros. is_st_term_list.
-  eauto with rw_rename.
-Qed.
-
+  Lemma Rename_polar_y_noop :
+    Rename XZ.rename_polar (Rename rename_y Y.Constraint) -|-
+           Rename rename_y Y.Constraint.
+  Proof.
+    rewrite <- Rename_ok. simpl.
+    rewrite <- Rename_ok. reflexivity.
+    eauto with rw_rename.
+    unfold RenameMapOk. is_st_term_list.
+    is_st_term_list.
+    repeat split. 
+    intros. is_st_term_list.
+    eauto with rw_rename.
+  Qed.
 
   Theorem SysNeverStuck_Next : |-- SysNeverStuck d IndInv Next.
   Proof.
