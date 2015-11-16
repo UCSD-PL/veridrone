@@ -418,6 +418,53 @@ Definition predicated_witness_function (m:RenameMap)
   witness_function m f xs /\
   forall tr, eval_formula P tr -> eval_formula Q (Stream.stream_map f tr).
 
+Definition Witnessable (P Q : StateFormula) (r : RenameMap) : Prop :=
+  P |-- Enabled ((Forall x : Var, x = next_term (r x)) //\\ next Q)%HP.
+
+Definition is_action_formula (P : Formula) : Prop :=
+  forall tr tr',
+    Stream.hd tr = Stream.hd tr' ->
+    Stream.hd (Stream.tl tr) = Stream.hd (Stream.tl tr') ->
+    (eval_formula P tr <-> eval_formula P tr').
+
+Lemma Enabled_Witnessable :
+  forall (A : ActionFormula) G m (P Q : StateFormula)
+         (Hrn : RenameMapOk m)
+    (HstP : is_st_formula P)
+    (HstQ : is_st_formula Q)
+    (HactA : is_action_formula A),
+    Witnessable P Q m ->
+    G |-- Enabled (A //\\ next P) ->
+    Rename m G |-- Enabled ((Rename m A) //\\ next Q).
+Proof.
+  do 9 intro.
+  unfold Witnessable; breakAbstraction.
+  intros.
+  eapply H0 in H1; clear H0.
+  destruct H1. destruct H0.
+  eapply next_formula_tl in H1; eauto.
+  simpl in H1.
+  destruct tr. simpl in *.
+  eapply H in H1; clear H.
+  destruct H1.
+  exists (Stream.Cons (Stream.hd x0) (Stream.tl x)).
+  destruct H.
+  split.
+  { revert H0.
+    eapply HactA.
+    - reflexivity.
+    - simpl.
+      eapply FunctionalExtensionality.functional_extensionality.
+      intros.
+      unfold subst_state.
+      rewrite H.
+      erewrite next_term_tl. reflexivity. eapply Hrn. }
+  { eapply next_formula_tl; eauto.
+    simpl.
+    eapply next_formula_tl in H1; eauto.
+    eapply st_formula_hd; eauto. }
+Qed.
+
 Lemma subst_enabled_predicated_witness :
   forall A xs G m (f:state->state) P Q
     (HstP : is_st_formula P)
