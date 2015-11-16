@@ -118,7 +118,7 @@ Module Cuboid (Import P : CuboidParams).
     {{ "y" ~> "y" & "v" ~> "vy" & "a" ~> "ay" }}%rn.
 
   Let rename_polar : RenameList :=
-    {{ "ay" ~> "A"*sin("roll") &
+    {{ "ay" ~> --"A"*sin("roll") &
        "a" ~> "A"*cos("roll") }}%rn.
 
   Definition Next_no_roll_constraint : ActionFormula :=
@@ -259,10 +259,11 @@ Module Cuboid (Import P : CuboidParams).
           unfold Rsqr in *. solve_linear. } }
       { match goal with
         | [ _ : context [ atan ?e ] |- _ ]
-          => replace e with  (tan (s "roll")) in *
+          => replace e with  (-tan (s "roll"))%R in *
         end.
-        { rewrite <- atan_tan with (x:=s "roll");
-          [ tauto | ]. assumption. }
+        { rewrite atan_opp in *. unfold angle_max in *.
+          rewrite <- atan_tan with (x:=s "roll");
+          [ solve_linear | assumption ]. }
         { unfold tan, Rdiv.
           assert (0 < cos (s "roll"))%R
             by (apply cos_gt_0; solve_linear).
@@ -318,17 +319,17 @@ Module Cuboid (Import P : CuboidParams).
               then if String.string_dec x "A"
                    then st "ay"
                    else if String.string_dec x "roll"
-                        then PI/2
+                        then -(PI/2)
                         else st x
               else if String.string_dec x "A"
                    then -(st "ay")
                    else if String.string_dec x "roll"
-                        then -(PI/2)
+                        then PI/2
                         else st x
          else let witness :=
                   proj1_sig
                     (rectangular_to_polar (st "a")
-                                          (st "ay")) in
+                                          (-(st "ay"))) in
               if String.string_dec x "A"
               then fst witness
               else if String.string_dec x "roll"
@@ -348,23 +349,28 @@ Module Cuboid (Import P : CuboidParams).
                   intuition congruence |
                  destruct (String.string_dec "roll" "roll");
                    intuition congruence ].
-      { rewrite sin_PI2. solve_linear. }
       { rewrite sin_neg. rewrite sin_PI2.
-        unfold Value. solve_linear. }
+        rewrite Rminus_0_l. rewrite Rmult_opp_opp.
+        solve_linear. }
+      { rewrite sin_PI2.
+        rewrite Rminus_0_l. rewrite Ropp_involutive.
+        solve_linear. }
       { destruct (rectangular_to_polar (st "a")
-                                       (st "ay")).
-        simpl. tauto. }
-      { rewrite cos_PI2. rewrite_real_zeros. assumption. }
+                                       (-(st "ay"))).
+        simpl. rewrite Rminus_0_l.
+        rewrite Ropp_mult_distr_l_reverse.
+        intuition. rewrite <- H7. solve_linear. }
       { rewrite cos_neg. rewrite cos_PI2. rewrite_real_zeros. assumption. }
+      { rewrite cos_PI2. rewrite_real_zeros. assumption. }
       { destruct (rectangular_to_polar (st "a")
-                                       (st "ay")).
+                                       (-(st "ay"))).
         simpl. unfold Value. solve_linear. } }
     { intros. destruct tr. simpl in *.
       repeat destruct_ite.
       { solve_linear. }
       { solve_linear. }
       { destruct (rectangular_to_polar (s "a")
-                                       (s "ay")).
+                                       (-(s "ay"))).
         simpl. split; [ tauto | ].
         assert (-PI/2 < snd x < PI/2)%R.
         { apply cos_pos.
@@ -469,14 +475,13 @@ Module Cuboid (Import P : CuboidParams).
   Qed.
 
   Definition Safe : StateFormula :=
-    Rename rename_polar
-           (Rename rename_x X.Safe //\\ Rename rename_y Y.Safe).
+    Rename rename_polar (XZ.Safe //\\ Rename rename_y Y.Safe).
 
   Lemma IndInv_impl_Safe : IndInv //\\ TimeBound P.d |-- Safe.
   Proof with (eauto with rw_rename).
     unfold Safe. rewrite Rename_and.
     charge_split.
-    { rewrite <- X.IndInv_impl_Safe.
+    { rewrite <- XZ.IndInv_impl_Safe.
       unfold IndInv, TimeBound.
       repeat rewrite Rename_and.
       charge_split; [ charge_assumption | ].
@@ -504,4 +509,4 @@ Module Cuboid (Import P : CuboidParams).
     - apply always_tauto. charge_tauto.
   Qed.
 
-End Box.
+End Cuboid.
