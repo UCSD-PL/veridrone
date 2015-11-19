@@ -33,7 +33,7 @@ tlaexamples/DiffEqSolutions.v
 tlaexamples/System2.v
 tlaexamples/Quadcopter.v
 tlaexamples/FirstDerivShimCtrl.v
-tlaexamples/SecondDerivShimCtrlToMiddle4.v
+tlaexamples/SecondDerivShimCtrlXXX.v
 tlaexamples/SecondDerivUtil.v
 tlaexamples/UpperLowerFirst.v
 tlaexamples/UpperLowerSecond.v

@@ -401,6 +401,15 @@ Proof.
       rewrite Rename_ok; [ reflexivity | auto | assumption ]. } }
 Qed.
 
+Ltac sysrename_side_cond :=
+  match goal with
+  | [ |- forall _ : state, is_st_formula _ ]
+    => tlaIntuition; abstract is_st_term_list
+  | [ |- NotRenamed _ _ ]
+    => reflexivity
+  | [ |- _ ] => apply deriv_term_list; reflexivity
+  end.
+
 Theorem SysNeverStuck_Sys : forall (d :R) I W D,
     (d >= 0)%R ->
     I //\\ "T" = 0 |-- Enabled (0 <= "T"! <= d //\\ D) ->

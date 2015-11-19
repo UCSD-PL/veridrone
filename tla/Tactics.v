@@ -96,6 +96,19 @@ Ltac enable_ex_st :=
   end; try (eapply ex_state_any; (let st := fresh in
                                   intro st; clear st)).
 
+Ltac enable_ex_st' :=
+  match goal with
+  | |- _ |-- Enabled ?X =>
+        let vars := eval compute in (remove_dup (get_next_vars_formula X)) in
+        let rec foreach ls :=
+         (match ls with
+          | ?l :: ?ls => eapply (ex_state l); simpl; foreach ls
+          | _ => idtac
+          end) in
+        eapply Enabled_action'; [ tlaIntuition | ]; simpl; intros; foreach vars
+  end; try (eapply ex_state_any; (let st := fresh in
+                                  intro st; clear st)).
+
 Ltac smart_repeat_eexists :=
   repeat match goal with
            |- exists x, _ => eexists
@@ -228,12 +241,15 @@ Ltac rewrite_next_st :=
          end.
 
 (* Gets rid of arithmetic expressions of the
-   form 0+_, _+0, 0*_, and _*0 in the goal. *)
-Ltac rewrite_real_zeros :=
-  repeat first [rewrite Rmult_0_r |
-                rewrite Rmult_0_l |
-                rewrite Rplus_0_r |
-                rewrite Rplus_0_l].
+   form 0+_, _+0, 0*_, and _*0, _-0, 0-_. *)
+  Ltac rewrite_real_zeros :=
+    repeat (first
+              [ rewrite Rmult_0_r in *
+              | rewrite Rmult_0_l in *
+              | rewrite Rplus_0_r in *
+              | rewrite Rplus_0_l in *
+              | rewrite Rminus_0_r in *
+              | rewrite Rminus_0_l in * ]).
 
 Local Open Scope HP_scope.
 

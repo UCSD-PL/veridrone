@@ -610,6 +610,21 @@ Proof.
   exists (Stream.forever x). auto.
 Qed.
 
+Lemma Enabled_action' : forall P Q,
+    is_st_formula Q ->
+    (forall st,
+        eval_formula Q (Stream.forever st) ->
+        exists st',
+          eval_formula P (Stream.Cons st (Stream.forever st'))) ->
+    Q |-- Enabled P.
+Proof.
+  breakAbstraction; intros.
+  specialize (H0 (Stream.hd tr)).
+  eapply st_formula_hd in H1;
+    [ apply H0 in H1 | assumption | reflexivity ]. 
+  destruct H1. exists (Stream.forever x). auto.
+Qed.
+
 Lemma ex_state_flow_any : forall (P : (state * flow) -> Prop),
   (forall f, exists st, P (st, f)) ->
   exists stf, P stf.

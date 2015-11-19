@@ -121,6 +121,16 @@ Proof.
   rewrite <- RIneq.Rinv_l_sym; solve_linear.
 Qed.
 
+Lemma Rmult_le_algebra_neg : forall r1 r2 r3,
+  (r2 < 0 -> r1 >= r2*r3 -> r1 * (/r2) <= r3)%R.
+Proof.
+  intros.
+  apply (Rmult_le_reg_r (-r2)%R); solve_linear.
+  rewrite Rmult_assoc.
+  rewrite Ropp_mult_distr_r_reverse.
+  rewrite <- Rinv_l_sym; solve_linear.
+Qed.
+
 Lemma Rmult_lt_algebra : forall r1 r2 r3,
   (r2 > 0 -> r1 < r3 * r2 -> r1 * (/r2) < r3)%R.
 Proof.
