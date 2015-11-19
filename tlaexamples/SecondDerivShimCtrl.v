@@ -1,11 +1,10 @@
+Require Import Coq.Lists.List.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 Require Import TLA.TLA.
-Require Import TLA.DifferentialInduction.
-Require Import TLA.ContinuousProofRules.
-Require Import TLA.BasicProofRules.
+Require Import TLA.ProofRules.
 Require Import TLA.ArithFacts.
-Require Import Examples.System.
+Require Import Examples.System2.
 Require Import Examples.SecondDerivUtil.
 
 Open Scope HP_scope.
@@ -33,70 +32,464 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
   (* The continuous dynamics of the system *)
   Definition w : state->Formula :=
     fun st' =>
-      st' "y" = "v" //\\ st' "v" = "a" //\\
-      AllConstant ("a"::"Y"::"V"::"T"::nil)%list st'.
+      st' "y" = "v" //\\ st' "v" = "a" //\\ st' "a" = 0.
 
   Definition Ctrl : Formula :=
-         (Max "A" 0 (fun mx => "Ymax" + tdist "Vmax" mx d +
-                               sdist ("Vmax" + mx*d)
-          <= ub) //\\ "a"! = "A")
+    "y" + tdist "v" MAX("a"!,0) d +
+    sdist MAX("v" + MAX("a"!,0)*d,0) <= ub
     \\// ("a"! <= amin).
-
-  Definition History : Formula :=
-    "Y"! = "y" //\\ "V"! = "v" //\\ "T"! = "t"!.
 
   Definition Safe : Formula :=
     "y" <= ub.
 
-  Definition tdiff : Term :=
-    "T" - "t".
-
-  Definition I : Formula :=
-    Syntax.Forall R
-           (fun t =>
-              0 <= t <= d -->>
-              (0 <= "v" + "a"*t  -->>
-               "y" + tdist "v" "a" t +
-               sdist ("v" + "a"*t) <= ub) //\\
-              ("v" + "a"*t < 0 -->>
-               "y" + tdist "v" "a" t <= ub)) //\\
-    "T" = "t" //\\ "Y" = "y" //\\ "V" = "v" //\\
-    0 <= "t" <= d.
-
-  Definition SpecR : SysRec :=
-    {| Init := I;
-       Prog := Ctrl //\\ History //\\ Unchanged ("v"::"y"::nil)%list;
-       world := w;
-       unch := (("a":Term)::("Y":Term)::("V":Term)::
-                ("T":Term)::("v":Term)::("y":Term)::nil)%list;
-       maxTime := d |}.
-
-  Definition Spec := SysD SpecR.
-
   Definition IndInv : Formula :=
-    "y" - "Y" <= tdist "V" "a" tdiff //\\
-    "v" - "V" <= "a"*tdiff //\\
-    Syntax.Forall R
-           (fun t =>
-              ((0 <= t <= d //\\ 0 <= "V" + "a"*t) -->>
-                    "Y" + (tdist "V" "a" t) +
-                    (sdist ("V" + "a"*t)) <= ub) //\\
-              ((0 <= t <= d //\\ "V" + "a"*t < 0) -->>
-                     "Y" + (tdist "V" "a" t) <= ub)) //\\
-   "t" <= "T" <= d.
+    Forall t : R,
+      0 <= t <= "T" -->>
+      "y" + (tdist "v" "a" t) + sdist MAX("v" + "a"*t,0) <= ub.
 
-  Lemma ind_inv_init :
-    I |-- IndInv.
+  Definition Next : Formula :=
+    Sys (Ctrl //\\ Unchanged ("v"::"y"::nil)) w d.
+
+  Definition SafeAcc (a : Term) (d : Term) : Formula :=
+    Forall t : R,
+      (0 <= t //\\ t <= d) -->>
+      "y" + tdist "v" a t + sdist MAX("v" + a*t, 0) <= ub.
+
+  Definition SafeAccZeroOrder (a : Term) (d : Term)
+    : Formula :=
+    (0 <= "v" + a*d -->>
+     "y" + tdist "v" a d + sdist ("v" + a*d) <= ub) //\\
+    (("v" + a*d <= 0 //\\ 0 < "v") -->>
+     "y" + tdist "v" a (--"v"/a) <= ub).
+
+  Lemma SafeAccZeroOrder_refines :
+    forall a,
+      SafeAccZeroOrder a d //\\ "y" <= ub //\\ SafeAcc amin d
+      |-- SafeAcc a d.
   Proof.
-    breakAbstraction; simpl; unfold eval_comp;
-    simpl; intros. destruct H.
-    decompose [and] H0. clear H0.
-    rewrite H1 in *; clear H1;
-    rewrite H2 in *; clear H2;
-    rewrite H3 in *; clear H3.
-    solve_linear; specialize (H x);
-    solve_linear.
+    intros. reason_action_tac.
+    pose proof d_gt_0.
+    unfold Rbasic_fun.Rmax. destruct_ite.
+    - rewrite_real_zeros.
+      destruct (RIneq.Rlt_dec 0 (pre "v"))%R.
+      + assert (pre "v" + eval_term a pre post * d <= 0)%R
+          by solve_nonlinear. intuition.
+        assert (eval_term a pre post <> 0%R)
+          by solve_nonlinear. intuition.
+        eapply Rle_trans; eauto.
+        field_simplify; auto. simpl.
+        apply Rmult_le_reg_r with (r:=2%R);
+          [ solve_linear | ].
+        apply Rmult_le_reg_r
+        with (r:=(-(eval_term a pre post))%R);
+          [ solve_nonlinear | ].
+        repeat rewrite Ropp_mult_distr_r_reverse.
+        field_simplify; auto. simpl.
+        unfold Rdiv. repeat rewrite RMicromega.Rinv_1.
+        solve_nonlinear.
+      + solve_nonlinear.
+    - destruct (RIneq.Rle_dec
+                  (pre "v" + eval_term a pre post * d) 0)%R.
+      + destruct (RIneq.Rlt_dec 0 (pre "v"))%R.
+        * intuition.
+          assert (eval_term a pre post <> 0%R)
+            by solve_nonlinear. intuition.
+          pose proof amin_lt_0.
+          assert (amin <> 0%R) by solve_linear.
+          destruct
+            (RIneq.Rle_dec amin (eval_term a pre post)).
+          { eapply Rle_trans; eauto.
+            field_simplify; auto. simpl.
+            apply Rmult_le_reg_r with (r:=2%R);
+              [ solve_linear | ].
+            apply Rmult_le_reg_r
+            with (r:=(-(eval_term a pre post))%R);
+              [ solve_nonlinear | ].
+            apply Rmult_le_reg_r with (r:=(-amin)%R);
+              [ solve_linear | ].
+            repeat rewrite Ropp_mult_distr_r_reverse.
+            field_simplify; auto. simpl.
+            unfold Rdiv. repeat rewrite RMicromega.Rinv_1.
+            clear - r1. solve_nonlinear. }
+          { specialize (H6 0%R). specialize_arith_hyp H6.
+            revert H6. unfold Rbasic_fun.Rmax.
+            repeat destruct_ite; rewrite_real_zeros.
+            { solve_linear. }
+            { intros. eapply Rle_trans; eauto.
+              assert (pre "v"+eval_term a pre post*x > 0)%R
+                by solve_linear.
+              field_simplify; auto. simpl.
+              apply Rmult_le_reg_r with (r:=2%R);
+                [ solve_linear | ].
+              apply Rmult_le_reg_r
+              with (r:=(-(eval_term a pre post))%R);
+                [ solve_nonlinear | ].
+              apply Rmult_le_reg_r with (r:=(-amin)%R);
+                [ solve_linear | ].
+              repeat rewrite Ropp_mult_distr_r_reverse.
+              field_simplify; auto. simpl.
+              unfold Rdiv. repeat rewrite RMicromega.Rinv_1.
+              clear - H9 n0 H7 H1 H. solve_nonlinear. } }
+        * solve_nonlinear.
+      + assert (0 <= pre "v" + eval_term a pre post * d)%R
+          as Hvd by solve_linear. intuition.
+        destruct
+            (RIneq.Rle_dec amin (eval_term a pre post)).
+        { eapply Rle_trans; eauto.
+          pose proof amin_lt_0.
+          assert (amin <> 0%R) by solve_linear.
+          assert (0 <= pre "v" + eval_term a pre post * x)%R
+            as Hvx by solve_linear.
+          apply Rmult_le_reg_l with (r:=(-amin)%R);
+            [ solve_linear | ].
+          ring_simplify; simpl; field_simplify; auto; simpl.
+          apply Rmult_le_reg_r with (r:=2%R);
+            [ solve_linear | ].
+          field_simplify; simpl.
+          unfold Rdiv. repeat rewrite RMicromega.Rinv_1.
+          clear - Hvd Hvx H4 r. solve_nonlinear. }
+        { pose proof amin_lt_0.
+          assert (amin <> 0%R) by solve_linear.
+          specialize (H6 0%R). specialize_arith_hyp H6.
+          revert H6. unfold Rbasic_fun.Rmax.
+          repeat destruct_ite; rewrite_real_zeros.
+          { intros. eapply Rle_trans; eauto.
+            assert (pre "v"+eval_term a pre post*x > 0)%R
+              by solve_linear.
+            field_simplify; auto. simpl.
+            apply Rmult_le_reg_r with (r:=2%R);
+              [ solve_linear | ].
+            apply Rmult_le_reg_r
+            with (r:=(-(eval_term a pre post))%R);
+              [ solve_nonlinear | ].
+            apply Rmult_le_reg_r with (r:=(-amin)%R);
+              [ solve_linear | ].
+            repeat rewrite Ropp_mult_distr_r_reverse.
+            field_simplify; auto. simpl.
+            unfold Rdiv. repeat rewrite RMicromega.Rinv_1.
+            clear - H8 r H5 n1 H. solve_nonlinear. }
+          { intros. eapply Rle_trans; eauto.
+            assert (pre "v"+eval_term a pre post*x > 0)%R
+              by solve_linear.
+            field_simplify; auto. simpl.
+            apply Rmult_le_reg_r with (r:=2%R);
+              [ solve_linear | ].
+            apply Rmult_le_reg_r
+            with (r:=(-(eval_term a pre post))%R);
+              [ solve_nonlinear | ].
+            apply Rmult_le_reg_r with (r:=(-amin)%R);
+              [ solve_linear | ].
+            repeat rewrite Ropp_mult_distr_r_reverse.
+            field_simplify; auto. simpl.
+            unfold Rdiv. repeat rewrite RMicromega.Rinv_1.
+            clear - H8 n2 H5 n1 H. solve_nonlinear. } }
   Qed.
+
+Ltac simpl_Rmax :=
+  repeat first [rewrite Rbasic_fun.Rmax_left in * by solve_linear |
+                rewrite Rbasic_fun.Rmax_right in * by solve_linear ].
+
+Ltac rewrite_real_zeros :=
+  repeat (first
+   [ rewrite Rmult_0_r in *
+   | rewrite Rmult_0_l in *
+   | rewrite Rplus_0_r in *
+   | rewrite Rplus_0_l in *
+   | rewrite Rminus_0_r in *
+   | rewrite Rminus_0_l in * ]).
+
+Lemma SafeAccZeroOrder_abstracts :
+    forall a,
+      SafeAcc a d |-- SafeAccZeroOrder a d.
+Proof.
+  unfold SafeAcc, SafeAccZeroOrder.
+  intros. reason_action_tac.
+  split.
+  { specialize (H d). pose proof d_gt_0.
+    intros. specialize_arith_hyp H.
+    simpl_Rmax. auto. }
+  { generalize dependent (eval_term a pre post);
+    clear a; intro a; intros.
+    specialize (H ((0 - pre "v") * / a))%R.
+    pose proof d_gt_0.
+    assert (a <> R0) by solve_nonlinear.
+    rewrite Rbasic_fun.Rmax_right in H.
+    { rewrite_real_zeros. apply H.
+      assert (eq (a * / a) R1)%R by (apply Rinv_r; auto).
+      solve_nonlinear. }
+    { assert (eq (a * / a) R1)%R by (apply Rinv_r; auto).
+      solve_nonlinear. } }
+Qed.
+
+Let mirror : RenameList :=
+    {{ "y" ~> --"y" & "v" ~> --"v" & "a" ~> --"a" }}%rn.
+
+Lemma Enabled_action' : forall P Q,
+    is_st_formula Q ->
+    (forall st,
+        eval_formula Q (Stream.forever st) ->
+        exists st',
+          eval_formula P (Stream.Cons st (Stream.forever st'))) ->
+    Q |-- Enabled P.
+Proof.
+  breakAbstraction; intros.
+  specialize (H0 (Stream.hd tr)).
+  eapply st_formula_hd in H1;
+    [ apply H0 in H1 | assumption | reflexivity ]. 
+  destruct H1. exists (Stream.forever x). auto.
+Qed.
+
+Ltac enable_ex_st' :=
+  match goal with
+  | |- _ |-- Enabled ?X =>
+        let vars := eval compute in (remove_dup (get_next_vars_formula X)) in
+        let rec foreach ls :=
+         (match ls with
+          | ?l :: ?ls => eapply (ex_state l); simpl; foreach ls
+          | _ => idtac
+          end) in
+        eapply Enabled_action'; [ tlaIntuition | ]; simpl; intros; foreach vars
+  end; try (eapply ex_state_any; (let st := fresh in
+                                  intro st; clear st)).
+
+Definition Next' : ActionFormula :=
+  Sys (SafeAccZeroOrder "a"! d) w d.
+
+Parameter spread : (-/2 * amin*d*d + amin*amin*d*d*-/2*/amin < 2*ub)%R.
+
+Lemma inv_2 : (eq (2 * /2) R1)%R.
+Proof. solve_linear. Qed.
+Lemma inv_amin : (eq (amin * /amin) R1)%R.
+Proof. pose proof amin_lt_0. solve_linear. Qed.
+
+Ltac generalize_inv_2_amin :=
+  pose proof inv_2; pose proof inv_amin;
+  generalize dependent (/2)%R;
+  generalize dependent (/amin)%R; intros.
+
+Lemma Rmult_le_algebra_neg : forall r1 r2 r3,
+  (r2 < 0 -> r1 >= r2*r3 -> r1 * (/r2) <= r3)%R.
+Proof.
+  intros.
+  apply (Rmult_le_reg_r (-r2)%R); solve_linear.
+  rewrite Rmult_assoc.
+  rewrite Ropp_mult_distr_r_reverse.
+  rewrite <- Rinv_l_sym; solve_linear.
+Qed.
+
+
+Lemma velocity_thing :
+  forall ubv,
+    (ubv > 0)%R ->
+    (ubv*d + ubv*ubv*(0 - / 2)*(/amin) <= ub)%R ->
+    "v" <= ubv //\\
+    "v" + "a"!*d <= ubv //\\
+    ("y" > 0 -->> SafeAccZeroOrder "a"! d)
+    |-- SafeAccZeroOrder "a"! d.
+Proof.
+  pose proof d_gt_0 as d_gt_0. pose proof amin_lt_0 as amin_lt_0.
+  intros. reason_action_tac.
+  destruct H1 as [Hubv1 [Hubv2 Hctrl]].
+  destruct (Rgt_dec (pre "y") R0).
+  { auto. }
+  { clear Hctrl. split; intros.
+    { eapply Rle_trans; eauto.
+      pose proof (sdist_incr (pre "v" + post "a" * d)
+                    ubv (Stream.forever (fun _ => R0)) I).
+      breakAbstraction. specialize_arith_hyp H2. rewrite H2.
+      assert ((pre "v" * d + / 2 * post "a" * (d * (d * 1))) <=
+              ubv * d)%R.
+      { clear - Hubv1 Hubv2 H d_gt_0. solve_nonlinear. }
+      { solve_linear. } }
+    { transitivity (ubv*d)%R.
+      { field_simplify; [ | solve_nonlinear ].
+        apply Rmult_le_algebra_neg; [ solve_nonlinear | ].
+        unfold Rdiv. rewrite RMicromega.Rinv_1. simpl.
+        clear - Hubv1 d_gt_0 H1 n. solve_nonlinear. }
+      { assert ((0 - / 2) < 0)%R by solve_linear.
+        assert (/amin < 0)%R by solve_linear.
+        generalize dependent (/amin)%R.
+        generalize dependent (0-/2)%R. intros.
+        clear - H0 H2 H3 H. solve_nonlinear. } } }
+Qed.
+
+(*
+Lemma velocity_thing :
+  forall ubv,
+    (ubv > 0)%R ->
+    (ubv*d + ubv*ubv*(0 - / 2)*(/amin) <= ub)%R ->
+    "v" <= ubv //\\
+    "v" + "a"!*d <= ubv //\\
+    ("y" > 0 -->> Ctrl)
+    |-- Ctrl.
+Proof.
+  pose proof d_gt_0 as d_gt_0. pose proof amin_lt_0 as amin_lt_0.
+  intros. reason_action_tac.
+  destruct H1 as [Hubv1 [Hubv2 Hctrl]].
+  destruct (Rgt_dec (pre "y") R0).
+  { auto. }
+  { clear Hctrl. left. eapply Rle_trans; eauto.
+    pose proof (sdist_incr
+                  (Rbasic_fun.Rmax
+                     (pre "v"+Rbasic_fun.Rmax (post "a") 0 * d) 0)
+                  ubv (Stream.forever (fun _ => R0)) I).
+    breakAbstraction.
+    rewrite H1; clear H1.
+    { assert (pre "v" * d +
+              / 2 * Rbasic_fun.Rmax (post "a") 0 * (d*(d*1))
+              <= ubv * d)%R.
+      { unfold Rbasic_fun.Rmax; destruct_ite.
+        { rewrite_real_zeros. solve_linear. }
+        { clear - Hubv1 Hubv2 H d_gt_0. solve_nonlinear. } }
+      { solve_linear. } }
+    { unfold Rbasic_fun.Rmax; repeat destruct_ite;
+      solve_linear. } }
+Qed.
+*)
+
+Lemma upper_lower :
+  forall ubv : R,
+       (ubv > 0)%R ->
+       (ubv * d + ubv * ubv * (0 - / 2) * / amin <= ub)%R ->
+  |-- SysNeverStuck d (SafeAcc "a" "T" //\\ Rename mirror (SafeAcc "a" "T"))
+      (SysCompose Next' (SysRename mirror (deriv_term_RenameList mirror) Next')).
+Proof.
+  intros. pose proof d_gt_0. pose proof amin_lt_0.
+  eapply SysNeverStuck_Sys'; [ tlaIntuition | solve_linear | | ].
+  { rewrite Rename_ok by eauto with rw_rename.
+    rewrite <- (velocity_thing _ H H0).
+    repeat rewrite <- Rename_ok by eauto with rw_rename.
+    enable_ex_st.
+
+Lemma upper_lower :
+forall ubv : R,
+       (ubv > 0)%R ->
+       (ubv * d + ubv * ubv * (0 - / 2) * / amin <= ub)%R ->
+  |-- SysNeverStuck d (IndInv //\\ Rename mirror IndInv)
+                     (SysCompose Next (SysRename mirror (deriv_term_RenameList mirror) Next)).
+Proof.
+  intros.
+  pose proof d_gt_0. pose proof amin_lt_0.
+  eapply SysNeverStuck_Sys'; [ tlaIntuition | solve_linear | | ].
+  { rewrite Rename_ok by eauto with rw_rename.
+    rewrite <- (velocity_thing _ H H0).
+    repeat rewrite <- Rename_ok by eauto with rw_rename.
+    enable_ex_st.
+
+    
+
+rewrite <- H3 at 1. rewrite <- velocity_thing. enable_ex_st'. destruct H1 as [[Hinvpos Hinvneg] HT].
+    unfold subst_state in *. simpl in *.
+    specialize (Hinvpos R0). specialize (Hinvneg R0).
+    specialize_arith_hyp Hinvpos. specialize_arith_hyp Hinvneg.
+    exists (st "y"). exists (st "v").
+    destruct (RIneq.Rle_dec 0 (st "v")).
+    { destruct (RIneq.Rle_dec (st "y" + st "v" * d + st "v" * st "v" * (0 - /2) * /amin) ub).
+      { exists 0%R. exists 0%R. simpl_Rmax.
+        rewrite_real_zeros. solve_nonlinear. }
+      { exists amin. exists 0%R. simpl_Rmax.
+        rewrite_real_zeros. solve_linear.
+        unfold Rbasic_fun.Rmax; destruct_ite.
+        { rewrite_real_zeros. solve_nonlinear. }
+        { left.
+          z3_solve; admit. } } }
+        rewrite Rbasic_fun.Rmax_right.
+
+Lemma upper_lower :
+  |-- SysNeverStuck d (SafeAcc "a" "T" //\\ Rename mirror (SafeAcc "a" "T"))
+      (SysCompose Next' (SysRename mirror (deriv_term_RenameList mirror) Next')).
+Proof.
+  pose proof d_gt_0 as d_gt_0. pose proof amin_lt_0 as amin_lt_0.
+  pose proof spread as spread.
+  eapply SysNeverStuck_Sys; [ solve_linear | | ].
+  { enable_ex_st'. destruct H as [[Hinvpos Hinvneg] HT].
+    unfold subst_state in *. simpl in *.
+    rewrite HT in *; clear HT. rewrite_real_zeros.
+    specialize (Hinvpos R0). specialize (Hinvneg R0).
+    specialize_arith_hyp Hinvpos. specialize_arith_hyp Hinvneg.
+    destruct (Rle_dec R0 (st "v")); simpl_Rmax.
+    { destruct (Rle_dec R0 (st "v" + amin * d)).
+      { exists amin. exists d. split; [ solve_linear | ].
+        rewrite_real_zeros. rewrite Ropp_involutive.
+        solve_linear.
+        - generalize_inv_2_amin.
+          clear - H0 Hinvpos H1. eapply Rle_trans; eauto.
+          clear Hinvpos. solve_nonlinear.
+        - apply Rmult_le_reg_r with (r:=2%R);
+          [ solve_linear | ].
+          apply Rmult_le_reg_r with (r:=(-amin)%R);
+            [ solve_linear | ].
+          field_simplify. admit.
+(*generalize_inv_2_amin. clear - H2 Hinvpos H. eapply Rle_trans; eauto.
+          clear Hinvpos. solve_nonlinear.*) z3_solve; admit.
+        - assert (eq (- st "v" + - amin * d) R0)%R by solve_linear.
+          rewrite H0. rewrite_real_zeros. generalize_inv_2_amin.
+          clear -Hinvneg r r0 amin_lt_0 H1 H2 d_gt_0. solve_nonlinear. z3_solve; admit. }
+      { destruct r.
+        { exists (st "v"*st "v"/(2*(st "y"-ub)))%R. exists d.
+          split; [ solve_linear | ].
+          rewrite_real_zeros. rewrite Ropp_involutive.
+          solve_linear.
+          - z3_solve; admit.
+          - z3_solve; admit.
+          - z3_solve; admit. }
+        { rewrite <- H in *; clear H.
+          exists R0. exists d. rewrite_real_zeros.
+          repeat split; try solve [solve_linear].
+          intros. exfalso. solve_linear. } } }
+    { destruct (Rge_dec R0 (st "v" - amin * d)).
+      { exists (-amin)%R. exists d. split; [ solve_linear | ].
+        rewrite_real_zeros. rewrite Ropp_involutive.
+        solve_linear.
+        - z3_solve; admit.
+        - z3_solve; admit.
+        - z3_solve; admit. }
+      { exists (st "v"*st "v"/(2*(ub+st "y")))%R. exists d.
+        split; [ solve_linear | ].
+        rewrite_real_zeros. rewrite Ropp_involutive.
+        assert (st "v" < 0)%R by solve_linear.
+        solve_linear.
+        - z3_solve; admit.
+        - z3_solve; admit.
+        - z3_solve; admit. } } }
+  { admit. }
+Qed.
+        
+  
+
+Lemma upper_lower :
+  |-- SysNeverStuck d (IndInv //\\ Rename mirror IndInv)
+                     (SysCompose Next (SysRename mirror (deriv_term_RenameList mirror) Next)).
+Proof.
+  pose proof d_gt_0. pose proof amin_lt_0.
+  eapply SysNeverStuck_Sys; [ solve_linear | | ].
+  { enable_ex_st'. destruct H1 as [[Hinvpos Hinvneg] HT].
+    unfold subst_state in *. simpl in *.
+    specialize (Hinvpos R0). specialize (Hinvneg R0).
+    specialize_arith_hyp Hinvpos. specialize_arith_hyp Hinvneg.
+    exists (st "y"). exists (st "v").
+    destruct (RIneq.Rle_dec 0 (st "v")).
+    { destruct (RIneq.Rle_dec (st "y" + st "v" * d + st "v" * st "v" * (0 - /2) * /amin) ub).
+      { exists 0%R. exists 0%R. simpl_Rmax.
+        rewrite_real_zeros. solve_nonlinear. }
+      { exists amin. exists 0%R. simpl_Rmax.
+        rewrite_real_zeros. solve_linear.
+        unfold Rbasic_fun.Rmax; destruct_ite.
+        { rewrite_real_zeros. solve_nonlinear. }
+        { left. assert (amin > -(st "v") / d)%R by admit. z3_solve.
+        rewrite Rbasic_fun.Rmax_right.
+
+
+        { rewrite Rbasic_fun.Rmax_left by reflexivity.
+          rewrite Rbasic_fun.Rmax_left by solve_linear.
+          rewrite_real_zeros. left. 
+
+exists amin. exists 0%R.
+        solve_linear.
+        replace (Rbasic_fun.Rmax (0 - amin) 0)%R with (-amin)%R
+          by (unfold Rbasic_fun.Rmax; destruct_ite; solve_linear).
+        
+        
 
   (* A proof that the inductive safety condition
      Inv implies the safety contition

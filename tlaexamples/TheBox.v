@@ -5,7 +5,7 @@ Require Import TLA.EnabledLemmas.
 Require Import TLA.DifferentialInduction.
 Require Import TLA.ProofRules.
 Require Import Examples.System2.
-Require Import Examples.UpperLower.
+Require Import Examples.UpperLowerXXX.
 Require Import ChargeTactics.Lemmas.
 Require Import Coq.Reals.R_sqrt.
 Require Import Coq.Reals.Ratan.
