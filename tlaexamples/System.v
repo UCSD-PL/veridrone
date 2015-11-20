@@ -43,18 +43,8 @@ Definition Sys (P : ActionFormula) (w : Evolution) (d : R) : ActionFormula :=
 Definition System (P : ActionFormula) (w : Evolution) (d : R) : ActionFormula :=
   Sys P w d \\// (Enabled (Sys P w d) -->> lfalse).
 
-(*
-Definition System' (P : Formula) (w : Evolution) (d : R) : Formula :=
-  Sys P w d \\// (Enabled (Discr P d) -->> lfalse).
-*)
-
 Definition TimedPreserves (delta : R) (P : StateFormula) (A : ActionFormula) : Formula :=
   Preserves (P //\\ 0 <= "T" <= delta) A.
-
-(*
-Definition NeverStuck (I : StateFormula) (A : ActionFormula) : Formula :=
-  (I -->> Enabled A).
-*)
 
 Definition SysNeverStuck (delta : R) (I : StateFormula) (A : ActionFormula) : Formula :=
   0 <= "T" <= delta //\\ I -->> Enabled A.
@@ -304,6 +294,14 @@ Proof.
       rewrite Continuous_and_lequiv.
       rewrite mkEvolution_and. charge_tauto. }
 *)
+Qed.
+
+Lemma Enabled_TimeBound :
+  forall d,
+    (d > 0)%R ->
+    |-- Enabled (next (TimeBound d)).
+Proof.
+  intros. enable_ex_st. exists d. solve_linear.
 Qed.
 
 Definition SysRename_rule

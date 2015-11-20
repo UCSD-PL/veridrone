@@ -4,8 +4,8 @@ Require Import Coq.Reals.RIneq.
 Require Import TLA.TLA.
 Require Import TLA.ProofRules.
 Require Import TLA.ArithFacts.
-Require Import Examples.System2.
-Require Import Examples.SecondDerivUtil.
+Require Import Examples.System.
+Require Import Examples.UtilPosition.
 Require Import Examples.DiffEqSolutions.
 
 Open Scope HP_scope.

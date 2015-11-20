@@ -1,14 +1,13 @@
-Require Import Coq.Reals.Rdefinitions.
+Require Import Coq.Reals.Reals.
 Require Import TLA.TLA.
 Require Import TLA.ArithFacts.
 Require Import TLA.EnabledLemmas.
 Require Import TLA.DifferentialInduction.
 Require Import TLA.ProofRules.
-Require Import Examples.System2.
-Require Import Examples.UpperLower.
-Require Import Examples.TheBox.
+Require Import Examples.System.
+Require Import Examples.Interval.
+Require Import Examples.Rectangle.
 Require Import ChargeTactics.Lemmas.
-Require Import Coq.Reals.Reals.
 Require Import Coq.Strings.String.
 
 Local Open Scope string_scope.
@@ -39,6 +38,9 @@ Module Type CuboidParams.
   Parameter ubv_X : R.
   Parameter ubv_Y : R.
   Parameter ubv_Z : R.
+  Axiom ubv_X_gt_0 : (ubv_X > 0)%R.
+  Axiom ubv_Y_gt_0 : (ubv_Y > 0)%R.
+  Axiom ubv_Z_gt_0 : (ubv_Z > 0)%R.
   Axiom ub_ubv_X :
     (ubv_X*d + ubv_X*ubv_X*(0 - /2)*(/amin_X) <= ub_X)%R.
   Axiom ub_ubv_Y :
@@ -51,10 +53,10 @@ Module Type CuboidParams.
 
 End CuboidParams.
 
-Module Cuboid (Import P : CuboidParams).
+Module CuboidShim (Import P : CuboidParams).
   Open Scope HP_scope.
 
-  Module XZ_Params <: BoxParams.
+  Module XZ_Params <: RectangleParams.
     Definition ub_X := P.ub_X.
     Definition ub_Z := P.ub_Z.
     Definition d := P.d.
@@ -74,9 +76,11 @@ Module Cuboid (Import P : CuboidParams).
     Definition ub_ubv_Z := P.ub_ubv_Z.
     Definition ubv_X_gt_amin_d := P.ubv_X_gt_amin_d.
     Definition ubv_Z_gt_amin_d := P.ubv_Z_gt_amin_d.
+    Definition ubv_X_gt_0 := P.ubv_X_gt_0.
+    Definition ubv_Z_gt_0 := P.ubv_Z_gt_0.
   End XZ_Params.
 
-  Module Y_Params <: UpperLowerParams.
+  Module Y_Params <: IntervalParams.
     Definition ub := P.ub_Y.
     Definition d := P.d.
     Definition d_gt_0 := P.d_gt_0.
@@ -92,27 +96,15 @@ Module Cuboid (Import P : CuboidParams).
       pose proof P.g_gt_0.
       pose proof P.amin_Z_lt_g.
       solve_nonlinear.
-(*
-      unfold amin, P.amin_Y.
-      pose proof P.angle_min_bound.
-      assert (tan P.angle_min < 0)%R
-        by (apply tan_lt_0; solve_linear).
-      pose proof P.amin_Z_lt_0.
-      pose proof P.g_gt_0.
-      pose proof P.amin_Z_lt_g.
-      assert (0 < / cos angle_min)%R
-        by (apply RIneq.Rinv_0_lt_compat;
-            apply cos_gt_0; solve_linear).
-      unfold Rdiv. solve_nonlinear.
-*)
     Qed.
     Definition ubv := P.ubv_Y.
     Definition ub_ubv := P.ub_ubv_Y.
     Definition ubv_gt_amin_d := P.ubv_Y_gt_amin_d.
+    Definition ubv_gt_0 := P.ubv_Y_gt_0.
   End Y_Params.
 
-  Module XZ := Box XZ_Params.
-  Module Y := UpperLower Y_Params.
+  Module XZ := RectangleShim XZ_Params.
+  Module Y := IntervalShim Y_Params.
 
   Let rename_y : RenameList :=
     {{ "y" ~> "y" & "v" ~> "vy" & "a" ~> "ay" }}%rn.
@@ -393,16 +385,36 @@ Module Cuboid (Import P : CuboidParams).
     eauto with rw_rename.
   Qed.
 
+
+Lemma Enabled_TimeBound :
+  forall d0,
+    (d0 > 0)%R ->
+    |-- Enabled (next (TimeBound d0)).
+Proof.
+  intros. enable_ex_st. exists d0. solve_linear.
+Qed.
+
+  Ltac cut_setoid_rewrite_r X :=
+    let xx := fresh "xx" in
+    cut X; [ intro xx; rewrite xx; clear xx | ].
+
+  Ltac cut_setoid_rewrite_l X :=
+    let xx := fresh "xx" in
+    cut X; [ intro xx; rewrite <- xx; clear xx | ].
+
+  Ltac rewrite_rename_equiv F m :=
+    cut_setoid_rewrite_r (F -|- Rename m F);
+    [ | rewrite <- Rename_ok by eauto with rw_rename; reflexivity ].
+
+
   Theorem SysNeverStuck_Next : |-- SysNeverStuck d IndInv Next.
   Proof.
     eapply SysNeverStuck_Sys;
     [ pose proof d_gt_0 ; solve_linear | | ].
     { rewrite <- disjoint_state_enabled.
       { charge_split.
-        { charge_clear. enable_ex_st.
-          pose proof P.d_gt_0.
-          unfold Y.Vel.V.d, Y.V.d, Y_Params.d. 
-          exists R0. solve_linear. }
+        { charge_clear. apply Enabled_TimeBound. pose proof P.d_gt_0.
+          unfold Y.X_Params.d, Y_Params.d. assumption. }
         { pose proof rect_input_refines_polar.
           apply next_st_formula_entails in H;
             [ | simpl; tauto | simpl; tauto ].
@@ -410,14 +422,12 @@ Module Cuboid (Import P : CuboidParams).
           rewrite Rename_ok by eauto with rw_rename.
           rewrite next_And. rewrite next_Rename.
           (* Annoying manipulation. *)
-          rewrite landC. charge_revert.
-          charge_clear. charge_intros.
           rewrite <- landA. rewrite <- Rename_and.
           pose proof spherical_predicated_witness_function.
-          destruct H.
-          rewrite next_Rename.
+          destruct H. rewrite next_Rename. unfold IndInv.
           rewrite <- Rename_ok with (m:=to_RenameMap XZ.rename_polar)
             by eauto with rw_rename.
+          rewrite_rename_equiv ("T" = 0) rename_polar. rewrite <- Rename_and.
           eapply subst_enabled_predicated_witness
           with (f:=x) (P:=XZ.PolarBounds).
           { compute; tauto. }
@@ -452,19 +462,17 @@ Module Cuboid (Import P : CuboidParams).
             rewrite <- disjoint_state_enabled.
             { charge_split.
               { rewrite Rename_ok by eauto with rw_rename.
-                rewrite next_Rename. rewrite <- Rename_and.
-                apply landL1.
                 pose proof y_witness_function. destruct H.
-                eapply subst_enabled with (f:=x).
+                charge_assert (Rename rename_y Y.IndInv //\\ "T" = 0);
+                  [ charge_tauto | charge_clear; charge_intros ].
+                rewrite_rename_equiv ("T" = 0) rename_y. rewrite next_Rename.
+                repeat rewrite <- Rename_and. eapply subst_enabled with (f:=x).
                 { apply get_vars_next_state_vars; reflexivity. }
                 { apply H; reflexivity. }
                 { clear. pose proof Y.SysNeverStuck_Discr.
-                  charge_clear.
-                  etransitivity; [ apply H |
-                                   apply Proper_Enabled_lentails ].
+                  etransitivity; [ apply H | apply Proper_Enabled_lentails ].
                   charge_tauto. } }
-              { rewrite next_Rename. charge_clear.
-                apply XZ.SysNeverStuck_Discr. } }
+              { rewrite next_Rename. rewrite <- XZ.SysNeverStuck_Discr. charge_tauto. } }
             { repeat rewrite next_Rename.
               repeat rewrite <- Rename_ok by eauto with rw_rename.
               rewrite <- Rename_ok
@@ -500,13 +508,16 @@ Module Cuboid (Import P : CuboidParams).
   Qed.
 
   Lemma Box_safe :
-    |-- (IndInv //\\ TimeBound P.d) //\\ []Next -->> []Safe.
+    |-- (IndInv //\\ TimeBound P.d) //\\ []SysSystem Next -->> []Safe.
   Proof.
-    rewrite <- IndInv_impl_Safe.
-    eapply Inductively.Preserves_Inv.
-    3: apply TimedPreserves_Next.
-    - compute; tauto.
-    - apply always_tauto. charge_tauto.
+    rewrite Inductively.Preserves_Inv_simple.
+    { rewrite IndInv_impl_Safe.
+      charge_tauto. }
+    { compute; tauto. }
+    { apply SafeAndReactive_TimedPreserves.
+      unfold SafeAndReactive. charge_split.
+      { apply TimedPreserves_Next. }
+      { apply SysNeverStuck_Next. } }
   Qed.
 
-End Cuboid.
+End CuboidShim.

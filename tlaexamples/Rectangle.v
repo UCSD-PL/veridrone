@@ -4,17 +4,14 @@ Require Import TLA.ArithFacts.
 Require Import TLA.EnabledLemmas.
 Require Import TLA.DifferentialInduction.
 Require Import TLA.ProofRules.
-Require Import Examples.System2.
-Require Import Examples.UpperLowerXXX.
+Require Import Examples.System.
+Require Import Examples.Interval.
 Require Import ChargeTactics.Lemmas.
-Require Import Coq.Reals.R_sqrt.
-Require Import Coq.Reals.Ratan.
-Require Import Coq.Reals.Rtrigo1.
 Require Import Coq.Strings.String.
 
 Local Open Scope string_scope.
 
-Module Type BoxParams.
+Module Type RectangleParams.
   Parameter ub_X : R.
   Parameter ub_Z : R.
 
@@ -36,6 +33,8 @@ Module Type BoxParams.
 
   Parameter ubv_X : R.
   Parameter ubv_Z : R.
+  Axiom ubv_X_gt_0 : (ubv_X > 0)%R.
+  Axiom ubv_Z_gt_0 : (ubv_Z > 0)%R.
   Axiom ub_ubv_X :
     (ubv_X*d + ubv_X*ubv_X*(0 - /2)*(/amin_X) <= ub_X)%R.
   Axiom ub_ubv_Z :
@@ -43,12 +42,12 @@ Module Type BoxParams.
   Axiom ubv_X_gt_amin_d : (ubv_X >= -amin_X*d)%R.
   Axiom ubv_Z_gt_amin_d : (ubv_Z >= -amin_Z*d)%R.
 
-End BoxParams.
+End RectangleParams.
 
-Module Box (P : BoxParams).
+Module RectangleShim (P : RectangleParams).
   Open Scope HP_scope.
 
-  Module X_Params <: UpperLowerParams.
+  Module X_Params <: IntervalParams.
     Definition ub := P.ub_X.
     Definition d := P.d.
     Definition d_gt_0 := P.d_gt_0.
@@ -68,9 +67,10 @@ Module Box (P : BoxParams).
     Definition ubv := P.ubv_X.
     Definition ub_ubv := P.ub_ubv_X.
     Definition ubv_gt_amin_d := P.ubv_X_gt_amin_d.
+    Definition ubv_gt_0 := P.ubv_X_gt_0.
   End X_Params.
 
-  Module Z_Params <: UpperLowerParams.
+  Module Z_Params <: IntervalParams.
     Definition ub := P.ub_Z.
     Definition d := P.d.
     Definition d_gt_0 := P.d_gt_0.
@@ -79,10 +79,11 @@ Module Box (P : BoxParams).
     Definition ubv := P.ubv_Z.
     Definition ub_ubv := P.ub_ubv_Z.
     Definition ubv_gt_amin_d := P.ubv_Z_gt_amin_d.
+    Definition ubv_gt_0 := P.ubv_Z_gt_0.
   End Z_Params.
 
-  Module X := UpperLower X_Params.
-  Module Z := UpperLower Z_Params.
+  Module X := IntervalShim X_Params.
+  Module Z := IntervalShim Z_Params.
 
   Let rename_z : RenameList :=
     {{ "y" ~> "z" & "v" ~> "vz" & "a" ~> "az" }}%rn.
@@ -365,7 +366,7 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
   Qed.
 
   Lemma SysNeverStuck_Discr :
-    |-- Enabled (Sys_D Next //\\
+    IndInv //\\ "T" = 0 |-- Enabled (Sys_D Next //\\
                        Rename rename_polar (next XZConstraint) //\\ next PolarBounds).
   Proof.
     unfold Sys_D.
@@ -379,7 +380,7 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
     rewrite next_And. rewrite next_Rename.
     rewrite <- H. clear H.
     match goal with
-      |- |-- Enabled ((?S //\\ ?X) //\\ ?X) =>
+      |- _ |-- Enabled ((?S //\\ ?X) //\\ ?X) =>
       assert ((S //\\ X) //\\ X -|- S //\\ (X //\\ X))
         as H by (split; charge_tauto); rewrite H; clear H
     end.
@@ -390,9 +391,9 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
     rewrite <- Rename_ok with (m:=to_RenameMap rename_x) by eauto with rw_rename.
     rewrite <- Rename_ok with (m:=to_RenameMap rename_z) by eauto with rw_rename.
     pose proof polar_predicated_witness_function.
-    destruct H.
-    eapply subst_enabled_predicated_witness_simple_noenv
-    with (f:=x).
+    rewrite_rename_equiv ("T" = 0) rename_polar. destruct H. unfold IndInv.
+    rewrite <- Rename_and. eapply subst_enabled_predicated_witness_simple
+                           with (f:=x).
     { simpl; tauto. }
     { apply get_vars_next_state_vars; reflexivity. }
     { apply H; reflexivity. }
@@ -413,25 +414,25 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
       { charge_split.
         { pose proof x_witness_function. destruct H.
           repeat rewrite Rename_ok with (m:=to_RenameMap rename_x) by eauto with rw_rename.
-          rewrite <- Rename_and.
-          eapply subst_enabled_noenv with (f:=x).
+          charge_assert (Rename rename_x X.IndInv //\\ "T" = 0);
+            [ charge_tauto | charge_clear; charge_intros ].
+          rewrite_rename_equiv ("T" = 0) rename_x. repeat rewrite <- Rename_and.
+          eapply subst_enabled with (f:=x).
           { apply get_vars_next_state_vars; reflexivity. }
           { apply H; reflexivity. }
           { clear. pose proof X.SysNeverStuck_Discr.
-            charge_clear.
-            etransitivity; [ apply H |
-                             apply Proper_Enabled_lentails ].
+            etransitivity; [ apply H | apply Proper_Enabled_lentails ].
             charge_tauto. } }
         { pose proof z_witness_function. destruct H.
           repeat rewrite Rename_ok with (m:=to_RenameMap rename_z) by eauto with rw_rename.
-          rewrite <- Rename_and.
-          eapply subst_enabled_noenv with (f:=x).
+          charge_assert (Rename rename_z Z.IndInv //\\ "T" = 0);
+            [ charge_tauto | charge_clear; charge_intros ].
+          rewrite_rename_equiv ("T" = 0) rename_z. repeat rewrite <- Rename_and.
+          eapply subst_enabled with (f:=x).
           { apply get_vars_next_state_vars; reflexivity. }
           { apply H; reflexivity. }
           { clear. pose proof Z.SysNeverStuck_Discr.
-            charge_clear.
-            etransitivity; [ apply H |
-                             apply Proper_Enabled_lentails ].
+            etransitivity; [ apply H | apply Proper_Enabled_lentails ].
             charge_tauto. } } }
       { apply formulas_disjoint_state; reflexivity. } }
   Qed.
@@ -442,10 +443,8 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
     [ pose proof P.d_gt_0 ; solve_linear | | ].
     { rewrite <- disjoint_state_enabled.
       { charge_split.
-        { charge_clear. enable_ex_st.
-          pose proof P.d_gt_0.
-          unfold X.Vel.V.d, X.V.d, X_Params.d. 
-          exists R0. solve_linear. }
+        { charge_clear. apply Enabled_TimeBound. pose proof P.d_gt_0.
+          unfold X.X_Params.d, X_Params.d. assumption. }
         { rewrite land_dup with (A:=next InputConstraint).
           pose proof rect_input_refines_polar.
           apply next_st_formula_entails in H;
@@ -456,9 +455,8 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
             [ | simpl; tauto | simpl; tauto ].
           rewrite next_And. rewrite next_Rename.
           rewrite <- H. clear H.
-          charge_clear. pose proof SysNeverStuck_Discr.
-          unfold Sys_D in *. repeat rewrite landA in H.
-          apply H. } }
+          pose proof SysNeverStuck_Discr. unfold Sys_D in *.
+          repeat rewrite landA in H. apply H. } }
       { apply formulas_disjoint_state; reflexivity. } }
     { admit. (** Provable, but we won't worry about it *) }
   Qed.
@@ -489,14 +487,18 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
       simpl. restoreAbstraction. charge_tauto. }
   Qed.
 
+  (* Our main safety theorem. *)
   Lemma Box_safe :
-    |-- (IndInv //\\ TimeBound P.d) //\\ []Next -->> []Safe.
+    |-- (IndInv //\\ TimeBound P.d) //\\ []SysSystem Next -->> []Safe.
   Proof.
-    rewrite <- IndInv_impl_Safe.
-    eapply Inductively.Preserves_Inv.
-    3: apply TimedPreserves_Next.
-    - compute; tauto.
-    - apply always_tauto. charge_tauto.
+    rewrite Inductively.Preserves_Inv_simple.
+    { rewrite IndInv_impl_Safe.
+      charge_tauto. }
+    { compute; tauto. }
+    { apply SafeAndReactive_TimedPreserves.
+      unfold SafeAndReactive. charge_split.
+      { apply TimedPreserves_Next. }
+      { apply SysNeverStuck_Next. } }
   Qed.
 
-End Box.
+End RectangleShim.

@@ -12,6 +12,18 @@ Require Import Coq.Strings.String.
 
 (* Some useful tactics for our examples. *)
 
+Ltac cut_setoid_rewrite_r X :=
+  let xx := fresh "xx" in
+  cut X; [ intro xx; rewrite xx; clear xx | ].
+
+Ltac cut_setoid_rewrite_l X :=
+  let xx := fresh "xx" in
+  cut X; [ intro xx; rewrite <- xx; clear xx | ].
+
+Ltac rewrite_rename_equiv F m :=
+  cut_setoid_rewrite_r (F -|- Rename m F);
+  [ | rewrite <- Rename_ok by eauto with rw_rename; reflexivity ].
+
 Ltac decompose_hyps :=
   repeat first [ rewrite Lemmas.land_lor_distr_R
                | rewrite Lemmas.land_lor_distr_L ] ;
