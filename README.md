@@ -1,6 +1,10 @@
 VeriDrone
 ==========
 
+This contains the code for our PLDI 2016 submission entitled "Modular Reasoning about Cyber-physical Systems."
+
+To build the code, install the dependencies (see below) and then run make in the root directory.
+
 Directory Structure
 -------------------
 This project contains three directories:
