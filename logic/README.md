@@ -10,8 +10,3 @@ This directory contains:
 - Some useful arithmetic facts (ArithFacts.v)
 - Description of properties being preserved by transitions (Inductively.v)
 
-
-Things that exist in here but should probably move:
-
-- Stability.v
-- LyapunovFunctions.v
