@@ -1,9 +1,9 @@
 Require Import Coq.Lists.List.
 Require Import Coq.Classes.Morphisms.
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
-Require Import TLA.Automation.
-Require Import TLA.BasicProofRules.
+Require Import Logic.Syntax.
+Require Import Logic.Semantics.
+Require Import Logic.Automation.
+Require Import Logic.BasicProofRules.
 
 Local Open Scope HP_scope.
 

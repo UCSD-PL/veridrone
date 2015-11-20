@@ -3,12 +3,12 @@ Require Import Rdefinitions.
 Require Import Ranalysis1.
 Require Import Rtrigo Rtrigo_reg.
 Require Import MVT.
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
-Require Import TLA.Lib.
-Require Import TLA.BasicProofRules.
-Require Import TLA.RenameProofRules.
-Require Import TLA.Automation.
+Require Import Logic.Syntax.
+Require Import Logic.Semantics.
+Require Import Logic.Lib.
+Require Import Logic.BasicProofRules.
+Require Import Logic.RenameProofRules.
+Require Import Logic.Automation.
 Require Import Coq.Reals.R_sqrt.
 Require Import Coq.Lists.List.
 

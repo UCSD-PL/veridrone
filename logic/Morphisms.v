@@ -1,8 +1,8 @@
 Require Import Coq.Classes.Morphisms.
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
-Require Import TLA.BasicProofRules.
-Require Import TLA.Automation.
+Require Import Logic.Syntax.
+Require Import Logic.Semantics.
+Require Import Logic.BasicProofRules.
+Require Import Logic.Automation.
 
 Global Instance Proper_Comp :
   Proper (term_equiv ==> term_equiv ==> eq ==> lentails) Comp.

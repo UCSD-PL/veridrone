@@ -1,9 +1,9 @@
 Require Import Coq.Reals.Reals.
-Require Import TLA.TLA.
-Require Import TLA.ArithFacts.
-Require Import TLA.EnabledLemmas.
-Require Import TLA.DifferentialInduction.
-Require Import TLA.ProofRules.
+Require Import Logic.Logic.
+Require Import Logic.ArithFacts.
+Require Import Logic.EnabledLemmas.
+Require Import Logic.DifferentialInduction.
+Require Import Logic.ProofRules.
 Require Import Examples.System.
 Require Import Examples.Interval.
 Require Import Examples.Rectangle.

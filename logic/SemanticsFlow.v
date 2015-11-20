@@ -2,11 +2,11 @@ Require Import Coq.Lists.List.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Rtrigo_def.
 Require Import Coq.Reals.Ranalysis1.
-Require Export TLA.Syntax.
-Require Import TLA.Stream.
+Require Export Logic.Syntax.
+Require Import Logic.Stream.
 Require Export Charge.Logics.ILogic.
 
-(* The semantics of our restricted TLA *)
+(* The semantics of our restricted logic *)
 
 (* A TLA behavior, called a trace *)
 Definition flow := R -> state.

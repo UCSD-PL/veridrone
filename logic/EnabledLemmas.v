@@ -2,9 +2,9 @@ Require Import Coq.Lists.List.
 Require Import Coq.Strings.String.
 Require Import Coq.Classes.Morphisms.
 Require Import ExtLib.Tactics.
-Require Import TLA.TLA.
-Require Import TLA.BasicProofRules.
-Require Import TLA.RenameProofRules.
+Require Import Logic.Logic.
+Require Import Logic.BasicProofRules.
+Require Import Logic.RenameProofRules.
 
 Definition traces_agree (tr1 tr2 : trace)
            (xs : list Var) : Prop :=

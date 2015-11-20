@@ -2,11 +2,11 @@ Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 Require Import Coq.micromega.Psatz.
 Require Import Z3.Tactic.
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
-Require Import TLA.Lib.
-Require Import TLA.ProofRules.
-Require Import TLA.Automation.
+Require Import Logic.Syntax.
+Require Import Logic.Semantics.
+Require Import Logic.Lib.
+Require Import Logic.ProofRules.
+Require Import Logic.Automation.
 Require Import Coq.Lists.List.
 Require Import Coq.Strings.String.
 

@@ -1,7 +1,7 @@
 Require Import Coq.Classes.RelationClasses.
 Require Import ChargeTactics.Tactics.
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
+Require Import Logic.Syntax.
+Require Import Logic.Semantics.
 
 (** NOTE: Avoid using this **)
 Ltac breakAbstraction :=

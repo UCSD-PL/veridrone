@@ -1,5 +1,5 @@
-Require Import TLA.TLA.
-Require Import TLA.ProofRules.
+Require Import Logic.Logic.
+Require Import Logic.ProofRules.
 Require Import Examples.System.
 Require Import Examples.Cuboid.
 Require Import Coq.Reals.Reals.

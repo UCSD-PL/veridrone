@@ -6,13 +6,13 @@ Require Import Coq.Reals.RIneq.
 Require Import Coq.Logic.FunctionalExtensionality.
 Require Import ExtLib.Tactics.
 Require Charge.Logics.ILInsts.
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
-Require Import TLA.BasicProofRules.
-Require Import TLA.Automation.
+Require Import Logic.Syntax.
+Require Import Logic.Semantics.
+Require Import Logic.BasicProofRules.
+Require Import Logic.Automation.
 
-(* A library of useful TLA formulas, built
-   from TLA primitives. *)
+(* A library of useful formulas, built
+   from logic primitives. *)
 
 Local Open Scope HP_scope.
 Local Open Scope string_scope.

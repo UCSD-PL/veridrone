@@ -1,8 +1,8 @@
 Require Import Coq.Reals.Rdefinitions.
-Require Import TLA.TLA.
-Require Import TLA.BasicProofRules.
-Require Import TLA.DifferentialInduction.
-Require Import TLA.ContinuousProofRules.
+Require Import Logic.Logic.
+Require Import Logic.BasicProofRules.
+Require Import Logic.DifferentialInduction.
+Require Import Logic.ContinuousProofRules.
 
 Open Scope HP_scope.
 Open Scope string_scope.

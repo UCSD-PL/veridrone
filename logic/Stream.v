@@ -1,7 +1,7 @@
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Setoids.Setoid.
 
-(* A behavior of TLA is an infinite stream
+(* A behavior of our logic is an infinite stream
    of states. *)
 Set Implicit Arguments.
 Set Strict Implicit.

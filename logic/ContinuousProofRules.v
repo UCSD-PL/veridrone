@@ -3,12 +3,12 @@ Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Ranalysis1.
 Require Import Coq.Reals.MVT.
 Require Import ChargeTactics.Tactics.
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
-Require Import TLA.Lib.
-Require Import TLA.BasicProofRules.
-Require Import TLA.DifferentialInduction.
-Require Import TLA.Automation.
+Require Import Logic.Syntax.
+Require Import Logic.Semantics.
+Require Import Logic.Lib.
+Require Import Logic.BasicProofRules.
+Require Import Logic.DifferentialInduction.
+Require Import Logic.Automation.
 
 Local Open Scope HP_scope.
 

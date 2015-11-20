@@ -1,6 +1,6 @@
 Require Import Coq.Reals.Reals.
-Require Import TLA.TLA.
-Require Import TLA.BasicProofRules.
+Require Import Logic.Logic.
+Require Import Logic.BasicProofRules.
 
 (* Some obvious but useful real arithmetic
    facts. *)

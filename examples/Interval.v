@@ -1,9 +1,9 @@
 Require Import Coq.Reals.Reals.
 Require Import ChargeTactics.Lemmas.
-Require Import TLA.TLA.
-Require Import TLA.EnabledLemmas.
-Require Import TLA.ProofRules.
-Require Import TLA.ArithFacts.
+Require Import Logic.Logic.
+Require Import Logic.EnabledLemmas.
+Require Import Logic.ProofRules.
+Require Import Logic.ArithFacts.
 Require Import Examples.System.
 Require Import Examples.UtilPosition.
 Require Import Examples.Position.

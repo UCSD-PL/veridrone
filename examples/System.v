@@ -6,12 +6,12 @@ Require Import Coq.Lists.ListSet.
 Require Import ChargeTactics.Lemmas.
 Require Import ChargeTactics.Indexed.
 Require Import ExtLib.Tactics.
-Require Import TLA.TLA.
-Require Import TLA.ProofRules.
-Require Import TLA.ArithFacts.
-Require Import TLA.Automation.
-Require Import TLA.EnabledLemmas.
-Require Import TLA.Inductively.
+Require Import Logic.Logic.
+Require Import Logic.ProofRules.
+Require Import Logic.ArithFacts.
+Require Import Logic.Automation.
+Require Import Logic.EnabledLemmas.
+Require Import Logic.Inductively.
 
 Local Open Scope HP_scope.
 Local Open Scope string_scope.

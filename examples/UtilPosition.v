@@ -1,7 +1,7 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
-Require Import TLA.TLA.
-Require Import TLA.ArithFacts.
+Require Import Logic.Logic.
+Require Import Logic.ArithFacts.
 
 Open Scope HP_scope.
 Open Scope string_scope.

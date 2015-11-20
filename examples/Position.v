@@ -1,9 +1,9 @@
 Require Import Coq.Lists.List.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
-Require Import TLA.TLA.
-Require Import TLA.ProofRules.
-Require Import TLA.ArithFacts.
+Require Import Logic.Logic.
+Require Import Logic.ProofRules.
+Require Import Logic.ArithFacts.
 Require Import Examples.System.
 Require Import Examples.UtilPosition.
 Require Import Examples.DiffEqSolutions.

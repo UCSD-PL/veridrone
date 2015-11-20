@@ -1,16 +1,16 @@
 (* Exports all of the proof rules. The files
    contain the following proof rules:
 
-     TLA.BasicProofRules: proof rules about
-       TLA that are not specific to our domain,
+     Logic.BasicProofRules: proof rules about
+       our logic that are not specific to our domain,
        namely general propositional logic rules
        and temporal logic rules including a
        discrete induction rule
 
-     TLA.DifferentialInduction: differential
+     Logic.DifferentialInduction: differential
        induction
 
-     TLA.ContinuousProofRules: proof rules
+     Logic.ContinuousProofRules: proof rules
        specific to our domain, in particular
        about continuous transitions, but not
        including basic differential induction
@@ -18,7 +18,7 @@
         induction)
 *)
 
-Require Export TLA.BasicProofRules.
-Require Export TLA.RenameProofRules.
-Require Export TLA.DifferentialInduction.
-Require Export TLA.ContinuousProofRules.
+Require Export Logic.BasicProofRules.
+Require Export Logic.RenameProofRules.
+Require Export Logic.DifferentialInduction.
+Require Export Logic.ContinuousProofRules.

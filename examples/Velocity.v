@@ -1,8 +1,8 @@
 Require Import Coq.Lists.List.
 Require Import Coq.Reals.Rdefinitions.
-Require Import TLA.TLA.
-Require Import TLA.ProofRules.
-Require Import TLA.Inductively.
+Require Import Logic.Logic.
+Require Import Logic.ProofRules.
+Require Import Logic.Inductively.
 Require Import Examples.System.
 
 Local Open Scope HP_scope.

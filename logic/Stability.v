@@ -1,4 +1,4 @@
-Require Import TLA.TLA.
+Require Import Logic.Logic.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Rbasic_fun.
 

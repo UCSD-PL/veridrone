@@ -1,8 +1,8 @@
-Require Import TLA.TLA.
-Require Import TLA.Stability.
-Require Import TLA.ProofRules.
-Require Import TLA.Morphisms.
-Require Import TLA.BasicProofRules.
+Require Import Logic.Logic.
+Require Import Logic.Stability.
+Require Import Logic.ProofRules.
+Require Import Logic.Morphisms.
+Require Import Logic.BasicProofRules.
 Require Import ChargeTactics.Lemmas.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Rbasic_fun.

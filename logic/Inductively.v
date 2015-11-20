@@ -1,6 +1,6 @@
-Require Import TLA.TLA.
-Require Import TLA.BasicProofRules.
-Require Import TLA.Tactics.
+Require Import Logic.Logic.
+Require Import Logic.BasicProofRules.
+Require Import Logic.Tactics.
 Require Import Coq.Classes.Morphisms.
 
 Local Open Scope HP_scope.

@@ -3,39 +3,39 @@
 -R Charge/Charge!/bin/Charge Charge
 -R coq-ext-lib/theories ExtLib
 -R ChargeTactics ChargeTactics
--R tla TLA
--R tlaexamples Examples
+-R logic Logic
+-R examples Examples
 
-tla/Stream.v
-tla/Syntax.v
-tla/Semantics.v
-tla/Lib.v
-tla/Inductively.v
-tla/BasicProofRules.v
-tla/RenameProofRules.v
-tla/DifferentialInduction.v
-tla/ContinuousProofRules.v
-tla/ProofRules.v
-tla/ArithFacts.v
-tla/Tactics.v
-tla/Automation.v
-tla/TLA.v
-tla/Morphisms.v
-tla/EnabledLemmas.v
-tla/Stability.v
-tla/LyapunovFunctions.v
+logic/Stream.v
+logic/Syntax.v
+logic/Semantics.v
+logic/Lib.v
+logic/Inductively.v
+logic/BasicProofRules.v
+logic/RenameProofRules.v
+logic/DifferentialInduction.v
+logic/ContinuousProofRules.v
+logic/ProofRules.v
+logic/ArithFacts.v
+logic/Tactics.v
+logic/Automation.v
+logic/Logic.v
+logic/Morphisms.v
+logic/EnabledLemmas.v
+logic/Stability.v
+logic/LyapunovFunctions.v
 
 ChargeTactics/Tactics.v
 ChargeTactics/Lemmas.v
 ChargeTactics/Indexed.v
 
-tlaexamples/DiffEqSolutions.v
-tlaexamples/System.v
-tlaexamples/Quadcopter.v
-tlaexamples/Velocity.v
-tlaexamples/Position.v
-tlaexamples/UtilPosition.v
-tlaexamples/Interval.v
-tlaexamples/Rectangle.v
-tlaexamples/Cuboid.v
-tlaexamples/FirstOrderStability.v
+examples/DiffEqSolutions.v
+examples/System.v
+examples/Quadcopter.v
+examples/Velocity.v
+examples/Position.v
+examples/UtilPosition.v
+examples/Interval.v
+examples/Rectangle.v
+examples/Cuboid.v
+examples/FirstOrderStability.v

@@ -1,10 +1,10 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import ExtLib.Tactics.
-Require Import TLA.TLA.
-Require Import TLA.BasicProofRules.
-Require Import TLA.Stability.
-Require Import TLA.LyapunovFunctions.
-Require Import TLA.ArithFacts.
+Require Import Logic.Logic.
+Require Import Logic.BasicProofRules.
+Require Import Logic.Stability.
+Require Import Logic.LyapunovFunctions.
+Require Import Logic.ArithFacts.
 Require Import Coq.Lists.List.
 Require Import Examples.DiffEqSolutions.
 

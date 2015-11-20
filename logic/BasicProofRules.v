@@ -1,14 +1,14 @@
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Logic.FunctionalExtensionality.
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
-Require Import TLA.Automation.
+Require Import Logic.Syntax.
+Require Import Logic.Semantics.
+Require Import Logic.Automation.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.R_sqrt.
 Require Import Coq.Reals.Ratan.
 Require Import Coq.Lists.List.
 
-(* Various proof rules for TLA in general *)
+(* Various proof rules for our logic in general *)
 
 Local Open Scope HP_scope.
 
