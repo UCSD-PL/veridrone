@@ -242,14 +242,18 @@ Ltac rewrite_next_st :=
 
 (* Gets rid of arithmetic expressions of the
    form 0+_, _+0, 0*_, and _*0, _-0, 0-_. *)
-  Ltac rewrite_real_zeros :=
-    repeat (first
-              [ rewrite Rmult_0_r in *
-              | rewrite Rmult_0_l in *
-              | rewrite Rplus_0_r in *
-              | rewrite Rplus_0_l in *
-              | rewrite Rminus_0_r in *
-              | rewrite Rminus_0_l in * ]).
+Ltac rewrite_real_zeros :=
+  repeat (first
+            [ rewrite Rmult_0_r in *
+            | rewrite Rmult_0_l in *
+            | rewrite Rplus_0_r in *
+            | rewrite Rplus_0_l in *
+            | rewrite Rminus_0_r in *
+            | rewrite Rminus_0_l in * ]).
+
+Ltac simpl_Rmax :=
+  repeat first [rewrite Rbasic_fun.Rmax_left in * by solve_linear |
+                rewrite Rbasic_fun.Rmax_right in * by solve_linear ].
 
 Local Open Scope HP_scope.
 

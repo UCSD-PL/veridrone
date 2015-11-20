@@ -184,6 +184,8 @@ Fixpoint is_st_formula (F:Formula) : Prop :=
 
 Existing Class is_st_formula.
 
+Hint Extern 1 (is_st_formula _) => solve [ compute ; tauto ] : typeclass_instances.
+
 (* The bool version of is_st_formula. This
    one is incomplete. If it returns true,
    the Formula does not have any !, but if

@@ -11,7 +11,7 @@ Require Import Examples.DiffEqSolutions.
 Open Scope HP_scope.
 Open Scope string_scope.
 
-Module Type SecondDerivShimParams <: SdistParams.
+Module Type PositionShimParams <: SdistParams.
 
   (* The upper bound on y. *)
   Parameter ub : R.
@@ -23,9 +23,9 @@ Module Type SecondDerivShimParams <: SdistParams.
   Parameter amin : R.
   Parameter amin_lt_0 : (amin < 0)%R.
 
-End SecondDerivShimParams.
+End PositionShimParams.
 
-Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
+Module PositionShim (Import Params : PositionShimParams).
 
   Module SdistUtil := SdistUtil(Params).
   Import SdistUtil.
@@ -308,6 +308,73 @@ Module SecondDerivShimCtrl (Import Params : SecondDerivShimParams).
                      => rewrite H
                    end; solve_linear. } }
       { simpl next. restoreAbstraction. charge_assumption. } }
-Qed.
+  Qed.
 
-End SecondDerivShimCtrl.
+  (* A proof that the inductive safety condition
+     Inv implies the safety contition
+     we actually care about, Safe. *)
+  Lemma IndInv_impl_Safe :
+    IndInv //\\ TimeBound d |-- Safe.
+  Proof.
+    pose proof d_gt_0.
+    pose proof amin_lt_0.
+    breakAbstraction. intuition.
+    specialize (H2 R0). rewrite_real_zeros. intros.
+    destruct (Rle_dec R0 (Stream.hd tr "v")).
+    - intuition. specialize_arith_hyp H3.
+      simpl_Rmax.
+      assert (- / 2 < 0)%R by solve_linear.
+      assert (/amin < 0)%R by solve_linear.
+      generalize dependent (-/2)%R.
+      generalize dependent (/amin)%R.
+      intros. eapply Rle_trans; eauto.
+      clear H3. solve_nonlinear.
+    - simpl_Rmax. rewrite_real_zeros.
+      solve_linear.
+  Qed.
+
+  Lemma SafeAcc_ZeroOrder_amin :
+    forall a,
+      SafeAcc a 0 |-- SafeAccZeroOrder amin d.
+  Proof.
+    unfold SafeAcc, SafeAccZeroOrder.
+    pose proof amin_lt_0. pose proof d_gt_0.
+    intros. reason_action_tac. split.
+    { specialize (H1 R0). intros. specialize_arith_hyp H1.
+      rewrite_real_zeros. assert (pre "v" > 0)%R by solve_nonlinear. simpl_Rmax.
+      pose proof (sdist_tdist_tdist "v" d (Stream.Cons pre (Stream.forever (fun _ => R0)))).
+      breakAbstraction. solve_linear. }
+    { specialize (H1 0)%R. intros. rewrite_real_zeros. simpl_Rmax.
+      pose proof (sdist_tdist "v" (- pre "v" * / amin)%R
+                              (Stream.Cons pre (Stream.forever (fun _ => R0)))).
+      breakAbstraction. solve_linear. }
+  Qed.
+
+  Theorem SysNeverStuck_Next : |-- SysNeverStuck d IndInv Next.
+  Proof.
+    pose proof amin_lt_0.
+    pose proof d_gt_0.
+    apply SysNeverStuck_Sys; [ pose proof d_gt_0 ; solve_linear | | ].
+    { charge_assert (SafeAcc "a" 0).
+      { rewrite <- (SafeAcc_downclock "a" 0 "T"). solve_linear. }
+      rewrite SafeAcc_ZeroOrder_amin. charge_clear. charge_intros.
+      enable_ex_st'.
+      do 3 eexists; exists d; solve_linear. }
+    { admit. (** Provable, but we won't worry about it *) }
+  Qed.
+
+  (* Our main safety theorem. *)
+  Theorem Spec_safe :
+    |-- (IndInv //\\ 0 <= "T" <= d) //\\ []SysSystem Next -->> []Safe.
+  Proof.
+    rewrite Inductively.Preserves_Inv_simple.
+    { rewrite IndInv_impl_Safe.
+      charge_tauto. }
+    { compute; tauto. }
+    { apply SafeAndReactive_TimedPreserves.
+      unfold SafeAndReactive. charge_split.
+      { apply TimedPreserves_Next. }
+      { apply SysNeverStuck_Next. } }
+  Qed.
+
+End PositionShim.

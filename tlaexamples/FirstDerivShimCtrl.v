@@ -8,20 +8,16 @@ Require Import Examples.System2.
 Local Open Scope HP_scope.
 Local Open Scope string_scope.
 
-Module Type FirstDerivShimParams.
+Module Type VelocityShimParams.
   (* Upper bound on velocity. *)
   Parameter ub : R.
   (* Max time between executions of the
      controller. *)
   Parameter d : R.
   Parameter d_gt_0 : (d > 0)%R.
-End FirstDerivShimParams.
+End VelocityShimParams.
 
-
-
-Module FirstDerivShim (P : FirstDerivShimParams).
-
-  Import P.
+Module VelocityShim (Import P : VelocityShimParams).
 
   (* The continuous dynamics of the system *)
   Definition w : Evolution :=
@@ -86,16 +82,21 @@ Module FirstDerivShim (P : FirstDerivShimParams).
 
   (* Our main safety theorem. *)
   Theorem Spec_safe :
-    |-- (IndInv //\\ 0 <= "T" <= d) //\\ []Next -->> []"v" <= ub.
+    |-- (IndInv //\\ 0 <= "T" <= d) //\\ []SysSystem Next -->> []"v" <= ub.
   Proof.
     rewrite Preserves_Inv_simple.
     { rewrite IndInv_impl_Inv.
       charge_tauto. }
     { compute; tauto. }
-    { apply TimedPreserves_Next. }
+    { apply SafeAndReactive_TimedPreserves.
+      unfold SafeAndReactive. charge_split.
+      { apply TimedPreserves_Next. }
+      { apply SysNeverStuck_Next. } }
   Qed.
 
-  (* Some useful renaming lemmas *)
+  (* Some useful renaming lemmas for generating C code *)
+  (* Commented out for accurate proof line counts for PLDI. *)
+  (*
   Lemma Rename_SafeAcc :
     forall a v (m : RenameMap),
       RenameMapOk m ->
@@ -118,5 +119,6 @@ Module FirstDerivShim (P : FirstDerivShimParams).
     { repeat rewrite Rename_term_ok; auto. }
     { repeat rewrite <- Rename_term_ok; auto. }
   Qed.
+   *)
 
-End FirstDerivShim.
+End VelocityShim.
