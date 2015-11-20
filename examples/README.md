@@ -1,8 +1,11 @@
-This directory contains the systems that we've specified using our version of TLA. Many of these systems are out of date and may no long build. At the moment, only look at the following files:
+This directory contains our Sys abstraction as well as all of the examples that we have built using our Sys abstraction.
 
-1. AbstractIndAccCtrl.v
-2. OneDimAccShim1.v - a concrete height upper bound shim. This is a refinement of AbstractIndAccCtrl.v.
-3. OneDimAccShim2.v - another concrete height upper bound shim. This is a refinement of AbstractIndAccCtrl.v as well.
-4. OneDimAccShimUtil.v - this file defines useful functions and lemmas for the two height upper bound shims.
+- System.v - contains our Sys abstraction and associated proof rules
+- Velocity.v - velocity (first derivative) monitor
+- Position.v - position (second derivative) monitor
+- Interval.v - interval monitor
+- Rectangle.v - two dimensional, vertical bounding rectangle with small-angle constraint
+- Cuboid.v - monitor enforcing 3D cuboid bounds
+- FourCuboids.v - a disjunction of 4 cuboids
+- Quadcopter.v - the full quadcopter dynamics, with the small-angle constraint
 
-In order to build AbstractIndAccCtrl.v and OneDimAccShimUtil.v (on which the two height upper bound shims depend), you have to run make in the tla directory and then make in this directory. At some point, we should fix this.
