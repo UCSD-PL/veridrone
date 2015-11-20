@@ -22,8 +22,6 @@ logic/Automation.v
 logic/Logic.v
 logic/Morphisms.v
 logic/EnabledLemmas.v
-logic/Stability.v
-logic/LyapunovFunctions.v
 
 ChargeTactics/Tactics.v
 ChargeTactics/Lemmas.v
@@ -38,4 +36,3 @@ examples/UtilPosition.v
 examples/Interval.v
 examples/Rectangle.v
 examples/Cuboid.v
-examples/FirstOrderStability.v
