@@ -385,28 +385,6 @@ Module CuboidShim (Import P : CuboidParams).
     eauto with rw_rename.
   Qed.
 
-
-Lemma Enabled_TimeBound :
-  forall d0,
-    (d0 > 0)%R ->
-    |-- Enabled (next (TimeBound d0)).
-Proof.
-  intros. enable_ex_st. exists d0. solve_linear.
-Qed.
-
-  Ltac cut_setoid_rewrite_r X :=
-    let xx := fresh "xx" in
-    cut X; [ intro xx; rewrite xx; clear xx | ].
-
-  Ltac cut_setoid_rewrite_l X :=
-    let xx := fresh "xx" in
-    cut X; [ intro xx; rewrite <- xx; clear xx | ].
-
-  Ltac rewrite_rename_equiv F m :=
-    cut_setoid_rewrite_r (F -|- Rename m F);
-    [ | rewrite <- Rename_ok by eauto with rw_rename; reflexivity ].
-
-
   Theorem SysNeverStuck_Next : |-- SysNeverStuck d IndInv Next.
   Proof.
     eapply SysNeverStuck_Sys;
@@ -507,7 +485,7 @@ Qed.
       simpl. restoreAbstraction. charge_tauto. }
   Qed.
 
-  Lemma Box_safe :
+  Lemma Cuboid_safe :
     |-- (IndInv //\\ TimeBound P.d) //\\ []SysSystem Next -->> []Safe.
   Proof.
     rewrite Inductively.Preserves_Inv_simple.

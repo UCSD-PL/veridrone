@@ -71,13 +71,11 @@ Module IntervalShim (Import P : IntervalParams).
     |-- TimedPreserves d IndInv Next.
   Proof with (refine _).
     unfold IndInv, X.IndInv, V.IndInv, Next, X.SafeAcc.
-    unfold SysCompose. rewrite SysCompose_simpl.
-    rewrite <- TimedPreserves_And by tlaIntuition.
-    charge_split.
-    { apply TimedPreserves_intro.
-      rewrite SysCompose_simpl.
-      rewrite <- TimedPreserves_And by tlaIntuition.
-      charge_split.
+    unfold SysCompose.
+    repeat ((try simple apply TimedPreserves_intro);
+      rewrite SysCompose_simpl;
+      rewrite <- TimedPreserves_And by tlaIntuition;
+      charge_split).
       { apply TimedPreserves_intro. rewrite <- X.TimedPreserves_Next.
         charge_tauto. }
       { apply TimedPreserves_intro.
@@ -85,11 +83,7 @@ Module IntervalShim (Import P : IntervalParams).
         rewrite SysRename_rule by eauto with rw_rename.
         rewrite TimedPreserves_Rename by eauto with rw_rename.
         rewrite <- X.TimedPreserves_Next. rewrite Rename_True.
-        charge_tauto. } }
-    { apply TimedPreserves_intro.
-      rewrite SysCompose_simpl.
-      rewrite <- TimedPreserves_And by tlaIntuition.
-      charge_split.
+        charge_tauto. }
       { apply TimedPreserves_intro. rewrite <- V.TimedPreserves_Next.
         charge_tauto. }
       { apply TimedPreserves_intro.
@@ -97,7 +91,7 @@ Module IntervalShim (Import P : IntervalParams).
         rewrite SysRename_rule by eauto with rw_rename.
         rewrite TimedPreserves_Rename by eauto with rw_rename.
         rewrite <- V.TimedPreserves_Next. rewrite Rename_True.
-        charge_tauto. } }
+        charge_tauto. }
   Qed.
 
   Lemma velocity_refinement :
