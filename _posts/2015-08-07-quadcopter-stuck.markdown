@@ -14,11 +14,23 @@ cause that we later discovered.
 
 ### The problem
 
+The purpose of the monitor is to allow the pilot or existing control
+software to move the quadcopter freely within a rectangular region but
+prevent it from ever leaving that rectangular region.
+
+Quadcopter inside boundary | Quadcopter approaching boundary
+:------------:|:-------------:
+![]({{ site.baseurl }}/images/pilot-within-box.jpg){: style="width:85%"} | ![]({{ site.baseurl }}/images/pilot-at-boundary.jpg){: style="width:85%"}
+
 When the quadcopter was on the border of the bounding box, it sometimes
 appeared to get stuck. That is, when Sorin attempted to move the quadcopter
 towards the middle of the bounding box, the monitor ignored his comments,
-even though they seemed to be perfectly safe. This didn't always occur when
-the quadcopter was on the boundary; it only occurred sometimes.
+even though they seemed to be perfectly safe.
+
+![]({{ site.baseurl }}/images/pilot-stuck.jpg){: style="width:45%"}
+
+This didn't always occur when the quadcopter was on the boundary; it only
+occurred sometimes.
 
 ### The cause
 
