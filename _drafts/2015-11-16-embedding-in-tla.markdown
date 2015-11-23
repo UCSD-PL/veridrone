@@ -60,15 +60,11 @@ Here, ```Seq``` is sequencing operator ("semicolon"); ```Skip``` is an
 operation with no effect ("no-op"); ```Asn``` assigns a value to a variable.
 ```Ite``` implements a particular type of branching ("if-then-else")
 behavior: if the given expression evaluates to a value less than zero, the
-first of the two given commands is run; otherwise the second is.
+first of the two given commands is run; otherwise the second is run.
 
 ```cexpr``` is a simple expression language
 with floating-point variables and constants, as well as floating-point addition,
 subtraction, and multiplication.
-The function ```cexprD``` (the "denotation function") runs an expression
-and returns the result. That is to say, we give a
-*denotational semantics* for our expression language. We omit the definition of
-```cexprD``` for brevity, but here is ```cexpr```:
 
 {%highlight coq%}
 Inductive cexpr :=
@@ -79,15 +75,19 @@ Inductive cexpr :=
 | Mult : fexpr -> fexpr -> fexpr.
 {%endhighlight%}
 
-It is worth pointing out ```cexprD```'s type:
+
+The function ```cexprD``` (the "denotation function") runs an expression
+and returns the result. That is to say, we give a
+*denotational semantics* for our expression language. We omit the definition of
+```cexprD``` for brevity, but here its type:
 
 {%highlight coq%}
 cexprD : cexpr -> option R
 {%endhighlight%}
 
-```cexprD``` will return ```None``` if evaluating the expression "crashes".
+```cexprD``` returns ```None``` if evaluating the expression "crashes".
 In the language described here, this can only happen in the case
-of attempting to look up a variable which has not been assigned.
+of attempting to look up an unknown variable.
 
 #### Program State
 
@@ -96,27 +96,27 @@ type). To do so, however, we must first formalize a model of program state.
 First, for simplicity, we work in a language where all variables have the
 same type. Because we care about modeling the real-time computations
 performed by VeriDrone's controller, the variables are all floating-point
-numbers (we build on top of the Flocq formalization of floating-point numbers).
+numbers (we build on top of the [Flocq](http://flocq.gforge.inria.fr/) formalization of floating-point numbers).
 
 
 Programs have finite state (in the sense of having finitely many variables),
 so we use an association list:
 
 {%highlight coq%}
-Definition fstate := list (string * float)
+Definition fstate := list (string * float).
 {%endhighlight%}
 
-This definition is relatively easy to reason about on its own, albeit with
-the caveat that we must be careful when comparing them for equality:
-```[("a",1.0);("b",2.0)] <> [("b",2.0);("a",1.0)]```, but the two are
-*semantically* equal when considered as program states. We use our own
-equality relation for program states instead of Coq's native equality.
+This definition is relatively easy to reason about on its own; however, the representation is not canonical.
+This lack of canonicity means that we need to define our own notion of *semantically* equal.
+For example the following two ```fstate```s are semantically equal, but not syntactically equal (Coq's default definition).
+```[("a",1.0);("b",2.0)] <> [("b",2.0);("a",1.0)]```
+Note that this notion of equality is respected by the semantics, i.e. if the same program is run in two semantically equal ```fstate```s, then it will have similar results.
 
 The type of states used in the implementation of LTL that VeriDrone runs on
 is somewhat different. Here it is:
 
 {%highlight coq%}
-Definition state := (string -> R)
+Definition state := (string -> R).
 {%endhighlight%}
 
 This is not a finite map, since all states must assign values to all
@@ -127,7 +127,7 @@ carry around a ```list``` of ```string```s describing what variables
 are considered relevant to the program at hand.
 
 The precise details of solution to this mismatch are not so interesting;
-the curious reader can refer to the project source code.
+the curious reader can refer to the [project source code]({{ site.baseurl }}/code.html).
 
 #### Semantics
 
@@ -135,8 +135,8 @@ To embed programs in LTL, we need a semantics for the language
 we're embedding. In this case we follow the standard approach of giving
 the language a *big-step operational semantics*
 in terms of an inductively-defined relation that describes the transitions
-of entire programs in terms of their starting an ending states.
-(Note that, because the semantics is total and deterministic,
+of entire programs in terms of their starting and ending states.
+(Note that, because the semantics is total and deterministic.
 we could have just given it as a function. However, leaving it as a relation
 makes it easier to extend the system to nondeterministic or nontotal programs,
 though doing so in our case is future work.)
@@ -229,20 +229,20 @@ make a formal connection between evaluations of concrete programs
 and the evaluation of LTL logical formulas.
 
 {%highlight coq%}
-  Definition models (vars : list string) (ist : istate) (sst : Syntax.state) : Prop :=
-    forall (s : string),
-      (In s vars ->
-      exists (d : pl_data),
-        fm_lookup ist s = Some d /\
-        asReal d (sst s)) /\
-      (~In s vars -> fm_lookup ist s = None).
+Definition models (vars : list string) (ist : istate) (sst : Syntax.state) : Prop :=
+  forall (s : string),
+    (In s vars ->
+    exists (d : pl_data),
+      fm_lookup ist s = Some d /\
+      asReal d (sst s)) /\
+   (~In s vars -> fm_lookup ist s = None).
 {%endhighlight%}
 
 In our case, ```pl_data``` is simply an alias for the type of real numbers
 (```R```); ```asReal f r``` expresses the fact that, when the floating-point
 value ```f``` is converted to a real number, the conversion succeeds
 (in particular, the value retrieved was not Inf or NaN, so-called
-"exceptional value" in floating-point), and yields the number ```r```.
+"exceptional values" in floating-point), and yields the number ```r```.
 
 Informally, this definition of ```models``` imposes
 the following requirement on all variables:
@@ -263,7 +263,7 @@ LTL. What we'd like to have is, essentially, the following
 diagram "commute", in that the result of taking the two paths
 shown (labeled "Path 1" and "Path 2") should be the same.
 
-<div><img src="/veridrone/images/EmbeddingCorrectness.svg" alt="Correctness Diagram" style="height: 450px;"/></div>
+<div><img src="{{ site.base_url }}/images/EmbeddingCorrectness.svg" alt="Correctness Diagram" style="height: 450px;"/></div>
 
 Informally, suppose we have a program ```p``` and we know that
 ```eval fs1 p fs2```. Then the embedding of ```p```
@@ -288,7 +288,7 @@ Definition embedding_correct1 (embed : embedding) : Prop :=
         (ls :: ls' :: tr)
 {%endhighlight%}
 
-It's worth noting here that some of the primitives (LTL.* in particular)
+It's worth noting here that some of the primitives (```LTL.*``` in particular)
 have slightly different names in our Coq development; I've renamed them
 here for clarity. ```stream``` is an infinite (co-inductive) list;
 ```LTL.eval_formula``` uses this type in order to be able to express
@@ -322,7 +322,7 @@ A correct embedding function must meet *both* of these conditions.
 We use the following embedding function, which we've proven correct
 (in the sense of proving that it meets both of the correctness
 conditions spelled out above). For details of the proof, the interested
-reader can consult our Coq development.
+reader can consult [our Coq development]({{ site.base_url }}/code.html).
 
 {%highlight coq%}
   Definition embed_ex (v : list string) (prg : ast) : Formula :=
