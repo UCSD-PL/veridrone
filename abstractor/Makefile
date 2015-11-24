@@ -1,7 +1,5 @@
 # copied from tla directory, with some changes...
 
-# VS := source.v bound.v Embeding.v FloatEmbed.v Abstractor.v
-
 .PHONY: coq clean
 
 coq: Makefile.coq

@@ -357,7 +357,7 @@ Proof.
 Qed.
 
 (* Very simple program for testing. We want to prove that x stays >0 *)
-Definition float_one := source.nat_to_float 1.
+Definition float_one := Source.nat_to_float 1.
 Definition simple_prog : fcmd :=
   FAsn "x" (FPlus (FConst float_one) (FVar "x")).
 
@@ -384,14 +384,13 @@ Proof.
   tlaIntuition.
 Qed.
 
-Require Import bound.
-Require Import source.
+Require Import Bound.
+Require Import Source.
 Definition FP2RP (vs : list Var) (P : fstate -> Prop) : state -> Prop :=
   (fun st =>
      exists (fst : fstate), vmodels vs fst st /\ P fst).
 
 (* Version of HoareA_embed_ex we can use for rewriting. *)
-Require Import source.
 Require Import ExtLib.Tactics.
 Import FloatEmbed.
 Lemma Hoare__embed_rw :
@@ -421,7 +420,6 @@ Proof.
   split; auto.
 Qed.
 
-Require Import source.
 Definition FP2RP' (vs : list Var) (P : fstate -> Prop) (Q : Prop) : state -> Prop :=
   (fun st =>
      exists (fst : fstate), vmodels vs fst st /\ (P fst -> Q)).
@@ -691,8 +689,27 @@ Proof.
   tlaIntuition.
 Qed.
 
-Print simpler_prog.
+Check embed_ex.
 
+(* to prove this we need a lemma about "states being iso on certain variables" *)
+(* need to add weakest precondition hypothesis *)
+Check fwp.
+Lemma float_embed_ex_enabled :
+  forall (vs : list Var) (prg : ast) (fst fst' : fstate) (st' : state),
+    fwp prg (fun fst' => models vs fst' st') fst ->
+    forall (st : state) (tr : trace),
+      models vs fst st ->
+      Semantics.eval_formula (Enabled (embed_ex vs prg)) (Stream.Cons st tr).
+Proof.
+  breakAbstraction.
+  intros.
+  apply fwp_correct in H. fwd.
+  specialize (H1 _ H).
+  exists (Stream.forever st').
+  eauto.
+Qed.
+
+(*
 Fact fwp_simpler_full : preVarIsFloat "x" //\\ "x" > 0 //\\
                                 [](embed_ex simple_prog_ivs simpler_prog \\//
                                                (Enabled (embed_ex simple_prog_ivs simpler_prog) -->> lfalse))
@@ -814,6 +831,7 @@ Proof.
         consider (string_dec s "x"); intros; subst; [|reflexivity].
         simpl in H2. destruct H2; auto. } } }
 Qed.
+*)
 
 Lemma limpl_limpl_land :
   forall (A B C : Syntax.Formula),
@@ -838,12 +856,13 @@ Definition velshim : fcmd :=
        (FAsn "a" (FConst fzero))
        (FAsn "a" (FVar "a")).
 
-Definition velshim_ivs : list (Var * Var) :=
-  [("a", "a"); ("v", "v")].
+Definition velshim_vs : list (Var) :=
+  ["a"; "v"].
 
 (* TODO: prove thorem about always-enabledness of oembed_fcmd
      (true of any semantics embedded using oembedStep_maybenone, provided
-     that any state has some other state it steps to *)
+     that any state has some other state it steps to) *)
+(*
 Lemma feval_never_stuck :
   forall (fs : fstate) (c : fcmd),
   exists (ofst : option fstate),
@@ -875,7 +894,9 @@ Proof.
     Grab Existential Variables.
     apply fzero.
 Qed.
+*)
 
+(*
 (* TODO - prove these lemmas inline *)
 Lemma oembed_fcmd_enabled :
   forall (ivs ovs : list (Var * Var)) (fc : fcmd),
@@ -900,6 +921,7 @@ Proof.
   breakAbstraction.
   intros.
 Abort.
+*)
 
 (* Used to expose post-states, since fwp by default does not let us talk about both
    pre- and post-states *)
@@ -925,8 +947,8 @@ Proof.
 Qed.
 
 Fact fwp_velshim_full : preVarIsFloat "a" //\\ preVarIsFloat "v" //\\ 
-                                      (oembed_fcmd velshim_ivs velshim_ivs velshim \\//
-                                                   (Enabled (oembed_fcmd velshim_ivs velshim_ivs velshim) -->> lfalse))
+                                      (embed_ex velshim_vs velshim)
+                                                   (*(Enabled (embed_ex velshim_ivs velshim_ivs velshim) -->> lfalse))*)
                                       |-- (VarNextT "a" = 0 \\// "v" + ((VarNextT "a") * NatT 1) < NatT 10 )%HP.
 (*
 Fact fwp_velshim_full : preVarIsFloat "a" //\\ preVarIsFloat "v" //\\
@@ -938,50 +960,67 @@ Fact fwp_velshim_full : preVarIsFloat "a" //\\ preVarIsFloat "v" //\\
 *)
 (* TODO need to refactor body of proof to take new hypotheses into account *)
 Proof.
-  repeat rewrite Lemmas.land_lor_distr_L.
-  apply lorL.
-  {
-    rewrite landC.
-    tlaRevert.
-    rewrite landC.
-    tlaRevert.
+  rewrite landC.
+  tlaRevert.
+  rewrite landC.
+  tlaRevert.
+  erewrite -> Hoare__embed_rw.
+  { (* main goal *)
+    eapply lforallL.
+    instantiate (1 := (fstate_get_rval "a" (fun a =>
+                                              fstate_get_rval "v" (fun v _ =>
+                                                                     (a = 0 \/ v + a + 1 < 10)%R)))).
+    cbv beta iota zeta delta [fwp velshim fexprD].
+    eapply lequiv_rewrite_left.
 
-    erewrite -> Hoare__embed_rw.
-    { (* main goal *)
-      Opaque fwp.
-      breakAbstraction.
-      intro.
-      generalize dependent (Stream.hd tr "a").
-      generalize dependent (Stream.hd tr "v").
-      generalize dependent (Stream.hd (Stream.tl tr) "a").
-      generalize dependent (Stream.hd (Stream.tl tr) "v").
-      clear tr.
-      intros.
-      fwd.
-      Print fstate_get_rval.
-      (* v2 or v1? i think v1 *)
-      specialize (H (fstate_get_rval "a" (fun a fs => a = 0 \/ (v1 + a) < 10))%R).
-      fwd.
-      unfold Value in *.
-      subst.
-      unfold fstate_get_rval in *.
-      unfold fstate_lookupR in *.
-      forward.
-      destruct H4.
-      { Transparent fwp.
-        cbv beta iota zeta delta [ fwp velshim fexprD ].
-        rewrite H0; rewrite H.
-        eexists; split; [ reflexivity | ].
+    {
+      crunch_embeds.
+    }
 
-        assert (f = x0) by admit.
-        assert (f0 = x) by admit.
+    apply lexistsL. intros.
+    
 
-        Definition Impl (A B : list singleBoundTerm) : Prop :=
-          List.Forall (fun a => (forall st, a.(premise) st -> False) \/ In a B) A.
+    simpl. restoreAbstraction.
+    
+    
+    breakAbstraction.
+    intro.
+    generalize dependent (Stream.hd tr "a").
+    generalize dependent (Stream.hd tr "v").
+    generalize dependent (Stream.hd (Stream.tl tr) "a").
+    generalize dependent (Stream.hd (Stream.tl tr) "v").
+    (*clear tr.*)
+    intros.
+    fwd.
+    (* v2 or v1? i think v1 *)
+    specialize (H0 (fstate_get_rval "a" (fun a fs => a = 0 \/ (v1 + a) < 10))%R).
+    fwd.
+    unfold Value in *.
+    subst.
+    unfold fstate_get_rval in *.
+    unfold F2OR in *.
 
-        Theorem optimize_bound_fexpr
+    Transparent fwp.
+    cbv beta iota zeta delta [fwp velshim fexprD] in H5.
+    fwd.
+    destruct H5.
+    unfold fstate_lookupR in *.
+    forward.
+    destruct H4.
+    { Transparent fwp.
+      cbv beta iota zeta delta [ fwp velshim fexprD ].
+      rewrite H0; rewrite H.
+      eexists; split; [ reflexivity | ].
+
+      assert (f = x0) by admit.
+      assert (f0 = x) by admit.
+
+      Definition Impl (A B : list singleBoundTerm) : Prop :=
+        List.Forall (fun a => (forall st, a.(premise) st -> False) \/ In a B) A.
+
+      Theorem optimize_bound_fexpr
         : forall f opt_f,
-            Impl (bound_fexpr f) opt_f ->
+          Impl (bound_fexpr f) opt_f ->
             forall P, P opt_f ->
                       P (bound_fexpr f).
         Admitted.
@@ -2470,3 +2509,4 @@ Proof.
   
 Abort.
 *)
+

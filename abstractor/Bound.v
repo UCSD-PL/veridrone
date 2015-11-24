@@ -14,7 +14,7 @@ Require Import TLA.Automation.
 Require Import compcert.flocq.Appli.Fappli_IEEE.
 Require Import compcert.flocq.Appli.Fappli_IEEE_bits.
 Require Import compcert.flocq.Core.Fcore_Raux.
-Require Import source.
+Require Import Source.
 Require Import Coq.Reals.Raxioms.
 Require Import Coq.micromega.Psatz.
 Require Import compcert.flocq.Prop.Fprop_relative.
