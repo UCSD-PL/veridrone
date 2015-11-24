@@ -13,6 +13,7 @@ Require Import compcert.flocq.Core.Fcore_defs.
 Require Import compcert.flocq.Appli.Fappli_IEEE.
 Require Import compcert.flocq.Appli.Fappli_IEEE_bits.
 
+
 Require Import ExtLib.Programming.Extras.
 Import FunNotation.
 
@@ -20,26 +21,72 @@ Local Close Scope HP_scope.
 Delimit Scope SrcLang_scope with SL.
 Local Open Scope SrcLang_scope.
 
+(* TODO fill these in *)
+(** [prec] is the number of bits of the mantissa including the implicit one.
+    [emax] is the exponent of the infinities.
+    Typically p=24 and emax = 128 in single precision. *)
 
+(*
 Variable prec:Z.
 Variable emax:Z.
 Variable emin:Z.
 Hypothesis emaxGtEmin : (emax > emin)%Z.
 Hypothesis precGe1: (prec >= 1)%Z.
 Hypothesis precLtEmax : (prec < emax)%Z.
-Hypothesis eminMinValue : (emin > 3 - emax - prec)%Z.
+Hypothesis eminMinValue : (emin >= 3 - emax - prec)%Z.
 Hypothesis nan : binary_float prec emax -> binary_float prec emax -> bool * nan_pl prec.
 Locate FLT_exp.
-Hypothesis precThm : forall k : Z,
+Hypothesis precThm : forall k : ,Z
+    (emin < k)%Z ->
+    (prec <=
+     k - Fcore_FLT.FLT_exp (3 - emax - prec) prec k)%Z.*)
+
+Definition prec:Z := 24%Z.
+(* Definition emax:Z := 128%Z.
+   Definition emax:Z := 1023%Z. *)
+Definition emax := 128%Z.
+
+(*Definition emin:Z := (3 - emax - prec)%Z.*)
+Definition emin:Z := (-126)%Z.
+Definition emaxGtEmin : (emax > emin)%Z.
+Proof. compute. reflexivity.
+Defined.
+
+Definition precGe1: (prec >= 1)%Z.
+Proof. compute. inversion 1.
+Defined.
+
+Lemma eminMinValue : (emin >= 3 - emax - prec)%Z.
+Proof. compute. inversion 1. Qed.
+
+Definition precLtEmax : (prec < emax)%Z.
+Proof. compute. reflexivity.
+Defined.
+
+(* TODO - figure out where eminMinValue and precThm are actually getting used *)
+
+(* Lemma nan : binary_float prec emax -> binary_float prec emax -> bool * nan_pl prec. *)
+Lemma precThm : forall k : Z,
     (emin < k)%Z ->
     (prec <=
      k - Fcore_FLT.FLT_exp (3 - emax - prec) prec k)%Z.
+Proof.
+  intros.
+  unfold Fcore_FLT.FLT_exp.
+  unfold Z.max.
+  destruct (k -prec ?= 3 - emax - prec)%Z eqn:Hk; try lia.
+  - rewrite Z.compare_lt_iff in Hk.
+    unfold emin, emax, prec in *.
+    simpl in *.
+    psatz Z.
+Qed.
+
 Definition custom_prec := prec.
 Definition custom_emax:= emax.
 Definition custom_float_zero := B754_zero custom_prec custom_emax false.
 Definition custom_emin := emin.
 Definition float := binary_float custom_prec custom_emax.
-Lemma customEminMinValue : (custom_emin > 3 - custom_emax - custom_prec)%Z.
+Lemma customEminMinValue : (custom_emin >= 3 - custom_emax - custom_prec)%Z.
 unfold custom_emin, custom_emax, custom_prec.
 apply eminMinValue.
 Qed.
@@ -52,9 +99,6 @@ Proof.
 unfold custom_emax,custom_emin.
 apply emaxGtEmin.
 Qed.
-Print Floats.float.
-Print binary64.
-Print binary_float.
 
 (* Term, sans the next operator *)
 Inductive NowTerm : Type :=
@@ -100,9 +144,7 @@ unfold custom_emax, custom_prec.
 apply precLtEmax.
 Qed.
 
-Print nan.
-
-Definition custom_nan:float -> float -> bool * nan_pl custom_prec := nan.
+Definition custom_nan:float -> float -> bool * nan_pl custom_prec := Floats.Float32.binop_pl.
  
 Definition nat_to_float (n : nat) : float :=
 Fappli_IEEE_extra.BofZ custom_prec custom_emax custom_precGt0 custom_precLtEmax (Z.of_nat n).
@@ -112,8 +154,6 @@ Coercion nat_to_int : nat >-> int.
 
 Coercion Pos.of_nat : nat >-> positive.
 (*Coercion FloatToR : Floats.float >-> R.*)
-
-Print binary_float.
 
 (* inject  *)
 Fixpoint denowify (nt : NowTerm) : Term :=
@@ -265,21 +305,94 @@ Definition lift2 {T U V : Type} (f : T -> U -> V) (a : option T) (b : option U) 
   | _ , _ => None
   end.
 
+(* Useful floating-point operations for our format *)
+Definition float_plus (a b : float) : float :=
+  Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE a b.
+
+Definition float_minus (a b : float) : float :=
+  Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE a b.
+
+Definition float_mult (a b : float) : float :=
+  Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE a b.
+
+(* This replaces a validity proof in the floating-point representation and replaces it with
+   eq_refl (this is possible since boolean equality is decidable). Doing this optimization
+   allows us to compute floating-point operations in Coq, (including constructing
+   floating-point numbers) though we must do so using lazy. *)
+Definition concretize_float (f : float) :=
+  match f with
+  | B754_finite sig m e pf =>
+    @B754_finite _ _ sig m e
+                (match bounded prec emax m e as X return (X = true -> X = true) with
+                 | true => fun p => eq_refl
+                 | false => fun p => p
+                 end pf)
+  | _ => f
+  end.
+
+Lemma concretize_float_correct :
+  forall (f : float), concretize_float f = f.
+Proof.
+  intros.
+  unfold concretize_float.
+  destruct f; try reflexivity.
+  assert (((if bounded prec emax m e as X return (X = true -> X = true)
+       then fun _ : true = true => eq_refl
+            else fun p : false = true => p) e0) = e0).
+  { unfold custom_prec, custom_emax in e0.
+    rewrite e0. reflexivity. }
+  rewrite H. reflexivity.
+Qed.
+
+(* here is how we define new floating-point constants. *)
+Definition new_float_one := Eval lazy in (concretize_float (nat_to_float 1)).
+
+(* Nice tactics for reducing floating-point expressions. Automatically apply concretization *)
+Ltac fcompute_in X :=
+  rewrite <- concretize_float_correct in X; lazy in X.
+
+Ltac fcompute :=
+  rewrite <- concretize_float_correct; lazy.
+
+(* raw representaion of float 1 as bits (obtained from simple C program) *)
+Lemma test : new_float_one = concretize_float (b32_of_bits 1065353216).
+Proof.
+  fcompute.
+  reflexivity.
+Qed.
+
+(* and here is how we add them *)
+Definition new_float_one' := Eval lazy in (concretize_float (float_plus custom_float_zero (nat_to_float 1))).
+
+(* These examples illustrate how "concretize_float" should be used: you should wrap an entire float-typed expression in it
+   and then run Eval lazy. "Concretize_float" is an aid to evaluation, essentially. *)
+
+(* Floating-point comparisons *)
+(* NB: sign bit is true if negative *)
+Definition float_lt (a b : float) : bool :=
+  match float_minus a b with
+  | B754_zero _ => false
+  | B754_infinity is_neg => is_neg
+  | B754_nan is_neg _ => is_neg (* should never happen for non-exceptional operands... *)
+  | B754_finite is_neg _ _ _ => is_neg
+  end.
+
+Definition float_le (a b : float) : bool :=
+  match float_minus a b with
+  | B754_zero _ => true
+  | B754_infinity is_neg => is_neg
+  | B754_nan is_neg _ => is_neg (* should never happen for non-exceptional operands... *)
+  | B754_finite is_neg _ _ _ => is_neg
+  end.  
 
 Section eval_expr.
   Variable st : fstate.
 
   (* denotation of NowTerm *)
-  Print Floats.Float.binop_pl.
-  
-  Print Floats.Float.transform_quiet_pl.
 
-  Print Archi.default_pl_64.
-
+  (* TODO - does this actually get used anywhere? --M *)
 Definition try := (fun pl : positive =>
    ((PreOmega.Z_of_nat' (S (Fcore_digits.digits2_Pnat pl)) <? 53)%Z = true)%type).
-
-Print Bplus.
 
 Fixpoint eval_NowTerm (t:NowTerm) :=
   match t with
@@ -287,19 +400,17 @@ Fixpoint eval_NowTerm (t:NowTerm) :=
   | NatN n => Some (nat_to_float n)
   | FloatN f => Some f
   | PlusN t1 t2 =>
-    lift2 (Bplus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE)
+    lift2 float_plus
           (eval_NowTerm t1) (eval_NowTerm t2)
   | MinusN t1 t2 =>
-    lift2 (Bminus custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE)
+    lift2 float_minus
           (eval_NowTerm t1) (eval_NowTerm t2)
   | MultN t1 t2 =>
-    lift2 (Bmult custom_prec custom_emax custom_precGt0 custom_precLtEmax custom_nan mode_NE)
+    lift2 float_mult
           (eval_NowTerm t1) (eval_NowTerm t2)
   end.
 
   (* denotation of comparison functions *)
-
-
 
 Definition custom_cmp (c : comparison) (f1 : float) (f2 : float) := Floats.cmp_of_comparison c (Fappli_IEEE_extra.Bcompare custom_prec custom_emax f1 f2).
 
@@ -349,9 +460,6 @@ Fixpoint assns_update_state (assns: list progr_assn) (acc : fstate) : option fst
   end.
 *)
 
-Print SrcProg.
-SearchAbout FlatFormula.
-
 Fixpoint eval_SrcProg (sp : SrcProg) (init : fstate) : option fstate :=
   match sp with
     | SAssn v nt   => assn_update_state v nt init
@@ -369,6 +477,47 @@ Fixpoint eval_SrcProg (sp : SrcProg) (init : fstate) : option fstate :=
       end
   end.
 
+(* failed effort to get nat_to_float to compute *)
+(*
+Lemma derp : forall x, nat_to_float 3 = x.
+Proof.
+  intros.
+  unfold nat_to_float.
+  unfold Fappli_IEEE_extra.BofZ.
+  unfold binary_normalize.
+  unfold binary_round_correct.
+  simpl.
+  unfold shl_align_fexp_correct.
+  simpl.
+  compute.
+  unfold shl_align_correct.
+  unfold binary_round_aux_correct.
+  simpl.
+  unfold Fcalc_round.truncate_correct_partial.
+  unfold Fcalc_round.truncate_correct.
+  simpl.
+  unfold fexp_correct.
+  unfold Fcalc_round.round_trunc_sign_any_correct.
+  simpl.
+  unfold Fcalc_round.truncate_correct_format.
+  unfold Fcalc_round.truncate_correct.
+  simpl.
+  unfold Fcalc_round.round_sign_any_correct.
+  simpl.
+  unfold F2R.
+  unfold Fnum.
+  unfold Fcore_Raux.Z2R.
+  simpl.
+  Locate Zpower.shift_pos_correct.
+  lazy.
+  unfold FF2B.
+  simpl.
+  Check B754_finite.
+  unfold Fcore_FLT.FLT_exp.
+  simpl.
+  unfold binary_round_correct.
+  simpl.
+*)
 (* Previous denotation functions for source language *)
 
 (*
@@ -394,3 +543,4 @@ Fixpoint eval_progr (p : progr) (init : fstate) : option fstate :=
     end
   end.
 *)
+
