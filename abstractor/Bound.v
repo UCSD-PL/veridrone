@@ -7,10 +7,10 @@ Require Import compcert.lib.Integers.
 Require Import Coq.Reals.Rdefinitions.
 Require Import List.
 Import ListNotations.
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
-Require Import TLA.Lib.
-Require Import TLA.Automation.
+Require Import Logic.Syntax.
+Require Import Logic.Semantics.
+Require Import Logic.Lib.
+Require Import Logic.Automation.
 Require Import compcert.flocq.Appli.Fappli_IEEE.
 Require Import compcert.flocq.Appli.Fappli_IEEE_bits.
 Require Import compcert.flocq.Core.Fcore_Raux.
@@ -2039,7 +2039,7 @@ clear  pow_des H H0.
         end.
 
 generalize (Z2R (Z.pow_pos radix2 p)).
-Require Import ArithFacts.
+Require Import Logic.ArithFacts.
 pose proof Rmult_le_algebra.
 intros.
 specialize (Rmult_le_algebra 1 r 1).

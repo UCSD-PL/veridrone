@@ -1,6 +1,6 @@
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
-Require Import TLA.ProofRules.
+Require Import Logic.Syntax.
+Require Import Logic.Semantics.
+Require Import Logic.ProofRules.
 Require Import String.
 Local Open Scope HP_scope.
 Local Open Scope string_scope.
@@ -11,9 +11,9 @@ Require Import Rdefinitions.
 Require Import RelDec.
 Require Import Coq.Reals.Rbase.
 Require Import Z3.Tactic.
-Require Import Embed.
+Require Import Abstractor.Embed.
 Require Import FloatEmbed.
-Require Import TLA.Automation.
+Require Import Logic.Automation.
 Require Import Coq.Classes.Morphisms.
 Require Import ExtLib.Tactics.
 

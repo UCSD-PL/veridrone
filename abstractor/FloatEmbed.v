@@ -1,8 +1,8 @@
 (* Specialization of the Embedding framework to our floating-point language *)
 Require Import Source.
 Require Import Embed.
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
+Require Import Logic.Syntax.
+Require Import Logic.Semantics.
 Require Import Coq.Reals.Rbase.
 Require Import Coq.Strings.String.
 Require Import micromega.Psatz.

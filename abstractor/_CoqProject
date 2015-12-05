@@ -1,6 +1,5 @@
 -R . Abstractor
--R ../tla TLA
--R ../FeSi/src Synthesis
+-R ../logic Logic
 -R ../compcert/lib compcert.lib
 -R ../compcert/common compcert.common
 -R ../compcert/cfrontend compcert.cfrontend

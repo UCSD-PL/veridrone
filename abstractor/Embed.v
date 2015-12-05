@@ -1,6 +1,6 @@
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
-Require Import TLA.ProofRules.
+Require Import Logic.Syntax.
+Require Import Logic.Semantics.
+Require Import Logic.ProofRules.
 Require Import String.
 Local Open Scope HP_scope.
 Local Open Scope string_scope.

@@ -6,9 +6,9 @@ Require Import compcert.lib.Integers.
 Require Import Coq.Reals.Rdefinitions.
 Require Import List.
 Import ListNotations.
-Require Import TLA.Syntax.
-Require Import TLA.Semantics.
-Require Import TLA.Lib.
+Require Import Logic.Syntax.
+Require Import Logic.Semantics.
+Require Import Logic.Lib.
 Require Import compcert.flocq.Core.Fcore_defs.
 Require Import compcert.flocq.Appli.Fappli_IEEE.
 Require Import compcert.flocq.Appli.Fappli_IEEE_bits.
