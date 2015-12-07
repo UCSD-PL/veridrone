@@ -5,6 +5,12 @@
 -R ChargeTactics ChargeTactics
 -R logic Logic
 -R examples Examples
+-R shallow-logic SLogic
+
+shallow-logic/Stream.v
+shallow-logic/Logic.v
+shallow-logic/Instances.v
+shallow-logic/BasicProofRules.v
 
 logic/Stream.v
 logic/Syntax.v
