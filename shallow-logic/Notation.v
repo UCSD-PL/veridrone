@@ -54,7 +54,7 @@ Definition test_tr2 : TraceProp State :=
 (* The following test cases don't work. *)
 (*
 Definition test_tr3 : TraceProp State :=
-  [](x [=] #1).
+  [](x [=] 1#).
 
 Definition test_tr4 : TraceProp State :=
   [](pre x [=] post x).
