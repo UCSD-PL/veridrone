@@ -100,6 +100,8 @@ Fixpoint deriv_term (t:Term)
                 (Some (fun _ => exp(t)))
                 (deriv_term t)
   | MaxT _ _ => None
+  | Unop _ _ => None
+  | Binop _ _ _ => None
   end.
 
 (* Takes the "derivative" of a comparison operator.
@@ -266,6 +268,8 @@ Proof.
       unfold derive, comp in *. rewrite Hderiv.
       simpl. rewrite IHe; auto.
       rewrite Ranalysis4.derive_pt_exp. auto.
+    - inversion H.
+    - inversion H.
     - inversion H.
 Qed.
 

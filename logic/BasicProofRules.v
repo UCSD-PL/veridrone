@@ -114,6 +114,9 @@ Fixpoint next_term (t:Term) :=
   | ArctanT t => ArctanT (next_term t)
   | ExpT t => ExpT (next_term t)
   | MaxT t1 t2 => MaxT (next_term t1) (next_term t2)
+  | Unop f t => Unop f (next_term t)
+  | Binop f t1 t2 => Binop f (next_term t1)
+                           (next_term t2)
   end.
 
 (* Puts ! on all variables in a Formula *)
@@ -156,6 +159,9 @@ Fixpoint is_st_term (t:Term) : bool :=
   | ExpT t => is_st_term t
   | MaxT t1 t2 => andb (is_st_term t1)
                        (is_st_term t2)
+  | Unop _ t => is_st_term t
+  | Binop _ t1 t2 => andb (is_st_term t1)
+                          (is_st_term t2)
   end.
 
 (* Prop expressing that the Formula has no

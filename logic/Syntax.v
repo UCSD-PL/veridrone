@@ -26,6 +26,8 @@ Inductive Term :=
 | ArctanT : Term -> Term
 | ExpT : Term -> Term
 | MaxT : Term -> Term -> Term
+| Unop : (R -> R) -> Term -> Term
+| Binop : (R -> R -> R) -> Term -> Term -> Term
 .
 
 (* Comparison operations *)
@@ -95,6 +97,8 @@ Notation "cos( x )" := (CosT x).
 Notation "sin( x )" := (SinT x).
 Notation "exp( x )" := (ExpT x).
 Notation "MAX( x1 , x2 )" := (MaxT x1 x2).
+Notation "[ f ]( x )" := (Unop f x).
+Notation "[ f ]( x , y )" := (Binop f x y).
 
 (* Comparisons *)
 Notation "t1 > t2" := (Comp t1 t2 Gt) : HP_scope.

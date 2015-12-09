@@ -28,6 +28,9 @@ Fixpoint rename_term (m : RenameMap) (t:Term) :=
   | ExpT t => ExpT (rename_term m t)
   | MaxT t1 t2 => MaxT (rename_term m t1)
                        (rename_term m t2)
+  | Unop f t => Unop f (rename_term m t)
+  | Binop f t1 t2 => Binop f (rename_term m t1)
+                           (rename_term m t2)
   end.
 
 Definition RenameMap_compose (m m' : RenameMap) : RenameMap :=

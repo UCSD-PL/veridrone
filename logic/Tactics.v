@@ -39,10 +39,12 @@ Fixpoint get_vars_term (t : Term) : list Var :=
   match t with
   | VarNextT t | VarNowT t => t :: nil
   | NatT _ | RealT _ => nil
-  | PlusT a b | MinusT a b | MultT a b | MaxT a b =>
+  | PlusT a b | MinusT a b | MultT a b | MaxT a b
+  | Binop _ a b =>
                              get_vars_term a ++
                                            get_vars_term b
-  | InvT a | CosT a | SinT a | SqrtT a | ArctanT a | ExpT a =>
+  | InvT a | CosT a | SinT a | SqrtT a | ArctanT a
+  | ExpT a | Unop _ a =>
                                          get_vars_term a
   end.
 
@@ -63,11 +65,12 @@ Fixpoint get_next_vars_term (t : Term) : list Var :=
   match t with
   | VarNextT t => t :: nil
   | VarNowT _ | NatT _ | RealT _ => nil
-  | PlusT a b | MinusT a b | MultT a b | MaxT a b =>
+  | PlusT a b | MinusT a b | MultT a b | MaxT a b
+  | Binop _ a b =>
                              get_next_vars_term a ++
                              get_next_vars_term b
-  | InvT a | CosT a | SinT a | SqrtT a | ArctanT a | ExpT a
-      => get_next_vars_term a
+  | InvT a | CosT a | SinT a | SqrtT a | ArctanT a
+  | ExpT a | Unop _ a => get_next_vars_term a
   end.
 
 Fixpoint get_next_vars_formula (f : Formula) : list Var :=
@@ -340,6 +343,9 @@ Fixpoint unnext_term (t:Term) : Term :=
     | ArctanT t => ArctanT (unnext_term t)
     | ExpT t => ExpT (unnext_term t)
     | MaxT t1 t2 => MaxT (unnext_term t1) (unnext_term t2)
+    | Unop f t => Unop f (unnext_term t)
+    | Binop f t1 t2 => Binop f (unnext_term t1)
+                             (unnext_term t2)
   end.
 
 (* Removes ! from variables in a Formula *)

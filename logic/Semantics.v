@@ -40,6 +40,9 @@ Fixpoint eval_term (t:Term) (s1 s2:state) : R :=
      | MaxT t1 t2 =>
        Rbasic_fun.Rmax (eval_term t1 s1 s2)
                        (eval_term t2 s1 s2)
+     | Unop f t => f (eval_term t s1 s2)
+     | Binop f t1 t2 => f (eval_term t1 s1 s2)
+                          (eval_term t2 s1 s2)
    end)%R.
 
 (* Semantics of comparison operators *)
