@@ -11,7 +11,9 @@ shallow-logic/Stream.v
 shallow-logic/Logic.v
 shallow-logic/Instances.v
 shallow-logic/BasicProofRules.v
-shallow-logic/Notation.v
+shallow-logic/LTLNotation.v
+shallow-logic/Lib.v
+shallow-logic/Robustness.v
 
 logic/Stream.v
 logic/Syntax.v

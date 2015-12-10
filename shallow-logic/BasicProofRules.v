@@ -51,11 +51,11 @@ Section with_state.
     compute; intuition.
   Qed.
 
-  (* Facts about currently and starts *)
-  Lemma currently_entails : forall (A B : StateProp),
-      currently (A -->> B) |-- currently A -->> currently B.
+  (* Facts about pre and starts *)
+  Lemma pre_entails : forall (A B : StateProp),
+      pre (A -->> B) |-- pre A -->> pre B.
   Proof.
-    unfold currently. simpl. auto.
+    unfold pre. simpl. auto.
   Qed.
 
   Lemma starts_post :
@@ -157,13 +157,13 @@ Section simulations.
   Context {T U : Type}.
   Variable f : U -> T.
 
-  Let focusS := @focusS T U f.
-  Let focusA := @focusA T U f.
-  Let focusT := @focusT T U f.
+  Let focusS := focusS f (V:=Prop).
+  Let focusA := focusA f (V:=Prop).
+  Let focusT := focusT f (V:=Prop).
 
   Theorem focusT_now :
-    forall P, focusT (starts (currently P)) -|-
-              starts (currently (focusS P)).
+    forall P, focusT (starts (pre P)) -|-
+              starts (pre (focusS P)).
   Proof. reflexivity. Qed.
 
   Theorem focusT_starts :

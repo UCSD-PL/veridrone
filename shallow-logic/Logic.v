@@ -25,17 +25,14 @@ Section with_state.
   (* Predicates over traces. *)
   Definition TraceProp := TraceVal Prop.
 
-  (* Useful functions for expressing
-     state and action values. *)
+  (* Useful functions for expressing action values. *)
+  (* Can also be used to coerce a StateProp to an
+     ActionProp. *)
   Definition pre {T} (f : StateVal T) : ActionVal T :=
     fun st _ => f st.
 
   Definition post {T} (f : StateVal T) : ActionVal T :=
     fun _ st' => f st'.
-
-  (* Coercion from a state prop to an action prop. *)
-  Definition currently (P : StateProp) : ActionProp :=
-    pre P.
 
   (* Coercion from an action prop to a trace prop. *)
   Definition starts (P : ActionProp) : TraceProp :=
@@ -70,21 +67,20 @@ Arguments post {_ _} _ _ _.
 Arguments always {_} _ _.
 Arguments eventually {_} _ _.
 Arguments starts {_} _ _.
-Arguments currently {_} _ _ _.
 Arguments stutter {_ _} _ _ _.
 
-(** TODO: These should be generalized to [TraceVal], [ActionVal], and [StateVal] **)
 Section simulations.
   Context {T U : Type}.
   Variable f : U -> T.
+  Context {V : Type}.
 
-  Definition focusT (P : TraceProp T) : TraceProp U :=
+  Definition focusT (P : TraceVal T V) : TraceVal U V :=
     fun tu => P (fmap f tu).
 
-  Definition focusS (P : StateProp T) : StateProp U :=
+  Definition focusS (P : StateVal T V) : StateVal U V :=
     fun tu => P (f tu).
 
-  Definition focusA (P : ActionProp T) : ActionProp U :=
+  Definition focusA (P : ActionVal T V) : ActionVal U V :=
     fun st st' => P (f st) (f st').
 
 End simulations.

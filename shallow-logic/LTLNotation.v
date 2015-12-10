@@ -20,6 +20,8 @@ Definition lift2 {T U V : Type} {F : Type -> Type}
 Notation "x `= y" := (lift2 eq x y)
                         (at level 20, no associativity)
                       : LTL_scope.
+Notation "x `<= y" := (lift2 Rle x y)
+                        (at level 20) : LTL_scope.
 Notation "x `+ y" := (lift2 Rplus x y)
                         (at level 19, left associativity)
                       : LTL_scope.
@@ -85,9 +87,7 @@ Instance Arith_lift {T U} {A : Arith T} : Arith (U -> T) :=
 
 (* Notation to "cast" between different types
    of formulas. *)
-Notation "@[ F ]" := (currently F) : LTL_scope.
-Notation "&[ F ]" := (starts F) : LTL_scope.
-Notation "&@[ F ]" := (starts (currently F)) : LTL_scope.
+Notation "[ F ]" := (starts F) : LTL_scope.
 
 (* Standard temporal logic notation. *)
 Notation "[] f" := (always f)
@@ -97,32 +97,35 @@ Notation "<> f" := (eventually f)
 
 (* Some test cases. *)
 
-Record State : Type :=
+Record TestState : Type :=
 { x : R }.
 
 Local Open Scope R_scope.
 Local Open Scope LTL_scope.
 
-Definition test_st1 : StateProp State :=
+Definition test_st1 : StateProp TestState :=
   x `= 1#.
 
-Definition test_st2 : StateProp State :=
+Definition test_st2 : StateProp TestState :=
   x `+ 3# `= 1%R#.
 
-Definition test_act : ActionProp State :=
+Definition test_act : ActionProp TestState :=
   !x `= x!.
 
-Definition test_tr1 : TraceProp State :=
-  []&@[test_st1].
+Definition test_tr1 : TraceProp TestState :=
+  [][!test_st1].
 
-Definition test_tr2 : TraceProp State :=
-  []&[test_act].
+Definition test_tr2 : TraceProp TestState :=
+  [][test_act].
 
-Definition test_tr3 : TraceProp State :=
-  []&@[x `= 1#].
+Definition test_tr3 : TraceProp TestState :=
+  [][!(x `= 1#)].
 
-Definition test_tr4 : TraceProp State :=
-  []&[!x `= x!].
+Definition test_tr4 : TraceProp TestState :=
+  [][(x `= 1#)!].
+
+Definition test_tr5 : TraceProp TestState :=
+  [][!x `= x!].
 
 Close Scope LTL_scope.
 Close Scope R_scope.
