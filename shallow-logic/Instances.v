@@ -78,6 +78,17 @@ Section with_state.
 
   (* These are the "obvious" definitions,
      needed to help Coq *)
+  Global Instance Applicative_Trace
+    : Applicative TraceVal :=
+    { pure := fun _ x => fun _ => x
+      ; ap := fun _ _ f x => fun tr => (f tr) (x tr)
+    }.
+
+  Global Instance Functor_Trace
+    : Functor TraceVal :=
+    { fmap := fun _ _ f x => ap (pure f) x }.
+
+
   Global Instance Applicative_Action
     : Applicative ActionVal :=
     { pure := fun _ x => fun _ _ => x
