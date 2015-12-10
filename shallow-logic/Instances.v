@@ -1,6 +1,7 @@
 Require Import Coq.Classes.Morphisms.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Structures.Functor.
+Require Import ExtLib.Structures.CoFunctor.
 Require Import Charge.Logics.ILogic.
 Require Import Charge.Logics.ILEmbed.
 Require Import SLogic.Logic.
@@ -152,6 +153,28 @@ Section with_state.
   Qed.
 
 End with_state.
+
+Section cofunctors.
+
+  Global Instance CoFunctor_StateProp : CoFunctor StateProp :=
+  { cofmap := fun A B f => @focusS A B f _ }.
+
+  Global Instance CoFunctor_TraceProp : CoFunctor TraceProp :=
+  { cofmap := fun A B f => @focusT A B f _ }.
+
+  Global Instance CoFunctor_ActionProp : CoFunctor ActionProp :=
+  { cofmap := fun A B f => @focusA A B f _ }.
+
+  Global Instance CoFunctor_StateVal {T} : CoFunctor (fun x => StateVal x T) :=
+  { cofmap := fun A B f => @focusS A B f _ }.
+
+  Global Instance CoFunctor_TraceVal {T} : CoFunctor (fun x => TraceVal x T) :=
+  { cofmap := fun A B f => @focusT A B f _ }.
+
+  Global Instance CoFunctor_ActionVal {T} : CoFunctor (fun x => ActionVal x T) :=
+  { cofmap := fun A B f => @focusA A B f _ }.
+
+End cofunctors.
 
 Section temporal_exists.
 
