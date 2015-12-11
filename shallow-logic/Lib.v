@@ -18,6 +18,78 @@ Section Lib.
 
   Variable state : Type.
 
+  (** Both [ContProp] and [DiffProp] are ILogics **)
+
+  (** Predicates over continuous transitions *)
+  Definition ContProp : Type :=
+    (R -> state) -> R -> Prop.
+
+  (** Predicates over a state function using its derivative
+   ** - [V] is an index for the differential variables
+   ** - [Dv] interprets these into the state
+   **)
+  Definition DiffVal (V : Type) (Dv : V -> state -> R) (T : Type) : Type :=
+    (V -> R) ->      (* the derivative *)
+    StateVal state T. (* the current state *)
+
+  Definition DiffProp (V : Type) (Dv : _) : Type :=
+    DiffVal V Dv Prop.
+
+  (** The derivative of [g] is [g'] on the interval [from, to] **)
+  Definition D_is_on (from to : R) (g g' : R -> R) : Prop :=
+    exists is_derivable : forall t', derivable_pt g t',
+      (forall t', from <= t' <= to ->
+                  derive_pt g t' (is_derivable t') = g' t')%R.
+
+  (** [DiffProp]s can be used as predicates over continuous
+   ** transitions.
+   **)
+  Definition DiffToCont {V} {Dv} (P : DiffProp V Dv) : ContProp :=
+    fun f last =>
+      exists f' : V -> R -> R,
+        (forall x : V, D_is_on 0 last (fun t => Dv x (f t)) (f' x)) /\
+        (forall x : V, forall t : R,
+              0 <= t <= last ->
+              P (fun z => f' z t) (f t))%R.
+
+  (** An easy way to build a finite set of functions is
+   ** to use a list. This predicate is just like [In]
+   **)
+  Inductive member {T} : list T -> Type :=
+  | MO : forall t ls, member (t :: ls)
+  | MS : forall t' ls, member ls -> member (t' :: ls).
+
+  (** Get the element corresponding to a [member] **)
+  Fixpoint list_get {T} {l : list T} (m : member l) : T :=
+    match m with
+    | @MO val _ => val
+    | @MS _ _ m => list_get m
+    end.
+
+  (** Using [member] for a simple differential **)
+  Definition SimpleDiffVal (ls : list (StateVal state R)) (T : Type) : Type :=
+    DiffVal (member ls) (fun m st => list_get m st) T.
+
+  Class find_member {T} (t : T) (ls : list T) : Type :=
+  { the_member : member ls }.
+  Global Instance find_member_here {T} (t : T) (ls : list T) : find_member t (t :: ls) :=
+  {| the_member := MO _ _ |}.
+  Global Instance find_member_next {T} (t t' : T) (ls : list T) (f : find_member t ls)
+  : find_member t (t' :: ls) :=
+  {| the_member := MS _ _ f.(@the_member _ _ _ ) |}.
+
+  Definition D {ls : list (StateVal state R)} (x : StateVal state R) {f : find_member x ls}
+  : SimpleDiffVal ls R :=
+    fun f' _ => f' f.(@the_member _ _ _).
+
+
+(*
+  Definition trial (A B : StateVal state R) : SimpleDiffVal (A :: B :: nil) R :=
+    D (ls := A :: B :: nil) A.
+
+  Print trial.
+
+
   (* ActionProp expressing that all StateVals
      in xs are unchanged. *)
   (* Is there an easy way to implement Unchanged
@@ -29,15 +101,13 @@ Section Lib.
     | cons x xs =>
       (x! `= !x) //\\ (Unchanged xs)
     end.
+*)
 
   (* Now we specify continuous transitions. *)
   (* The following is from one of Gregory's attempts
      at a continuous logic. Can we use something
      similar here? *)
 (*
-  Definition D_is (g g' : R -> R) : Prop :=
-    exists is_derivable : forall t', derivable_pt g t',
-      (forall t', derive_pt g t' (is_derivable t') = g' t').
 
   Definition deriv (g : R -> R)
              (P : (R -> R) -> EvolveProp) : EvolveProp :=
