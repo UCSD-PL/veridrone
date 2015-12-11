@@ -49,22 +49,24 @@ Section Robustness.
 
   Definition acc_dist (gamma : R -> R)
   : ActionProp (dist_state * state) :=
-    `eq (post fst#ds)
-        (pre ((`pair snd#t (`gamma snd#IC)) `:: fst#ds)).
+    (fst#ds)! `=
+    !((`pair snd#t (`gamma snd#IC)) `:: fst#ds).
 
   Definition max_R : list R -> R :=
     fold_right Rmax 0%R.
 
-  Definition flip {A B C} (f : A -> StateVal B C) : StateVal B (A -> C) :=
+  Definition flip {A B C} (f : A -> StateVal B C)
+    : StateVal B (A -> C) :=
     fun b a => f a b.
 
   Definition bounded (mu : R -> R -> R) (rho : R)
   : StateProp (dist_state * state) :=
     snd#OC `<=
     `max_R
-    (lift2 (F:=StateVal (dist_state * state))
-           (@map (R * R) R)
-           (flip (fun p => (`mu (pure (fst p)) (snd#t `- (pure (snd p)))%R)))
+    (lift2 (@map (R * R) R)
+           (flip (fun p =>
+                    (`mu (pure (fst p))
+                      (snd#t `- (pure (snd p)))%R)))
            fst#ds)
     `+ `rho.
 
@@ -72,6 +74,7 @@ Section Robustness.
     Exists gamma : R -> R,   embed (K_fun gamma) //\\
     Exists mu : R -> R -> R, embed (KLD_fun mu)  //\\
     Exists rho : R,          embed (0 <= rho)%R  //\\
-      TExists dist_state , [][acc_dist gamma //\\ !(bounded mu rho)].
+      TExists dist_state ,
+                 [][acc_dist gamma //\\ !(bounded mu rho)].
 
 End Robustness.

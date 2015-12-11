@@ -62,8 +62,8 @@ Section VelocityMonitor.
   (* Is the monitor robust? *)
   Theorem monitor_robust :
     (* Do we need an initial condition? *)
-    [][Next] |-- robust state (dv `+ da)
-                              (`Rmax (v `- pure ub) (pure 0))
+    [][Next] |-- robust state (`Rabs dv `+ `Rabs da)
+                              (`Rmax (v `- `ub) (`0))
                               t.
   Proof.
   Admitted.
