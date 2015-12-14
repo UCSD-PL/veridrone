@@ -66,7 +66,7 @@ Section Robustness.
   Local Open Scope LTL_scope.
 
   Definition acc_dist (gamma : R -> R)
-  : ActionProp (dist_state * state) :=
+    : ActionProp (dist_state * state) :=
     (fst#ds)! `=
     !((`pair snd#t (`gamma snd#IC)) `:: fst#ds).
 
@@ -78,7 +78,7 @@ Section Robustness.
     fun b a => f a b.
 
   Definition bounded (mu : R -> R -> R) (rho : R)
-  : StateProp (dist_state * state) :=
+    : StateProp (dist_state * state) :=
     snd#OC `<=
     `max_R
     (lift2 (@map (R * R) R)
@@ -88,11 +88,51 @@ Section Robustness.
            fst#ds)
     `+ `rho.
 
+  (* This is the definition of robustness from the
+     Tabuada paper. *)
   Definition robust : TraceProp state :=
     Exists gamma : R -> R,   embed (K_fun gamma) //\\
     Exists mu : R -> R -> R, embed (KLD_fun mu)  //\\
     Exists rho : R,          embed (0 <= rho)%R  //\\
       TExists dist_state ,
                  [][acc_dist gamma //\\ !(bounded mu rho)].
+
+  (* Now we write a definition of robustness that is
+     equivalent to the Tabuada one, but easier to
+     work with. *)
+
+  (* For the equivalent definition of robustness,
+     we only need to store a single pair of disturbance
+     and time rather than a list of pairs. *)
+  Record dist_state2 : Type :=
+    { d : R;
+      td : R }.
+
+  Definition acc_dist2 (mu : R -> R -> R) (gamma : R -> R)
+    : ActionProp (dist_state2 * state) :=
+    let prev := `mu (!(fst#d)) (!((snd#t) `- (fst#td))) in
+    let new := `mu (`gamma (!(snd#IC))) (pure R0) in
+    (new `<= prev -->>
+       ((fst#d)! `= prev //\\ (fst#td)! `= !(fst#td))) //\\
+    (prev `< new -->>
+       ((fst#d)! `= new //\\ (fst#td)! `= !(snd#t))).
+
+  Definition bounded2 (rho : R)
+    : StateProp (dist_state2 * state) :=
+    snd#OC `<= fst#d `+ `rho.
+
+  Definition robust2 : TraceProp state :=
+    Exists gamma : R -> R,   embed (K_fun gamma) //\\
+    Exists mu : R -> R -> R, embed (KLD_fun mu)  //\\
+    Exists rho : R,          embed (0 <= rho)%R  //\\
+      TExists dist_state2 ,
+                 [][acc_dist2 mu gamma //\\ !(bounded2 rho)].
+
+  Theorem robust_robust2 :
+    robust2 -|- robust.
+  Proof.
+    do 3 (apply lexists_lequiv_m; red; intros;
+          apply land_lequiv_m; [ reflexivity | ]).
+  Admitted.
 
 End Robustness.
