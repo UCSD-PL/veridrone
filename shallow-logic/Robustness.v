@@ -10,25 +10,43 @@ Require Import SLogic.Logic.
 Require Import SLogic.LTLNotation.
 Require Import SLogic.Instances.
 
-Definition strict_increasing_pos (f : R -> R) :=
-  forall x y, (0 <= x < y -> f x < f y)%R.
+Definition strict_increasing_bound
+           (f : R -> R) (bound : R) : Prop :=
+  forall x y, (bound <= x < y -> f x < f y)%R.
 
-Definition strict_decreasing_pos (f : R -> R) :=
-  forall x y, (0 <= x < y -> f y < f x)%R.
+Definition decreasing_bound
+           (f : R -> R) (bound : R) : Prop :=
+  forall x y, (bound <= x <= y -> f y <= f x)%R.
 
-Definition K_fun (f : R -> R) :=
-  continuity f /\ strict_increasing_pos f.
+Definition K_fun (f : R -> R) : Prop :=
+  continuity f /\ strict_increasing_bound f R0 /\ f R0 = R0.
 
-Definition L_fun (f : R -> R) :=
-  continuity f /\ strict_decreasing_pos f.
+(* I couldn't find a definition in the standard library
+   for the limit at infinity. *)
+Definition limit_pos_inf (f : R -> R) (l : R) : Prop :=
+  forall epsilon, (epsilon > 0)%R ->
+    exists M, (M > 0)%R /\
+      (forall x, x > M -> Rabs (f x - l) < epsilon)%R.
 
-Definition KL_fun (f : R -> R -> R) :=
-  (forall t, K_fun (fun c => f c t)) /\
-  (forall c, L_fun (fun t => f c t)).
+(* This is not the same as the definition of L functions
+   from the Tabuada paper. In particular, we only require
+   that the function be decreasing, not strictly decreasing.
+   I think that if you require the function to be strictly
+   decreasing, then there are no KLD functions. Moreover,
+   I think that our definition of L function is the
+   standard one from control theory. *)
+Definition L_fun (f : R -> R) : Prop :=
+  continuity f /\ decreasing_bound f R0 /\
+  limit_pos_inf f R0.
 
-Definition KLD_fun (f : R -> R -> R) :=
+Definition KL_fun (f : R -> R -> R) : Prop :=
+  (forall t, (0 <= t)%R -> K_fun (fun c => f c t)) /\
+  (forall c, (0 <= c)%R -> L_fun (fun t => f c t)).
+
+Definition KLD_fun (f : R -> R -> R) : Prop :=
   KL_fun f /\
   forall (c s t : R),
+    (0 <= c)%R -> (0 <= s)%R -> (0 <= t)%R ->
     (f c 0 = c /\ f c (s + t) = f (f c s) t)%R.
 
 Section Robustness.
