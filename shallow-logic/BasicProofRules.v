@@ -156,7 +156,7 @@ Section with_state.
 End with_state.
 
 Section simulations.
-  Context {T U V : Type}.
+  Variables T U V : Type.
   Variable f : U -> T.
   Variable g : T -> V.
 
@@ -244,17 +244,53 @@ Section simulations.
     forall P, focusT (starts P) = starts (focusA P).
   Proof. reflexivity. Qed.
 
+  Lemma focusS_ltrue :
+    focusS ltrue = ltrue.
+  Proof. reflexivity. Qed.
+
+  Lemma focusA_ltrue :
+    focusA ltrue = ltrue.
+  Proof. reflexivity. Qed.
+
   Lemma focusT_ltrue :
     focusT ltrue = ltrue.
   Proof. reflexivity. Qed.
 
+  Lemma focusS_lfalse :
+    focusS lfalse = lfalse.
+  Proof. reflexivity. Qed.
+
+  Lemma focusA_lfalse :
+    focusA lfalse = lfalse.
+  Proof. reflexivity. Qed.
+
   Lemma focusT_lfalse :
     focusT lfalse = lfalse.
-  Proof. reflexivity. Qed.        
+  Proof. reflexivity. Qed.
+
+  Lemma focusS_and :
+    forall P Q,
+      focusS (P //\\ Q) = (focusS P //\\ focusS Q).
+  Proof. reflexivity. Qed.
+
+  Lemma focusA_and :
+    forall P Q,
+      focusA (P //\\ Q) = (focusA P //\\ focusA Q).
+  Proof. reflexivity. Qed.
 
   Lemma focusT_and :
     forall P Q,
       focusT (P //\\ Q) = (focusT P //\\ focusT Q).
+  Proof. reflexivity. Qed.
+
+  Lemma focusS_or :
+    forall P Q,
+      focusS (P \\// Q) = (focusS P \\// focusS Q).
+  Proof. reflexivity. Qed.
+
+  Lemma focusA_or :
+    forall P Q,
+      focusA (P \\// Q) = (focusA P \\// focusA Q).
   Proof. reflexivity. Qed.
 
   Lemma focusT_or :
@@ -262,9 +298,29 @@ Section simulations.
       focusT (P \\// Q) = (focusT P \\// focusT Q).
   Proof. reflexivity. Qed.
 
+  Lemma focusS_impl :
+    forall P Q,
+      focusS (P -->> Q) = (focusS P -->> focusS Q).
+  Proof. reflexivity. Qed.
+
+  Lemma focusA_impl :
+    forall P Q,
+      focusA (P -->> Q) = (focusA P -->> focusA Q).
+  Proof. reflexivity. Qed.
+
   Lemma focusT_impl :
     forall P Q,
       focusT (P -->> Q) = (focusT P -->> focusT Q).
+  Proof. reflexivity. Qed.
+
+  Lemma focusS_embed :
+    forall P,
+      focusS (embed P) = embed P.
+  Proof. reflexivity. Qed.
+
+  Lemma focusA_embed :
+    forall P,
+      focusA (embed P) = embed P.
   Proof. reflexivity. Qed.
 
   Lemma focusT_embed :
@@ -272,10 +328,34 @@ Section simulations.
       focusT (embed P) = embed P.
   Proof. reflexivity. Qed.
 
+  Lemma focusS_lforall :
+    forall T P,
+      focusS (lforall (T:=T) P) =
+      lforall (fun t => focusS (P t)).
+  Proof. reflexivity. Qed.
+
+  Lemma focusA_lforall :
+    forall T P,
+      focusA (lforall (T:=T) P) =
+      lforall (fun t => focusA (P t)).
+  Proof. reflexivity. Qed.
+
   Lemma focusT_lforall :
     forall T P,
       focusT (lforall (T:=T) P) =
       lforall (fun t => focusT (P t)).
+  Proof. reflexivity. Qed.
+
+  Lemma focusS_lexists :
+    forall T P,
+      focusS (lexists (T:=T) P) =
+      lexists (fun t => focusS (P t)).
+  Proof. reflexivity. Qed.
+
+  Lemma focusA_lexists :
+    forall T P,
+      focusA (lexists (T:=T) P) =
+      lexists (fun t => focusA (P t)).
   Proof. reflexivity. Qed.
 
   Lemma focusT_lexists :
@@ -294,19 +374,23 @@ Section simulations.
       focusT (eventually P) = eventually (focusT P).
   Proof. reflexivity. Qed.
 
-  Hint Rewrite focusS_compose focusA_compose focusT_compose
-       focusS_lift1 focusS_lift2 focusS_lift3 focusA_lift1
-       focusA_lift2 focusA_lift3 focusT_lift1 focusT_lift2
-       focusT_lift3 focusA_pre focusA_post focusT_starts
-       focusT_ltrue focusT_lfalse focusT_and focusT_or
-       focusT_impl focusT_embed focusT_lforall focusT_lexists
-       focusT_always focusT_eventually :
-    rw_focus.
-
-  Ltac focus_rewrite :=
-    autorewrite with rw_focus.
-
 End simulations.
+
+Hint Rewrite -> focusS_compose focusA_compose focusT_compose
+     focusS_lift1 focusS_lift2 focusS_lift3 focusA_lift1
+     focusA_lift2 focusA_lift3 focusT_lift1 focusT_lift2
+     focusT_lift3 focusA_pre focusA_post focusT_starts
+     focusS_ltrue focusA_ltrue focusT_ltrue focusS_lfalse
+     focusA_lfalse focusT_lfalse focusS_and focusA_and
+     focusT_and focusS_or focusA_or focusT_or focusS_impl
+     focusA_impl focusT_impl focusS_embed focusA_embed
+     focusT_embed focusS_lforall focusA_lforall focusT_lforall
+     focusS_lexists focusA_lexists focusT_lexists
+     focusT_always focusT_eventually :
+  rw_focus.
+
+Ltac rewrite_focus :=
+  autorewrite with rw_focus.
 
 Section temporal_exists.
 

@@ -9,6 +9,7 @@ Require Import Charge.Logics.ILEmbed.
 Require Import SLogic.Logic.
 Require Import SLogic.LTLNotation.
 Require Import SLogic.Instances.
+Require Import SLogic.BasicProofRules.
 
 Definition strict_increasing_bound
            (f : R -> R) (bound : R) : Prop :=
@@ -128,11 +129,16 @@ Section Robustness.
       TExists dist_state2 ,
                  [][acc_dist2 mu gamma //\\ !(bounded2 rho)].
 
-  Theorem robust_robust2 :
+  Theorem robust2_robust :
     robust2 -|- robust.
   Proof.
     do 3 (apply lexists_lequiv_m; red; intros;
           apply land_lequiv_m; [ reflexivity | ]).
+    split.
+    { (*eapply refinement_mapping.
+      unfold acc_dist, bounded. rewrite_focus.*)
+      admit. }
+    { admit. }
   Admitted.
 
 End Robustness.
