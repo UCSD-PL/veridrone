@@ -422,17 +422,17 @@ Section temporal_exists.
     assumption.
   Qed.
 
+(*
   (* Here is the old texistsR rule. *)
-  (*
   Definition exactTrace (tr : trace T) : TraceProp T :=
     trace_eq eq tr.
 
-  Theorem texistsR :
+  Theorem texistsR' :
     forall (P : TraceProp U) (Q : TraceProp (T * U)),
       (exists tr' : trace T,
           focusT snd P //\\ focusT fst (exactTrace tr')
           |-- Q) ->
-      P |-- texists Q.
+      P |-- texists T Q.
   Proof.
     intros. unfold texists.
     simpl. intros.
@@ -443,9 +443,41 @@ Section temporal_exists.
     { unfold focusT. simpl. unfold fmap_trace. simpl.
       reflexivity. }
   Qed.
-  *)
+*)
 
 End temporal_exists.
+
+Local Transparent ILInsts.ILFun_Ops.
+Local Transparent ILInsts.ILPre_Ops.
+
+Section history_variables.
+
+  Theorem add_history {T U} (P : TraceProp T) (x : StateVal T U)
+  : P -|- TExists (list U) , focusT snd P
+                        //\\ always (starts (lift2 eq
+                                                   (post fst)
+                                                   (lift2 cons (pre snd#x) (pre fst)))).
+  Proof.
+    split.
+    - cbv beta iota zeta delta - [ Stream.hd Stream.tl plus Stream.nth_suf pre post fst snd trace ].
+      intros.
+      exists (fmap_trace (List.map x) (prefix t)).
+      split.
+      + exact H.
+      + intros.
+        clear. induction n.
+        { compute. reflexivity. }
+        { cbv beta iota zeta delta - [ fmap_trace List.map plus prefix ] in *.
+          replace (S n + 0) with (n + 1) by omega.
+          rewrite IHn; clear IHn.
+          replace (S n + 1) with (S (S n)) by omega.
+          replace (n + 0) with (n) by omega.
+          replace (n + 1) with (S n) by omega.
+          reflexivity. }
+    - apply texistsL. charge_tauto.
+  Qed.
+
+End history_variables.
 
 Local Transparent ILInsts.ILFun_Ops.
 Local Transparent ILInsts.ILPre_Ops.

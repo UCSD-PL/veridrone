@@ -16,9 +16,31 @@ Section with_state.
   Definition trace_eq (tr1 tr2 : trace) :=
     forall n, ST_eq (tr1 n) (tr2 n).
 
+  Definition Then (st : ST) (tr : trace) : trace :=
+    fun n =>
+      match n with
+      | 0 => st
+      | S n' => tr n'
+      end.
+
   Definition hd (tr : trace) : ST := tr 0.
 
   Definition tl (tr : trace) : trace := fun n => tr (S n).
+
+  Theorem hd_Then : forall st tr, hd (Then st tr) = st.
+  Proof. reflexivity. Qed.
+
+  Theorem tl_Then : forall st tr, tl (Then st tr) = tr.
+  Proof. reflexivity. Qed.
+
+  Section prefix.
+    Context (tr : trace).
+    Fixpoint prefix n : list ST :=
+      match n with
+      | 0 => nil
+      | S n' => List.cons (tr n') (prefix n')
+      end.
+  End prefix.
 
   Definition nth_suf (tr : trace) (n : nat) : trace :=
     fun m => tr (n + m).
