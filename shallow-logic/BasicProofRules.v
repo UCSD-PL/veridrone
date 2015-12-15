@@ -1,8 +1,10 @@
 Require Import Charge.Logics.ILogic.
+Require Import Charge.Logics.ILEmbed.
 Require Import ChargeTactics.Tactics.
 Require Import SLogic.Stream.
 Require Import SLogic.Logic.
 Require Import SLogic.Instances.
+Require Import SLogic.LTLNotation.
 
 Section with_state.
 
@@ -158,33 +160,151 @@ Section simulations.
   Variable f : U -> T.
   Variable g : T -> V.
 
-  Theorem focusS_compose :
+  Lemma focusS_compose :
     forall P,
       focusS f (focusS g P) -|- focusS (fun u => g (f u)) P.
   Proof. reflexivity. Qed.
 
-  Theorem focusA_compose :
+  Lemma focusA_compose :
     forall P,
       focusA f (focusA g P) -|- focusA (fun u => g (f u)) P.
   Proof. reflexivity. Qed.
 
-  Theorem focusT_compose :
+  Lemma focusT_compose :
     forall P,
       focusT f (focusT g P) -|- focusT (fun u => g (f u)) P.
+  Proof. reflexivity. Qed.
+
+  Lemma focusS_lift1 :
+    forall (T U : Type) (op : T -> U) e,
+    focusS f (lift1 op e) = lift1 op (focusS f e).
+  Proof. reflexivity. Qed.
+
+  Lemma focusS_lift2 :
+    forall (T U V : Type) (op : T -> U -> V) e1 e2,
+    focusS f (lift2 op e1 e2) =
+    lift2 op (focusS f e1) (focusS f e2).
+  Proof. reflexivity. Qed.
+
+  Lemma focusS_lift3 :
+    forall (T U V R : Type) (op : T -> U -> V -> R) e1 e2 e3,
+    focusS f (lift3 op e1 e2 e3) =
+    lift3 op (focusS f e1) (focusS f e2) (focusS f e3).
+  Proof. reflexivity. Qed.
+
+  Lemma focusA_lift1 :
+    forall (T U : Type) (op : T -> U) e,
+    focusA f (lift1 op e) = lift1 op (focusA f e).
+  Proof. reflexivity. Qed.
+
+  Lemma focusA_lift2 :
+    forall (T U V : Type) (op : T -> U -> V) e1 e2,
+    focusA f (lift2 op e1 e2) =
+    lift2 op (focusA f e1) (focusA f e2).
+  Proof. reflexivity. Qed.
+
+  Lemma focusA_lift3 :
+    forall (T U V R : Type) (op : T -> U -> V -> R) e1 e2 e3,
+    focusA f (lift3 op e1 e2 e3) =
+    lift3 op (focusA f e1) (focusA f e2) (focusA f e3).
+  Proof. reflexivity. Qed.
+
+  Lemma focusT_lift1 :
+    forall (T U : Type) (op : T -> U) e,
+    focusT f (lift1 op e) = lift1 op (focusT f e).
+  Proof. reflexivity. Qed.
+
+  Lemma focusT_lift2 :
+    forall (T U V : Type) (op : T -> U -> V) e1 e2,
+    focusT f (lift2 op e1 e2) =
+    lift2 op (focusT f e1) (focusT f e2).
+  Proof. reflexivity. Qed.
+
+  Lemma focusT_lift3 :
+    forall (T U V R : Type) (op : T -> U -> V -> R) e1 e2 e3,
+    focusT f (lift3 op e1 e2 e3) =
+    lift3 op (focusT f e1) (focusT f e2) (focusT f e3).
   Proof. reflexivity. Qed.
 
   Let focusS := focusS f (V:=Prop).
   Let focusA := focusA f (V:=Prop).
   Let focusT := focusT f (V:=Prop).
 
-  Theorem focusT_now :
-    forall P, focusT (starts (pre P)) -|-
-              starts (pre (focusS P)).
+  (* TODO: what about focus and enabled? *)
+
+  Lemma focusA_pre :
+    forall P, focusA (pre P) = pre (focusS P).
   Proof. reflexivity. Qed.
 
-  Theorem focusT_starts :
-    forall P, focusT (starts P) -|- starts (focusA P).
+  Lemma focusA_post :
+    forall P, focusA (post P) = post (focusS P).
   Proof. reflexivity. Qed.
+
+  Lemma focusT_starts :
+    forall P, focusT (starts P) = starts (focusA P).
+  Proof. reflexivity. Qed.
+
+  Lemma focusT_ltrue :
+    focusT ltrue = ltrue.
+  Proof. reflexivity. Qed.
+
+  Lemma focusT_lfalse :
+    focusT lfalse = lfalse.
+  Proof. reflexivity. Qed.        
+
+  Lemma focusT_and :
+    forall P Q,
+      focusT (P //\\ Q) = (focusT P //\\ focusT Q).
+  Proof. reflexivity. Qed.
+
+  Lemma focusT_or :
+    forall P Q,
+      focusT (P \\// Q) = (focusT P \\// focusT Q).
+  Proof. reflexivity. Qed.
+
+  Lemma focusT_impl :
+    forall P Q,
+      focusT (P -->> Q) = (focusT P -->> focusT Q).
+  Proof. reflexivity. Qed.
+
+  Lemma focusT_embed :
+    forall P,
+      focusT (embed P) = embed P.
+  Proof. reflexivity. Qed.
+
+  Lemma focusT_lforall :
+    forall T P,
+      focusT (lforall (T:=T) P) =
+      lforall (fun t => focusT (P t)).
+  Proof. reflexivity. Qed.
+
+  Lemma focusT_lexists :
+    forall T P,
+      focusT (lexists (T:=T) P) =
+      lexists (fun t => focusT (P t)).
+  Proof. reflexivity. Qed.
+
+  Lemma focusT_always :
+    forall P,
+      focusT (always P) = always (focusT P).
+  Proof. reflexivity. Qed.
+
+  Lemma focusT_eventually :
+    forall P,
+      focusT (eventually P) = eventually (focusT P).
+  Proof. reflexivity. Qed.
+
+  Hint Rewrite focusS_compose focusA_compose focusT_compose
+       focusS_lift1 focusS_lift2 focusS_lift3 focusA_lift1
+       focusA_lift2 focusA_lift3 focusT_lift1 focusT_lift2
+       focusT_lift3 focusA_pre focusA_post focusT_starts
+       focusT_ltrue focusT_lfalse focusT_and focusT_or
+       focusT_impl focusT_embed focusT_lforall focusT_lexists
+       focusT_always focusT_eventually :
+    rw_focus.
+
+  Ltac focus_rewrite :=
+    autorewrite with rw_focus.
 
 End simulations.
 
@@ -199,7 +319,7 @@ Section temporal_exists.
   Theorem texistsL :
     forall (P : TraceProp U) (Q : TraceProp (T * U)),
       Q |-- focusT snd P ->
-      texists Q |-- P.
+      texists _ Q |-- P.
   Proof.
     intros. unfold texists.
     simpl. intros.
@@ -210,7 +330,7 @@ Section temporal_exists.
   (* This is rule E1 from the original TLA paper. *)
   Theorem texistsR :
     forall (Q : TraceProp (T * U)) (f : StateVal U T),
-      focusT (fun u => (f u, u)) Q |-- texists Q.
+      focusT (fun u => (f u, u)) Q |-- texists _ Q.
   Proof.
     intros Q f. unfold texists, Logic.texists, focusT.
     simpl. intros tr Hfocus.
@@ -248,8 +368,8 @@ Local Transparent ILInsts.ILPre_Ops.
 
 Lemma focusT_snd_texists :
   forall (V T U : Type) (P : TraceProp (V * U)),
-    texists (focusT (fun p => (fst p, snd (snd p))) P) |--
-    focusT (snd (A:=T)) (texists (T:=V) P).
+    texists _ (focusT (fun p => (fst p, snd (snd p))) P) |--
+    focusT (snd (A:=T)) (texists V P).
 Proof.
   intros. unfold focusT, texists. simpl. intros.
   destruct H as [tr' H].
@@ -264,7 +384,7 @@ Theorem refinement_mapping :
          (P : TraceProp (V * U))
          (f : StateVal (T * U) V),
     Q |-- focusT (fun tu => (f tu, snd tu)) P ->
-    texists Q |-- texists P.
+    texists _ Q |-- texists _ P.
 Proof.
   intros. apply texistsL. rewrite <- focusT_snd_texists.
   rewrite <- texistsR. rewrite H.
