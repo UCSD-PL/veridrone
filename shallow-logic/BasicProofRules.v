@@ -154,8 +154,24 @@ Section with_state.
 End with_state.
 
 Section simulations.
-  Context {T U : Type}.
+  Context {T U V : Type}.
   Variable f : U -> T.
+  Variable g : T -> V.
+
+  Theorem focusS_compose :
+    forall P,
+      focusS f (focusS g P) -|- focusS (fun u => g (f u)) P.
+  Proof. reflexivity. Qed.
+
+  Theorem focusA_compose :
+    forall P,
+      focusA f (focusA g P) -|- focusA (fun u => g (f u)) P.
+  Proof. reflexivity. Qed.
+
+  Theorem focusT_compose :
+    forall P,
+      focusT f (focusT g P) -|- focusT (fun u => g (f u)) P.
+  Proof. reflexivity. Qed.
 
   Let focusS := focusS f (V:=Prop).
   Let focusA := focusA f (V:=Prop).
@@ -176,11 +192,10 @@ Section temporal_exists.
 
   Context {T U : Type}.
 
-  Let texists := @texists T U.
-
   Local Transparent ILInsts.ILFun_Ops.
   Local Transparent ILInsts.ILPre_Ops.
 
+  (* This is rule E2 from the original TLA paper. *)
   Theorem texistsL :
     forall (P : TraceProp U) (Q : TraceProp (T * U)),
       Q |-- focusT snd P ->
@@ -192,6 +207,19 @@ Section temporal_exists.
     eapply H in H0. auto.
   Qed.
 
+  (* This is rule E1 from the original TLA paper. *)
+  Theorem texistsR :
+    forall (Q : TraceProp (T * U)) (f : StateVal U T),
+      focusT (fun u => (f u, u)) Q |-- texists Q.
+  Proof.
+    intros Q f. unfold texists, Logic.texists, focusT.
+    simpl. intros tr Hfocus.
+    exists (fun n => f (tr n)).
+    assumption.
+  Qed.
+
+  (* Here is the old texistsR rule. *)
+  (*
   Definition exactTrace (tr : trace T) : TraceProp T :=
     trace_eq eq tr.
 
@@ -211,5 +239,34 @@ Section temporal_exists.
     { unfold focusT. simpl. unfold fmap_trace. simpl.
       reflexivity. }
   Qed.
+  *)
 
 End temporal_exists.
+
+Local Transparent ILInsts.ILFun_Ops.
+Local Transparent ILInsts.ILPre_Ops.
+
+Lemma focusT_snd_texists :
+  forall (V T U : Type) (P : TraceProp (V * U)),
+    texists (focusT (fun p => (fst p, snd (snd p))) P) |--
+    focusT (snd (A:=T)) (texists (T:=V) P).
+Proof.
+  intros. unfold focusT, texists. simpl. intros.
+  destruct H as [tr' H].
+  eexists. exact H.
+Qed.
+
+(* This is the proof rule described informally at
+   the beginning of section 8.3.2 of the original
+   TLA paper. *)
+Theorem refinement_mapping :
+  forall (T U V : Type) (Q : TraceProp (T * U))
+         (P : TraceProp (V * U))
+         (f : StateVal (T * U) V),
+    Q |-- focusT (fun tu => (f tu, snd tu)) P ->
+    texists Q |-- texists P.
+Proof.
+  intros. apply texistsL. rewrite <- focusT_snd_texists.
+  rewrite <- texistsR. rewrite H.
+  rewrite focusT_compose. instantiate (1:=f). reflexivity.
+Qed.
