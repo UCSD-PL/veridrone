@@ -13,6 +13,7 @@ Require Import SLogic.Logic.
 Require Import SLogic.Instances.
 Require Import SLogic.Continuous.
 Require Import SLogic.ContinuousInstances.
+Require Import SLogic.BoundingFunctions.
 Require Import SLogic.Robustness.
 Require Import SLogic.LTLNotation.
 

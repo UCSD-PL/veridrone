@@ -1,3 +1,6 @@
+Require Import ExtLib.Structures.Applicative.
+Require Import ExtLib.Structures.Functor.
+Require Import ExtLib.Structures.CoFunctor.
 Require Import Charge.Logics.ILogic.
 Require Import Charge.Logics.ILEmbed.
 Require Import ChargeTactics.Tactics.
@@ -114,6 +117,11 @@ Section with_state.
   Proof.
     compute. auto.
   Qed.
+
+  Lemma next_starts_pre :
+    forall (F : StateProp),
+      next (starts (pre F)) -|- starts (post F).
+  Proof. reflexivity. Qed.
 
   (** This is standard discrete induction over time **)
   Lemma dind_lem : forall (P : TraceProp),
@@ -422,28 +430,26 @@ Section temporal_exists.
     assumption.
   Qed.
 
-(*
-  (* Here is the old texistsR rule. *)
-  Definition exactTrace (tr : trace T) : TraceProp T :=
-    trace_eq eq tr.
-
-  Theorem texistsR' :
-    forall (P : TraceProp U) (Q : TraceProp (T * U)),
-      (exists tr' : trace T,
-          focusT snd P //\\ focusT fst (exactTrace tr')
-          |-- Q) ->
-      P |-- texists T Q.
+  Theorem texists_texists :
+    forall (V : Type) (P : TraceProp (V * (T * U))),
+      texists T (texists V P) -|-
+      texists (V * T) (cofmap (fun st =>
+                                 (fst (fst st),
+                                  (snd (fst st), snd st)))
+                              P).
   Proof.
-    intros. unfold texists.
-    simpl. intros.
-    destruct H.
-    exists x. eapply H.
-    split.
-    { assumption. }
-    { unfold focusT. simpl. unfold fmap_trace. simpl.
-      reflexivity. }
+    intros V P. split; unfold texists; simpl; intros.
+    { destruct H as [trT [trV H]].
+      exists (trace_zip pair trV trT).
+      unfold focusT, trace_zip in *. simpl in *.
+      unfold fmap_trace, trace_ap, forever in *. simpl in *.
+      assumption. }
+    { destruct H as [trVT H].
+      exists (fmap snd trVT). exists (fmap fst trVT).
+      unfold focusT, trace_zip in *. simpl in *.
+      unfold fmap_trace, trace_ap, forever in *. simpl in *.
+      assumption. }
   Qed.
-*)
 
 End temporal_exists.
 
@@ -451,23 +457,31 @@ Local Transparent ILInsts.ILFun_Ops.
 Local Transparent ILInsts.ILPre_Ops.
 
 Section history_variables.
+  Local Open Scope LTL_scope.
 
-  Theorem add_history {T U} (P : TraceProp T) (x : StateVal T U)
-  : P -|- TExists (list U) , focusT snd P
-                        //\\ always (starts (lift2 eq
-                                                   (post fst)
-                                                   (lift2 cons (pre snd#x) (pre fst)))).
+  Theorem add_history {T U} (P : TraceProp T)
+          (x : StateVal T U)
+  : P -|- TExists (list U) ,
+             focusT snd P //\\
+             [!(fst `= snd#x `:: pure nil)] //\\
+             [][fst! `= snd#x! `:: !fst].
   Proof.
     split.
-    - cbv beta iota zeta delta - [ Stream.hd Stream.tl plus Stream.nth_suf pre post fst snd trace ].
-      intros.
-      exists (fmap_trace (List.map x) (prefix t)).
+    - cbv beta iota zeta delta
+          - [ Stream.hd Stream.tl plus Stream.nth_suf pre
+                        post fst snd trace ].
+      intros. compute. fold plus.
+      exists (fmap_trace (List.map x)
+                         (fun n => (prefix t) (S n))).
       split.
       + exact H.
-      + intros.
-        clear. induction n.
-        { compute. reflexivity. }
-        { cbv beta iota zeta delta - [ fmap_trace List.map plus prefix ] in *.
+      + split.
+        * reflexivity.
+        * intros.
+          clear. induction n.
+          { compute. reflexivity. }
+          { cbv beta iota zeta delta
+            - [ fmap_trace List.map plus prefix ] in *.
           replace (S n + 0) with (n + 1) by omega.
           rewrite IHn; clear IHn.
           replace (S n + 1) with (S (S n)) by omega.

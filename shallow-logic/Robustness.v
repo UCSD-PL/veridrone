@@ -1,54 +1,18 @@
 Require Import Coq.Reals.Rdefinitions.
-Require Import Coq.Reals.Ranalysis1.
 Require Import ExtLib.Data.Fun.
 Require Import Coq.Lists.List.
 Require Import Coq.Reals.Reals.
+Require Import Coq.micromega.Psatz.
 Require Import ExtLib.Structures.Applicative.
 Require Import Charge.Logics.ILogic.
 Require Import Charge.Logics.ILEmbed.
+Require Import ChargeTactics.Tactics.
 Require Import SLogic.Logic.
 Require Import SLogic.LTLNotation.
 Require Import SLogic.Instances.
 Require Import SLogic.BasicProofRules.
-
-Definition strict_increasing_bound
-           (f : R -> R) (bound : R) : Prop :=
-  forall x y, (bound <= x < y -> f x < f y)%R.
-
-Definition decreasing_bound
-           (f : R -> R) (bound : R) : Prop :=
-  forall x y, (bound <= x <= y -> f y <= f x)%R.
-
-Definition K_fun (f : R -> R) : Prop :=
-  continuity f /\ strict_increasing_bound f R0 /\ f R0 = R0.
-
-(* I couldn't find a definition in the standard library
-   for the limit at infinity. *)
-Definition limit_pos_inf (f : R -> R) (l : R) : Prop :=
-  forall epsilon, (epsilon > 0)%R ->
-    exists M, (M > 0)%R /\
-      (forall x, x > M -> Rabs (f x - l) < epsilon)%R.
-
-(* This is not the same as the definition of L functions
-   from the Tabuada paper. In particular, we only require
-   that the function be decreasing, not strictly decreasing.
-   I think that if you require the function to be strictly
-   decreasing, then there are no KLD functions. Moreover,
-   I think that our definition of L function is the
-   standard one from control theory. *)
-Definition L_fun (f : R -> R) : Prop :=
-  continuity f /\ decreasing_bound f R0 /\
-  limit_pos_inf f R0.
-
-Definition KL_fun (f : R -> R -> R) : Prop :=
-  (forall t, (0 <= t)%R -> K_fun (fun c => f c t)) /\
-  (forall c, (0 <= c)%R -> L_fun (fun t => f c t)).
-
-Definition KLD_fun (f : R -> R -> R) : Prop :=
-  KL_fun f /\
-  forall (c s t : R),
-    (0 <= c)%R -> (0 <= s)%R -> (0 <= t)%R ->
-    (f c 0 = c /\ f c (s + t) = f (f c s) t)%R.
+Require Import SLogic.Tactics.
+Require Import SLogic.BoundingFunctions.
 
 Section Robustness.
 
@@ -66,10 +30,17 @@ Section Robustness.
 
   Local Open Scope LTL_scope.
 
+  Definition dist (gamma : R -> R)
+    : StateVal state (R * R) :=
+    `pair t (`gamma (`Rabs IC)).
+
+  Definition init_dist (gamma : R -> R)
+    : StateProp (dist_state * state) :=
+    (fst#ds) `= snd#(dist gamma) `:: pure List.nil.
+
   Definition acc_dist (gamma : R -> R)
     : ActionProp (dist_state * state) :=
-    (fst#ds)! `=
-    !((`pair snd#t (`gamma snd#IC)) `:: fst#ds).
+    (fst#ds)! `= (snd#(dist gamma))! `:: !fst#ds.
 
   Definition max_R : list R -> R :=
     fold_right Rmax 0%R.
@@ -84,8 +55,8 @@ Section Robustness.
     `max_R
     (lift2 (@map (R * R) R)
            (flip (fun p =>
-                    (`mu (pure (fst p))
-                      (snd#t `- (pure (snd p)))%R)))
+                    (`mu (pure (snd p))
+                      (snd#t `- (pure (fst p)))%R)))
            fst#ds)
     `+ `rho.
 
@@ -96,7 +67,8 @@ Section Robustness.
     Exists mu : R -> R -> R, embed (KLD_fun mu)  //\\
     Exists rho : R,          embed (0 <= rho)%R  //\\
       TExists dist_state ,
-                 [][acc_dist gamma //\\ !(bounded mu rho)].
+         [!(init_dist gamma)] //\\
+         [][acc_dist gamma //\\ !(bounded mu rho)].
 
   (* Now we write a definition of robustness that is
      equivalent to the Tabuada one, but easier to
@@ -109,10 +81,19 @@ Section Robustness.
     { d : R;
       td : R }.
 
+  Definition dist2 (mu : R -> R -> R) (gamma : R -> R)
+    : StateVal state R :=
+    `mu (`gamma (`Rabs IC)) `R0.
+
+  Definition init_dist2 (mu : R -> R -> R) (gamma : R -> R)
+    : StateProp (dist_state2 * state) :=
+    fst#d `= snd#(dist2 mu gamma) //\\
+    fst#td `= snd#t.
+
   Definition acc_dist2 (mu : R -> R -> R) (gamma : R -> R)
     : ActionProp (dist_state2 * state) :=
-    let prev := `mu (!(fst#d)) (!((snd#t) `- (fst#td))) in
-    let new := `mu (`gamma (!(snd#IC))) (pure R0) in
+    let prev := `mu (!(fst#d)) (((snd#t)! `- !(fst#td))) in
+    let new := snd#(dist2 mu gamma)! in
     (new `<= prev -->>
        ((fst#d)! `= prev //\\ (fst#td)! `= !(fst#td))) //\\
     (prev `< new -->>
@@ -127,18 +108,126 @@ Section Robustness.
     Exists mu : R -> R -> R, embed (KLD_fun mu)  //\\
     Exists rho : R,          embed (0 <= rho)%R  //\\
       TExists dist_state2 ,
-                 [][acc_dist2 mu gamma //\\ !(bounded2 rho)].
+          [!(init_dist2 mu gamma)] //\\
+          [][acc_dist2 mu gamma //\\ !(bounded2 rho)].
+
+  Definition IndInv (mu : R -> R -> R)
+    : StateProp (list (R * R) * dist_state2 * state) :=
+    lift1
+      (List.Forall (fun p => 0 <= fst p //\\ 0 <= snd p)%R)
+      fst#fst //\\
+    fst#snd#d `=
+    `max_R
+    (lift2 (@map (R * R) R)
+           (flip (fun p =>
+                    (`mu (pure (snd p))
+                      (snd#t `- (pure (fst p)))%R)))
+           fst#fst).
 
   Theorem robust2_robust :
-    robust2 -|- robust.
+    robust2 |-- robust.
   Proof.
-    do 3 (apply lexists_lequiv_m; red; intros;
-          apply land_lequiv_m; [ reflexivity | ]).
-    split.
-    { (*eapply refinement_mapping.
-      unfold acc_dist, bounded. rewrite_focus.*)
-      admit. }
-    { admit. }
+    repeat (apply lexists_lentails_m; red; intros;
+            charge_revert; apply embedPropL; intros;
+            charge_intros; charge_split;
+            [ apply embedPropR; assumption | ]).
+    rewrite (add_history _ snd#(dist a)).
+    rewrite texists_texists. simpl CoFunctor.cofmap.
+    eapply refinement_mapping
+    with (f:=fun st => Build_dist_state (fst (fst st))).
+    rewrite_focus.
+    charge_split.
+    { repeat rewrite landA. rewrite landC. charge_revert.
+      rewrite landC. repeat rewrite landA. rewrite landC.
+      charge_revert. charge_clear.
+      repeat rewrite starts_impl. apply starts_tauto.
+      Local Transparent ILInsts.ILFun_Ops.
+      Local Transparent ILInsts.ILPre_Ops.
+      unfold focusA, focusS. simpl. intros pre_st post_st.
+      destruct pre_st as [[pre_hist [pre_d pre_t]] pre_st].
+      intros. compute in *. assumption. }
+    { charge_assert ([][!(IndInv a0)]).
+      { eapply discrete_induction.
+        { (* This is some pretty annoying manipulation
+             required because of a lack of a proper
+             tactic language. *)
+          repeat rewrite landA. rewrite landC.
+          repeat rewrite landA. rewrite landC.
+          charge_revert.
+          repeat rewrite landA. rewrite landC.
+          repeat rewrite landA. rewrite landC.
+          charge_revert. charge_clear. charge_intros.
+          rewrite always_and. charge_assumption. }
+        { repeat rewrite landA. rewrite landC. charge_revert.
+          rewrite landC. repeat rewrite landA. rewrite landC.
+          charge_revert. charge_clear.
+          repeat rewrite starts_impl. apply starts_tauto.
+          Local Transparent ILInsts.ILFun_Ops.
+          Local Transparent ILInsts.ILPre_Ops.
+          Local Opaque Rabs Rle.
+          unfold focusA, focusS. simpl. intros pre_st post_st.
+          destruct pre_st
+            as [[pre_hist [pre_d pre_t]] pre_st].
+          unfold pre, IndInv, max_R, init_dist2. simpl.
+          intros. rewrite H3. compute. compute in H4, H3.
+          split.
+          { constructor; [ | constructor ].
+            split.
+            { (* This is unprovable because we don't know
+                 anything about t. *) admit. }
+            { apply K_fun_pos;
+              [assumption | apply Rabs_pos]. } }
+          { destruct H4. rewrite H4.
+            rewrite Rplus_opp_r.
+            match goal with
+              |- context [ if ?e then _ else _ ] =>
+              destruct e
+            end.
+            { destruct r; [ | congruence ].
+              pose proof (KLD_fun_pos
+                            _ H0 (a (Rabs (IC pre_st))) R0)
+                as HKLD.
+              pose proof (K_fun_pos _ H (Rabs (IC pre_st)))
+                as HK.
+              pose proof (Rabs_pos (IC pre_st)).
+              specialize_arith_hyp HK.
+              specialize_arith_hyp HKLD.
+              psatzl R. }
+            { reflexivity. } } }
+        { charge_clear. apply always_tauto.
+          rewrite next_starts_pre. repeat rewrite curry.
+          repeat rewrite starts_impl. apply starts_tauto.
+          unfold focusA, focusS. simpl. intros pre_st post_st.
+          destruct pre_st
+            as [[pre_hist [pre_d pre_t]] pre_st].
+          destruct post_st
+            as [[post_hist [post_d post_t]] post_st].
+          unfold pre, post. simpl. intros.
+          unfold acc_dist2, IndInv, PreFun.compose,
+          _liftn, flip, Rmax, pre, post in *. simpl in *.
+          split.
+          { intuition. subst. constructor; [ | assumption ].
+            { split.
+              { (* This is unprovable because we don't know
+                 anything about t. *) admit. }
+              { compute; apply K_fun_pos;
+                [assumption | apply Rabs_pos]. } } }
+          { intuition.
+            destruct (Rle_dec
+                        (dist2 a0 a post_st)
+                        (a0 pre_d (t post_st - pre_t)))%R.
+            { intuition. subst. clear - H H0 r H6. simpl.
+              unfold KLD_fun in *. unfold Rminus.
+              rewrite Rplus_opp_r.
+              (* We need some lemma that allows us to move
+                 the outer application of a0 inside the
+                 map. *) admit. }
+            { intuition. specialize_arith_hyp H9. intuition.
+              subst. unfold dist2. simpl.
+              (* We need the same sort of lemma for this
+                 case as well. *) admit. } } } }
+      { (* We need to use bounded2 and IndInv to prove
+           bounded. *) admit. } }
   Admitted.
 
 End Robustness.

@@ -13,8 +13,10 @@ shallow-logic/Logic.v
 shallow-logic/Instances.v
 shallow-logic/BasicProofRules.v
 shallow-logic/LTLNotation.v
+shallow-logic/Tactics.v
 shallow-logic/Continuous.v
 shallow-logic/ContinuousInstances.v
+shallow-logic/BoundingFunctions.v
 shallow-logic/Robustness.v
 
 shallow-examples/Velocity.v
