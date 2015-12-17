@@ -51,12 +51,19 @@ Section VelocityMonitor.
   Definition Output : ActionProp state :=
     a! `= a_output! `+ !da.
 
+  (* Reset the timer when the discrete transition runs. *)
   Definition ResetTimer : ActionProp state :=
     !T `= !t.
 
+  (* This specifies which variables don't change during
+     the discrete transition. *)
+  Definition UnchangedDiscr : ActionProp state :=
+    v! `= !v //\\ t! `= !t.
+
   (* Full discrete transition *)
   Definition Discr : ActionProp state :=
-    (*Sense //\\*) Monitor //\\ Output //\\ ResetTimer.
+    (*Sense //\\*) Monitor //\\ Output //\\ ResetTimer //\\
+    UnchangedDiscr.
 
   (* Evolution predicate *)
   Definition w : SimpleDiffProp state (v :: a :: t :: nil) :=
@@ -127,7 +134,8 @@ Qed.
       { charge_clear. apply embedPropR. unfold K_fun.
         split.
         { prove_continuity. }
-        { unfold strict_increasing_bound, Ranalysis1.id. split.
+        { unfold strict_increasing_bound, Ranalysis1.id.
+          split.
           { intros. pose proof delta_gt_0. psatz R. }
           { psatzl R. } } }
       { apply lexistsR
@@ -147,7 +155,8 @@ Qed.
                 { rewrite Rabs_R0. psatzl R. } } }
             { unfold L_fun. intros. split.
               { prove_continuity.
-                apply continuity_comp with (f1:=Ropp) (f2:=exp);
+                apply continuity_comp with (f1:=Ropp)
+                                             (f2:=exp);
                   prove_continuity. }
               { split.
                 { unfold decreasing_bound. intros.
