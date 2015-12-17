@@ -8,3 +8,9 @@ Ltac specialize_arith_hyp H :=
            assert G as HH by (psatzl R);
              specialize (H HH); clear HH
          end.
+
+Ltac destruct_ite :=
+  match goal with
+  | [ |- context [ if ?e then _ else _ ] ]
+    => destruct e
+  end.

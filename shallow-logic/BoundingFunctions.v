@@ -2,6 +2,7 @@ Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Ranalysis1.
 Require Import Coq.micromega.Psatz.
 Require Import Coq.Reals.Rbasic_fun.
+Require Import SLogic.Tactics.
 
 Definition strict_increasing_bound
            (f : R -> R) (bound : R) : Prop :=
@@ -38,10 +39,12 @@ Definition KL_fun (f : R -> R -> R) : Prop :=
 
 Definition KLD_fun (f : R -> R -> R) : Prop :=
   KL_fun f /\
-  forall (c s t : R),
-    (0 <= c)%R -> (0 <= s)%R -> (0 <= t)%R ->
-    (f c 0 = c /\ f c (s + t) = f (f c s) t)%R.
-
+  forall (c : R),
+    (0 <= c)%R ->
+    f c 0%R = c /\
+    forall (s t : R),
+      (0 <= s)%R -> (0 <= t)%R ->
+      (f c (s + t) = f (f c s) t)%R.
 
 (* Now some useful properties of these functions. *)
 
@@ -78,3 +81,25 @@ Proof.
   unfold KLD_fun. intros.
   apply KL_fun_pos; tauto.
 Qed.
+
+Lemma KLD_fun_increasing_nonneg :
+  forall f,
+    KLD_fun f ->
+    forall t, (0 <= t)%R ->
+              strict_increasing_bound (fun x => f x t) R0.
+Proof.
+  intros. unfold KLD_fun, KL_fun, K_fun in *.
+  intuition. specialize (H t).
+  specialize_arith_hyp H. tauto.
+Qed.
+
+Lemma KLD_fun_0 :
+  forall f,
+    KLD_fun f ->
+    forall t, (0 <= t)%R ->
+              f R0 t = R0.
+Proof.
+  unfold KLD_fun, KL_fun, K_fun, L_fun. intros.
+  intuition.
+  (* This requires reasoning about infinite limits. *)
+Admitted.

@@ -24,7 +24,8 @@ Record state : Type :=
     a_output : R; (* Desired acceleration of the monitor *)
     dv : R; (* Disturbance from velocity sensor *)
     da : R; (* Disturbance from actuator error *)
-    t : R (* Time *)
+    t : R; (* Time *)
+    T : R (* Timer *)
   }.
 
 Local Open Scope R_scope.
@@ -50,18 +51,27 @@ Section VelocityMonitor.
   Definition Output : ActionProp state :=
     a! `= a_output! `+ !da.
 
+  Definition ResetTimer : ActionProp state :=
+    !T `= !t.
+
   (* Full discrete transition *)
   Definition Discr : ActionProp state :=
-    (*Sense //\\*) Monitor //\\ Output.
+    (*Sense //\\*) Monitor //\\ Output //\\ ResetTimer.
 
   (* Evolution predicate *)
-  Definition w : SimpleDiffProp state (v :: a :: nil) :=
-    D v `= (fun _ => a) //\\ D a `= pure 0.
+  Definition w : SimpleDiffProp state (v :: a :: t :: nil) :=
+    D v `= (fun _ => a) //\\ D a `= pure 0 //\\
+    D t `= pure 1.
 
   (* Continuous transition *)
+  (* TODO : It would be nice to move the bound
+     on t and T inside the continuous transition, but
+     I can't figure out how to do that using our
+     current notation. *)
   Definition World : ActionProp state :=
     !dv `= pure 0 //\\ !da `= pure 0 //\\
-    SimpleContinuous state w.
+    SimpleContinuous state w //\\
+    t! `- !T `<= pure delta.
 
   (* Full system transition *)
   Definition Next : ActionProp state :=
@@ -108,62 +118,65 @@ Qed.
                               (`Rmax (v `- `ub) (`0))
                               t.
   Proof.
-    unfold robust.
-    apply lexistsR with (x:=fun x => delta * x).
+    rewrite <- robust2_robust.
+    unfold robust2.
     charge_split.
-    { charge_clear. apply embedPropR. unfold K_fun.
-      split.
-      { prove_continuity. }
-      { unfold strict_increasing_bound, Ranalysis1.id. split.
-        { intros. pose proof delta_gt_0. psatz R. }
-        { psatzl R. } } }
-    { apply lexistsR
-      with (x:=fun d t => Rabs d * exp (-t)).
+    { admit. }
+    { apply lexistsR with (x:=fun x => delta * x).
       charge_split.
-      { charge_clear. apply embedPropR. unfold KLD_fun.
+      { charge_clear. apply embedPropR. unfold K_fun.
         split.
-        { unfold KL_fun. split.
-          { unfold K_fun. split.
-            { prove_continuity. }
-            { split.
-              { unfold strict_increasing_bound. intros.
-                pose proof (Exp_prop.exp_pos (-t0)).
-                repeat (rewrite Rabs_right;
-                        [ | solve [psatzl R ] ]).
-                psatz R. }
-              { rewrite Rabs_R0. psatzl R. } } }
-          { unfold L_fun. intros. split.
-            { prove_continuity.
-              apply continuity_comp with (f1:=Ropp) (f2:=exp);
-                prove_continuity. }
-            { split.
-              { unfold decreasing_bound. intros.
-                destruct H0. destruct H1.
-                { pose proof
-                       (Rpower.exp_increasing (-y) (-x)).
-                  pose proof (Rabs_pos c).
-                  assert (- y < - x) by psatzl R.
-                  pose proof (Exp_prop.exp_pos (-y)).
-                  intuition.
+        { prove_continuity. }
+        { unfold strict_increasing_bound, Ranalysis1.id. split.
+          { intros. pose proof delta_gt_0. psatz R. }
+          { psatzl R. } } }
+      { apply lexistsR
+        with (x:=fun d t => Rabs d * exp (-t)).
+        charge_split.
+        { charge_clear. apply embedPropR. unfold KLD_fun.
+          split.
+          { unfold KL_fun. split.
+            { unfold K_fun. split.
+              { prove_continuity. }
+              { split.
+                { unfold strict_increasing_bound. intros.
+                  pose proof (Exp_prop.exp_pos (-t0)).
+                  repeat (rewrite Rabs_right;
+                          [ | solve [psatzl R ] ]).
+                  psatz R. }
+                { rewrite Rabs_R0. psatzl R. } } }
+            { unfold L_fun. intros. split.
+              { prove_continuity.
+                apply continuity_comp with (f1:=Ropp) (f2:=exp);
+                  prove_continuity. }
+              { split.
+                { unfold decreasing_bound. intros.
+                  destruct H0. destruct H1.
+                  { pose proof
+                         (Rpower.exp_increasing (-y) (-x)).
+                    pose proof (Rabs_pos c).
+                    assert (- y < - x) by psatzl R.
+                    pose proof (Exp_prop.exp_pos (-y)).
+                    intuition.
                   (* I don't understand
                      how this solves the goal. *) }
-                { rewrite H1. intuition. } }
-              { unfold limit_pos_inf. intros.
-                admit. (* Need some limit lemmas. *) } } } }
-        { intros. split.
-          { rewrite RIneq.Ropp_0. rewrite exp_0.
-            rewrite RIneq.Rmult_1_r.
-            apply Rabs_pos_eq; assumption. }
-          { rewrite RIneq.Ropp_plus_distr.
-            rewrite Exp_prop.exp_plus. rewrite Rabs_mult.
-            rewrite Rabs_involutive.
-            rewrite Rabs_pos_eq with (x:=exp (-s));
-              [ | left; apply Exp_prop.exp_pos ].
-            psatzl R. } } }
-      { apply lexistsR  with (x:=R0).
-        charge_split.
-        { charge_clear. apply embedPropR. psatzl R. }
-        { admit. } } }
+                  { rewrite H1. intuition. } }
+                { unfold limit_pos_inf. intros.
+                  admit. (* Need some limit lemmas. *) } } } }
+          { intros. split.
+            { rewrite RIneq.Ropp_0. rewrite exp_0.
+              rewrite RIneq.Rmult_1_r.
+              apply Rabs_pos_eq; assumption. }
+            { intros. rewrite RIneq.Ropp_plus_distr.
+              rewrite Exp_prop.exp_plus. rewrite Rabs_mult.
+              rewrite Rabs_involutive.
+              rewrite Rabs_pos_eq with (x:=exp (-s));
+                [ | left; apply Exp_prop.exp_pos ].
+              psatzl R. } } }
+        { apply lexistsR  with (x:=R0).
+          charge_split.
+          { charge_clear. apply embedPropR. psatzl R. }
+          { admit. } } } }
   Admitted.
 
 End VelocityMonitor.

@@ -397,8 +397,18 @@ Hint Rewrite -> focusS_compose focusA_compose focusT_compose
      focusT_always focusT_eventually :
   rw_focus.
 
+Hint Rewrite -> focusT_compose focusT_lift1 focusT_lift2
+     focusT_lift3 focusT_starts focusT_ltrue focusT_lfalse
+     focusT_and focusT_or focusT_impl focusT_embed
+     focusT_lforall focusT_lexists focusT_always
+     focusT_eventually :
+  rw_focusT.
+
 Ltac rewrite_focus :=
   autorewrite with rw_focus.
+
+Ltac rewrite_focusT :=
+  autorewrite with rw_focusT.
 
 Section temporal_exists.
 
@@ -456,6 +466,18 @@ End temporal_exists.
 Local Transparent ILInsts.ILFun_Ops.
 Local Transparent ILInsts.ILPre_Ops.
 
+Lemma trace_prop_land_texists :
+  forall (T U : Type) (P : TraceProp U)
+         (Q : TraceProp (T * U)),
+    (P //\\ TExists T, Q) -|-
+    TExists T, (focusT snd P) //\\ Q.
+Proof.
+  intros T U P Q. unfold texists.
+  split; simpl; intros.
+  { destruct H as [HP [tr' HQ]]. eauto. }
+  { destruct H as [tr' [HP HQ]]. eauto. }
+Qed.
+
 Section history_variables.
   Local Open Scope LTL_scope.
 
@@ -463,16 +485,15 @@ Section history_variables.
           (x : StateVal T U)
   : P -|- TExists (list U) ,
              focusT snd P //\\
-             [!(fst `= snd#x `:: pure nil)] //\\
-             [][fst! `= snd#x! `:: !fst].
+             [!(fst `= pure nil)] //\\
+             [][fst! `= !snd#x `:: !fst].
   Proof.
     split.
     - cbv beta iota zeta delta
           - [ Stream.hd Stream.tl plus Stream.nth_suf pre
                         post fst snd trace ].
       intros. compute. fold plus.
-      exists (fmap_trace (List.map x)
-                         (fun n => (prefix t) (S n))).
+      exists (fmap_trace (List.map x) (prefix t)).
       split.
       + exact H.
       + split.

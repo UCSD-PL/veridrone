@@ -24,15 +24,19 @@ Section Robustness.
   Variable OC : StateVal state R.
   (* The StateVal tracking time. *)
   Variable t : StateVal state R.
+  
+  Record disturbance : Type :=
+    { d : R;
+      td : R }.
 
   Record dist_state : Type :=
-  { ds : list (R * R) }.
+  { ds : list disturbance }.
 
   Local Open Scope LTL_scope.
 
   Definition dist (gamma : R -> R)
-    : StateVal state (R * R) :=
-    `pair t (`gamma (`Rabs IC)).
+    : StateVal state disturbance :=
+    `Build_disturbance (`gamma (`Rabs IC)) t.
 
   Definition init_dist (gamma : R -> R)
     : StateProp (dist_state * state) :=
@@ -53,16 +57,26 @@ Section Robustness.
     : StateProp (dist_state * state) :=
     snd#OC `<=
     `max_R
-    (lift2 (@map (R * R) R)
+    (lift2 (@map disturbance R)
            (flip (fun p =>
-                    (`mu (pure (snd p))
-                      (snd#t `- (pure (fst p)))%R)))
+                    (`mu (pure p.(d))
+                      (snd#t `- (pure p.(td)))%R)))
            fst#ds)
     `+ `rho.
 
+  (* The bounds on the functions (K, KL, KLD) are
+     meaningless unless the time [StateVal] is
+     reasonable. *)
+  Definition sensible_time : TraceProp state :=
+    [`R0 `<= !t] //\\ [][!t `<= t!].
+
   (* This is the definition of robustness from the
-     Tabuada paper. *)
+     Tabuada paper. The property sensible_time
+     appear explicitly in our definition of [robust],
+     while in the Tabuada paper, this appear in the
+     model of cyber-physical systems. *)
   Definition robust : TraceProp state :=
+    sensible_time //\\
     Exists gamma : R -> R,   embed (K_fun gamma) //\\
     Exists mu : R -> R -> R, embed (KLD_fun mu)  //\\
     Exists rho : R,          embed (0 <= rho)%R  //\\
@@ -77,22 +91,19 @@ Section Robustness.
   (* For the equivalent definition of robustness,
      we only need to store a single pair of disturbance
      and time rather than a list of pairs. *)
-  Record dist_state2 : Type :=
-    { d : R;
-      td : R }.
 
   Definition dist2 (mu : R -> R -> R) (gamma : R -> R)
     : StateVal state R :=
     `mu (`gamma (`Rabs IC)) `R0.
 
   Definition init_dist2 (mu : R -> R -> R) (gamma : R -> R)
-    : StateProp (dist_state2 * state) :=
+    : StateProp (disturbance * state) :=
     fst#d `= snd#(dist2 mu gamma) //\\
     fst#td `= snd#t.
 
   Definition acc_dist2 (mu : R -> R -> R) (gamma : R -> R)
-    : ActionProp (dist_state2 * state) :=
-    let prev := `mu (!(fst#d)) (((snd#t)! `- !(fst#td))) in
+    : ActionProp (disturbance * state) :=
+    let prev := `mu (!(fst#d)) (((snd#t)! `- !(snd#t))) in
     let new := snd#(dist2 mu gamma)! in
     (new `<= prev -->>
        ((fst#d)! `= prev //\\ (fst#td)! `= !(fst#td))) //\\
@@ -100,89 +111,181 @@ Section Robustness.
        ((fst#d)! `= new //\\ (fst#td)! `= !(snd#t))).
 
   Definition bounded2 (rho : R)
-    : StateProp (dist_state2 * state) :=
+    : StateProp (disturbance * state) :=
     snd#OC `<= fst#d `+ `rho.
 
   Definition robust2 : TraceProp state :=
+    sensible_time //\\
     Exists gamma : R -> R,   embed (K_fun gamma) //\\
     Exists mu : R -> R -> R, embed (KLD_fun mu)  //\\
     Exists rho : R,          embed (0 <= rho)%R  //\\
-      TExists dist_state2 ,
+      TExists disturbance ,
           [!(init_dist2 mu gamma)] //\\
           [][acc_dist2 mu gamma //\\ !(bounded2 rho)].
 
-  Definition IndInv (mu : R -> R -> R)
-    : StateProp (list (R * R) * dist_state2 * state) :=
-    lift1
-      (List.Forall (fun p => 0 <= fst p //\\ 0 <= snd p)%R)
-      fst#fst //\\
+  Definition IndInv (mu : R -> R -> R) (gamma : R -> R)
+    : StateProp (list disturbance * disturbance * state) :=
+    lift2 List.Forall
+      (flip (fun p => pure 0 `<= pure p.(d) //\\
+                      pure 0 `<= pure p.(td) //\\
+                      pure p.(td) `<= snd#t)%R)
+      (snd#(dist gamma) `:: fst#fst) //\\
     fst#snd#d `=
     `max_R
-    (lift2 (@map (R * R) R)
+    (lift2 (@map disturbance R)
            (flip (fun p =>
-                    (`mu (pure (snd p))
-                      (snd#t `- (pure (fst p)))%R)))
-           fst#fst).
+                    (`mu (pure p.(d))
+                      (snd#t `- (pure p.(td)))%R)))
+           (snd#(dist gamma) `:: fst#fst)).
+
+Local Transparent ILInsts.ILFun_Ops.
+Local Transparent ILInsts.ILPre_Ops.
+
+Lemma always_now :
+  forall st (P : TraceProp st),
+    []P |-- P.
+Proof.
+  unfold always. simpl. intros.
+  apply (H 0).
+Qed.
+Ltac charge_revert_all :=
+  repeat match goal with
+         | [ |- |-- _ ] => fail 1
+         | [ |- _ |-- _ ] => charge_revert
+         end.
+
+Lemma reason_action :
+  forall st (P : ActionProp st),
+    (forall st1 st2, P st1 st2) ->
+    |-- [P].
+Proof. intros. apply starts_tauto. simpl. auto. Qed.
+
+Ltac reason_action_tac :=
+  repeat rewrite always_now;
+  repeat rewrite <- landA;
+  charge_revert_all;
+  repeat rewrite starts_impl;
+  apply reason_action;
+  let pre_st := fresh "pre_st" in
+  let post_st := fresh "post_st" in
+  intros pre_st post_st.
+
+Local Opaque ILInsts.ILFun_Ops.
+Local Opaque ILInsts.ILPre_Ops.
+
+Ltac clear_not_always :=
+  repeat rewrite landA;
+  repeat match goal with
+           | [ |- []?A //\\ ?B |-- _ ] =>
+             rewrite landC with (P:=[]A); charge_revert
+           | [ |- ?A //\\ ?B |-- _  ]=>
+             apply landL2
+           | [ |- []_ |-- _ ] => fail 1
+           | [ |- _ |-- _ ] => charge_clear
+         end; charge_intros.
+
+Lemma max_R_bound :
+  forall b,
+    (b <= 0)%R ->
+    forall l,
+      List.Forall (Rle b) l ->
+      (b <= max_R l)%R.
+Proof.
+  induction l.
+  { auto. }
+  { simpl. intros. inversion H0.
+    unfold Rmax. destruct_ite; auto. }
+Qed.
+
+Lemma max_R_strict_increasing :
+  forall f,
+    strict_increasing_bound f R0 ->
+    f R0 = R0 ->
+    forall l,
+      List.Forall (Rle R0) l ->
+      f (max_R l) = max_R (map f l).
+Proof.
+  induction l.
+  { auto. }
+  { simpl in *. intros. inversion H1.
+    rewrite <- IHl; auto. unfold strict_increasing_bound in H.
+    unfold Rmax. repeat destruct_ite; try reflexivity.
+    { destruct r.
+      { specialize (H a (max_R l)). psatzl R. }
+      { subst. reflexivity. } }
+    { destruct r; auto.
+      specialize (H (max_R l) a).
+      apply max_R_bound in H5; psatzl R. } }
+Qed.
+
+Lemma map_ext_strong :
+  forall (A B : Type) (f g : A -> B) (l : list A),
+    (forall a : A, List.In a l -> f a = g a) ->
+    map f l = map g l.
+Proof.
+  induction l.
+  { auto. }
+  { simpl. intros.
+    rewrite H; [ rewrite IHl; [ reflexivity | ] | ].
+    { intros. apply H; auto. }
+    { auto. } }
+Qed.
+
 
   Theorem robust2_robust :
     robust2 |-- robust.
   Proof.
-    repeat (apply lexists_lentails_m; red; intros;
+    unfold robust2, robust.
+    repeat rewrite landC with (P:=sensible_time).
+    repeat (repeat rewrite landexistsD;
+            apply lexists_lentails_m; red; intros;
+            repeat rewrite landA;
             charge_revert; apply embedPropL; intros;
             charge_intros; charge_split;
             [ apply embedPropR; assumption | ]).
-    rewrite (add_history _ snd#(dist a)).
-    rewrite texists_texists. simpl CoFunctor.cofmap.
+    repeat rewrite landC with (Q:=sensible_time).
+    repeat rewrite trace_prop_land_texists.
+    match goal with
+    |- TExists _ , ?P |-- _ =>
+    rewrite (add_history P snd#(dist a))
+    end.
+    rewrite texists_texists.
     eapply refinement_mapping
-    with (f:=fun st => Build_dist_state (fst (fst st))).
-    rewrite_focus.
-    charge_split.
-    { repeat rewrite landA. rewrite landC. charge_revert.
-      rewrite landC. repeat rewrite landA. rewrite landC.
-      charge_revert. charge_clear.
-      repeat rewrite starts_impl. apply starts_tauto.
-      Local Transparent ILInsts.ILFun_Ops.
-      Local Transparent ILInsts.ILPre_Ops.
-      unfold focusA, focusS. simpl. intros pre_st post_st.
+    with (f:=fun st => Build_dist_state
+                         (List.cons (dist a (snd st))
+                                    (fst (fst st)))).
+    unfold sensible_time. simpl CoFunctor.cofmap.
+    rewrite_focusT.
+    charge_split; [ charge_assumption | charge_split ].
+    { reason_action_tac.
+      Local Transparent ILInsts.ILFun_Ops ILInsts.ILPre_Ops.
+      unfold focusA, focusS. simpl.
       destruct pre_st as [[pre_hist [pre_d pre_t]] pre_st].
-      intros. compute in *. assumption. }
-    { charge_assert ([][!(IndInv a0)]).
+      intros. compute. compute in H6. congruence. }
+    { charge_assert ([][!(IndInv a0 a)]).
       { eapply discrete_induction.
-        { (* This is some pretty annoying manipulation
-             required because of a lack of a proper
-             tactic language. *)
-          repeat rewrite landA. rewrite landC.
-          repeat rewrite landA. rewrite landC.
-          charge_revert.
-          repeat rewrite landA. rewrite landC.
-          repeat rewrite landA. rewrite landC.
-          charge_revert. charge_clear. charge_intros.
-          rewrite always_and. charge_assumption. }
-        { repeat rewrite landA. rewrite landC. charge_revert.
-          rewrite landC. repeat rewrite landA. rewrite landC.
-          charge_revert. charge_clear.
-          repeat rewrite starts_impl. apply starts_tauto.
-          Local Transparent ILInsts.ILFun_Ops.
-          Local Transparent ILInsts.ILPre_Ops.
+        { clear_not_always. repeat rewrite always_and.
+          charge_assumption. }
+        { reason_action_tac.
+          Local Transparent ILInsts.ILFun_Ops
+                ILInsts.ILPre_Ops.
           Local Opaque Rabs Rle.
-          unfold focusA, focusS. simpl. intros pre_st post_st.
+          unfold focusA, focusS. simpl.
           destruct pre_st
             as [[pre_hist [pre_d pre_t]] pre_st].
+          destruct post_st
+            as [[post_hist [post_d post_t]] post_st].
           unfold pre, IndInv, max_R, init_dist2. simpl.
-          intros. rewrite H3. compute. compute in H4, H3.
+          intros. rewrite H6. compute. compute in *.
           split.
           { constructor; [ | constructor ].
             split.
-            { (* This is unprovable because we don't know
-                 anything about t. *) admit. }
             { apply K_fun_pos;
-              [assumption | apply Rabs_pos]. } }
+              [assumption | apply Rabs_pos]. }
+            { psatzl R. } }
           { destruct H4. rewrite H4.
             rewrite Rplus_opp_r.
-            match goal with
-              |- context [ if ?e then _ else _ ] =>
-              destruct e
-            end.
+            destruct_ite.
             { destruct r; [ | congruence ].
               pose proof (KLD_fun_pos
                             _ H0 (a (Rabs (IC pre_st))) R0)
@@ -204,30 +307,149 @@ Section Robustness.
             as [[post_hist [post_d post_t]] post_st].
           unfold pre, post. simpl. intros.
           unfold acc_dist2, IndInv, PreFun.compose,
-          _liftn, flip, Rmax, pre, post in *. simpl in *.
+          _liftn, flip, Rmax, pre, post in *.
           split.
-          { intuition. subst. constructor; [ | assumption ].
+          { simpl in *. intuition. subst. inversion H7.
+            constructor.
             { split.
-              { (* This is unprovable because we don't know
-                 anything about t. *) admit. }
               { compute; apply K_fun_pos;
-                [assumption | apply Rabs_pos]. } } }
-          { intuition.
+                [assumption | apply Rabs_pos]. }
+              { compute in *. psatzl R. } }
+            { constructor.
+              { compute; split.
+                { apply K_fun_pos;
+                  [assumption | apply Rabs_pos]. }
+                { compute in *; psatzl R. } }
+              { eapply Forall_impl. 2: apply H11.
+                simpl. intros. psatzl R. } } }
+          { cbv beta iota zeta delta
+            - [ max_R map KLD_fun K_fun L_fun ] in *.
+            intuition.
+            assert (0 <= a (Rabs (IC pre_st)))%R
+              as Ha.
+            { apply K_fun_pos;
+              [assumption | apply Rabs_pos]. }
+            pose (f:=(fun x =>
+                          a0 x
+                             (t post_st + - t pre_st)%R)).
+            assert (strict_increasing_bound f R0)
+              as Hincr.
+            { apply KLD_fun_increasing_nonneg; auto;
+              psatzl R. }
+            assert (f R0 = R0) as HfR0.
+            { apply KLD_fun_0; auto; psatzl R. }
             destruct (Rle_dec
                         (dist2 a0 a post_st)
-                        (a0 pre_d (t post_st - pre_t)))%R.
-            { intuition. subst. clear - H H0 r H6. simpl.
-              unfold KLD_fun in *. unfold Rminus.
-              rewrite Rplus_opp_r.
-              (* We need some lemma that allows us to move
-                 the outer application of a0 inside the
-                 map. *) admit. }
-            { intuition. specialize_arith_hyp H9. intuition.
-              subst. unfold dist2. simpl.
-              (* We need the same sort of lemma for this
-                 case as well. *) admit. } } } }
-      { (* We need to use bounded2 and IndInv to prove
-           bounded. *) admit. } }
-  Admitted.
+                        (a0 pre_d (t post_st - t pre_st)))%R.
+            { intuition. subst.
+              pose proof (max_R_strict_increasing f)
+                as Hmax_R_f. subst f.
+              rewrite Hmax_R_f; auto; rewrite Hmax_R_f in r;
+              auto; clear Hmax_R_f.
+              { rewrite map_map in *. simpl in *.
+                unfold dist2 in *.
+                repeat rewrite Rplus_opp_r in *.
+                match goal with
+                | [ |- _ = Rmax ?e1 ?e2 ] =>
+                  rewrite (Rmax_right e1 e2)
+                end.
+                { f_equal.
+                  { unfold KLD_fun in *. intuition.
+                    specialize (H4 _ Ha).
+                    intuition congruence. }
+                  { f_equal. apply map_ext_strong. intros.
+                    inversion H7.
+                    rewrite Forall_forall in H11.
+                    specialize (H11 _ H3). destruct a2.
+                    unfold KLD_fun in *. intuition.
+                    specialize (H13 d0 H8). intuition.
+                    rewrite <- H18; try psatzl R. f_equal.
+                    psatzl R. } }
+                { cbv beta iota zeta delta
+                  - [ max_R Rmax map KLD_fun K_fun L_fun ]
+                    in r.
+                  eapply Rle_trans; eauto. right.
+                  f_equal.
+                  { unfold KLD_fun in *. intuition.
+                    specialize (H4 _ Ha).
+                    intuition congruence. }
+                  { f_equal. apply map_ext_strong. intros.
+                    inversion H7.
+                    rewrite Forall_forall in H11.
+                    specialize (H11 _ H3). destruct a2.
+                    unfold KLD_fun in *. intuition.
+                    specialize (H13 d0 H8). intuition.
+                    rewrite <- H18; try psatzl R. f_equal.
+                    psatzl R. } } }
+              { apply Forall_forall. intros.
+                apply in_map_iff in H3. destruct H3.
+                destruct H3.
+                rewrite Forall_forall in H7.
+                specialize (H7 x0 H4). subst.
+                destruct x0.
+                apply KLD_fun_pos; auto; psatzl R. }
+              { apply Forall_forall. intros.
+                apply in_map_iff in H3. destruct H3.
+                destruct H3.
+                rewrite Forall_forall in H7.
+                specialize (H7 x0 H4). subst.
+                destruct x0.
+                apply KLD_fun_pos; auto; psatzl R. }
+              { apply Forall_forall. intros.
+                apply in_map_iff in H3. destruct H3.
+                destruct H3.
+                rewrite Forall_forall in H7.
+                specialize (H7 x0 H4). subst.
+                destruct x0.
+                apply KLD_fun_pos; auto; psatzl R. } }
+            { compute in n. specialize_arith_hyp H10.
+              intuition. subst. simpl. rewrite Rmax_left.
+              { rewrite Rplus_opp_r. reflexivity. }
+              { rewrite Rplus_opp_r. apply Rnot_le_lt in n.
+                left. eapply Rle_lt_trans; eauto. right.
+                pose proof (max_R_strict_increasing f)
+                as Hmax_R_f. subst f.
+                rewrite Hmax_R_f; auto; clear Hmax_R_f.
+                { rewrite map_map. simpl in *.
+                f_equal.
+                { unfold KLD_fun in *. intuition.
+                  specialize (H4 _ Ha).
+                  destruct H4. rewrite <- H4.
+                  { f_equal. psatzl R. }
+                  { psatzl R. }
+                  { psatzl R. } }
+                { f_equal. apply map_ext_strong. intros.
+                  inversion H7.
+                  rewrite Forall_forall in H11.
+                  specialize (H11 _ H3). destruct a2.
+                  unfold KLD_fun in *. intuition.
+                  specialize (H13 d0 H10). intuition.
+                  rewrite <- H18; try psatzl R. f_equal.
+                  psatzl R. } }
+                { apply Forall_forall. intros.
+                  apply in_map_iff in H3. destruct H3.
+                  destruct H3.
+                  rewrite Forall_forall in H7.
+                  specialize (H7 x0 H4). subst.
+                  destruct x0.
+                  apply KLD_fun_pos;
+                    auto; psatzl R. } } } } } }
+      { charge_intros. clear_not_always.
+        repeat rewrite always_and. charge_revert.
+        rewrite <- always_impl. apply always_tauto.
+        repeat rewrite curry. reason_action_tac.
+        unfold focusA. simpl.
+        destruct pre_st
+          as [[pre_hist [pre_d pre_t]] pre_st].
+        destruct post_st
+          as [[post_hist [post_d post_t]] post_st].
+        unfold pre, post. simpl. intros.
+        split.
+        { unfold acc_dist. simpl. subst. reflexivity. }
+        { unfold bounded, bounded2, IndInv in *.
+          cbv beta iota zeta delta
+          - [ max_R Rmax map KLD_fun K_fun L_fun ] in *.
+          psatzl R. } } }
+  Qed.
 
 End Robustness.
