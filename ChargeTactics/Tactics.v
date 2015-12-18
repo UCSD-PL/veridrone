@@ -113,6 +113,12 @@ Ltac charge_exfalso :=
 Ltac charge_revert :=
   first [ apply landAdj | apply Lemmas.lrevert ].
 
+Ltac charge_revert_all :=
+  repeat match goal with
+         | [ |- |-- _ ] => fail 1
+         | [ |- _ |-- _ ] => charge_revert
+         end.
+
 Ltac charge_assert H :=
   apply Lemmas.lcut with (R:=H).
 

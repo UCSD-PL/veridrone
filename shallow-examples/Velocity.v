@@ -11,11 +11,13 @@ Require Import ChargeTactics.Tactics.
 Require Import ChargeTactics.Lemmas.
 Require Import SLogic.Logic.
 Require Import SLogic.Instances.
+Require Import SLogic.BasicProofRules.
 Require Import SLogic.Continuous.
 Require Import SLogic.ContinuousInstances.
 Require Import SLogic.BoundingFunctions.
 Require Import SLogic.Robustness.
 Require Import SLogic.LTLNotation.
+Require Import SLogic.Tactics.
 
 Record state : Type :=
   { v : R; (* Actual velocity *)
@@ -126,66 +128,85 @@ Qed.
                               t.
   Proof.
     rewrite <- robust2_robust.
-    unfold robust2.
-    charge_split.
+    apply robust2_mu_gamma_rho_robust2.
     { admit. }
-    { apply lexistsR with (x:=fun x => delta * x).
-      charge_split.
-      { charge_clear. apply embedPropR. unfold K_fun.
-        split.
+    { exists (fun x => delta * x). (* gamma *)
+      exists (fun d t => Rabs d * exp (-t)). (* mu *)
+      exists R0. (* rho *)
+      split; [ | split; [ | split ] ].
+      { split.
         { prove_continuity. }
         { unfold strict_increasing_bound, Ranalysis1.id.
           split.
           { intros. pose proof delta_gt_0. psatz R. }
           { psatzl R. } } }
-      { apply lexistsR
-        with (x:=fun d t => Rabs d * exp (-t)).
-        charge_split.
-        { charge_clear. apply embedPropR. unfold KLD_fun.
-          split.
-          { unfold KL_fun. split.
-            { unfold K_fun. split.
-              { prove_continuity. }
-              { split.
-                { unfold strict_increasing_bound. intros.
-                  pose proof (Exp_prop.exp_pos (-t0)).
-                  repeat (rewrite Rabs_right;
-                          [ | solve [psatzl R ] ]).
-                  psatz R. }
-                { rewrite Rabs_R0. psatzl R. } } }
-            { unfold L_fun. intros. split.
-              { prove_continuity.
-                apply continuity_comp with (f1:=Ropp)
-                                             (f2:=exp);
-                  prove_continuity. }
-              { split.
-                { unfold decreasing_bound. intros.
-                  destruct H0. destruct H1.
-                  { pose proof
-                         (Rpower.exp_increasing (-y) (-x)).
-                    pose proof (Rabs_pos c).
-                    assert (- y < - x) by psatzl R.
-                    pose proof (Exp_prop.exp_pos (-y)).
-                    intuition.
-                  (* I don't understand
+      { split.
+        { unfold KL_fun. split.
+          { unfold K_fun. split.
+            { prove_continuity. }
+            { split.
+              { unfold strict_increasing_bound. intros.
+                pose proof (Exp_prop.exp_pos (-t0)).
+                repeat (rewrite Rabs_right;
+                        [ | solve [psatzl R ] ]).
+                psatz R. }
+              { rewrite Rabs_R0. psatzl R. } } }
+          { unfold L_fun. intros. split.
+            { prove_continuity.
+              apply continuity_comp with (f1:=Ropp)
+                                           (f2:=exp);
+                prove_continuity. }
+            { split.
+              { unfold decreasing_bound. intros.
+                destruct H0. destruct H1.
+                { pose proof
+                       (Rpower.exp_increasing (-y) (-x)).
+                  pose proof (Rabs_pos c).
+                  assert (- y < - x) by psatzl R.
+                  pose proof (Exp_prop.exp_pos (-y)).
+                  intuition.
+                (* I don't understand
                      how this solves the goal. *) }
-                  { rewrite H1. intuition. } }
-                { unfold limit_pos_inf. intros.
-                  admit. (* Need some limit lemmas. *) } } } }
-          { intros. split.
-            { rewrite RIneq.Ropp_0. rewrite exp_0.
-              rewrite RIneq.Rmult_1_r.
-              apply Rabs_pos_eq; assumption. }
-            { intros. rewrite RIneq.Ropp_plus_distr.
-              rewrite Exp_prop.exp_plus. rewrite Rabs_mult.
-              rewrite Rabs_involutive.
-              rewrite Rabs_pos_eq with (x:=exp (-s));
-                [ | left; apply Exp_prop.exp_pos ].
-              psatzl R. } } }
-        { apply lexistsR  with (x:=R0).
-          charge_split.
-          { charge_clear. apply embedPropR. psatzl R. }
-          { admit. } } } }
+                { rewrite H1. intuition. } }
+              { unfold limit_pos_inf. intros.
+                admit. (* Need some limit lemmas. *) } } } }
+        { intros. split.
+          { rewrite RIneq.Ropp_0. rewrite exp_0.
+            rewrite RIneq.Rmult_1_r.
+            apply Rabs_pos_eq; assumption. }
+          { intros. rewrite RIneq.Ropp_plus_distr.
+            rewrite Exp_prop.exp_plus. rewrite Rabs_mult.
+            rewrite Rabs_involutive.
+            rewrite Rabs_pos_eq with (x:=exp (-s));
+              [ | left; apply Exp_prop.exp_pos ].
+            psatzl R. } } }
+        { psatzl R. }
+        { rewrite_focusT. clear_not_always. charge_revert_all.
+          repeat rewrite <- always_impl.
+          apply always_tauto. charge_intros.
+          unfold Next. rewrite focusA_or.
+          rewrite <- starts_or. rewrite land_lor_distr_L.
+          apply lorL.
+          { (* Discrete transition *)
+            reason_action_tac.
+            destruct pre_st
+              as [[d1 td1]
+                    [v1 v_sense1 a1 a_output1
+                        dv1 da1 t1 T1]].
+            destruct post_st
+              as [[d2 td2]
+                    [v2 v_sense2 a2 a_output2
+                        dv2 da2 t2 T2]].
+            Local Transparent ILInsts.ILFun_Ops.
+            Local Transparent ILInsts.ILPre_Ops.
+            unfold focusA, Discr, Monitor, Output,
+            ResetTimer, UnchangedDiscr, acc_dist2,
+            bounded2, pre, post, dist2, PreFun.compose,
+            _liftn. simpl. 
+            intros. destruct H.
+            (* This is unprovable. The proof needs to be by
+               induction. *) admit. }
+          { admit. } } }
   Admitted.
 
 End VelocityMonitor.

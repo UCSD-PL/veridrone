@@ -70,6 +70,13 @@ Section Robustness.
   Definition sensible_time : TraceProp state :=
     [`R0 `<= !t] //\\ [][!t `<= t!].
 
+  Definition mu_gamma_rho_robust
+             ( mu : R -> R -> R) (gamma : R -> R) (rho : R)
+    : TraceProp (dist_state * state) :=
+    [!(init_dist gamma)] //\\
+    [][acc_dist gamma //\\ !(bounded mu rho)].
+    
+
   (* This is the definition of robustness from the
      Tabuada paper. The property sensible_time
      appear explicitly in our definition of [robust],
@@ -81,8 +88,7 @@ Section Robustness.
     Exists mu : R -> R -> R, embed (KLD_fun mu)  //\\
     Exists rho : R,          embed (0 <= rho)%R  //\\
       TExists dist_state ,
-         [!(init_dist gamma)] //\\
-         [][acc_dist gamma //\\ !(bounded mu rho)].
+         mu_gamma_rho_robust mu gamma rho.
 
   (* Now we write a definition of robustness that is
      equivalent to the Tabuada one, but easier to
@@ -114,14 +120,19 @@ Section Robustness.
     : StateProp (disturbance * state) :=
     snd#OC `<= fst#d `+ `rho.
 
+  Definition mu_gamma_rho_robust2
+             ( mu : R -> R -> R) (gamma : R -> R) (rho : R)
+    : TraceProp (disturbance * state) :=
+    [!(init_dist2 mu gamma)] //\\
+    [][acc_dist2 mu gamma //\\ !(bounded2 rho)].
+
   Definition robust2 : TraceProp state :=
     sensible_time //\\
     Exists gamma : R -> R,   embed (K_fun gamma) //\\
     Exists mu : R -> R -> R, embed (KLD_fun mu)  //\\
     Exists rho : R,          embed (0 <= rho)%R  //\\
       TExists disturbance ,
-          [!(init_dist2 mu gamma)] //\\
-          [][acc_dist2 mu gamma //\\ !(bounded2 rho)].
+          mu_gamma_rho_robust2 mu gamma rho.
 
   Definition IndInv (mu : R -> R -> R) (gamma : R -> R)
     : StateProp (list disturbance * disturbance * state) :=
@@ -138,99 +149,55 @@ Section Robustness.
                       (snd#t `- (pure p.(td)))%R)))
            (snd#(dist gamma) `:: fst#fst)).
 
-Local Transparent ILInsts.ILFun_Ops.
-Local Transparent ILInsts.ILPre_Ops.
 
-Lemma always_now :
-  forall st (P : TraceProp st),
-    []P |-- P.
-Proof.
-  unfold always. simpl. intros.
-  apply (H 0).
-Qed.
-Ltac charge_revert_all :=
-  repeat match goal with
-         | [ |- |-- _ ] => fail 1
-         | [ |- _ |-- _ ] => charge_revert
-         end.
+  Lemma max_R_bound :
+    forall b,
+      (b <= 0)%R ->
+      forall l,
+        List.Forall (Rle b) l ->
+        (b <= max_R l)%R.
+  Proof.
+    induction l.
+    { auto. }
+    { simpl. intros. inversion H0.
+      unfold Rmax. destruct_ite; auto. }
+  Qed.
 
-Lemma reason_action :
-  forall st (P : ActionProp st),
-    (forall st1 st2, P st1 st2) ->
-    |-- [P].
-Proof. intros. apply starts_tauto. simpl. auto. Qed.
+  Lemma max_R_strict_increasing :
+    forall f,
+      strict_increasing_bound f R0 ->
+      f R0 = R0 ->
+      forall l,
+        List.Forall (Rle R0) l ->
+        f (max_R l) = max_R (map f l).
+  Proof.
+    induction l.
+    { auto. }
+    { simpl in *. intros. inversion H1.
+      rewrite <- IHl; auto.
+      unfold strict_increasing_bound in H.
+      unfold Rmax. repeat destruct_ite; try reflexivity.
+      { destruct r.
+        { specialize (H a (max_R l)). psatzl R. }
+        { subst. reflexivity. } }
+      { destruct r; auto.
+        specialize (H (max_R l) a).
+        apply max_R_bound in H5; psatzl R. } }
+  Qed.
 
-Ltac reason_action_tac :=
-  repeat rewrite always_now;
-  repeat rewrite <- landA;
-  charge_revert_all;
-  repeat rewrite starts_impl;
-  apply reason_action;
-  let pre_st := fresh "pre_st" in
-  let post_st := fresh "post_st" in
-  intros pre_st post_st.
-
-Local Opaque ILInsts.ILFun_Ops.
-Local Opaque ILInsts.ILPre_Ops.
-
-Ltac clear_not_always :=
-  repeat rewrite landA;
-  repeat match goal with
-           | [ |- []?A //\\ ?B |-- _ ] =>
-             rewrite landC with (P:=[]A); charge_revert
-           | [ |- ?A //\\ ?B |-- _  ]=>
-             apply landL2
-           | [ |- []_ |-- _ ] => fail 1
-           | [ |- _ |-- _ ] => charge_clear
-         end; charge_intros.
-
-Lemma max_R_bound :
-  forall b,
-    (b <= 0)%R ->
-    forall l,
-      List.Forall (Rle b) l ->
-      (b <= max_R l)%R.
-Proof.
-  induction l.
-  { auto. }
-  { simpl. intros. inversion H0.
-    unfold Rmax. destruct_ite; auto. }
-Qed.
-
-Lemma max_R_strict_increasing :
-  forall f,
-    strict_increasing_bound f R0 ->
-    f R0 = R0 ->
-    forall l,
-      List.Forall (Rle R0) l ->
-      f (max_R l) = max_R (map f l).
-Proof.
-  induction l.
-  { auto. }
-  { simpl in *. intros. inversion H1.
-    rewrite <- IHl; auto. unfold strict_increasing_bound in H.
-    unfold Rmax. repeat destruct_ite; try reflexivity.
-    { destruct r.
-      { specialize (H a (max_R l)). psatzl R. }
-      { subst. reflexivity. } }
-    { destruct r; auto.
-      specialize (H (max_R l) a).
-      apply max_R_bound in H5; psatzl R. } }
-Qed.
-
-Lemma map_ext_strong :
-  forall (A B : Type) (f g : A -> B) (l : list A),
-    (forall a : A, List.In a l -> f a = g a) ->
-    map f l = map g l.
-Proof.
-  induction l.
-  { auto. }
-  { simpl. intros.
-    rewrite H; [ rewrite IHl; [ reflexivity | ] | ].
-    { intros. apply H; auto. }
-    { auto. } }
-Qed.
-
+  (* TODO: Move *)
+  Lemma map_ext_strong :
+    forall (A B : Type) (f g : A -> B) (l : list A),
+      (forall a : A, List.In a l -> f a = g a) ->
+      map f l = map g l.
+  Proof.
+    induction l.
+    { auto. }
+    { simpl. intros.
+      rewrite H; [ rewrite IHl; [ reflexivity | ] | ].
+      { intros. apply H; auto. }
+      { auto. } }
+  Qed.
 
   Theorem robust2_robust :
     robust2 |-- robust.
@@ -254,7 +221,8 @@ Qed.
     with (f:=fun st => Build_dist_state
                          (List.cons (dist a (snd st))
                                     (fst (fst st)))).
-    unfold sensible_time. simpl CoFunctor.cofmap.
+    unfold sensible_time, mu_gamma_rho_robust,
+    mu_gamma_rho_robust2. simpl CoFunctor.cofmap.
     rewrite_focusT.
     charge_split; [ charge_assumption | charge_split ].
     { reason_action_tac.
@@ -451,5 +419,27 @@ Qed.
           - [ max_R Rmax map KLD_fun K_fun L_fun ] in *.
           psatzl R. } } }
   Qed.
+
+  Theorem robust2_mu_gamma_rho_robust2 :
+    forall P,
+      P |-- sensible_time ->
+      (exists gamma mu rho,
+          K_fun gamma /\ KLD_fun mu /\ (0 <= rho)%R /\
+          focusT snd P //\\ [!(init_dist2 mu gamma)]
+          //\\ [][acc_dist2 mu gamma] |--
+          [][!(bounded2 rho)]) ->
+      P |-- robust2.
+  Proof.
+    intros P Ht H. unfold robust2.
+    destruct H
+      as [gamma [mu [rho [Hmu [Hgamma [Hrho Hrobust]]]]]].
+    charge_split; [ assumption | ].
+    apply lexistsR with (x:=gamma);
+      charge_split; [ apply embedPropR; assumption | ].
+    apply lexistsR with (x:=mu);
+      charge_split; [ apply embedPropR; assumption | ].
+    apply lexistsR with (x:=rho);
+      charge_split; [ apply embedPropR; assumption | ].
+  Admitted.
 
 End Robustness.

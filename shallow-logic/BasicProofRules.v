@@ -56,6 +56,14 @@ Section with_state.
     compute; intuition.
   Qed.
 
+  Lemma always_now :
+    forall (P : TraceProp),
+      always P |-- P.
+  Proof.
+    unfold always. simpl. intros.
+    apply (H 0).
+  Qed.
+
   (* Facts about pre and starts *)
   Lemma pre_entails : forall (A B : StateProp),
       pre (A -->> B) |-- pre A -->> pre B.
@@ -122,6 +130,12 @@ Section with_state.
     forall (F : StateProp),
       next (starts (pre F)) -|- starts (post F).
   Proof. reflexivity. Qed.
+
+  Lemma reason_action :
+    forall (P : ActionProp),
+      (forall st1 st2, P st1 st2) ->
+      |-- starts P.
+  Proof. intros. apply starts_tauto. simpl. auto. Qed.
 
   (** This is standard discrete induction over time **)
   Lemma dind_lem : forall (P : TraceProp),
