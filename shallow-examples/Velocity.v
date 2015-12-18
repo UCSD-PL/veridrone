@@ -117,8 +117,22 @@ Lemma Rabs_involutive :
   forall r, Rabs (Rabs r) = Rabs r.
 Proof.
   intros. apply Rabs_pos_eq; apply Rabs_pos.
-Qed.          
+Qed.
 
+(* We need to prove the following theorem by induction.
+   I have a rough idea of what the inductive invariant
+   should be. Let mu_d be the value of the disturbance
+   stored in the texists state of robust2. Then I think
+   the inductive invariant should be roughly:
+
+     a - a_output <= some_function_of (mu_d, t, T) /\
+     v + a_output * (delta - (t - T)) <= ub
+
+   I haven't worked out exactly what some_function_of is,
+   but the idea is that mu_d and the time elapsed since
+   the discrete transition (t - T) gives you a bound on
+   the amount of actuator disturbance of the last discrete
+   transition. *)
 
   (* Is the monitor robust? *)
   Theorem monitor_robust :
@@ -128,7 +142,7 @@ Qed.
                               t.
   Proof.
     rewrite <- robust2_robust.
-    apply robust2_mu_gamma_rho_robust2.
+    apply robust2_no_texists.
     { admit. }
     { exists (fun x => delta * x). (* gamma *)
       exists (fun d t => Rabs d * exp (-t)). (* mu *)

@@ -107,6 +107,8 @@ Section Robustness.
     fst#d `= snd#(dist2 mu gamma) //\\
     fst#td `= snd#t.
 
+  (* I don't think we actually need to store the value
+     of td here. We should look into removing it. *)
   Definition acc_dist2 (mu : R -> R -> R) (gamma : R -> R)
     : ActionProp (disturbance * state) :=
     let prev := `mu (!(fst#d)) (((snd#t)! `- !(snd#t))) in
@@ -420,7 +422,7 @@ Section Robustness.
           psatzl R. } } }
   Qed.
 
-  Theorem robust2_mu_gamma_rho_robust2 :
+  Theorem robust2_no_texists :
     forall P,
       P |-- sensible_time ->
       (exists gamma mu rho,
