@@ -15,10 +15,136 @@ Require Import SLogic.BasicProofRules.
 Require Import SLogic.Continuous.
 Require Import SLogic.ContinuousInstances.
 Require Import SLogic.BoundingFunctions.
-Require Import SLogic.Robustness.
+Require Import SLogic.RobustnessISS.
 Require Import SLogic.LTLNotation.
 Require Import SLogic.Tactics.
+Require Import SLogic.Util.
+Require Import SLogic.Arithmetic.
 
+Local Open Scope R_scope.
+Local Open Scope LTL_scope.
+
+Record state : Type :=
+  { v : R; (* Actual velocity *)
+    v_sense : R; (* Velocity used by the monitor *)
+    a : R; (* Actual acceleration *)
+    dv : R; (* Disturbance from velocity sensor *)
+    t : R; (* Time *)
+    T : R (* Timer *)
+  }.
+
+Section VelocityMonitor.
+
+  (* Time between executions of the monitor. *)
+  Variable delta : R.
+  Axiom delta_gt_0 : (delta > 0)%R.
+  (* The monitor enforces an upper bound of 0. *)
+
+  (* Monitor logic *)
+  Definition Monitor : StateProp state :=
+    a `* pure delta `+ v_sense `<= pure 0.
+
+  (* Sensor error *)
+  Definition Sense : StateProp state :=
+    v_sense `= v `+ dv.
+
+  (* Reset the timer when the discrete transition runs. *)
+  Definition ResetTimer : StateProp state :=
+    T `= t.
+
+  (* Full discrete transition *)
+  Definition Discr : ActionProp state :=
+    (Sense //\\ Monitor //\\ ResetTimer)! //\\
+    Unchanged (v :: t :: nil).
+
+  (* Evolution predicate *)
+  Definition w : SimpleDiffProp state (v :: a :: t :: nil) :=
+    D v `= (fun _ => a) //\\ D a `= pure 0 //\\
+    D t `= pure 1 //\\ (fun _ => t `- T `<= pure delta).
+
+  (* Continuous transition *)
+  Definition World : ActionProp state :=
+    SimpleContinuous state w //\\
+    Unchanged (dv :: nil).
+
+  (* Full system transition *)
+  Definition Next : ActionProp state :=
+    Discr \\// World.
+
+  Definition time_left : StateVal state R :=
+    pure delta `- (t `- T).
+
+  Definition IndInv : StateProp state :=
+    v `+ a `* time_left `<= dv.
+
+  Theorem next_robust :
+    [][Next] |-- robust state (`Rmax (`-dv) `0)
+                              (`Rmax v (`0))
+                              t.
+  Proof.
+  Admitted.
+
+  (* An attempt at a proof of Tabuada robustness. *)
+  (*
+  Theorem next_robust :
+    [][Next] |-- robust state (`Rmax (`-dv) `0)
+                              (`Rmax v (`0))
+                              t.
+  Proof.
+    rewrite <- robust2_robust.
+    apply robust2_no_texists.
+    { admit. }
+    { exists (fun d => 2*d).
+      exists (fun d t => Rabs d * exp (-t/2)).
+      exists 0.
+      split; [ | split; [ | split ] ].
+      { apply K_fun_scale; [ apply K_fun_id | psatzl R ]. }
+      { apply KLD_fun_abs_exp. psatzl R. }
+      { reflexivity. }
+      { rewrite_focusT. eapply discrete_induction.
+        { clear_not_always. charge_revert_all.
+          charge_intros. repeat rewrite always_and.
+          charge_assumption. }
+        { (* Base case. *) admit. }
+        { (* Inductive step. *)
+          charge_clear. apply always_tauto. charge_intros.
+          unfold Next. rewrite focusA_or.
+          rewrite <- starts_or.
+          repeat rewrite land_lor_distr_L.
+          apply lorL.
+          { rewrite next_starts_pre. reason_action_tac.
+            destruct pre_st
+              as [[d1 td1] [v1 v_sense1 a1 dv1 t1 T1]].
+            destruct post_st
+              as [[d2 td2] [v2 v_sense2 a2 dv2 t2 T2]].
+            Local Transparent ILInsts.ILFun_Ops.
+            Local Transparent ILInsts.ILPre_Ops.
+            unfold focusA, Discr, Sense, Monitor,
+            ResetTimer, Unchanged, acc_dist2,
+            bounded2, pre, post, dist2, PreFun.compose,
+            _liftn, focusS. simpl. intros.
+            assert (Rabs d1 <= d2).
+            { admit. }
+            assert (d1 <= Rabs d1) by apply Rle_abs.
+            intuition. subst. psatzl R. }
+          { rewrite next_starts_pre. reason_action_tac.
+            destruct pre_st
+              as [[d1 td1] [v1 v_sense1 a1 dv1 t1 T1]].
+            destruct post_st
+              as [[d2 td2] [v2 v_sense2 a2 dv2 t2 T2]].
+            Local Transparent ILInsts.ILFun_Ops.
+            Local Transparent ILInsts.ILPre_Ops.
+            unfold focusA, World, Unchanged, acc_dist2,
+            bounded2, pre, post, dist2, PreFun.compose,
+            _liftn, focusS. simpl. intros.
+            assert (v2 = v1 + a1 * (t2 - t1)) by admit.
+            assert (a2 = a1) by admit.
+            decompose [and] H1. subst. clear H1 H4.
+   *)
+
+
+(**** Old Stuff ****)
+(*
 Record state : Type :=
   { v : R; (* Actual velocity *)
     v_sense : R; (* Velocity used by the monitor *)
@@ -30,8 +156,6 @@ Record state : Type :=
     T : R (* Timer *)
   }.
 
-Local Open Scope R_scope.
-Local Open Scope LTL_scope.
 
 Section VelocityMonitor.
 
@@ -42,97 +166,39 @@ Section VelocityMonitor.
   Variable ub : R.
 
   (* Monitor logic *)
-  Definition Monitor : ActionProp state :=
-    a_output! `* pure delta `+ v_sense! `<= pure ub.
+  Definition Monitor : StateProp state :=
+    a_output `* pure delta `+ v_sense `<= pure ub.
 
   (* Sensor error *)
-  Definition Sense : ActionProp state :=
-    v_sense! `= !v `+ !dv.
+  Definition Sense : StateProp state :=
+    v_sense `= v `+ dv.
 
   (* Actuator error *)
-  Definition Output : ActionProp state :=
-    a! `= a_output! `+ !da.
+  Definition Output : StateProp state :=
+    a `= a_output `+ da.
 
   (* Reset the timer when the discrete transition runs. *)
-  Definition ResetTimer : ActionProp state :=
-    !T `= !t.
-
-  (* This specifies which variables don't change during
-     the discrete transition. *)
-  Definition UnchangedDiscr : ActionProp state :=
-    v! `= !v //\\ t! `= !t.
+  Definition ResetTimer : StateProp state :=
+    T `= t.
 
   (* Full discrete transition *)
   Definition Discr : ActionProp state :=
-    (*Sense //\\*) Monitor //\\ Output //\\ ResetTimer //\\
-    UnchangedDiscr.
+    (Sense //\\ Monitor //\\ Output //\\ ResetTimer)! //\\
+    Unchanged (v :: t :: nil).
 
   (* Evolution predicate *)
   Definition w : SimpleDiffProp state (v :: a :: t :: nil) :=
     D v `= (fun _ => a) //\\ D a `= pure 0 //\\
-    D t `= pure 1.
+    D t `= pure 1 //\\ (fun _ => t `- T `<= pure delta).
 
   (* Continuous transition *)
-  (* TODO : It would be nice to move the bound
-     on t and T inside the continuous transition, but
-     I can't figure out how to do that using our
-     current notation. *)
   Definition World : ActionProp state :=
-    !dv `= pure 0 //\\ !da `= pure 0 //\\
     SimpleContinuous state w //\\
-    t! `- !T `<= pure delta.
+    Unchanged (dv :: da :: nil).
 
   (* Full system transition *)
   Definition Next : ActionProp state :=
     Discr \\// World.
-
-Lemma continuity_id :
-  continuity id.
-Proof.
-  apply derivable_continuous; apply derivable_id.
-Qed.
-
-Lemma continuity_exp :
-  continuity exp.
-Proof.
-  apply derivable_continuous; apply Ranalysis4.derivable_exp.
-Qed.
-
-(* TODO: move *)
-(* Proves continuity facts of real-valued functions. *)
-Ltac prove_continuity :=
-  repeat first [ apply continuity_plus |
-                 apply continuity_opp |
-                 apply continuity_minus |
-                 apply continuity_mult |
-                 solve [apply continuity_const; congruence] |
-                 apply continuity_scal |
-                 apply continuity_inv |
-                 apply continuity_div |
-                 apply continuity_id |
-                 apply continuity_exp |
-                 apply Ranalysis4.Rcontinuity_abs ].
-
-Lemma Rabs_involutive :
-  forall r, Rabs (Rabs r) = Rabs r.
-Proof.
-  intros. apply Rabs_pos_eq; apply Rabs_pos.
-Qed.
-
-(* We need to prove the following theorem by induction.
-   I have a rough idea of what the inductive invariant
-   should be. Let mu_d be the value of the disturbance
-   stored in the texists state of robust2. Then I think
-   the inductive invariant should be roughly:
-
-     a - a_output <= some_function_of (mu_d, t, T) /\
-     v + a_output * (delta - (t - T)) <= ub
-
-   I haven't worked out exactly what some_function_of is,
-   but the idea is that mu_d and the time elapsed since
-   the discrete transition (t - T) gives you a bound on
-   the amount of actuator disturbance of the last discrete
-   transition. *)
 
   (* Is the monitor robust? *)
   Theorem monitor_robust :
@@ -195,32 +261,59 @@ Qed.
               [ | left; apply Exp_prop.exp_pos ].
             psatzl R. } } }
         { psatzl R. }
-        { rewrite_focusT. clear_not_always. charge_revert_all.
-          repeat rewrite <- always_impl.
-          apply always_tauto. charge_intros.
-          unfold Next. rewrite focusA_or.
-          rewrite <- starts_or. rewrite land_lor_distr_L.
-          apply lorL.
-          { (* Discrete transition *)
-            reason_action_tac.
-            destruct pre_st
-              as [[d1 td1]
-                    [v1 v_sense1 a1 a_output1
-                        dv1 da1 t1 T1]].
-            destruct post_st
-              as [[d2 td2]
-                    [v2 v_sense2 a2 a_output2
-                        dv2 da2 t2 T2]].
-            Local Transparent ILInsts.ILFun_Ops.
-            Local Transparent ILInsts.ILPre_Ops.
-            unfold focusA, Discr, Monitor, Output,
-            ResetTimer, UnchangedDiscr, acc_dist2,
-            bounded2, pre, post, dist2, PreFun.compose,
-            _liftn. simpl. 
-            intros. destruct H.
+        { rewrite_focusT. eapply discrete_induction.
+          { clear_not_always. charge_revert_all.
+            charge_intros. repeat rewrite always_and.
+            charge_assumption. }
+          { (* Base case. *) admit. }
+          { (* Inductive step. *) charge_clear.
+            apply always_tauto. charge_intros.
+            unfold Next. rewrite focusA_or.
+            rewrite <- starts_or.
+            repeat rewrite land_lor_distr_L.
+            apply lorL.
+            { (* Discrete transition *)
+              rewrite next_starts_pre.
+              reason_action_tac.
+              destruct pre_st
+                as [[d1 td1]
+                      [v1 v_sense1 a1 a_output1
+                          dv1 da1 t1 T1]].
+              destruct post_st
+                as [[d2 td2]
+                      [v2 v_sense2 a2 a_output2
+                          dv2 da2 t2 T2]].
+              Local Transparent ILInsts.ILFun_Ops.
+              Local Transparent ILInsts.ILPre_Ops.
+              unfold focusA, Discr, Monitor, Output,
+              ResetTimer, UnchangedDiscr, acc_dist2,
+              bounded2, pre, post, dist2, PreFun.compose,
+              _liftn. simpl. 
+              intros.
+              assert (Rabs d1 <= d2).
+              { admit. }
+              assert (d1 <= Rabs d1) by apply Rle_abs.
+              intuition. subst. psatzl R. }
+            { rewrite next_starts_pre.
+              reason_action_tac.
+              destruct pre_st
+                as [[d1 td1]
+                      [v1 v_sense1 a1 a_output1
+                          dv1 da1 t1 T1]].
+              destruct post_st
+                as [[d2 td2]
+                      [v2 v_sense2 a2 a_output2
+                          dv2 da2 t2 T2]].
+              Local Transparent ILInsts.ILFun_Ops.
+              Local Transparent ILInsts.ILPre_Ops.
+              unfold focusA, World, Monitor, Output,
+              ResetTimer, UnchangedDiscr, acc_dist2,
+              bounded2, pre, post, dist2, PreFun.compose,
+              _liftn. simpl. intros.
+              
             (* This is unprovable. The proof needs to be by
                induction. *) admit. }
           { admit. } } }
   Admitted.
-
+*)
 End VelocityMonitor.

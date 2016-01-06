@@ -17,7 +17,10 @@ shallow-logic/Tactics.v
 shallow-logic/Continuous.v
 shallow-logic/ContinuousInstances.v
 shallow-logic/BoundingFunctions.v
-shallow-logic/Robustness.v
+shallow-logic/RobustnessTabuada.v
+shallow-logic/RobustnessISS.v
+shallow-logic/Arithmetic.v
+shallow-logic/Util.v
 
 shallow-examples/Velocity.v
 

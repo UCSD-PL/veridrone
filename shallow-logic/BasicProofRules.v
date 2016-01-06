@@ -64,6 +64,19 @@ Section with_state.
     apply (H 0).
   Qed.
 
+  Lemma always_pre_post :
+    forall (I : StateProp),
+      always (starts (pre I)) -|-
+      always (starts ((pre I) //\\ (post I))).
+  Proof.
+    intros; split; cbv beta iota zeta delta - [nth_suf];
+    intros.
+    { split; [ auto | ].
+      specialize (H (n + 1)). unfold nth_suf in *.
+      rewrite <- plus_n_O in H. assumption. }
+    { apply H. }
+  Qed.
+
   (* Facts about pre and starts *)
   Lemma pre_entails : forall (A B : StateProp),
       pre (A -->> B) |-- pre A -->> pre B.
