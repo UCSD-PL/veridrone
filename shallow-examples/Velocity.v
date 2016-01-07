@@ -140,17 +140,20 @@ Section VelocityMonitor.
             assert (v2 = v1 + a1 * (t2 - t1)) by admit.
             assert (a2 = a1) by admit.
             assert (t1 <= t2) by admit.
+            assert (T1 <= t1) by admit.
             assert (t2 - T1 <= delta) by admit.
-            decompose [and] H. subst. clear H H6 H11.
+            decompose [and] H. subst. clear H H7 H12.
             split.
             { psatzl R. }
             { apply Rmax_case_strong; intros.
               { pose proof delta_gt_0.
-                rewrite <- Rmax_l in H7.
-                assert (0 <= v1 \/ v1 < 0)
+                pose proof H8.
+                rewrite <- Rmax_l in H8.
+                rewrite <- Rmax_r in H1.
+                assert (x <= v1 \/ v1 < x)
                   as Hsgn by psatzl R.
                 destruct Hsgn as [Hsgn | Hsgn].
-                { rewrite Rmax_left in H8; [ | assumption ].
+                { rewrite Rmax_left in H9; [ | psatzl R ].
                   assert (exp (-t2/delta) =
                           exp (-t1/delta)*
                           exp(-(t2 - t1)/delta)) as Hexp.
@@ -161,8 +164,6 @@ Section VelocityMonitor.
                     ((v1 - x) * exp (- (t2-t1) / delta) + x).
                   { pose proof
                        (x_plus_1_le_exp (-(t2-t1)/delta)).
-                    assert (x <= v1) by admit.
-                    assert (T1 <= t1) by admit.
                     z3 solve; admit. }
                   { pose proof
                          (Exp_prop.exp_pos (-(t2-t1)/delta)).
@@ -172,7 +173,7 @@ Section VelocityMonitor.
                   { pose proof (Rabs_pos OC_0).
                     pose proof (Exp_prop.exp_pos (-t2/delta)).
                     psatz R. } } }
-              { rewrite <- Rmax_r in H7. rewrite <- H7.
+              { rewrite <- Rmax_r in H8. rewrite <- H8.
                 pose proof (Exp_prop.exp_pos (-t2/delta)).
                 pose proof (Rabs_pos OC_0).
                 psatz R. } } } } } }

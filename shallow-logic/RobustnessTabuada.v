@@ -7,6 +7,7 @@ Require Import ExtLib.Structures.Applicative.
 Require Import Charge.Logics.ILogic.
 Require Import Charge.Logics.ILEmbed.
 Require Import ChargeTactics.Tactics.
+Require Import SLogic.Lifting.
 Require Import SLogic.Logic.
 Require Import SLogic.LTLNotation.
 Require Import SLogic.Instances.
