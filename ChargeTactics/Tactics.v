@@ -122,6 +122,12 @@ Ltac charge_revert_all :=
 Ltac charge_assert H :=
   apply Lemmas.lcut with (R:=H).
 
+Ltac charge_strengthen H :=
+  match goal with
+  |- _ |-- ?G =>
+  transitivity (H //\\ G); [ | charge_assumption ]
+  end.
+
 Ltac charge_exists x :=
   apply (@lexistsR _ _ _ _ x).
 

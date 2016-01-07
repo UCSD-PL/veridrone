@@ -67,6 +67,7 @@ Arguments post {_ _} _ _ _.
 Arguments always {_} _ _.
 Arguments eventually {_} _ _.
 Arguments starts {_} _ _.
+Arguments next {_} _ _.
 Arguments stutter {_ _} _ _ _.
 
 Section simulations.

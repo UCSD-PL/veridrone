@@ -20,6 +20,7 @@ Require Import SLogic.LTLNotation.
 Require Import SLogic.Tactics.
 Require Import SLogic.Util.
 Require Import SLogic.Arithmetic.
+Require Import Z3.Tactic.
 
 Local Open Scope R_scope.
 Local Open Scope LTL_scope.
@@ -65,27 +66,126 @@ Section VelocityMonitor.
   (* Continuous transition *)
   Definition World : ActionProp state :=
     SimpleContinuous state w //\\
-    Unchanged (dv :: nil).
+    Unchanged (dv :: T :: nil).
 
   (* Full system transition *)
   Definition Next : ActionProp state :=
     Discr \\// World.
 
+  (* Initial condition *)
+  Definition Init : StateProp state :=
+    t `= pure 0.
+
+  (* Our main robustness theorem. *)
+  Theorem next_robust :
+    [!Init] //\\ [][Next] |-- robust state (`Rmax (`-dv) `0)
+                                           (`Rmax v `0)
+                                           t.
+  Proof.
+    unfold robust, mu_gamma_robust.
+    apply lexistsR
+    with (x:=fun d t => Rabs d * exp (-t/delta)).
+    apply lexistsR with (x:=Ranalysis1.id).
+    repeat charge_split.
+    { charge_clear. apply embedPropR. admit. }
+    { charge_clear. apply embedPropR. admit. }
+    { exists_val_now OC_0.
+      charge_intros. charge_split.
+      { charge_assumption. }
+      { charge_intros.
+        charge_strengthen
+          ([][!(a `* (`delta `- (t `- T)) `<= `- (v `+ dv))]).
+        rewrite always_and. eapply discrete_induction.
+        { clear_not_always. repeat rewrite always_and.
+          charge_assumption. }
+        { (* Base case *)
+          charge_split.
+          { admit. }
+          { reason_action_tac.
+            destruct pre_st as [v1 v_sense1 a1 dv1 t1 T1].
+            destruct post_st as [v2 v_sense2 a2 dv2 t2 T2].
+            Local Transparent ILInsts.ILFun_Ops.
+            Local Transparent ILInsts.ILPre_Ops.
+            unfold Init, pre, _liftn, id. simpl. intros.
+            subst. rewrite RIneq.Ropp_0. unfold Rdiv.
+            rewrite RIneq.Rmult_0_l. rewrite exp_0.
+            rewrite RIneq.Rmult_1_r.
+            rewrite Rabs_pos_eq; [ | apply Rmax_r ].
+            rewrite <- Rmax_r in H2. psatzl R. } }
+        { (* Inductive step *)
+          charge_clear. apply always_tauto. charge_intros.
+          unfold Next. rewrite <- starts_or.
+          repeat rewrite land_lor_distr_L. apply lorL.
+          { (* Discrete transition *)
+            rewrite <- next_and.
+            repeat rewrite next_starts_pre.
+            repeat rewrite starts_and.
+            reason_action_tac.
+            destruct pre_st as [v1 v_sense1 a1 dv1 t1 T1].
+            destruct post_st as [v2 v_sense2 a2 dv2 t2 T2].
+            unfold Discr, Sense, Monitor, ResetTimer,
+            Unchanged, pre, post, _liftn, id. simpl. intros.
+            split.
+            { intuition. subst. psatzl R. }
+            { intuition congruence. } }
+          { (* Continuous transition *)
+            rewrite <- next_and.
+            repeat rewrite next_starts_pre.
+            repeat rewrite starts_and.
+            reason_action_tac.
+            destruct pre_st as [v1 v_sense1 a1 dv1 t1 T1].
+            destruct post_st as [v2 v_sense2 a2 dv2 t2 T2].
+            unfold World, Unchanged, pre, post, _liftn, id.
+            simpl. intros.
+            assert (v2 = v1 + a1 * (t2 - t1)) by admit.
+            assert (a2 = a1) by admit.
+            assert (t1 <= t2) by admit.
+            assert (t2 - T1 <= delta) by admit.
+            decompose [and] H. subst. clear H H6 H11.
+            split.
+            { psatzl R. }
+            { apply Rmax_case_strong; intros.
+              { pose proof delta_gt_0.
+                rewrite <- Rmax_l in H7.
+                assert (0 <= v1 \/ v1 < 0)
+                  as Hsgn by psatzl R.
+                destruct Hsgn as [Hsgn | Hsgn].
+                { rewrite Rmax_left in H8; [ | assumption ].
+                  assert (exp (-t2/delta) =
+                          exp (-t1/delta)*
+                          exp(-(t2 - t1)/delta)) as Hexp.
+                  { rewrite <- Exp_prop.exp_plus. f_equal.
+                    z3 solve; admit. }
+                  rewrite Hexp. clear Hexp.
+                  transitivity
+                    ((v1 - x) * exp (- (t2-t1) / delta) + x).
+                  { pose proof
+                       (x_plus_1_le_exp (-(t2-t1)/delta)).
+                    assert (x <= v1) by admit.
+                    assert (T1 <= t1) by admit.
+                    z3 solve; admit. }
+                  { pose proof
+                         (Exp_prop.exp_pos (-(t2-t1)/delta)).
+                    psatz R. } }
+                { transitivity x.
+                  { z3 solve; admit. }
+                  { pose proof (Rabs_pos OC_0).
+                    pose proof (Exp_prop.exp_pos (-t2/delta)).
+                    psatz R. } } }
+              { rewrite <- Rmax_r in H7. rewrite <- H7.
+                pose proof (Exp_prop.exp_pos (-t2/delta)).
+                pose proof (Rabs_pos OC_0).
+                psatz R. } } } } } }
+  Qed.
+
+  (* An attempt at a proof of Tabuada robustness. *)
+  (*
   Definition time_left : StateVal state R :=
     pure delta `- (t `- T).
 
   Definition IndInv : StateProp state :=
     v `+ a `* time_left `<= dv.
 
-  Theorem next_robust :
-    [][Next] |-- robust state (`Rmax (`-dv) `0)
-                              (`Rmax v (`0))
-                              t.
-  Proof.
-  Admitted.
-
-  (* An attempt at a proof of Tabuada robustness. *)
-  (*
   Theorem next_robust :
     [][Next] |-- robust state (`Rmax (`-dv) `0)
                               (`Rmax v (`0))

@@ -6,6 +6,7 @@ Require Import Charge.Logics.ILEmbed.
 Require Import ChargeTactics.Tactics.
 Require Import SLogic.Stream.
 Require Import SLogic.Logic.
+Require Import SLogic.Lifting.
 Require Import SLogic.Instances.
 Require Import SLogic.LTLNotation.
 
@@ -139,6 +140,36 @@ Section with_state.
     compute. auto.
   Qed.
 
+  Lemma pre_and :
+    forall (P Q : StateProp),
+      pre P //\\ pre Q -|- pre (P //\\ Q).
+  Proof. reflexivity. Qed.
+
+  Lemma pre_or :
+    forall (P Q : StateProp),
+      pre P \\// pre Q -|- pre (P \\// Q).
+  Proof. reflexivity. Qed.
+
+  Lemma post_and :
+    forall (P Q : StateProp),
+      post P //\\ post Q -|- post (P //\\ Q).
+  Proof. reflexivity. Qed.
+
+  Lemma post_or :
+    forall (P Q : StateProp),
+      post P \\// post Q -|- post (P \\// Q).
+  Proof. reflexivity. Qed.
+
+  Lemma next_and :
+    forall (P Q : TraceProp),
+      next P //\\ next Q -|- next (P //\\ Q).
+  Proof. reflexivity. Qed.
+
+  Lemma next_or :
+    forall (P Q : TraceProp),
+      next P \\// next Q -|- next (P \\// Q).
+  Proof. reflexivity. Qed.
+
   Lemma next_starts_pre :
     forall (F : StateProp),
       next (starts (pre F)) -|- starts (post F).
@@ -149,6 +180,17 @@ Section with_state.
       (forall st1 st2, P st1 st2) ->
       |-- starts P.
   Proof. intros. apply starts_tauto. simpl. auto. Qed.
+
+  Lemma Exists_with_st :
+    forall (T : Type) (G : TraceProp)
+           (P : T -> TraceProp) (y : StateVal state T),
+      (forall x : T, G |--
+         starts (pre (lift2 eq (pure x) y)) -->> P x) ->
+      G |-- Exists x : T, P x.
+  Proof.
+    unfold starts, Logic.starts, pre. simpl. intros.
+    exists (y (hd t)). auto.
+  Qed.
 
   (** This is standard discrete induction over time **)
   Lemma dind_lem : forall (P : TraceProp),

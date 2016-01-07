@@ -1,6 +1,7 @@
 Require Import Coq.Classes.RelationClasses.
 Require Import Setoid Relation_Definitions.
 Require Import Coq.Reals.RIneq.
+Require Import Coq.Reals.Rtrigo_def.
 
 Global Instance Reflexive_Rge : Reflexive Rge.
 Proof.
@@ -39,3 +40,7 @@ intros ; unfold Rminus ;
 apply Rplus_le_compat;
 [assumption | apply Ropp_le_contravar ; assumption].
 Qed.
+
+Lemma x_plus_1_le_exp :
+  forall (x : R), x + 1 <= exp x.
+Admitted.

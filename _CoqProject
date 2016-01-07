@@ -10,6 +10,7 @@
 
 shallow-logic/Stream.v
 shallow-logic/Logic.v
+shallow-logic/Lifting.v
 shallow-logic/Instances.v
 shallow-logic/BasicProofRules.v
 shallow-logic/LTLNotation.v

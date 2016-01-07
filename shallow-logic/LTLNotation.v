@@ -3,26 +3,13 @@ Require Import Coq.Reals.Rdefinitions.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.PreFun.
 Require Import SLogic.Logic.
+Require Import SLogic.Lifting.
 Require Import SLogic.Instances.
 
 Delimit Scope LTL_scope with LTL.
 
 (* The following allows us to define one binop
    notation for StateVals, ActionVals, and TraceVals. *)
-Definition lift1 {T U : Type} {F : Type -> Type}
-           {Ap : Applicative.Applicative F}
-(f : T -> U) (x : F T) : F U :=
-  Applicative.ap (Applicative.pure f) x.
-
-Definition lift2 {T U V : Type} {F : Type -> Type}
-           {Ap : Applicative.Applicative F}
-(f : T -> U -> V) (x : F T) (y : F U) : F V :=
-  Applicative.ap (lift1 (F:=F) f x) y.
-
-Definition lift3 {T U V W : Type} {F : Type -> Type}
-           {Ap : Applicative.Applicative F}
-(f : T -> U -> V -> W) (x : F T) (y : F U) (z : F V) : F W :=
-  Applicative.ap (lift2 (F:=F) f x y) z.
 
 Notation "x `= y" := (lift2 eq x y)
                         (at level 70, no associativity)

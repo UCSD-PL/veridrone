@@ -129,6 +129,22 @@ Section with_state.
     split; intros; eapply H; eauto.
   Qed.
 
+  Global Instance Proper_next_lequiv
+    : Proper (lequiv ==> lequiv) next.
+  Proof.
+    red. red. intros.
+    unfold next. red. simpl.
+    split; intros; eapply H; eauto.
+  Qed.
+
+  Global Instance Proper_next_lentails
+    : Proper (lentails ==> lentails) next.
+  Proof.
+    red. red. intros.
+    unfold next. red. simpl.
+    intros; eapply H; eauto.
+  Qed.
+
   Global Instance Proper_trace_eq_iff T (P:TraceVal T) :
     Proper (Stream.trace_eq eq ==> eq) P.
   Proof.

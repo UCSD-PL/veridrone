@@ -1,8 +1,10 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.micromega.Psatz.
+Require Import ExtLib.Structures.Applicative.
 Require Import Charge.Logics.ILogic.
 Require Import ChargeTactics.Tactics.
 Require Import SLogic.Logic.
+Require Import SLogic.LTLNotation.
 Require Import SLogic.BasicProofRules.
 
 Ltac specialize_arith_hyp H :=
@@ -39,3 +41,11 @@ Ltac clear_not_always :=
            | [ |- always _ |-- _ ] => fail 1
            | [ |- _ |-- _ ] => charge_clear
          end; charge_intros.
+
+Local Open Scope LTL_scope.
+
+Ltac exists_val_now name :=
+  match goal with
+  |- _ |-- Exists x : _, [!(pure x `= ?e)] //\\ _ =>
+  apply Exists_with_st with (y:=e); intro name
+  end.
