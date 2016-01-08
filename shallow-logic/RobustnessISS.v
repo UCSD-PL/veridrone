@@ -48,9 +48,21 @@ Section Robustness.
      stability that guarantees that once disturbances
      are removed, the system returns to its nominal
      behavior. *)
+  Definition mu_gamma_robust2
+    (mu : R -> R -> R) (gamma : R -> R) :
+    TraceProp state :=
+    embed (KL_fun mu) //\\ embed (K_inf_fun gamma) //\\
+    [](Exists OC_0 : R, [!(pure OC_0 `= OC)] //\\
+       Exists t_0 : R,  [!(pure t_0 `= t)] //\\
+       Forall sup : R,
+         [][!(IC `<= pure sup)] -->>
+         [][!(OC `<= `mu `OC_0 (t `- `t_0) `+ `gamma `sup)]).
+
+  (* Here is the existential version of the stronger
+     definition of robustness. *)
   Definition robust2 : TraceProp state :=
     Exists mu : R -> R -> R,
     Exists gamma : R -> R,
-      [](mu_gamma_robust mu gamma).
+      mu_gamma_robust2 mu gamma.
 
 End Robustness.
