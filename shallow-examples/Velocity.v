@@ -20,7 +20,6 @@ Require Import SLogic.LTLNotation.
 Require Import SLogic.Tactics.
 Require Import SLogic.Util.
 Require Import SLogic.Arithmetic.
-Require Import Z3.Tactic.
 
 Local Open Scope R_scope.
 Local Open Scope LTL_scope.
@@ -158,18 +157,18 @@ Section VelocityMonitor.
                           exp (-t1/delta)*
                           exp(-(t2 - t1)/delta)) as Hexp.
                   { rewrite <- Exp_prop.exp_plus. f_equal.
-                    z3 solve; admit. }
+                    z3_prove. }
                   rewrite Hexp. clear Hexp.
                   transitivity
                     ((v1 - x) * exp (- (t2-t1) / delta) + x).
                   { pose proof
                        (x_plus_1_le_exp (-(t2-t1)/delta)).
-                    z3 solve; admit. }
+                    z3_prove. }
                   { pose proof
                          (Exp_prop.exp_pos (-(t2-t1)/delta)).
                     psatz R. } }
                 { transitivity x.
-                  { z3 solve; admit. }
+                  { z3_prove. }
                   { pose proof (Rabs_pos OC_0).
                     pose proof (Exp_prop.exp_pos (-t2/delta)).
                     psatz R. } } }

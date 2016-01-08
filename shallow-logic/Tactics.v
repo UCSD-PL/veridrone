@@ -6,6 +6,7 @@ Require Import ChargeTactics.Tactics.
 Require Import SLogic.Logic.
 Require Import SLogic.LTLNotation.
 Require Import SLogic.BasicProofRules.
+Require Import Z3.Tactic.
 
 Ltac specialize_arith_hyp H :=
   repeat match type of H with
@@ -49,3 +50,7 @@ Ltac exists_val_now name :=
   |- _ |-- Exists x : _, [!(pure x `= ?e)] //\\ _ =>
   apply Exists_with_st with (y:=e); intro name
   end.
+
+(* Runs z3 on the goal, and admits the goal if z3 succeeds. *)
+Ltac z3_prove :=
+  z3 solve; admit.

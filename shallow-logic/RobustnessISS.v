@@ -28,15 +28,14 @@ Section Robustness.
      where ||u||_inf is the supremum norm of the
      disturbance. In our framework, OC = |x(t)| and
      IC = u. *)
-  (* TODO: gamma should actually be a K_inf function *)
   Definition mu_gamma_robust
     (mu : R -> R -> R) (gamma : R -> R) :
     TraceProp state :=
     embed (KL_fun mu) //\\ embed (K_inf_fun gamma) //\\
     Exists OC_0 : R, [!(pure OC_0 `= OC)] //\\
     Forall sup : R,
-      [][!(IC `<= pure sup)] -->>
-      [][!(OC `<= `mu (pure OC_0) t `+ `gamma (pure sup))].
+      [][!(IC `<= `sup)] -->>
+      [][!(OC `<= `mu `OC_0 t `+ `gamma `sup)].
 
   Definition robust : TraceProp state :=
     Exists mu : R -> R -> R,
