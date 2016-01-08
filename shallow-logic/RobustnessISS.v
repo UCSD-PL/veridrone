@@ -37,9 +37,20 @@ Section Robustness.
       [][!(IC `<= `sup)] -->>
       [][!(OC `<= `mu `OC_0 t `+ `gamma `sup)].
 
+  (* Here is the existential version of input-to-state
+     stability. *)
   Definition robust : TraceProp state :=
     Exists mu : R -> R -> R,
     Exists gamma : R -> R,
       mu_gamma_robust mu gamma.
+
+  (* Here is a stronger version of input-to-state
+     stability that guarantees that once disturbances
+     are removed, the system returns to its nominal
+     behavior. *)
+  Definition robust2 : TraceProp state :=
+    Exists mu : R -> R -> R,
+    Exists gamma : R -> R,
+      [](mu_gamma_robust mu gamma).
 
 End Robustness.
