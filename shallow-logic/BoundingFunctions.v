@@ -186,10 +186,35 @@ Proof.
   { unfold strict_increasing_bound in *. intuition. }
 Qed.
 
-Lemma KLD_fun_abs_exp :
+Lemma K_inf_fun_id :
+  K_inf_fun Ranalysis1.id.
+Proof.
+  split.
+  { apply K_fun_id. }
+  { unfold unbounded, id. intros. eauto. }
+Qed.
+
+Lemma K_inf_fun_scale :
+  forall f c,
+    K_inf_fun f -> 0 < c ->
+    K_inf_fun (fun x => c * f x).
+Proof.
+  unfold K_inf_fun. intros. split.
+  { apply K_fun_scale; tauto. }
+  { unfold unbounded in *. intros.
+    assert (/c > 0) by (apply Rinv_0_lt_compat; assumption).
+    assert (N / c > 0) by (unfold Rdiv; psatz R).
+    destruct H. specialize (H4 _ H3).
+    destruct H4. destruct H4.
+    exists x. split; auto. intros. specialize (H5 _ H6).
+    apply Rlt_gt. apply (Rmult_lt_reg_l (/c)); [ psatzl R | ].
+    rewrite <- Rmult_assoc. rewrite <- Rinv_l_sym; psatzl R. }
+Qed.
+
+Lemma KL_fun_abs_exp :
   forall a,
     0 < a ->
-    KLD_fun (fun d t => Rabs d * exp (-t * a)).
+    KL_fun (fun d t => Rabs d * exp (-t * a)).
 Proof.
   repeat split.
   { prove_continuity. }
@@ -215,14 +240,24 @@ Proof.
     { subst. intuition. } }
   { unfold limit_pos_inf. intros.
     admit. (* Need some limit lemmas. *) }
-  { intros.
-    rewrite RIneq.Ropp_0. rewrite Rmult_0_l. rewrite exp_0.
-    rewrite RIneq.Rmult_1_r.
-    apply Rabs_pos_eq; assumption. }
-  { intros. rewrite RIneq.Ropp_plus_distr.
-    rewrite Rmult_plus_distr_r. rewrite Exp_prop.exp_plus.
-    rewrite Rabs_mult. rewrite Rabs_involutive.
-    rewrite Rabs_pos_eq with (x:=exp (-s * a));
-      [ | left; apply Exp_prop.exp_pos ].
-    psatzl R. }
+Qed.
+
+Lemma KLD_fun_abs_exp :
+  forall a,
+    0 < a ->
+    KLD_fun (fun d t => Rabs d * exp (-t * a)).
+Proof.
+  split.
+  { apply KL_fun_abs_exp; assumption. }
+  { repeat split.
+    { intros.
+      rewrite RIneq.Ropp_0. rewrite Rmult_0_l. rewrite exp_0.
+      rewrite RIneq.Rmult_1_r.
+      apply Rabs_pos_eq; assumption. }
+    { intros. rewrite RIneq.Ropp_plus_distr.
+      rewrite Rmult_plus_distr_r. rewrite Exp_prop.exp_plus.
+      rewrite Rabs_mult. rewrite Rabs_involutive.
+      rewrite Rabs_pos_eq with (x:=exp (-s * a));
+        [ | left; apply Exp_prop.exp_pos ].
+      psatzl R. } }
 Qed.

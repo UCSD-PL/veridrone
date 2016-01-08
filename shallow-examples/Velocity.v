@@ -86,8 +86,10 @@ Section VelocityMonitor.
     with (x:=fun d t => Rabs d * exp (-t/delta)).
     apply lexistsR with (x:=Ranalysis1.id).
     repeat charge_split.
-    { charge_clear. apply embedPropR. admit. }
-    { charge_clear. apply embedPropR. admit. }
+    { apply embedPropR. apply KL_fun_abs_exp.
+      pose proof delta_gt_0. apply RIneq.Rinv_0_lt_compat.
+      psatzl R. }
+    { apply embedPropR. apply K_inf_fun_id. }
     { exists_val_now OC_0.
       charge_intros. charge_split.
       { charge_assumption. }
