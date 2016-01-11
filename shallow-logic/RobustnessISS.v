@@ -33,9 +33,10 @@ Section Robustness.
     TraceProp state :=
     embed (KL_fun mu) //\\ embed (K_inf_fun gamma) //\\
     Exists OC_0 : R, [!(pure OC_0 `= OC)] //\\
+    Exists t_0 : R,  [!(pure t_0 `= t)] //\\
     Forall sup : R,
-      [][!(IC `<= `sup)] -->>
-      [][!(OC `<= `mu `OC_0 t `+ `gamma `sup)].
+      [][!(IC `<= pure sup)] -->>
+      [][!(OC `<= `mu `OC_0 (t `- `t_0) `+ `gamma `sup)].
 
   (* Here is the existential version of input-to-state
      stability. *)

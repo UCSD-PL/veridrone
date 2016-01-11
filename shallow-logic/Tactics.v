@@ -48,7 +48,8 @@ Local Open Scope LTL_scope.
 Ltac exists_val_now name :=
   match goal with
   |- _ |-- Exists x : _, [!(pure x `= ?e)] //\\ _ =>
-  apply Exists_with_st with (y:=e); intro name
+  apply Exists_with_st with (y:=e); intro name;
+  charge_intros; charge_split; [ charge_assumption | ]
   end.
 
 (* Runs z3 on the goal, and admits the goal if z3 succeeds. *)

@@ -73,7 +73,7 @@ Section VelocityMonitor.
 
   (* Initial condition *)
   Definition Init : StateProp state :=
-    t `= pure 0.
+    ltrue.
 
   (* Our main robustness theorem. *)
   Theorem next_robust :
@@ -90,9 +90,7 @@ Section VelocityMonitor.
       pose proof delta_gt_0. apply RIneq.Rinv_0_lt_compat.
       psatzl R. }
     { apply embedPropR. apply K_inf_fun_id. }
-    { exists_val_now OC_0.
-      charge_intros. charge_split.
-      { charge_assumption. }
+    { exists_val_now OC_0. exists_val_now t_0.
       { charge_intros.
         charge_strengthen
           ([][!(a `* (`delta `- (t `- T)) `<= `- (v `+ dv))]).
@@ -108,11 +106,13 @@ Section VelocityMonitor.
             Local Transparent ILInsts.ILFun_Ops.
             Local Transparent ILInsts.ILPre_Ops.
             unfold Init, pre, _liftn, id. simpl. intros.
-            subst. rewrite RIneq.Ropp_0. unfold Rdiv.
+            subst.
+            rewrite RIneq.Rminus_diag_eq; [ | reflexivity ].
+            rewrite RIneq.Ropp_0. unfold Rdiv.
             rewrite RIneq.Rmult_0_l. rewrite exp_0.
             rewrite RIneq.Rmult_1_r.
             rewrite Rabs_pos_eq; [ | apply Rmax_r ].
-            rewrite <- Rmax_r in H2. psatzl R. } }
+            rewrite <- Rmax_r in H3. psatzl R. } }
         { (* Inductive step *)
           charge_clear. apply always_tauto. charge_intros.
           unfold Next. rewrite <- starts_or.
@@ -155,14 +155,16 @@ Section VelocityMonitor.
                   as Hsgn by psatzl R.
                 destruct Hsgn as [Hsgn | Hsgn].
                 { rewrite Rmax_left in H9; [ | psatzl R ].
-                  assert (exp (-t2/delta) =
-                          exp (-t1/delta)*
-                          exp(-(t2 - t1)/delta)) as Hexp.
+                  assert (exp (-(t2 - t_0)/delta) =
+                          exp (-(t1 - t_0)/delta)*
+                          exp(-(t2 - t1)/delta))
+                    as Hexp.
                   { rewrite <- Exp_prop.exp_plus. f_equal.
                     z3_prove. }
                   rewrite Hexp. clear Hexp.
                   transitivity
-                    ((v1 - x) * exp (- (t2-t1) / delta) + x).
+                    ((v1 - x) * exp (- (t2-t1) / delta)
+                     + x).
                   { pose proof
                        (x_plus_1_le_exp (-(t2-t1)/delta)).
                     z3_prove. }
@@ -172,10 +174,12 @@ Section VelocityMonitor.
                 { transitivity x.
                   { z3_prove. }
                   { pose proof (Rabs_pos OC_0).
-                    pose proof (Exp_prop.exp_pos (-t2/delta)).
+                    pose proof
+                         (Exp_prop.exp_pos (-(t2-t_0)/delta)).
                     psatz R. } } }
               { rewrite <- Rmax_r in H8. rewrite <- H8.
-                pose proof (Exp_prop.exp_pos (-t2/delta)).
+                pose proof
+                     (Exp_prop.exp_pos (-(t2-t_0)/delta)).
                 pose proof (Rabs_pos OC_0).
                 psatz R. } } } } } }
   Qed.
