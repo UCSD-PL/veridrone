@@ -65,6 +65,17 @@ Section with_state.
     apply (H 0).
   Qed.
 
+  Lemma always_idemp :
+    forall (P : TraceProp),
+      always (always P) -|- always P.
+  Proof.
+    unfold always, Logic.always. split; simpl; intros.
+    { apply (H 0 n). }
+    { specialize (H (n + n0)).
+      erewrite Proper_trace_eq_iff; [ apply H | ].
+      symmetry. apply nth_suf_plus. auto. }
+  Qed.
+
   Lemma always_pre_post :
     forall (I : StateProp),
       always (starts (pre I)) -|-

@@ -45,6 +45,16 @@ Section with_state.
   Definition nth_suf (tr : trace) (n : nat) : trace :=
     fun m => tr (n + m).
 
+  Lemma nth_suf_plus :
+    forall n m tr,
+      Reflexive ST_eq ->
+      trace_eq (nth_suf tr (n + m))
+               (nth_suf (nth_suf tr n) m).
+  Proof.
+    unfold nth_suf, trace_eq. intros.
+    rewrite <- Plus.plus_assoc. reflexivity.
+  Qed.
+
   Global Instance Proper_hd : Proper (trace_eq ==> ST_eq) hd.
   Proof. do 2 red. intros. apply H. Qed.
 

@@ -52,15 +52,10 @@ Section VelocityMonitor.
   Definition ResetTimer : StateProp state :=
     T `= t.
 
-  (* Specifies the post state of the discrete transition,
-     ignoring physical variables that should be unchanged
-     by the discrete transition. *)
-  Definition DiscrSt : StateProp state :=
-    Sense //\\ Monitor //\\ ResetTimer.
-
   (* Full discrete transition *)
   Definition Discr : ActionProp state :=
-    DiscrSt! //\\ Unchanged (v :: t :: nil).
+    (Sense //\\ Monitor //\\ ResetTimer)! //\\
+    Unchanged (v :: t :: nil).
 
   (* Evolution predicate *)
   Definition w : SimpleDiffProp state (v :: a :: t :: nil) :=
@@ -70,26 +65,71 @@ Section VelocityMonitor.
   (* Continuous transition *)
   Definition World : ActionProp state :=
     SimpleContinuous state w //\\
-    Unchanged (dv :: T :: nil).
+    Unchanged (dv :: v_sense :: T :: nil).
 
   (* Full system transition *)
   Definition Next : ActionProp state :=
     Discr \\// World.
 
-  (* Initial condition *)
-  Definition Init : StateProp state :=
-    DiscrSt.
+  (* Inductive invariant *)
+  Definition IndInv : StateProp state :=
+    a `* (`delta `- (t `- T)) `<= `- (v `+ dv).
 
-  (* Our main robustness theorem. *)
-  Theorem next_robust :
-    [!Init] //\\ [][Next] |-- robust state (`Rmax (`-dv) `0)
-                                           (`Rmax v `0)
-                                           t.
+  (* Full system specification. *)
+  Definition Spec : TraceProp state :=
+    [!IndInv] //\\ [][Next].
+
+  (* The following seems to be necessary for breaking the
+     abstraction. It would be nice if we didn't need to do
+     this. *)
+  Local Transparent ILInsts.ILFun_Ops.
+  Local Transparent ILInsts.ILPre_Ops.
+
+  (* Proof that our inductive invariant is in fact
+     an invariant. *)
+  Lemma Spec_IndInv :
+    Spec |-- [][!IndInv].
   Proof.
-    unfold robust, mu_gamma_robust.
-    apply lexistsR
-    with (x:=fun d t => Rabs d * exp (-t/delta)).
-    apply lexistsR with (x:=Ranalysis1.id).
+    eapply discrete_induction.
+    { charge_assumption. }
+    { charge_assumption. }
+    { charge_clear. apply always_tauto.
+      rewrite next_starts_pre. reason_action_tac.
+      destruct pre_st as [v1 v_sense1 a1 dv1 t1 T1].
+      destruct post_st as [v2 v_sense2 a2 dv2 t2 T2].
+      unfold IndInv, Next, World, Discr, Monitor, Sense,
+      Unchanged, ResetTimer, pre, post, _liftn.
+      simpl. intros. destruct H0.
+      { decompose [and] H0. clear H0. subst.
+        psatzl R. }
+      { decompose [and] H0. clear H0. subst.
+        assert (v2 = v1 + a1 * (t2 - t1)) by admit.
+        assert (a2 = a1) by admit.
+        psatz R. } }
+  Qed.
+
+  (* Essentially states that the initial condition
+     always holds. *)
+  Lemma Spec_always :
+    Spec |-- []Spec.
+  Proof.
+    unfold Spec. rewrite <- always_and. charge_split.
+    { apply Spec_IndInv. }
+    { rewrite always_idemp. charge_assumption. }
+  Qed.
+
+  (* Our bounding functions. *)
+  Definition mu : R -> R -> R :=
+    fun d t => Rabs d * exp (-t/delta).
+  Definition gamma : R -> R := Ranalysis1.id.
+
+  (* Spec satisfies [robust]. *)
+  Lemma Spec_robust :
+    Spec |-- robust state (`Rmax (`-dv) `0)
+                          (`Rmax v `0)
+                          t mu gamma.
+  Proof.
+    unfold Spec, robust.
     repeat charge_split.
     { apply embedPropR. apply KL_fun_abs_exp.
       pose proof delta_gt_0. apply RIneq.Rinv_0_lt_compat.
@@ -97,96 +137,99 @@ Section VelocityMonitor.
     { apply embedPropR. apply K_inf_fun_id. }
     { exists_val_now OC_0. exists_val_now t_0.
       { charge_intros.
-        charge_strengthen
-          ([][!(a `* (`delta `- (t `- T)) `<= `- (v `+ dv))]).
-        rewrite always_and. eapply discrete_induction.
+        charge_assert ([][!IndInv]).
+        { rewrite Spec_IndInv. charge_assumption. }
+        charge_intros. eapply discrete_induction.
         { clear_not_always. repeat rewrite always_and.
           charge_assumption. }
         { (* Base case *)
-          rewrite starts_and. reason_action_tac.
+          reason_action_tac.
           destruct pre_st as [v1 v_sense1 a1 dv1 t1 T1].
           destruct post_st as [v2 v_sense2 a2 dv2 t2 T2].
-          Local Transparent ILInsts.ILFun_Ops.
-          Local Transparent ILInsts.ILPre_Ops.
-          unfold Init, DiscrSt, Monitor, Sense, ResetTimer,
-          pre, _liftn, id.
-          simpl. intros. subst. split.
-          { intuition. subst. psatzl R. }
-          { rewrite RIneq.Rminus_diag_eq; [ | reflexivity ].
-            rewrite RIneq.Ropp_0. unfold Rdiv.
-            rewrite RIneq.Rmult_0_l. rewrite exp_0.
-            rewrite RIneq.Rmult_1_r.
-            rewrite Rabs_pos_eq; [ | apply Rmax_r ].
-            rewrite <- Rmax_r in H3. psatzl R. } }
+          unfold IndInv, Monitor, Sense, ResetTimer,
+          pre, _liftn, gamma, mu, id.
+          simpl. intros. subst.
+          rewrite RIneq.Rminus_diag_eq; [ | reflexivity ].
+          rewrite RIneq.Ropp_0. unfold Rdiv.
+          rewrite RIneq.Rmult_0_l. rewrite exp_0.
+          rewrite RIneq.Rmult_1_r.
+          rewrite Rabs_pos_eq; [ | apply Rmax_r ].
+          rewrite <- Rmax_r in H3. psatzl R. }
         { (* Inductive step *)
           charge_clear. apply always_tauto. charge_intros.
           unfold Next. rewrite <- starts_or.
           repeat rewrite land_lor_distr_L. apply lorL.
           { (* Discrete transition *)
-            rewrite <- next_and.
             repeat rewrite next_starts_pre.
             repeat rewrite starts_and.
             reason_action_tac.
             destruct pre_st as [v1 v_sense1 a1 dv1 t1 T1].
             destruct post_st as [v2 v_sense2 a2 dv2 t2 T2].
-            unfold Discr, DiscrSt, Sense, Monitor, ResetTimer,
+            unfold Discr, Sense, Monitor, ResetTimer,
             Unchanged, pre, post, _liftn, id. simpl. intros.
-            split.
-            { intuition. subst. psatzl R. }
-            { intuition congruence. } }
+            intuition congruence. }
           { (* Continuous transition *)
-            rewrite <- next_and.
             repeat rewrite next_starts_pre.
             repeat rewrite starts_and.
             reason_action_tac.
             destruct pre_st as [v1 v_sense1 a1 dv1 t1 T1].
             destruct post_st as [v2 v_sense2 a2 dv2 t2 T2].
-            unfold World, Unchanged, pre, post, _liftn, id.
+            unfold IndInv, World, Unchanged,
+            pre, post, _liftn, mu, gamma, id.
             simpl. intros.
             assert (v2 = v1 + a1 * (t2 - t1)) by admit.
             assert (a2 = a1) by admit.
             assert (t1 <= t2) by admit.
             assert (T1 <= t1) by admit.
             assert (t2 - T1 <= delta) by admit.
-            decompose [and] H. subst. clear H H7 H12.
-            split.
-            { psatzl R. }
-            { apply Rmax_case_strong; intros.
-              { pose proof delta_gt_0.
-                pose proof H8.
-                rewrite <- Rmax_l in H8.
-                rewrite <- Rmax_r in H1.
-                assert (x <= v1 \/ v1 < x)
-                  as Hsgn by psatzl R.
-                destruct Hsgn as [Hsgn | Hsgn].
-                { rewrite Rmax_left in H9; [ | psatzl R ].
-                  assert (exp (-(t2 - t_0)/delta) =
-                          exp (-(t1 - t_0)/delta)*
-                          exp(-(t2 - t1)/delta))
-                    as Hexp.
-                  { rewrite <- Exp_prop.exp_plus. f_equal.
-                    z3_prove. }
-                  rewrite Hexp. clear Hexp.
-                  transitivity
-                    ((v1 - x) * exp (- (t2-t1) / delta)
-                     + x).
-                  { pose proof
+            decompose [and] H. subst.
+            apply Rmax_case_strong; intros.
+            { pose proof delta_gt_0.
+              pose proof H8.
+              rewrite <- Rmax_l in H8.
+              rewrite <- Rmax_r in H6.
+              assert (x <= v1 \/ v1 < x)
+                as Hsgn by psatzl R.
+              destruct Hsgn as [Hsgn | Hsgn].
+              { rewrite Rmax_left in H5; [ | psatzl R ].
+                assert (exp (-(t2 - t_0)/delta) =
+                        exp (-(t1 - t_0)/delta)*
+                        exp(-(t2 - t1)/delta))
+                  as Hexp.
+                { rewrite <- Exp_prop.exp_plus. f_equal.
+                  z3_prove. }
+                rewrite Hexp. clear Hexp.
+                transitivity
+                  ((v1 - x) * exp (- (t2-t1) / delta)
+                   + x).
+                { pose proof
                        (x_plus_1_le_exp (-(t2-t1)/delta)).
-                    z3_prove. }
-                  { pose proof
-                         (Exp_prop.exp_pos (-(t2-t1)/delta)).
-                    psatz R. } }
-                { transitivity x.
-                  { z3_prove. }
-                  { pose proof (Rabs_pos OC_0).
-                    pose proof
-                         (Exp_prop.exp_pos (-(t2-t_0)/delta)).
-                    psatz R. } } }
-              { rewrite <- Rmax_r in H8. rewrite <- H8.
-                pose proof
-                     (Exp_prop.exp_pos (-(t2-t_0)/delta)).
-                pose proof (Rabs_pos OC_0).
-                psatz R. } } } } } }
+                  z3_prove. }
+                { pose proof
+                       (Exp_prop.exp_pos (-(t2-t1)/delta)).
+                  psatz R. } }
+              { transitivity x.
+                { z3_prove. }
+                { pose proof (Rabs_pos OC_0).
+                  pose proof
+                       (Exp_prop.exp_pos (-(t2-t_0)/delta)).
+                  psatz R. } } }
+            { rewrite <- Rmax_r in H8. rewrite <- H8.
+              pose proof
+                   (Exp_prop.exp_pos (-(t2-t_0)/delta)).
+              pose proof (Rabs_pos OC_0).
+              psatz R. } } } } }
+  Qed.
+
+  (* Our main robustness theorem. *)
+  Theorem Spec_robust2 :
+    Spec |-- robust2 state (`Rmax (`-dv) `0)
+                          (`Rmax v `0)
+                          t mu gamma.
+  Proof.
+    apply robust_robust2.
+    { apply Spec_robust. }
+    { apply Spec_always. }
   Qed.
 
   (* An attempt at a proof of Tabuada robustness. *)

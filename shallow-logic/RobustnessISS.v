@@ -1,10 +1,12 @@
+Require Import Coq.Reals.Rdefinitions.
 Require Import ExtLib.Structures.Applicative.
 Require Import Charge.Logics.ILogic.
 Require Import Charge.Logics.ILEmbed.
-Require Import Coq.Reals.Rdefinitions.
+Require Import ChargeTactics.Tactics.
 Require Import SLogic.Logic.
 Require Import SLogic.LTLNotation.
 Require Import SLogic.Instances.
+Require Import SLogic.BasicProofRules.
 Require Import SLogic.BoundingFunctions.
 
 Local Open Scope LTL_scope.
@@ -19,6 +21,11 @@ Section Robustness.
   Variable OC : StateVal state R.
   (* The StateVal tracking time. *)
   Variable t : StateVal state R.
+  (* Bounding function giving decay over time. *)
+  Variable mu : R -> R -> R.
+  (* Bounding function giving how much deviation
+     is allowed for a given disturbance. *)
+  Variable gamma : R -> R.
 
   (* In control theory terms, this captures
      input-to-state stability, which is defined as
@@ -28,9 +35,7 @@ Section Robustness.
      where ||u||_inf is the supremum norm of the
      disturbance. In our framework, OC = |x(t)| and
      IC = u. *)
-  Definition mu_gamma_robust
-    (mu : R -> R -> R) (gamma : R -> R) :
-    TraceProp state :=
+  Definition robust : TraceProp state :=
     embed (KL_fun mu) //\\ embed (K_inf_fun gamma) //\\
     Exists OC_0 : R, [!(pure OC_0 `= OC)] //\\
     Exists t_0 : R,  [!(pure t_0 `= t)] //\\
@@ -38,32 +43,18 @@ Section Robustness.
       [][!(IC `<= pure sup)] -->>
       [][!(OC `<= `mu `OC_0 (t `- `t_0) `+ `gamma `sup)].
 
-  (* Here is the existential version of input-to-state
-     stability. *)
-  Definition robust : TraceProp state :=
-    Exists mu : R -> R -> R,
-    Exists gamma : R -> R,
-      mu_gamma_robust mu gamma.
-
-  (* Here is a stronger version of input-to-state
-     stability that guarantees that once disturbances
-     are removed, the system returns to its nominal
-     behavior. *)
-  Definition mu_gamma_robust2
-    (mu : R -> R -> R) (gamma : R -> R) :
-    TraceProp state :=
-    embed (KL_fun mu) //\\ embed (K_inf_fun gamma) //\\
-    [](Exists OC_0 : R, [!(pure OC_0 `= OC)] //\\
-       Exists t_0 : R,  [!(pure t_0 `= t)] //\\
-       Forall sup : R,
-         [][!(IC `<= pure sup)] -->>
-         [][!(OC `<= `mu `OC_0 (t `- `t_0) `+ `gamma `sup)]).
-
-  (* Here is the existential version of the stronger
-     definition of robustness. *)
+  (* Here is the stronger definition of robustness. *)
   Definition robust2 : TraceProp state :=
-    Exists mu : R -> R -> R,
-    Exists gamma : R -> R,
-      mu_gamma_robust2 mu gamma.
+    []robust.
+
+  Lemma robust_robust2 :
+    forall G,
+      G |-- robust ->
+      G |-- []G ->
+      G |-- []robust.
+  Proof.
+    intros. rewrite H0. apply Proper_always_lentails.
+    assumption.
+  Qed.
 
 End Robustness.
