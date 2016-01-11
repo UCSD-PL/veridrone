@@ -52,10 +52,15 @@ Section VelocityMonitor.
   Definition ResetTimer : StateProp state :=
     T `= t.
 
+  (* Specifies the post state of the discrete transition,
+     ignoring physical variables that should be unchanged
+     by the discrete transition. *)
+  Definition DiscrSt : StateProp state :=
+    Sense //\\ Monitor //\\ ResetTimer.
+
   (* Full discrete transition *)
   Definition Discr : ActionProp state :=
-    (Sense //\\ Monitor //\\ ResetTimer)! //\\
-    Unchanged (v :: t :: nil).
+    DiscrSt! //\\ Unchanged (v :: t :: nil).
 
   (* Evolution predicate *)
   Definition w : SimpleDiffProp state (v :: a :: t :: nil) :=
@@ -73,7 +78,7 @@ Section VelocityMonitor.
 
   (* Initial condition *)
   Definition Init : StateProp state :=
-    ltrue.
+    DiscrSt.
 
   (* Our main robustness theorem. *)
   Theorem next_robust :
@@ -98,16 +103,16 @@ Section VelocityMonitor.
         { clear_not_always. repeat rewrite always_and.
           charge_assumption. }
         { (* Base case *)
-          charge_split.
-          { admit. }
-          { reason_action_tac.
-            destruct pre_st as [v1 v_sense1 a1 dv1 t1 T1].
-            destruct post_st as [v2 v_sense2 a2 dv2 t2 T2].
-            Local Transparent ILInsts.ILFun_Ops.
-            Local Transparent ILInsts.ILPre_Ops.
-            unfold Init, pre, _liftn, id. simpl. intros.
-            subst.
-            rewrite RIneq.Rminus_diag_eq; [ | reflexivity ].
+          rewrite starts_and. reason_action_tac.
+          destruct pre_st as [v1 v_sense1 a1 dv1 t1 T1].
+          destruct post_st as [v2 v_sense2 a2 dv2 t2 T2].
+          Local Transparent ILInsts.ILFun_Ops.
+          Local Transparent ILInsts.ILPre_Ops.
+          unfold Init, DiscrSt, Monitor, Sense, ResetTimer,
+          pre, _liftn, id.
+          simpl. intros. subst. split.
+          { intuition. subst. psatzl R. }
+          { rewrite RIneq.Rminus_diag_eq; [ | reflexivity ].
             rewrite RIneq.Ropp_0. unfold Rdiv.
             rewrite RIneq.Rmult_0_l. rewrite exp_0.
             rewrite RIneq.Rmult_1_r.
@@ -124,7 +129,7 @@ Section VelocityMonitor.
             reason_action_tac.
             destruct pre_st as [v1 v_sense1 a1 dv1 t1 T1].
             destruct post_st as [v2 v_sense2 a2 dv2 t2 T2].
-            unfold Discr, Sense, Monitor, ResetTimer,
+            unfold Discr, DiscrSt, Sense, Monitor, ResetTimer,
             Unchanged, pre, post, _liftn, id. simpl. intros.
             split.
             { intuition. subst. psatzl R. }
