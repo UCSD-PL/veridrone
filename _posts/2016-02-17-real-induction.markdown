@@ -103,12 +103,12 @@ paper](http://research.microsoft.com/en-us/um/people/lamport/pubs/proof.pdf).
   </li>
   <li>&lang;1&rang;2. <textsc>Case</textsc>: <script type="math/tex"> i\not\in A</script>.
     <ul class="no-bullet">
-      <li>&lang;2&rang;1. <script type="math/tex">\forall x \in [0, i], Q(x)</script>
+      <li>&lang;2&rang;1. <script type="math/tex">\forall x \in [0, i],\ Q(x)</script>
           <ul class="no-bullet">
       	      <li><textsc>Proof</textsc>: By the definition of greatest lower bound.</li>
     	  </ul>
       </li>
-      <li>&lang;2&rang;2. <script type="math/tex">\exists~ z > i : \forall y \in [i, z), Q(y)</script>
+      <li>&lang;2&rang;2. <script type="math/tex">\exists~ z > i,\ \forall y \in [i, z),\ Q(y)</script>
           <ul class="no-bullet">
       	      <li><textsc>Proof</textsc>: By &lang;2&rang;1 and II.</li>
     	  </ul>
@@ -127,7 +127,7 @@ paper](http://research.microsoft.com/en-us/um/people/lamport/pubs/proof.pdf).
   </li>
   <li>&lang;1&rang;3. <textsc>Case</textsc>: <script type="math/tex">i\in A</script>.
     <ul class="no-bullet">
-      <li>&lang;2&rang;1. <script type="math/tex">\forall ~ 0 \leq x < i, Q(x)</script>.
+      <li>&lang;2&rang;1. <script type="math/tex">\forall ~ 0 \leq x < i,\ Q(x)</script>.
           <ul class="no-bullet">
 	      <li><textsc>Proof</textsc>: Since <script type="math/tex">i</script> is a lower bound of <script type="math/tex">A</script></li>
     	  </ul>
