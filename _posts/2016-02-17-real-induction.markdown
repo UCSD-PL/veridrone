@@ -63,8 +63,9 @@ some bound:
 There are a couple ways to resolve this issue. One is to ensure that each
 step is always at least as large as some positive constant. However, we'll
 take an alternate approach. In this approach, we'll make sure that if we
-prove $$Q$$ for all numbers less than some bound, then we prove it for that
-bound as well. Formally, this means we need a second inductive step:
+prove $$Q$$ for all numbers less than some bound (e.g. 1 in the above
+image), then we prove it for that bound as well. Formally, this means we
+need a second inductive step:
 
 - For any $$x \geq 0$$, if $$Q$$ holds on all $$y \in [0,x)$$, then $$Q$$ holds on $$x$$
 
