@@ -93,60 +93,60 @@ The following is a more formal proof, following the proof style from [this
 paper](http://research.microsoft.com/en-us/um/people/lamport/pubs/proof.pdf).
 
 <ul class="no-bullet">
-  <li>LET <script type="math/tex">A=\{x \in \mathbb{R} ~:~ 0 \leq x \wedge \neg Q(x) \}</script>.</li>
-  <li>ASSUME: <script type="math/tex">\exists~ x \in A</script></li>
-  <li>PROVE: <script type="math/tex">False</script></li>
+  <li><textsc>Let</textsc> <script type="math/tex">A=\{x \in \mathbb{R} ~:~ 0 \leq x \wedge \neg Q(x) \}</script>.</li>
+  <li><textsc>Assume</textsc>: <script type="math/tex">\exists~ x \in A</script></li>
+  <li><textsc>Prove</textsc>: <script type="math/tex">False</script></li>
   <li>&lang;1&rang;1. <script type="math/tex">\exists~ i : \mathbb{R}</script> such that <script type="math/tex">i</script> is the greatest lower bound of <script type="math/tex">A</script>.
     <ul class="no-bullet">
-      <li>PROOF: All non-empty lower bounded sets of reals have a greatest lower bound.</li>
+      <li><textsc>Proof</textsc>: All non-empty lower bounded sets of reals have a greatest lower bound.</li>
     </ul>
   </li>
-  <li>&lang;1&rang;2. CASE: <script type="math/tex"> i\not\in A</script>.
+  <li>&lang;1&rang;2. <textsc>Case</textsc>: <script type="math/tex"> i\not\in A</script>.
     <ul class="no-bullet">
       <li>&lang;2&rang;1. <script type="math/tex">\forall x \in [0, i], Q(x)</script>
           <ul class="no-bullet">
-      	      <li>PROOF: By the definition of greatest lower bound.</li>
+      	      <li><textsc>Proof</textsc>: By the definition of greatest lower bound.</li>
     	  </ul>
       </li>
       <li>&lang;2&rang;2. <script type="math/tex">\exists~ z > i : \forall y \in [i, z), Q(y)</script>
           <ul class="no-bullet">
-      	      <li>PROOF: By &lang;2&rang;1 and II.</li>
+      	      <li><textsc>Proof</textsc>: By &lang;2&rang;1 and II.</li>
     	  </ul>
       </li>
       <li>&lang;2&rang;3. <script type="math/tex">z</script> is a lower bound of <script type="math/tex">A</script>.
           <ul class="no-bullet">
-      	      <li>PROOF: By &lang;2&rang;1 and &lang;2&rang;2.</li>
+      	      <li><textsc>Proof</textsc>: By &lang;2&rang;1 and &lang;2&rang;2.</li>
     	  </ul>
       </li>
       <li>&lang;2&rang;4. QED
           <ul class="no-bullet">
-      	      <li>PROOF: By &lang;2&rang;3 and the definition of greatest lower bound.</li>
+      	      <li><textsc>Proof</textsc>: By &lang;2&rang;3 and the definition of greatest lower bound.</li>
     	  </ul>
       </li>
     </ul>
   </li>
-  <li>&lang;1&rang;3. CASE: <script type="math/tex">i\in A</script>.
+  <li>&lang;1&rang;3. <textsc>Case</textsc>: <script type="math/tex">i\in A</script>.
     <ul class="no-bullet">
       <li>&lang;2&rang;1. <script type="math/tex">\forall ~ 0 \leq x < i, Q(x)</script>.
           <ul class="no-bullet">
-	      <li>PROOF: Since <script type="math/tex">i</script> is a lower bound of <script type="math/tex">A</script></li>
+	      <li><textsc>Proof</textsc>: Since <script type="math/tex">i</script> is a lower bound of <script type="math/tex">A</script></li>
     	  </ul>
       </li>
       <li>&lang;2&rang;2. <script type="math/tex">Q(i)</script>
           <ul class="no-bullet">
-	      <li>PROOF: By III.</li>
+	      <li><textsc>Proof</textsc>: By III.</li>
     	  </ul>
       </li>
       <li>&lang;2&rang;3. QED
           <ul class="no-bullet">
-      	      <li>PROOF: By &lang;2&rang;2 and &lang;1&rang;3.</li>
+      	      <li><textsc>Proof</textsc>: By &lang;2&rang;2 and &lang;1&rang;3.</li>
     	  </ul>
       </li>
     </ul>
   </li>
   <li>&lang;1&rang;4. QED
        <ul class="no-bullet">
-      	  <li>PROOF: By &lang;1&rang;2 and &lang;1&rang;3.</li>
+      	  <li><textsc>Proof</textsc>: By &lang;1&rang;2 and &lang;1&rang;3.</li>
        </ul>
   </li>
 </ul>
