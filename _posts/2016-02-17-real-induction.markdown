@@ -159,3 +159,43 @@ mentions a number of other papers presenting some version of the theorem.
 My esteemed colleague Gregory would also like me to mention that this
 result leverages the topology of the real numbers, though I'm not sure if
 anyone really knows what that means.
+
+### Application
+
+The above paper gives many useful applications of real induction. Here, I'm
+going to illustrate how it works on a very simple example, inspired by a
+simple application of discrete induction. Consider an infinite sequence of
+numbers $$x_n$$ where $$x_0 \geq 0$$ and $$\forall n,\ x_n <
+x_{n+1}$$. Suppose we want to prove that $$\forall n, x_n \geq 0$$. We can
+do so by induction over the index into the sequence.
+
+Now let's take a look at a continuous version of this property. Suppose we
+have some function $$f : \mathbb{R} \rightarrow \mathbb{R}$$ such that $$0
+\leq f(0)$$. Moreover, suppose we know that $$\forall t \geq 0, f'(t) >
+0$$. We would like to prove that $$\forall t \geq 0, f(t) \geq 0$$. As in
+the discrete case, we do so using induction, but this time using our
+induction principle for the reals. The base case (I) is trivial, so we need
+to prove two inductive steps. First,
+
+- For any $$x \geq 0$$, if $$f(y) \geq 0$$ holds on all $$y \in [0,x]$$, then $$f(y) \geq 0$$ holds on all $$y \in [x,z)$$ for some $$z > x$$
+
+This follows from the limit definition of a derivative. Intuitively, there
+is some neighborhood around $$x$$ such that for any point $$y > x$$ in that
+neighborhood, the slope of the line from $$(x, f(x))$$ to $$(y, f(y))$$ is
+between $$0$$ and $$f'(x)$$. This implies that $$f(y) \geq f(x)$$, which is
+nonnegative by the induction hypothesis. The size of the neighborhood
+serves as $$z-x$$ in the above property.
+
+The second inductive step is
+
+- For any $$x \geq 0$$, if $$f(y) \geq 0$$ holds on all $$y \in [0,x)$$, then $$f(x) \geq 0$$
+
+This property follows from continuity of $$f$$. Suppose $$f(x) < 0$$. Then
+by continuity, there is some other point $$y < x$$ such that $$f(y) < 0$$,
+which is a contradiction.
+
+Of course, if we actually wanted to prove this property formally, we
+probably wouldn't rely on such low-level definitions and would probably
+instead rely on general theorems about derivatives. Nevertheless, I hope
+this example helps to provide some intuition for real induction and a nice
+comparison with discrete induction.
