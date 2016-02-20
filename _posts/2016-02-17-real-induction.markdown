@@ -160,14 +160,15 @@ My esteemed colleague Gregory would also like me to mention that this
 result leverages the topology of the real numbers, though I'm not sure if
 anyone really knows what that means.
 
-### Application
+### An Application
 
 The above paper gives many useful applications of real induction. Here, I'm
-going to illustrate how it works on a very simple example, inspired by a
-simple application of discrete induction. Consider an infinite sequence of
-numbers $$x_n$$ where $$x_0 \geq 0$$ and $$\forall n,\ x_n <
+going to illustrate how it works on a very simple example, inspired by the
+following simple application of discrete induction. Consider an infinite
+sequence of numbers $$x_n$$ where $$x_0 \geq 0$$ and $$\forall n,\ x_n <
 x_{n+1}$$. Suppose we want to prove that $$\forall n, x_n \geq 0$$. We can
-do so by induction over the index into the sequence.
+do so by induction over the index into the sequence, which is a natural
+number.
 
 Now let's take a look at a continuous version of this property. Suppose we
 have some function $$f : \mathbb{R} \rightarrow \mathbb{R}$$ such that $$0
@@ -179,12 +180,17 @@ to prove two inductive steps. First,
 
 - For any $$x \geq 0$$, if $$f(y) \geq 0$$ holds on all $$y \in [0,x]$$, then $$f(y) \geq 0$$ holds on all $$y \in [x,z)$$ for some $$z > x$$
 
-This follows from the limit definition of a derivative. Intuitively, there
+This follows from the limit definition of a derivative. Informally, there
 is some neighborhood around $$x$$ such that for any point $$y > x$$ in that
 neighborhood, the slope of the line from $$(x, f(x))$$ to $$(y, f(y))$$ is
-between $$0$$ and $$f'(x)$$. This implies that $$f(y) \geq f(x)$$, which is
-nonnegative by the induction hypothesis. The size of the neighborhood
-serves as $$z-x$$ in the above property.
+between $$0$$ and $$2*f'(x)$$. In other words, the slope is
+nonnegative. More precisely, we instantiate $$\epsilon$$ in the limit
+definition with $$f'(x)$$ so that for any line, $$|Slope - f'(x)| \leq
+f'(x)$$. This implies that $$f(y) \geq f(x)$$, and $$f(x)\geq 0$$ by the
+induction hypothesis. The size of the neighborhood serves as $$z-x$$ in the
+above property. The following image depicts this:
+
+![]({{ site.baseurl }}/images/real_ind_post1.svg){: style="width:55%"}
 
 The second inductive step is
 
@@ -193,6 +199,8 @@ The second inductive step is
 This property follows from continuity of $$f$$. Suppose $$f(x) < 0$$. Then
 by continuity, there is some other point $$y < x$$ such that $$f(y) < 0$$,
 which is a contradiction.
+
+![]({{ site.baseurl }}/images/real_ind_post2.svg){: style="width:55%"}
 
 Of course, if we actually wanted to prove this property formally, we
 probably wouldn't rely on such low-level definitions and would probably
