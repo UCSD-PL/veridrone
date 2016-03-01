@@ -1,12 +1,12 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.micromega.Psatz.
 Require Import ExtLib.Structures.Applicative.
-Require Import Charge.Logics.ILogic.
-Require Import ChargeTactics.Tactics.
+Require Import ChargeCore.Logics.ILogic.
+Require Import ChargeCore.Tactics.Tactics.
 Require Import SLogic.Logic.
 Require Import SLogic.LTLNotation.
 Require Import SLogic.BasicProofRules.
-Require Import Z3.Tactic.
+Require Import SMT.Tactic.
 
 Ltac specialize_arith_hyp H :=
   repeat match type of H with
@@ -22,10 +22,18 @@ Ltac destruct_ite :=
     => destruct e
   end.
 
+Ltac charge_revert :=
+  lazymatch goal with
+  | [ |- ltrue |-- _ ] => fail
+  | [ |- _ ] =>
+    first
+      [ simple eapply landAdj | simple eapply Lemmas.landAdj_true ]
+  end.
+
 Ltac reason_action_tac :=
   repeat rewrite always_now;
   repeat rewrite <- landA;
-  charge_revert_all;
+  repeat charge_revert;
   repeat rewrite starts_impl;
   apply reason_action;
   let pre_st := fresh "pre_st" in

@@ -361,7 +361,7 @@ Module PositionShim (Import Params : PositionShimParams).
       enable_ex_st'.
       do 3 eexists; exists d; solve_linear. }
     { admit. (** Provable, but we won't worry about it *) }
-  Qed.
+  Admitted.
 
   (* Our main safety theorem. *)
   Theorem Spec_safe :

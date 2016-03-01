@@ -74,7 +74,7 @@ Module Stability (Import P : Params).
     rewrite H1 in *. rewrite H2 in *. rewrite H3 in *.
     rewrite H in *. clear H1 H2 H H3.
     z3_solve; admit.
-  Qed.
+  Admitted.
 
   Lemma abstraction :
     Spec |-- Init //\\ []AbstractNext.
@@ -93,7 +93,8 @@ Module Stability (Import P : Params).
     - charge_intros.
       charge_split.
       + charge_tauto.
-      + tlaRevert. tlaRevert. apply Lemmas.forget_prem.
+      + unfold Spec. tlaRevert. tlaRevert.
+        apply Lemmas.forget_prem.
         charge_intros. rewrite Always_and.
         tlaRevert. apply Always_imp. charge_intros.
         unfold Next. rewrite Lemmas.land_lor_distr_R.
@@ -110,7 +111,7 @@ Module Stability (Import P : Params).
             red. red. red. solve_linear. }
         * apply lorR2.
           charge_tauto.
-  Qed.
+  Admitted.
 
   Theorem lyapunov_stability :
     |-- Spec -->> LyapunovStable "y".

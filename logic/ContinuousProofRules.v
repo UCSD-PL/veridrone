@@ -2,7 +2,7 @@ Require Import Coq.micromega.Psatz.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Ranalysis1.
 Require Import Coq.Reals.MVT.
-Require Import ChargeTactics.Tactics.
+Require Import ChargeCore.Tactics.Tactics.
 Require Import Logic.Syntax.
 Require Import Logic.Semantics.
 Require Import Logic.Lib.

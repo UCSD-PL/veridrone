@@ -1,8 +1,8 @@
 Require Import Coq.Lists.List.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.Ranalysis1.
-Require Import Charge.Logics.ILogic.
-Require Import Charge.Logics.ILEmbed.
+Require Import ChargeCore.Logics.ILogic.
+Require Import ChargeCore.Logics.ILEmbed.
 Require Import SLogic.Logic.
 Require Import SLogic.Instances.
 
@@ -77,8 +77,8 @@ Section Continuous.
   (** Get the element corresponding to a [member] **)
   Fixpoint list_get {T} {l : list T} (m : member l) : T :=
     match m with
-    | @MO val _ => val
-    | @MS _ _ m => list_get m
+    | @MO _ val _ => val
+    | @MS _ _ _ m => list_get m
     end.
 
   (** Using [member] for a simple differential **)

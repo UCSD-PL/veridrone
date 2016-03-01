@@ -75,6 +75,7 @@ Lemma Preserves_And_simple : forall P Q A B,
     |-- Preserves (P //\\ Q) (A //\\ B).
 Proof.
   unfold Preserves. intros.
+  rewrite next_And.
   charge_tauto.
 Qed.
 
@@ -84,6 +85,7 @@ Lemma Preserves_And
     |-- Preserves (P //\\ Q) (A //\\ B).
 Proof.
   unfold Preserves. intros.
+  rewrite next_And.
   charge_tauto.
 Qed.
 
@@ -153,7 +155,7 @@ Lemma Inductively_And : forall P Q E,
     |-- Inductively (P //\\ Q) E.
 Proof.
   unfold Inductively, Preserves. intros.
-  rewrite Always_and. always_imp_tac.
+  rewrite Always_and. always_imp_tac. rewrite next_And.
   charge_tauto.
 Qed.
 

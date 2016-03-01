@@ -6,7 +6,7 @@ Require Import Logic.DifferentialInduction.
 Require Import Logic.ProofRules.
 Require Import Examples.System.
 Require Import Examples.Interval.
-Require Import ChargeTactics.Lemmas.
+Require Import ChargeCore.Tactics.Lemmas.
 Require Import Coq.Strings.String.
 
 Local Open Scope string_scope.
@@ -404,8 +404,8 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
                with the Z constraint. *)
       repeat rewrite landA.
       match goal with
-        |- _ |-- Enabled (?X //\\ ?Z //\\ ?XC //\\ ?ZC) =>
-        assert (X //\\ Z //\\ XC //\\ ZC -|-
+        |- _ |-- Enabled ((?X //\\ ?Z) //\\ (?XC //\\ ?ZC)) =>
+        assert ((X //\\ Z) //\\ (XC //\\ ZC) -|-
                   (X //\\ XC) //\\ (Z //\\ ZC))
           as H by (split; charge_tauto);
           rewrite H; clear H
@@ -459,7 +459,7 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
           repeat rewrite landA in H. apply H. } }
       { apply formulas_disjoint_state; reflexivity. } }
     { admit. (** Provable, but we won't worry about it *) }
-  Qed.
+  Admitted.
 
   Definition Safe : StateFormula :=
     Rename rename_polar

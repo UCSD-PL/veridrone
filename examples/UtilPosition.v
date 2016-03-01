@@ -115,7 +115,7 @@ Module SdistUtil (Import Params : SdistParams).
      applying acceleration amin, starting with
      velocity v. *)
   Definition sdist (v:Term) : Term :=
-    (v^^2)*(--(/2)%R)*(/amin)%R.
+    (v^^2)*(--(/2)%R)*(/Params.amin)%R.
 
   (* Some useful lemmas about sdist. *)
 
@@ -126,7 +126,7 @@ Module SdistUtil (Import Params : SdistParams).
           tdist v1 a1 d1 + sdist (v1 + a1*d1) <=
           tdist v2 a2 d2 + sdist (v2 + a2*d2).
   Proof.
-    pose proof amin_lt_0.
+    pose proof Params.amin_lt_0.
     breakAbstraction; unfold eval_comp; simpl; intros.
     repeat match goal with
              | [ _ : context [eval_term ?t ?s1 ?s2] |- _ ]
@@ -137,7 +137,7 @@ Module SdistUtil (Import Params : SdistParams).
                => generalize dependent (eval_term t s1 s2)
            end; intros.
     apply Rplus_le_algebra.
-    apply Rmult_neg_le_algebra with (r2:=amin);
+    apply Rmult_neg_le_algebra with (r2:=Params.amin);
       auto.
     rewrite Rminus_0_l.
     apply Rmult_pos_ge_algebra with (r2:=(2)%R);
@@ -147,13 +147,13 @@ Module SdistUtil (Import Params : SdistParams).
   Qed.
 
   Lemma sdist_tdist : forall v t,
-    |-- tdist v amin t <= sdist v.
+    |-- tdist v Params.amin t <= sdist v.
   Proof.
-    pose proof amin_lt_0.
+    pose proof Params.amin_lt_0.
     breakAbstraction; simpl; unfold eval_comp; simpl;
     intros.
     apply Rplus_le_algebra.
-    apply Rmult_neg_le_algebra with (r2:=amin);
+    apply Rmult_neg_le_algebra with (r2:=Params.amin);
       auto.
     apply Rmult_neg_ge_algebra with (r2:=(-4)%R);
       solve_linear.
@@ -162,13 +162,13 @@ Module SdistUtil (Import Params : SdistParams).
   Qed.
 
   Lemma sdist_tdist_tdist : forall v t,
-    |-- tdist v amin t + sdist (v + amin*t) <= sdist v.
+    |-- tdist v Params.amin t + sdist (v + Params.amin*t) <= sdist v.
   Proof.
-    pose proof amin_lt_0.
+    pose proof Params.amin_lt_0.
     breakAbstraction; simpl; unfold eval_comp; simpl;
     intros.
     apply Rplus_le_algebra.
-    apply Rmult_neg_le_algebra with (r2:=amin);
+    apply Rmult_neg_le_algebra with (r2:=Params.amin);
       auto.
     apply Rmult_neg_ge_algebra with (r2:=(-4)%R);
       solve_linear.
@@ -179,12 +179,12 @@ Module SdistUtil (Import Params : SdistParams).
     |-- 0 <= v1 <= v2 -->>
         sdist v1 <= sdist v2.
   Proof.
-    pose proof amin_lt_0.
+    pose proof Params.amin_lt_0.
     breakAbstraction; simpl; unfold eval_comp; simpl;
-    intros. do 2 rewrite (Rmult_assoc _ (0 - / 2) (/ amin))%R.
+    intros. do 2 rewrite (Rmult_assoc _ (0 - / 2) (/ Params.amin))%R.
     apply Rmult_le_compat; solve_linear.
     - apply Rmult_0_le; solve_linear.
-    - assert (/ amin < 0)%R by solve_linear.
+    - assert (/ Params.amin < 0)%R by solve_linear.
       solve_linear.
     - apply Rmult_le_compat; solve_linear.
   Qed.
@@ -193,10 +193,10 @@ Module SdistUtil (Import Params : SdistParams).
     forall v, |-- 0 <= sdist v.
   Proof.
     breakAbstraction. intros.
-    pose proof amin_lt_0.
-    assert (/amin < 0)%R by solve_linear.
+    pose proof Params.amin_lt_0.
+    assert (/Params.amin < 0)%R by solve_linear.
     assert (0 - / 2 < 0)%R by solve_linear.
-    generalize dependent (/amin)%R.
+    generalize dependent (/Params.amin)%R.
     generalize dependent (0 - / 2)%R.
     clear H0. solve_nonlinear.
   Qed.

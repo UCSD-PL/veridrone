@@ -5,7 +5,7 @@ Require Import Coq.Reals.Ranalysis1.
 Require Import Coq.Reals.RIneq.
 Require Import Coq.Logic.FunctionalExtensionality.
 Require Import ExtLib.Tactics.
-Require Charge.Logics.ILInsts.
+Require ChargeCore.Logics.ILInsts.
 Require Import Logic.Syntax.
 Require Import Logic.Semantics.
 Require Import Logic.BasicProofRules.
@@ -63,11 +63,11 @@ Definition DerivMap := (Var->Term).
 Definition Evolution : Type := state -> Formula.
 
 Global Instance ILogicOps_Evolution : ILogicOps Evolution :=
-  @Charge.Logics.ILInsts.ILFun_Ops _ _ _.
+  @ChargeCore.Logics.ILInsts.ILFun_Ops _ _ _.
 Global Instance ILogic_Evolution : ILogic Evolution :=
-  @Charge.Logics.ILInsts.ILFun_ILogic _ _ _ _.
+  @ChargeCore.Logics.ILInsts.ILFun_ILogic _ _ _ _.
 
-Transparent Charge.Logics.ILInsts.ILFun_Ops.
+Transparent ChargeCore.Logics.ILInsts.ILFun_Ops.
 
 Lemma Evolution_lequiv_lequiv : forall (a b : Evolution),
     (a -|- b) <-> (forall x, a x -|- b x).
@@ -80,7 +80,7 @@ Lemma Evolution_lentails_lentails : forall (a b : Evolution),
     (a |-- b) <-> (forall x, a x |-- b x).
 Proof. intros. exact (conj (fun x => x) (fun x => x)). Qed.
 
-Opaque Charge.Logics.ILInsts.ILFun_Ops.
+Opaque ChargeCore.Logics.ILInsts.ILFun_Ops.
 
 Definition deriv_stateF
            (f : R -> state)
@@ -223,7 +223,7 @@ Proof.
   red. eapply Evolution_lequiv_lequiv. assumption.
 Qed.
 
-Transparent Charge.Logics.ILInsts.ILFun_Ops.
+Transparent ChargeCore.Logics.ILInsts.ILFun_Ops.
 
 Lemma is_solution_and : forall f P Q r,
     is_solution f (P //\\ Q) r <-> is_solution f P r /\ is_solution f Q r.

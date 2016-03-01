@@ -1,7 +1,7 @@
 Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Tactics.
-Require Import Charge.Logics.ILogic.
-Require Charge.Logics.ILInsts.
+Require Import ChargeCore.Logics.ILogic.
+Require ChargeCore.Logics.ILInsts.
 Require Import SLogic.Stream.
 
 Section with_state.

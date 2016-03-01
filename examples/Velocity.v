@@ -51,14 +51,14 @@ Module VelocityShim (Import P : VelocityShimParams).
       pose proof d_gt_0.
       do 2 eexists; exists d; solve_linear. }
     { admit. (** Provable, but we won't worry about it *) }
-  Qed.
+  Admitted.
 
   Theorem TimedPreserves_Next
   : |-- TimedPreserves d IndInv Next.
   Proof.
     eapply Preserves_Sys.
     { refine _. }
-    { charge_split; fold next.
+    { rewrite next_And. charge_split; fold next.
       - eapply diff_ind with (Hyps:=ltrue).
         + tlaIntuition.
         + tlaIntuition.

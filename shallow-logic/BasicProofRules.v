@@ -1,9 +1,10 @@
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Structures.CoFunctor.
-Require Import Charge.Logics.ILogic.
-Require Import Charge.Logics.ILEmbed.
-Require Import ChargeTactics.Tactics.
+Require Import ChargeCore.Logics.ILogic.
+Require Import ChargeCore.Logics.ILEmbed.
+Require Import ChargeCore.Tactics.Tactics.
 Require Import SLogic.Stream.
 Require Import SLogic.Logic.
 Require Import SLogic.Lifting.

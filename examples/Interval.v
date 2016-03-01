@@ -1,5 +1,5 @@
 Require Import Coq.Reals.Reals.
-Require Import ChargeTactics.Lemmas.
+Require Import ChargeCore.Tactics.Lemmas.
 Require Import Logic.Logic.
 Require Import Logic.EnabledLemmas.
 Require Import Logic.ProofRules.
@@ -179,7 +179,7 @@ Module IntervalShim (Import P : IntervalParams).
      { rewrite SysNeverStuck_Discr. unfold X_Params.d.
        apply Proper_Enabled_lentails. charge_tauto. }
     { admit. (** Provable, but we won't worry about it *) }
-  Qed.
+  Admitted.
 
   Definition Safe : StateFormula :=
     (X.Safe //\\ Rename mirror X.Safe) //\\
@@ -187,7 +187,7 @@ Module IntervalShim (Import P : IntervalParams).
 
   Lemma IndInv_impl_Safe : IndInv //\\ TimeBound d |-- Safe.
   Proof with (eauto with rw_rename).
-    charge_split.
+    unfold Safe. charge_split.
     { charge_split.
       { rewrite <- X.IndInv_impl_Safe. charge_tauto. }
       { rewrite <- X.IndInv_impl_Safe. rewrite Rename_and.

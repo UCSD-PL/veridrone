@@ -4,9 +4,9 @@ Require Import Coq.Lists.List.
 Require Import Coq.Reals.Reals.
 Require Import Coq.micromega.Psatz.
 Require Import ExtLib.Structures.Applicative.
-Require Import Charge.Logics.ILogic.
-Require Import Charge.Logics.ILEmbed.
-Require Import ChargeTactics.Tactics.
+Require Import ChargeCore.Logics.ILogic.
+Require Import ChargeCore.Logics.ILEmbed.
+Require Import ChargeCore.Tactics.Tactics.
 Require Import SLogic.Lifting.
 Require Import SLogic.Logic.
 Require Import SLogic.LTLNotation.
@@ -63,13 +63,13 @@ Section Robustness.
                     (`mu (pure p.(d))
                       (snd#t `- (pure p.(td)))%R)))
            fst#ds)
-    `+ `rho.
+    `+ (pure rho).
 
   (* The bounds on the functions (K, KL, KLD) are
      meaningless unless the time [StateVal] is
      reasonable. *)
   Definition sensible_time : TraceProp state :=
-    [`R0 `<= !t] //\\ [][!t `<= t!].
+    [pure R0 `<= !t] //\\ [][!t `<= t!].
 
   Definition mu_gamma_rho_robust
              ( mu : R -> R -> R) (gamma : R -> R) (rho : R)
@@ -139,13 +139,13 @@ Section Robustness.
 
   Definition IndInv (mu : R -> R -> R) (gamma : R -> R)
     : StateProp (list disturbance * disturbance * state) :=
-    lift2 List.Forall
+    lift2 (@List.Forall _)
       (flip (fun p => pure 0 `<= pure p.(d) //\\
                       pure 0 `<= pure p.(td) //\\
                       pure p.(td) `<= snd#t)%R)
       (snd#(dist gamma) `:: fst#fst) //\\
     fst#snd#d `=
-    `max_R
+    lift1 max_R
     (lift2 (@map disturbance R)
            (flip (fun p =>
                     (`mu (pure p.(d))

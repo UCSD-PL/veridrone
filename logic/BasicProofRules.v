@@ -327,6 +327,7 @@ Proof.
   apply next_formula_tl; intuition.
   eapply Hind; fold eval_formula.
   simpl. trivial.
+  unfold tlaEntails in Hind. simpl in *.
   auto.
 Qed.
 

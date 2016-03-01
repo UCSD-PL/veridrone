@@ -1,5 +1,5 @@
 Require Import Coq.Classes.RelationClasses.
-Require Import ChargeTactics.Tactics.
+Require Import ChargeCore.Tactics.Tactics.
 Require Import Logic.Syntax.
 Require Import Logic.Semantics.
 
@@ -194,4 +194,4 @@ Qed.
 
 Arguments rw_impl {P A B} _ _ _ _.
 
-Export ChargeTactics.Tactics.
+Export ChargeCore.Tactics.Tactics.

@@ -1,5 +1,5 @@
 Require Import Coq.Lists.List.
-Require Import Charge.Logics.ILogic.
+Require Import ChargeCore.Logics.ILogic.
 Require Import SLogic.Logic.
 Require Import SLogic.LTLNotation.
 

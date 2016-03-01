@@ -1,6 +1,6 @@
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Structures.Functor.
-Require Import Charge.Logics.ILogic.
+Require Import ChargeCore.Logics.ILogic.
 Require Import SLogic.Continuous.
 
 Section with_state.
@@ -42,7 +42,8 @@ Section with_state.
     @ILInsts.ILFun_Ops _ _ _.
 
   Global Instance ILogic_DiffProp {V} {Dv}
-    : ILogic (DiffProp V Dv) := _.
-  Global Instance ILogic_ContProp : ILogic ContProp := _.
+    : ILogic (DiffProp V Dv) := ILInsts.ILFun_ILogic _.
+  Global Instance ILogic_ContProp : ILogic ContProp :=
+    ILInsts.ILFun_ILogic _.
 
 End with_state.

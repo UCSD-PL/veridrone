@@ -6,7 +6,7 @@ Require Import Coq.Reals.Rtrigo_def.
 Require Import Coq.Reals.Ranalysis1.
 Require Export Logic.Syntax.
 Require Import Logic.Stream.
-Require Export Charge.Logics.ILogic.
+Require Export ChargeCore.Logics.ILogic.
 Require Import Coq.Reals.R_sqrt.
 Require Import Coq.Reals.Ratan.
 
@@ -112,9 +112,11 @@ Proof.
   constructor;
   try solve [ cbv beta iota zeta delta - [ eval_formula ];
               simpl; intros; intuition eauto ].
-  cbv beta iota zeta delta - [ eval_formula ];
-              simpl; intros; intuition eauto.
-  destruct H0. eauto.
+  { unfold lentails. simpl. unfold tlaEntails.
+    constructor; intuition. }
+  { cbv beta iota zeta delta - [ eval_formula ];
+    simpl; intros; intuition eauto.
+    destruct H0. eauto. }
 Qed.
 
 Definition term_equiv (t1 t2:Term) : Prop :=

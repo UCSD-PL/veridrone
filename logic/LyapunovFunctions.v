@@ -3,7 +3,7 @@ Require Import Logic.Stability.
 Require Import Logic.ProofRules.
 Require Import Logic.Morphisms.
 Require Import Logic.BasicProofRules.
-Require Import ChargeTactics.Lemmas.
+Require Import ChargeCore.Tactics.Lemmas.
 Require Import Coq.Reals.Rdefinitions.
 Require Import Rbasic_fun.
 Require Import Ranalysis1.
@@ -300,8 +300,7 @@ Proof.
           exists z. split; [ tauto | ].
           destruct (RIneq.Rge_dec (f z x) R0).
           { left. rewrite Rabs_right in IVT; solve_linear. }
-          { right. rewrite Rabs_left in IVT; solve_linear.
-            apply RIneq.Rplus_opp_r_uniq. solve_linear. } }
+          { right. rewrite Rabs_left in IVT; solve_linear. } }
         { exists r. split; [ solve_linear | ].
           revert H1. unfold Rmax. rewrite Hf_post.
           destruct_ite; intros.

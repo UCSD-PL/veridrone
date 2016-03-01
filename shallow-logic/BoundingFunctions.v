@@ -240,7 +240,7 @@ Proof.
     { subst. intuition. } }
   { unfold limit_pos_inf. intros.
     admit. (* Need some limit lemmas. *) }
-Qed.
+Admitted.
 
 Lemma KLD_fun_abs_exp :
   forall a,

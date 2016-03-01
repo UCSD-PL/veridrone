@@ -7,7 +7,7 @@ Require Import Logic.ProofRules.
 Require Import Examples.System.
 Require Import Examples.Interval.
 Require Import Examples.Rectangle.
-Require Import ChargeTactics.Lemmas.
+Require Import ChargeCore.Tactics.Lemmas.
 Require Import Coq.Strings.String.
 
 Local Open Scope string_scope.
@@ -400,6 +400,7 @@ Module CuboidShim (Import P : CuboidParams).
           rewrite Rename_ok by eauto with rw_rename.
           rewrite next_And. rewrite next_Rename.
           (* Annoying manipulation. *)
+          unfold ActionFormula, StateFormula.
           rewrite <- landA. rewrite <- Rename_and.
           pose proof spherical_predicated_witness_function.
           destruct H. rewrite next_Rename. unfold IndInv.
@@ -427,8 +428,8 @@ Module CuboidShim (Import P : CuboidParams).
             rewrite Rename_and. repeat rewrite <- next_Rename.
             repeat rewrite landA.
             match goal with
-            |- _ |-- Enabled (?Y //\\ ?W //\\ ?YC //\\ ?WC1 //\\ ?WC2) =>
-            assert (Y //\\ W //\\ YC //\\ WC1 //\\ WC2 -|-
+            |- _ |-- Enabled (?Y //\\ ?W //\\ (?YC //\\ ?WC1) //\\ ?WC2) =>
+            assert (Y //\\ W //\\ (YC //\\ WC1) //\\ WC2 -|-
                     (Y //\\ YC) //\\ (W //\\ WC1 //\\ WC2))
               as H by (split; charge_tauto);
               rewrite H; clear H
@@ -443,8 +444,9 @@ Module CuboidShim (Import P : CuboidParams).
                 pose proof y_witness_function. destruct H.
                 charge_assert (Rename rename_y Y.IndInv //\\ "T" = 0);
                   [ charge_tauto | charge_clear; charge_intros ].
-                rewrite_rename_equiv ("T" = 0) rename_y. rewrite next_Rename.
-                repeat rewrite <- Rename_and. eapply subst_enabled with (f:=x).
+                rewrite_rename_equiv ("T" = 0) rename_y.
+                rewrite next_Rename. repeat rewrite <- Rename_and.
+                eapply subst_enabled with (f:=x).
                 { apply get_vars_next_state_vars; reflexivity. }
                 { apply H; reflexivity. }
                 { clear. pose proof Y.SysNeverStuck_Discr.
@@ -458,7 +460,7 @@ Module CuboidShim (Import P : CuboidParams).
               apply formulas_disjoint_state; reflexivity. } } } }
       { apply formulas_disjoint_state; reflexivity. } }
     { admit. (** Provable, but we won't worry about it *) }
-  Qed.
+  Admitted.
 
   Definition Safe : StateFormula :=
     Rename rename_polar (XZ.Safe //\\ Rename rename_y Y.Safe).

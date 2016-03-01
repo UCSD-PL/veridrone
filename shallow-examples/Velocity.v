@@ -5,10 +5,10 @@ Require Import Coq.Reals.Rtrigo_def.
 Require Import Coq.Reals.Ranalysis1.
 Require Import Coq.micromega.Psatz.
 Require Import ExtLib.Structures.Applicative.
-Require Import Charge.Logics.ILogic.
-Require Import Charge.Logics.ILEmbed.
-Require Import ChargeTactics.Tactics.
-Require Import ChargeTactics.Lemmas.
+Require Import ChargeCore.Logics.ILogic.
+Require Import ChargeCore.Logics.ILEmbed.
+Require Import ChargeCore.Tactics.Tactics.
+Require Import ChargeCore.Tactics.Lemmas.
 Require Import SLogic.Logic.
 Require Import SLogic.Instances.
 Require Import SLogic.BasicProofRules.
@@ -16,6 +16,7 @@ Require Import SLogic.Continuous.
 Require Import SLogic.ContinuousInstances.
 Require Import SLogic.BoundingFunctions.
 Require Import SLogic.RobustnessISS.
+Require Import SLogic.Lifting.
 Require Import SLogic.LTLNotation.
 Require Import SLogic.Tactics.
 Require Import SLogic.Util.
@@ -73,7 +74,7 @@ Section VelocityMonitor.
 
   (* Inductive invariant *)
   Definition IndInv : StateProp state :=
-    a `* (`delta `- (t `- T)) `<= `- (v `+ dv).
+    a `* ((pure delta) `- (t `- T)) `<= `- (v `+ dv).
 
   (* Full system specification. *)
   Definition Spec : TraceProp state :=
@@ -106,7 +107,7 @@ Section VelocityMonitor.
         assert (v2 = v1 + a1 * (t2 - t1)) by admit.
         assert (a2 = a1) by admit.
         psatz R. } }
-  Qed.
+  Admitted.
 
   (* Essentially states that the initial condition
      always holds. *)
@@ -125,7 +126,7 @@ Section VelocityMonitor.
 
   (* Spec satisfies [robust]. *)
   Lemma Spec_robust :
-    Spec |-- robust state (`Rmax (`-dv) `0)
+    Spec |-- robust state (lift2 Rmax (`-dv) `0)
                           (`Rmax v `0)
                           t mu gamma.
   Proof.
@@ -219,11 +220,11 @@ Section VelocityMonitor.
                    (Exp_prop.exp_pos (-(t2-t_0)/delta)).
               pose proof (Rabs_pos OC_0).
               psatz R. } } } } }
-  Qed.
+  Admitted.
 
   (* Our main robustness theorem. *)
   Theorem Spec_robust2 :
-    Spec |-- robust2 state (`Rmax (`-dv) `0)
+    Spec |-- robust2 state (lift2 Rmax (`-dv) `0)
                           (`Rmax v `0)
                           t mu gamma.
   Proof.

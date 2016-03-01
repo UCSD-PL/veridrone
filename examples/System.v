@@ -3,8 +3,8 @@ Require Import Coq.Reals.Rbasic_fun.
 Require Import Coq.Classes.RelationClasses.
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Lists.ListSet.
-Require Import ChargeTactics.Lemmas.
-Require Import ChargeTactics.Indexed.
+Require Import ChargeCore.Tactics.Lemmas.
+Require Import ChargeCore.Tactics.Indexed.
 Require Import ExtLib.Tactics.
 Require Import Logic.Logic.
 Require Import Logic.ProofRules.
@@ -196,7 +196,7 @@ Definition SysDisjoin_simpl
 Proof.
   unfold Sys. intros.
   split.
-  { decompose_hyps; charge_tauto. }
+  { decompose_hyps; unfold Discr; charge_tauto. }
   { unfold Discr. decompose_hyps; charge_tauto. }
 Qed.
 
@@ -266,8 +266,8 @@ Lemma mkEvolution_and
 Proof.
   unfold mkEvolution; simpl; intros.
   eapply Evolution_lequiv_lequiv.
-  intros. Transparent Charge.Logics.ILInsts.ILFun_Ops.
-  simpl. Opaque Charge.Logics.ILInsts.ILFun_Ops.
+  intros. Transparent ChargeCore.Logics.ILInsts.ILFun_Ops.
+  simpl. Opaque ChargeCore.Logics.ILInsts.ILFun_Ops.
   restoreAbstraction.
   split; charge_tauto.
 Qed.
@@ -420,7 +420,7 @@ Proof.
   { solve_linear. }
   charge_revert.
   charge_clear.
-  split_n 1; charge_intros.
+  charge_intros. charge_cases.
   { unfold Sys.
     rewrite <- Enabled_and_push by (compute; tauto).
     charge_split; [ solve_linear | ].
@@ -429,7 +429,8 @@ Proof.
     rewrite (landC D). repeat rewrite landA.
     rewrite <- Enabled_and_push by (compute; tauto).
     charge_split; [ charge_assumption | ].
-    assumption. }
+    simpl in *. restoreAbstraction. repeat rewrite <- landA.
+    eassumption. }
   { unfold Sys.
     rewrite <- Enabled_and_push by (compute; tauto).
     charge_split;

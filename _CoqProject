@@ -1,8 +1,3 @@
--I Z3-plugin/src
--R Z3-plugin/theories Z3
--R Charge/Charge!/bin/Charge Charge
--R coq-ext-lib/theories ExtLib
--R ChargeTactics ChargeTactics
 -R logic Logic
 -R examples Examples
 -R shallow-logic SLogic
@@ -43,10 +38,6 @@ logic/Morphisms.v
 logic/EnabledLemmas.v
 logic/Stability.v
 logic/LyapunovFunctions.v
-
-ChargeTactics/Tactics.v
-ChargeTactics/Lemmas.v
-ChargeTactics/Indexed.v
 
 examples/DiffEqSolutions.v
 examples/System.v

@@ -1,8 +1,8 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import ExtLib.Structures.Applicative.
-Require Import Charge.Logics.ILogic.
-Require Import Charge.Logics.ILEmbed.
-Require Import ChargeTactics.Tactics.
+Require Import ChargeCore.Logics.ILogic.
+Require Import ChargeCore.Logics.ILEmbed.
+Require Import ChargeCore.Tactics.Tactics.
 Require Import SLogic.Logic.
 Require Import SLogic.LTLNotation.
 Require Import SLogic.Instances.
@@ -41,7 +41,7 @@ Section Robustness.
     Exists t_0 : R,  [!(pure t_0 `= t)] //\\
     Forall sup : R,
       [][!(IC `<= pure sup)] -->>
-      [][!(OC `<= `mu `OC_0 (t `- `t_0) `+ `gamma `sup)].
+      [][!(OC `<= `mu (pure OC_0) (t `- (pure t_0)) `+ `gamma (pure sup))].
 
   (* Here is the stronger definition of robustness. *)
   Definition robust2 : TraceProp state :=

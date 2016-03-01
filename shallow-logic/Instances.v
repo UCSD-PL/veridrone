@@ -2,8 +2,8 @@ Require Import Coq.Classes.Morphisms.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Structures.CoFunctor.
-Require Import Charge.Logics.ILogic.
-Require Import Charge.Logics.ILEmbed.
+Require Import ChargeCore.Logics.ILogic.
+Require Import ChargeCore.Logics.ILEmbed.
 Require Import SLogic.Logic.
 
 Section with_state.
@@ -27,9 +27,9 @@ Section with_state.
     ILogicOps TraceProp :=
     @ILInsts.ILFun_Ops _ _ _.
 
-  Global Instance ILogic_StateProp : ILogic StateProp := _.
-  Global Instance ILogic_ActionProp : ILogic ActionProp := _.
-  Global Instance ILogic_TraceProp : ILogic TraceProp := _.
+  Global Instance ILogic_StateProp : ILogic StateProp := ILInsts.ILFun_ILogic _.
+  Global Instance ILogic_ActionProp : ILogic ActionProp := ILInsts.ILFun_ILogic _.
+  Global Instance ILogic_TraceProp : ILogic TraceProp := ILInsts.ILFun_ILogic _.
 
   Local Transparent ILInsts.ILFun_Ops.
   Local Transparent ILInsts.ILPre_Ops.

@@ -1,7 +1,7 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 Require Import Coq.micromega.Psatz.
-Require Import Z3.Tactic.
+Require Import SMT.Tactic.
 Require Import Logic.Syntax.
 Require Import Logic.Semantics.
 Require Import Logic.Lib.
