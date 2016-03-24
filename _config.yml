@@ -12,7 +12,7 @@ baseurl: "/veridrone" # the subpath of your site, e.g. /blog/
 url: "http://ucsd-pl.github.io" # the base hostname & protocol for your site
 twitter_username: veridrone
 github_username:
-logo: veridrone-logo-grey.png
+logo: veridrone-logo.png
 cse-logo: CSELogo_4Cv.jpg
 both-logos: veridrone-cse.png
 ucsd-logo: ucsd.png
