@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<sspaceex xmlns="http://www-verimag.imag.fr/xml-namespaces/sspaceex" version="0.2" math="SpaceEx">
+  <component id="Velocity">
+    <param name="v" type="real" local="false" d1="1" d2="1" dynamics="any" />
+    <param name="a" type="real" local="false" d1="1" d2="1" dynamics="any" />
+    <param name="t" type="real" local="false" d1="1" d2="1" dynamics="any" />
+    <param name="Ctrl" type="label" local="false" />
+    <param name="maxA" type="real" local="false" d1="1" d2="1" dynamics="const" />
+    <location id="1" name="Continuous" x="316.0" y="218.0" width="230.0" height="172.0">
+      <invariant>t &gt;= 0 &amp; a &lt;= maxA</invariant>
+      <flow>v' == a &amp; a' == 0 &amp; t' == -1</flow>
+    </location>
+    <transition source="1" target="1">
+      <label>Ctrl</label>
+      <assignment>t' == 1 &amp; v + a' &lt;= 0 &amp; a' &lt;= maxA &amp; v' == v</assignment>
+      <labelposition x="-155.0" y="-80.0" width="300.0" height="90.0" />
+      <middlepoint x="0.0" y="-116.0" />
+    </transition>
+  </component>
+</sspaceex>
+
