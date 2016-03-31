@@ -1,0 +1,63 @@
+hybrid reachability
+{
+ state var v,a,t
+ 	
+ setting
+ {
+  fixed steps 0.1
+  time 50
+  remainder estimation 1e-2
+  identity precondition
+  gnuplot octagon t , v
+  adaptive orders { min 4 , max 8 }
+  cutoff 1e-12
+  precision 53
+  output velocity
+  max jumps 100
+  print on
+ }
+	
+ modes
+ {
+  l
+  {
+   linear ode
+   {
+    v' = a
+    a' = 0
+    t' = -1
+   }
+   inv
+   {
+    t >= 0
+   }
+  }
+ }
+	
+ jumps
+ {
+  l -> l
+  guard { t <= 0 }
+  reset { v' := v  a' := -v + [-10,2]  t' := 1 }
+  parallelotope aggregation {  }
+ }
+	
+ init
+ {
+  l
+  {
+   v in [-5,-1]
+   a in [0,0]
+   t in [0,1]
+  }
+ }
+
+}
+
+unsafe set
+{
+ l
+ {
+  v >= 0
+ }
+}
