@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<sspaceex xmlns="http://www-verimag.imag.fr/xml-namespaces/sspaceex" version="0.2" math="SpaceEx">
+  <component id="Position">
+    <param name="y" type="real" local="false" d1="1" d2="1" dynamics="any" />
+    <param name="v" type="real" local="false" d1="1" d2="1" dynamics="any" />
+    <param name="a" type="real" local="false" d1="1" d2="1" dynamics="any" />
+    <param name="t" type="real" local="false" d1="1" d2="1" dynamics="any" />
+    <param name="Ctrl" type="label" local="false" />
+    <param name="u" type="real" local="false" d1="1" d2="1" dynamics="const" />
+    <param name="amin" type="real" local="false" d1="1" d2="1" dynamics="const" />
+    <param name="Ctrl2" type="label" local="false" />
+    <param name="Ctrl3" type="label" local="false" />
+    <param name="Ctrl4" type="label" local="false" />
+    <location id="1" name="Continuous" x="318.0" y="547.0" width="230.0" height="172.0">
+      <invariant>t &gt;= 0</invariant>
+      <flow>y' == v &amp; v' == a &amp; a' == 0 &amp; t' == -1</flow>
+    </location>
+    <transition source="1" target="1">
+      <label>Ctrl</label>
+      <guard>v &lt;= 0</guard>
+      <assignment>t' == 1 &amp; a' &gt;= amin &amp; v + a' &lt; 0</assignment>
+      <labelposition x="-314.0" y="-154.0" width="772.0" height="102.0" />
+      <middlepoint x="0.0" y="-116.0" />
+    </transition>
+    <transition source="1" target="1">
+      <label>Ctrl2</label>
+      <guard>0 &lt; v</guard>
+      <assignment>t' == 1 &amp; a' &gt;= amin &amp; v + a' &lt; 0 &amp; y*a'*a' + v + a'*v*v*a'*a'/2 &lt;= u*a'*a'</assignment>
+      <labelposition x="-168.0" y="-262.0" width="510.0" height="66.0" />
+    </transition>
+    <transition source="1" target="1">
+      <label>Ctrl3</label>
+      <guard>v &lt;= 0</guard>
+      <assignment>t' == 1 &amp; a' &gt;= amin &amp; y + v + (1/2)*a' + ((v + a')*(v+a'))/2 &lt;= u</assignment>
+      <labelposition x="-255.0" y="270.0" width="496.0" height="102.0" />
+    </transition>
+    <transition source="1" target="1">
+      <label>Ctrl4</label>
+      <assignment>t' == 1 &amp; a' &gt;= amin &amp; 0 &lt; v + a' &amp; y + v + (1/2)*a' + ((v + a')*(v+a'))/2 &lt;= u</assignment>
+      <labelposition x="-299.0" y="485.0" width="606.0" height="122.0" />
+    </transition>
+  </component>
+</sspaceex>
+

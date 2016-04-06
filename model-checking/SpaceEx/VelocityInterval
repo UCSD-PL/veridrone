@@ -13,8 +13,8 @@
     </location>
     <transition source="1" target="1">
       <label>Ctrl</label>
-      <assignment>t' == 1 &amp; -amin &lt;= a' &amp; v + a' &lt;= u</assignment>
-      <labelposition x="-155.0" y="-80.0" width="300.0" height="90.0" />
+      <assignment>t' == 1 &amp; -amin &lt;= a' &amp; a' &lt;= amin &amp; -u &lt;= v + a' &amp; v + a' &lt;= u</assignment>
+      <labelposition x="-148.0" y="-85.0" width="464.0" height="86.0" />
       <middlepoint x="0.0" y="-116.0" />
     </transition>
   </component>
