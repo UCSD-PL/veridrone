@@ -121,13 +121,13 @@ Module CuboidShim (Import P : CuboidParams).
                             Y.Next)
                  XZ.Next).
 
-  Definition RollConstraint : Formula :=
-      P.angle_min <= "roll" <= P.angle_max.
+  Definition InputConstraint : Formula :=
+      P.angle_min <= "roll" <= P.angle_max //\\ 0 <= "A".
 
   (* The full system, with roll input constraints. *)
   Definition Next : ActionFormula :=
     SysCompose Next_no_roll_constraint
-               (Sys (next RollConstraint) ltrue d).
+               (Sys (next InputConstraint) ltrue d).
 
   Definition IndInv : ActionFormula :=
     Rename rename_polar (Rename rename_y Y.IndInv //\\
@@ -192,12 +192,13 @@ Module CuboidShim (Import P : CuboidParams).
        "roll" ~> ArctanT (--"ay"/"a") }}%rn.
 
   Lemma inv_input_constraint :
-    YWConstraint |-- Rename polar_inv RollConstraint.
+    YWConstraint |-- Rename polar_inv InputConstraint.
   Proof.
     rewrite yw_constraint_refinement.
     rewrite <- Rename_ok by eauto with rw_rename.
     simpl. restoreAbstraction. unfold RollConstraintRect.
-    charge_assumption.
+    charge_split; [ charge_assumption | ].
+    breakAbstraction. intros. apply sqrt_pos.
   Qed.
 
   Lemma polar_inv_ok :
@@ -261,7 +262,7 @@ Module CuboidShim (Import P : CuboidParams).
     rewrite <- Rename_and.
     rewrite Rename_ok by eauto with rw_rename.
     eapply subst_enabled_full
-    with (R:=YWConstraint) (Q:= RollConstraint).
+    with (R:=YWConstraint) (Q:= InputConstraint).
     { tlaIntuition. }
     { tlaIntuition. }
     { apply is_action_formula_ok; simpl; tauto. }
