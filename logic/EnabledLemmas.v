@@ -571,6 +571,72 @@ Proof.
   apply Rename_True.
 Qed.
 
+Require Import Logic.Stream.
+
+Lemma stream_eq_forever :
+  forall (A : Type) (s1 s2 : A) (r : A -> A -> Prop),
+    r s1 s2 ->
+    stream_eq r (forever s1) (forever s2).
+Proof.
+  intros. cofix.
+  constructor.
+  { exact H. }
+  { auto. }
+Qed.
+
+Lemma stream_map_hd :
+  forall (A B : Type) (tr : stream A) (f : A -> B),
+    hd (stream_map f tr) = f (hd tr).
+Proof.
+  destruct tr. simpl. reflexivity.
+Qed.
+
+Lemma subst_enabled_full :
+  forall G (S : ActionFormula) (Q R : StateFormula)
+         (sigma sigma_inv : RenameMap) xs,
+    is_st_formula Q ->
+    is_st_formula R ->
+    is_action_formula S ->
+    next_state_vars S xs ->
+    (forall st x,
+        In x xs ->
+        eval_formula R (Stream.forever st) ->
+        subst_state sigma (subst_state sigma_inv st) x =
+        st x) ->
+    R |-- Rename sigma_inv Q ->
+    G |-- Enabled (S //\\ next R) ->
+    Rename sigma G |-- Enabled (Rename sigma S //\\ next Q).
+Proof.
+  intros. breakAbstraction. intros. destruct tr.
+  apply H5 in H6. simpl in *. clear tr.
+  destruct H6 as [tr' [HS HR]].
+  exists (stream_map (subst_state sigma_inv) tr').
+  split.
+  { rewrite stream_map_cons by eauto with typeclass_instances.
+    unfold next_state_vars in *.
+    rewrite next_formula_tl in HR; auto. simpl in *.
+    assert (eval_formula R (forever (hd tr')))
+      by (eapply st_formula_hd; eauto).
+    unfold is_action_formula in *.
+    rewrite H1
+    with (tr':=Cons (subst_state sigma s) (forever (hd tr')))
+      in HS; try reflexivity.
+    rewrite H1
+    with (tr':=Cons (subst_state sigma s)
+                    (forever
+                       (hd (stream_map
+                              (subst_state sigma)
+                              (stream_map
+                                 (subst_state sigma_inv)
+                                 tr'))))); try reflexivity.
+    erewrite H2; eauto.
+    unfold traces_agree. intros.
+    apply stream_eq_forever.
+    repeat rewrite stream_map_hd. apply H3; auto. }
+  { rewrite next_formula_tl; auto. simpl.
+    rewrite next_formula_tl in HR; auto. }
+Qed.
+
 Theorem Enabled_and (A B : Formula) :
   Enabled (A //\\ B) |-- Enabled A //\\ Enabled B.
 Proof.
@@ -578,8 +644,13 @@ Proof.
   exists x; tauto.
 Qed.
 
-Lemma Enabled_or : forall P Q, Enabled P \\// Enabled Q |-- Enabled (P \\// Q).
-Proof. breakAbstraction; intros. destruct H; forward_reason; eauto. Qed.
+Lemma Enabled_or :
+  forall P Q, Enabled P \\// Enabled Q -|- Enabled (P \\// Q).
+Proof.
+  split; breakAbstraction; intros.
+  { destruct H; forward_reason; eauto. }
+  { destruct H. destruct H; eauto. }
+Qed.
 
 Global Instance Proper_Enabled_lentails
 : Proper (lentails ==> lentails) Enabled.

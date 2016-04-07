@@ -365,79 +365,164 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
       solve_nonlinear. }
   Qed.
 
-  Lemma SysNeverStuck_Discr :
-    IndInv //\\ "T" = 0 |-- Enabled (Sys_D Next //\\
-                       Rename rename_polar (next XZConstraint) //\\ next PolarBounds).
+  Let polar_inv : RenameList :=
+    {{ "a" ~> SqrtT (("az" + P.g)*("az" + P.g) +
+                     "ax" * "ax") &
+       "pitch" ~> ArctanT ("ax"/("az" + P.g)) }}%rn.
+
+Lemma rectangular_to_polar :
+  forall (x y:R),
+    (x > 0%R ->
+     eq x (sqrt (x*x + y*y) * cos (atan (y/x))) /\
+     eq y (sqrt (x*x + y*y) * sin (atan (y/x))))%R.
+Admitted.
+
+  Lemma polar_inv_ok :
+    forall xs,
+      List.forallb (fun x => if String.string_dec x "a"
+                             then false else true) xs =
+      true ->
+      List.forallb (fun x => if String.string_dec x "pitch"
+                             then false else true) xs =
+      true ->
+      forall st x,
+        List.In x xs ->
+        eval_formula XZConstraint (Stream.forever st) ->
+        subst_state rename_polar
+                    (subst_state polar_inv st) x = st x.
   Proof.
-    unfold Sys_D.
-    pose proof rect_input_refines_polar.
-    apply next_st_formula_entails in H;
-      [ | simpl; tauto | simpl; tauto ].
-    rewrite <- H. clear H.
-    pose proof xy_constraint_refinement.
-    apply next_st_formula_entails in H;
-      [ | simpl; tauto | simpl; tauto ].
-    rewrite next_And. rewrite next_Rename.
-    rewrite <- H. clear H.
-    match goal with
-      |- _ |-- Enabled ((?S //\\ ?X) //\\ ?X) =>
-      assert ((S //\\ X) //\\ X -|- S //\\ (X //\\ X))
-        as H by (split; charge_tauto); rewrite H; clear H
-    end.
-    rewrite <- land_dup.
+    simpl. unfold Value, subst_state. simpl. intros.
+    pose proof
+         (rectangular_to_polar (st "az" + P.g) (st "ax")).
+    destruct H3 as [Hz Hx].
+    { unfold Z_Params.amin in *. pose proof P.amin_Z_lt_0.
+      pose proof P.amin_Z_lt_g. solve_linear. }
+    { repeat destruct_ite; subst; simpl in *;
+      auto; solve_linear.
+      rewrite List.forallb_forall in *.
+      specialize (H "a").
+      specialize (H0 "pitch").
+      repeat match goal with
+             | [ |- context [if ?e then _ else _] ]
+               => destruct e; simpl
+             end; subst; simpl.
+      { specialize (H H1). simpl in *; discriminate. }
+      { specialize (H0 H1). simpl in *; discriminate. }
+      { reflexivity. } }
+  Qed.
+
+  Lemma inv_input_constraint :
+    XZConstraint |-- Rename polar_inv InputConstraint.
+  Proof.
+    rewrite xy_constraint_refinement.
+    rewrite <- Rename_ok by eauto with rw_rename.
+    simpl. restoreAbstraction. unfold InputConstraintRect.
+    charge_assumption.
+  Qed.
+
+(* Prop expressing that the Formula has no temporal operators.
+   This cannot be a bool because of Forall and Exists. *)
+Fixpoint is_action_formula' (F:Formula) : Prop :=
+  match F with
+  | TRUE => True
+  | FALSE => True
+  | Comp t1 t2 _ => True
+  | And F1 F2 =>
+    and (is_action_formula' F1) (is_action_formula' F2)
+  | Or F1 F2 =>
+    and (is_action_formula' F1) (is_action_formula' F2)
+  | Imp F1 F2 =>
+    and (is_action_formula' F1) (is_action_formula' F2)
+  | Syntax.Exists _ f =>
+    forall x, is_action_formula' (f x)
+  | Syntax.Forall _ f =>
+    forall x, is_action_formula' (f x)
+  | PropF _ => True
+  | Rename _ x => False
+  | _ => False
+  end.
+
+Lemma is_action_formula_ok :
+  forall F, is_action_formula' F -> is_action_formula F.
+Proof.
+  induction F; unfold is_action_formula; simpl; intros;
+    try reflexivity; unfold is_action_formula in *;
+      try (rewrite IHF1 with (tr:=tr) (tr':=tr'); try tauto;
+           rewrite IHF2 with (tr:=tr) (tr':=tr'); try tauto);
+      try contradiction.
+  { rewrite H0. rewrite H1. reflexivity. }
+  { split; intro; destruct H3; exists x;
+    eapply H with (tr:=tr) (tr':=tr'); auto. }
+  { split; intros; specialize (H3 x);
+    eapply H with (tr:=tr) (tr':=tr'); auto. }
+Qed.
+
+  Lemma SysNeverStuck_Discr :
+        IndInv //\\ "T" = 0 |-- Enabled (Sys_D Next).
+  Proof.
+    unfold Sys_D, IndInv.
+    rewrite_rename_equiv ("T" = 0) rename_polar.
+    rewrite <- Rename_and.
     rewrite Rename_ok by eauto with rw_rename.
-    rewrite <- landA. rewrite <- Rename_and.
-    unfold XZConstraint. rewrite next_And. repeat rewrite next_Rename.
-    rewrite <- Rename_ok with (m:=to_RenameMap rename_x) by eauto with rw_rename.
-    rewrite <- Rename_ok with (m:=to_RenameMap rename_z) by eauto with rw_rename.
-    pose proof polar_predicated_witness_function.
-    rewrite_rename_equiv ("T" = 0) rename_polar. destruct H. unfold IndInv.
-    rewrite <- Rename_and. eapply subst_enabled_predicated_witness_simple
-                           with (f:=x).
-    { simpl; tauto. }
+    eapply subst_enabled_full
+    with (R:=XZConstraint) (Q:=InputConstraint).
+    { tlaIntuition. }
+    { tlaIntuition. }
+    { apply is_action_formula_ok; simpl; tauto. }
     { apply get_vars_next_state_vars; reflexivity. }
-    { apply H; reflexivity. }
-    { clear.
-      (* Very brittle match ahead. Basically
-               just want to group the X monitor
-               with the X constraint and the Z monitor
-               with the Z constraint. *)
-      repeat rewrite landA.
+    { intros. eapply polar_inv_ok. 3: apply H.
+      reflexivity. reflexivity. auto. }
+    { apply inv_input_constraint. }
+    { repeat rewrite landA. unfold XZConstraint.
+      rewrite next_And. repeat rewrite next_Rename.
       match goal with
-        |- _ |-- Enabled ((?X //\\ ?Z) //\\ (?XC //\\ ?ZC)) =>
-        assert ((X //\\ Z) //\\ (XC //\\ ZC) -|-
+        |- _ |-- Enabled (?X //\\ ?Z //\\ ?XC //\\ ?ZC) =>
+        assert (X //\\ Z //\\ XC //\\ ZC -|-
                   (X //\\ XC) //\\ (Z //\\ ZC))
           as H by (split; charge_tauto);
           rewrite H; clear H
       end.
+      rewrite <- Rename_ok
+      with (m:=rename_x) (F:=next X.Constraint)
+        by eauto with rw_rename.
+      rewrite <- Rename_ok
+      with (m:=rename_z) (F:=next Z.Constraint)
+        by eauto with rw_rename.
       rewrite <- disjoint_state_enabled.
       { charge_split.
         { pose proof x_witness_function. destruct H.
-          repeat rewrite Rename_ok with (m:=to_RenameMap rename_x) by eauto with rw_rename.
-          charge_assert (Rename rename_x X.IndInv //\\ "T" = 0);
+          charge_assert (Rename rename_x X.IndInv //\\ "T"=0);
             [ charge_tauto | charge_clear; charge_intros ].
-          rewrite_rename_equiv ("T" = 0) rename_x. repeat rewrite <- Rename_and.
+          rewrite_rename_equiv ("T" = 0) rename_x.
+          repeat rewrite Rename_ok
+          with (m:=rename_x) by eauto with rw_rename.
+          repeat rewrite <- Rename_and.
           eapply subst_enabled with (f:=x).
           { apply get_vars_next_state_vars; reflexivity. }
           { apply H; reflexivity. }
           { clear. pose proof X.SysNeverStuck_Discr.
-            etransitivity; [ apply H | apply Proper_Enabled_lentails ].
+            etransitivity;
+              [ apply H | apply Proper_Enabled_lentails ].
             charge_tauto. } }
         { pose proof z_witness_function. destruct H.
-          repeat rewrite Rename_ok with (m:=to_RenameMap rename_z) by eauto with rw_rename.
-          charge_assert (Rename rename_z Z.IndInv //\\ "T" = 0);
+          charge_assert (Rename rename_z Z.IndInv //\\ "T"=0);
             [ charge_tauto | charge_clear; charge_intros ].
-          rewrite_rename_equiv ("T" = 0) rename_z. repeat rewrite <- Rename_and.
+          rewrite_rename_equiv ("T" = 0) rename_z.
+          repeat rewrite Rename_ok
+          with (m:=rename_z) by eauto with rw_rename.
+          repeat rewrite <- Rename_and.
           eapply subst_enabled with (f:=x).
           { apply get_vars_next_state_vars; reflexivity. }
           { apply H; reflexivity. }
           { clear. pose proof Z.SysNeverStuck_Discr.
-            etransitivity; [ apply H | apply Proper_Enabled_lentails ].
+            etransitivity;
+              [ apply H | apply Proper_Enabled_lentails ].
             charge_tauto. } } }
       { apply formulas_disjoint_state; reflexivity. } }
   Qed.
 
-  Theorem SysNeverStuck_Next : |-- SysNeverStuck P.d IndInv Next.
+  Theorem SysNeverStuck_Next :
+    |-- SysNeverStuck P.d IndInv Next.
   Proof.
     eapply SysNeverStuck_Sys;
     [ pose proof P.d_gt_0 ; solve_linear | | ].
