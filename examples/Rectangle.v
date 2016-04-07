@@ -109,7 +109,8 @@ Module RectangleShim (P : RectangleParams).
     SysRename rename_polar (deriv_term_RenameList rename_polar) NextRect.
 
   Definition InputConstraint : Formula :=
-      P.pitch_min <= "pitch" <= P.pitch_max.
+      P.pitch_min <= "pitch" <= P.pitch_max //\\
+      P.amin_Z + P.g <= "a".
 
   (* The full system, in polar coordinates, with
      control input constraints. *)
@@ -150,75 +151,6 @@ Module RectangleShim (P : RectangleParams).
 
   Opaque ILInsts.ILFun_Ops.
 
-(* The following helps generate code. *)
-(*
-Definition shift (ub lb:R) (x:Var) : list (Var*Term) :=
-  (x,x - ((lb + ub)/2))::nil.
-Variable ubx lbx uby lby ubvx ubvy lbvx lbvy : R.
-
-Goal (Rename (to_RenameMap (shift ubx lbx "x"))
-        (Rename (to_RenameMap (shift uby lby "z"))
-           (Rename (to_RenameMap (shift ubvx lbvx "vx"))
-              (Rename (to_RenameMap (shift ubvy lbvy "vy"))
-                      (Prog SpecR))))) |-- TRUE.
-  unfold SpecR. rewrite_rename_pf SpecPolarR.
-  rewrite Prog_SysCompose. rewrite Prog_SysRename.
-  unfold SpecRectR. rewrite_rename_pf X_SpecR.
-  rewrite_rename_pf Z_SpecR. rewrite Prog_SysCompose.
-  repeat rewrite Prog_SysRename. unfold X.SpecR, Z.SpecR.
-  repeat rewrite Prog_SysCompose.
-  unfold X.Vel.SpecR, X.Position.SpecR,
-  Z.Vel.SpecR, Z.Position.SpecR.
-  repeat rewrite Prog_SysCompose.
-  repeat match goal with
-         |- context [ projT1 ?X ]
-         => rewrite_rename_pf X
-         end.
-  repeat rewrite Prog_SysRename.
-  Opaque Unchanged.
-  simpl Prog. restoreAbstraction.
-  (* Get rid of all of the unchanged clauses that
-     have no computational meaning. *)
-  repeat match goal with
-  |- context [ Unchanged ?l ] =>
-    rewrite ltrueR with (C:=Unchanged l)
-  end; repeat rewrite landtrueR.
-  unfold X.Position.Monitor.Ctrl, Z.Position.Monitor.Ctrl,
-  X.Vel.Vel.Ctrl, Z.Vel.Vel.Ctrl.
-  Rename_rewrite.
-  repeat rewrite X.Vel.Vel.Rename_SafeAcc
-    by rw_side_condition.
-  repeat rewrite X.Vel.Vel.Rename_Default
-    by rw_side_condition.
-  repeat rewrite Z.Vel.Vel.Rename_SafeAcc
-    by rw_side_condition.
-  repeat rewrite Z.Vel.Vel.Rename_Default
-    by rw_side_condition.
-  repeat rewrite X.Position.Monitor.Rename_SafeAcc
-    by rw_side_condition.
-  repeat rewrite X.Position.Monitor.Rename_Default
-    by rw_side_condition.
-  repeat rewrite Z.Position.Monitor.Rename_SafeAcc
-    by rw_side_condition.
-  repeat rewrite Z.Position.Monitor.Rename_Default
-    by rw_side_condition.
-  simpl rename_term.
-  (* Get rid of history variables with no computational
-     meaning. *)
-  repeat match goal with
-  |- context [ Rename ?m ?F ]
-  => rewrite ltrueR with (C:=Rename m F)
-  end; repeat rewrite landtrueR.
-2: rw_side_condition.
-2: rw_side_condition.
-change RealT with ConstC.
-restoreAbstraction.
-
-simpl; restoreAbstraction.
-Check SecondDerivUtil.tdist.
-SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
-*)
-
   (* Now we move on to Enabled *)
 
   Definition InputConstraintRect : Formula :=
@@ -248,9 +180,6 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
     with (b:=(-(P.amin_Z + P.g))%R);
       solve_linear.
   Qed.
-
-  Definition PolarBounds : Formula :=
-    0 <= "a" //\\ --PI <= "pitch" <= PI.
 
   Lemma x_witness_function :
     exists f,
@@ -292,90 +221,10 @@ SecondDerivUtil.tdist "vx" ("a"!*sin("pitch"!)) P.d = 0.
          specialize (H _ H0); discriminate).
   Qed.
 
-  Lemma polar_predicated_witness_function :
-    exists f,
-    forall xs,
-      List.forallb (fun x => if String.string_dec x "a"
-                             then false else true) xs =
-      true ->
-      List.forallb (fun x => if String.string_dec x "pitch"
-                             then false else true) xs =
-      true ->
-      predicated_witness_function
-        (to_RenameMap rename_polar) f xs ltrue PolarBounds.
-  Proof.
-    exists
-      (fun st x =>
-         let witness :=
-             proj1_sig
-               (rectangular_to_polar (st "az" + P.g)
-                                     (st "ax")) in
-         if String.string_dec x "a"
-         then fst witness
-         else if String.string_dec x "pitch"
-              then snd witness
-              else st x)%R.
-    unfold predicated_witness_function, witness_function.
-    split.
-    { intros. simpl.
-      rewrite List.forallb_forall in *.
-      specialize (H "a").
-      specialize (H0 "pitch").
-      repeat match goal with
-             | [ |- context [if ?e then _ else _] ]
-               => destruct e; simpl
-             end; subst; simpl.
-      { destruct (rectangular_to_polar (st "az" + P.g)
-                                       (st "ax")).
-        simpl. tauto. }
-      { destruct (rectangular_to_polar (st "az" + P.g)
-                                       (st "ax")).
-        simpl. unfold Value. solve_linear. }
-      { destruct (String.string_dec "a" "a");
-        intuition congruence. }
-      { destruct (String.string_dec "pitch" "pitch");
-        intuition congruence. }
-      { reflexivity. } }
-    { intros. destruct tr. simpl.
-      destruct (rectangular_to_polar (s "az" + P.g)
-                                     (s "ax")).
-      simpl. solve_linear. }
-  Qed.
-
-  Lemma rect_input_refines_polar :
-    Rename (to_RenameMap rename_polar) InputConstraintRect
-    //\\ PolarBounds |--
-    InputConstraint.
-  Proof.
-    rewrite <- Rename_ok by rw_side_condition.
-    breakAbstraction. intros.
-    generalize dependent (Stream.hd tr). intros.
-    match goal with
-    | [ _ : context [ atan ?e ] |- _ ]
-      => replace e with  (tan (s "pitch")) in *
-    end.
-    { rewrite <- atan_tan with (x:=s "pitch");
-      [ tauto | ].
-      apply cos_pos; [ | solve_linear ].
-      generalize dependent (cos (s "pitch")).
-      solve_nonlinear. }
-    { unfold tan, Rdiv. field.
-      split. solve_linear. decompose [and] H. clear H.
-      generalize dependent (cos (s "pitch")). intros.
-      solve_nonlinear. }
-  Qed.
-
   Let polar_inv : RenameList :=
     {{ "a" ~> SqrtT (("az" + P.g)*("az" + P.g) +
                      "ax" * "ax") &
        "pitch" ~> ArctanT ("ax"/("az" + P.g)) }}%rn.
-
-Lemma rectangular_to_polar :
-  forall (x y:R),
-    (x > 0%R ->
-     eq x (sqrt (x*x + y*y) * cos (atan (y/x))) /\
-     eq y (sqrt (x*x + y*y) * sin (atan (y/x))))%R.
-Admitted.
 
   Lemma polar_inv_ok :
     forall xs,
@@ -393,7 +242,7 @@ Admitted.
   Proof.
     simpl. unfold Value, subst_state. simpl. intros.
     pose proof
-         (rectangular_to_polar (st "az" + P.g) (st "ax")).
+         (rectangular_to_polar1 (st "az" + P.g) (st "ax")).
     destruct H3 as [Hz Hx].
     { unfold Z_Params.amin in *. pose proof P.amin_Z_lt_0.
       pose proof P.amin_Z_lt_g. solve_linear. }
@@ -414,51 +263,28 @@ Admitted.
   Lemma inv_input_constraint :
     XZConstraint |-- Rename polar_inv InputConstraint.
   Proof.
-    rewrite xy_constraint_refinement.
+    charge_assert (XZConstraint);
+      [ charge_assumption | charge_intros ].
+    rewrite xy_constraint_refinement at 1.
     rewrite <- Rename_ok by eauto with rw_rename.
     simpl. restoreAbstraction. unfold InputConstraintRect.
-    charge_assumption.
+    charge_split; [ charge_assumption | ].
+    unfold XZConstraint.
+    rewrite <- Rename_ok by eauto with rw_rename.
+    rewrite <- Rename_ok by eauto with rw_rename.
+    breakAbstraction. intros. unfold Z_Params.amin in *.
+    intuition. rewrite H0.
+    transitivity (sqrt
+      ((Stream.hd tr "az" + P.g) *
+                  (Stream.hd tr "az" + P.g)))%R.
+    { rewrite sqrt_square; solve_linear. }
+    { apply sqrt_le_1_alt.
+      assert (0 <= Stream.hd tr "ax" * Stream.hd tr "ax")%R
+        by apply Rle_0_sqr. solve_linear. }
   Qed.
 
-(* Prop expressing that the Formula has no temporal operators.
-   This cannot be a bool because of Forall and Exists. *)
-Fixpoint is_action_formula' (F:Formula) : Prop :=
-  match F with
-  | TRUE => True
-  | FALSE => True
-  | Comp t1 t2 _ => True
-  | And F1 F2 =>
-    and (is_action_formula' F1) (is_action_formula' F2)
-  | Or F1 F2 =>
-    and (is_action_formula' F1) (is_action_formula' F2)
-  | Imp F1 F2 =>
-    and (is_action_formula' F1) (is_action_formula' F2)
-  | Syntax.Exists _ f =>
-    forall x, is_action_formula' (f x)
-  | Syntax.Forall _ f =>
-    forall x, is_action_formula' (f x)
-  | PropF _ => True
-  | Rename _ x => False
-  | _ => False
-  end.
-
-Lemma is_action_formula_ok :
-  forall F, is_action_formula' F -> is_action_formula F.
-Proof.
-  induction F; unfold is_action_formula; simpl; intros;
-    try reflexivity; unfold is_action_formula in *;
-      try (rewrite IHF1 with (tr:=tr) (tr':=tr'); try tauto;
-           rewrite IHF2 with (tr:=tr) (tr':=tr'); try tauto);
-      try contradiction.
-  { rewrite H0. rewrite H1. reflexivity. }
-  { split; intro; destruct H3; exists x;
-    eapply H with (tr:=tr) (tr':=tr'); auto. }
-  { split; intros; specialize (H3 x);
-    eapply H with (tr:=tr) (tr':=tr'); auto. }
-Qed.
-
   Lemma SysNeverStuck_Discr :
-        IndInv //\\ "T" = 0 |-- Enabled (Sys_D Next).
+    IndInv //\\ "T" = 0 |-- Enabled (Sys_D Next).
   Proof.
     unfold Sys_D, IndInv.
     rewrite_rename_equiv ("T" = 0) rename_polar.
@@ -530,18 +356,7 @@ Qed.
       { charge_split.
         { charge_clear. apply Enabled_TimeBound. pose proof P.d_gt_0.
           unfold X.X_Params.d, X_Params.d. assumption. }
-        { rewrite land_dup with (A:=next InputConstraint).
-          pose proof rect_input_refines_polar.
-          apply next_st_formula_entails in H;
-            [ | simpl; tauto | simpl; tauto ].
-          rewrite <- H at 2. clear H.
-          pose proof xy_constraint_refinement.
-          apply next_st_formula_entails in H;
-            [ | simpl; tauto | simpl; tauto ].
-          rewrite next_And. rewrite next_Rename.
-          rewrite <- H. clear H.
-          pose proof SysNeverStuck_Discr. unfold Sys_D in *.
-          repeat rewrite landA in H. apply H. } }
+        { apply SysNeverStuck_Discr. } }
       { apply formulas_disjoint_state; reflexivity. } }
     { admit. (** Provable, but we won't worry about it *) }
   Admitted.

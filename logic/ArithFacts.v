@@ -200,12 +200,11 @@ Lemma cos_pos :
      -PI/2 < x < PI/2)%R.
 Admitted.
 
-Lemma rectangular_to_polar :
+Lemma rectangular_to_polar1 :
   forall (x y:R),
-    { p : (R*R) |
-      (0 <= fst p /\ -PI < snd p <= PI /\
-       eq x ((fst p) * Rtrigo_def.cos (snd p)) /\
-       eq y ((fst p) * Rtrigo_def.sin (snd p)))%R }.
+    (x > 0%R ->
+     eq x (sqrt (x*x + y*y) * cos (atan (y/x))) /\
+     eq y (sqrt (x*x + y*y) * sin (atan (y/x))))%R.
 Admitted.
 
 Lemma atan_tan :

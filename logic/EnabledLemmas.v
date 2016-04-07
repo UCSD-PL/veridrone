@@ -427,6 +427,43 @@ Definition is_action_formula (P : Formula) : Prop :=
     Stream.hd (Stream.tl tr) = Stream.hd (Stream.tl tr') ->
     (eval_formula P tr <-> eval_formula P tr').
 
+(* Prop expressing that the Formula has no temporal operators.
+   This cannot be a bool because of Forall and Exists. *)
+Fixpoint is_action_formula' (F:Formula) : Prop :=
+  match F with
+  | TRUE => True
+  | FALSE => True
+  | Comp t1 t2 _ => True
+  | And F1 F2 =>
+    and (is_action_formula' F1) (is_action_formula' F2)
+  | Or F1 F2 =>
+    and (is_action_formula' F1) (is_action_formula' F2)
+  | Imp F1 F2 =>
+    and (is_action_formula' F1) (is_action_formula' F2)
+  | Syntax.Exists _ f =>
+    forall x, is_action_formula' (f x)
+  | Syntax.Forall _ f =>
+    forall x, is_action_formula' (f x)
+  | PropF _ => True
+  | Rename _ x => False
+  | _ => False
+  end.
+
+Lemma is_action_formula_ok :
+  forall F, is_action_formula' F -> is_action_formula F.
+Proof.
+  induction F; unfold is_action_formula; simpl; intros;
+    try reflexivity; unfold is_action_formula in *;
+      try (rewrite IHF1 with (tr:=tr) (tr':=tr'); try tauto;
+           rewrite IHF2 with (tr:=tr) (tr':=tr'); try tauto);
+      try contradiction.
+  { rewrite H0. rewrite H1. reflexivity. }
+  { split; intro; destruct H3; exists x;
+    eapply H with (tr:=tr) (tr':=tr'); auto. }
+  { split; intros; specialize (H3 x);
+    eapply H with (tr:=tr) (tr':=tr'); auto. }
+Qed.
+
 Lemma Enabled_Witnessable :
   forall (A : ActionFormula) G m (P Q : StateFormula)
          (Hrn : RenameMapOk m)

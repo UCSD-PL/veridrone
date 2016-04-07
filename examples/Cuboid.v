@@ -164,112 +164,73 @@ Module CuboidShim (Import P : CuboidParams).
 
   (* Now we move on to Enabled *)
 
-  Definition aw : Term := SqrtT("ax"*"ax" + ("az" + g)*("az" + g)).
+  Definition YWConstraint :=
+    Rename rename_y Y.Constraint //\\ amin_Z + g <= "a".
 
   Definition RollConstraintRect : Formula :=
-    0 < aw //\\
-    P.angle_min <= ArctanT ("ay"/aw) <= P.angle_max.
-
-  Definition YWConstraint :=
-    Rename rename_y Y.Constraint //\\
-    XZ.XZConstraint.
+    P.angle_min <= ArctanT (--"ay"/"a") <= P.angle_max.
 
   Lemma yw_constraint_refinement :
     YWConstraint |-- RollConstraintRect.
   Proof.
-    unfold YWConstraint, XZ.XZConstraint.
+    unfold YWConstraint, XZ.InputConstraint.
     repeat rewrite <- Rename_ok by rw_side_condition.
     breakAbstraction. intros.
     generalize dependent (Stream.hd tr). intros.
-    pose proof XZ.X_Params.amin_lt_0.
+    unfold Y_Params.amin, amin_Y in *.
     pose proof P.angle_min_bound.
+    pose proof P.amin_Z_lt_0.
     pose proof P.amin_Z_lt_g.
-    unfold Y_Params.amin, amin_Y,
-    XZ.X_Params.amin, XZ_Params.amin_X,
-    XZ.Z_Params.amin, XZ_Params.amin_Z, amin_X in *.
-    split.
-    { apply sqr_lt_compat.
-      { reflexivity. }
-      { apply sqrt_pos. }
-      { rewrite_real_zeros. rewrite sqrt_sqrt.
-        { apply RIneq.Rplus_le_lt_0_compat.
-          { solve_nonlinear. }
-          { apply Rmult_0_lt; solve_linear. } }
-        { solve_nonlinear. } } }
-    { apply arctan_constraint_refinement
-      with (b:=(-(amin_Z + g))%R).
-      { apply sqr_le_compat.
-        { assert (/ cos angle_min > 0)%R
-            by (pose proof (cos_gt_0 angle_min) as Hmin;
-                specialize_arith_hyp Hmin; solve_linear).
-          unfold Rdiv. solve_nonlinear. }
-        { apply sqrt_pos. }
-        { rewrite sqrt_sqrt.
-          { solve_nonlinear. }
-          { solve_nonlinear. } } }
-      { solve_linear. }
-      { solve_linear. }
-      { assumption. } }
+    pose proof P.g_gt_0.
+    apply arctan_constraint_refinement
+    with (b:=(-(amin_Z + P.g))%R);
+      solve_linear.
   Qed.
-  
-  Definition SphericalBounds : Formula :=
-    0 <= "A" //\\ --PI/2 <= "roll" <= PI/2.
 
-  Lemma rect_input_refines_polar :
-    Rename rename_polar
-           (Rename XZ.rename_polar RollConstraintRect)
-    //\\ SphericalBounds |--
-    RollConstraint.
+  Let polar_inv : RenameList :=
+    {{ "A" ~> SqrtT ("a"*"a" + "ay" * "ay") &
+       "roll" ~> ArctanT (--"ay"/"a") }}%rn.
+
+  Lemma inv_input_constraint :
+    YWConstraint |-- Rename polar_inv RollConstraint.
   Proof.
-    rewrite <- Rename_ok by rw_side_condition.
-    simpl rename_formula.
-    breakAbstraction. intros.
-    generalize dependent (Stream.hd tr). intros.
-    match goal with
-    | [ _ : context [ sqrt ?e ] |- _ ]
-      => replace e with  (Rsqr (s "A" * cos (s "roll")))%R in *
-    end.
-    { assert (- PI/ 2 < s "roll" < PI / 2)%R.
-      { decompose [and] H.
-        rewrite <- sqrt_0 in H2. apply sqrt_lt_0_alt in H2.
-        unfold Rsqr in *.
-        destruct H1; destruct H6.
-        { solve_linear. }
-        { rewrite H5 in H2.
-          change (PI * / 2)%R with (PI / 2)%R in *.
-          rewrite cos_PI2 in H2. rewrite Rmult_0_r in H2.
-          unfold Rsqr in *. solve_linear. }
-        { rewrite <- H1 in H2. rewrite Rminus_0_l in H2.
-          change (- PI * / 2)%R with (- PI / 2)%R in *.
-          assert (eq (- PI / 2) (- (PI / 2)))%R by solve_linear.
-          rewrite H6 in H2. rewrite cos_neg in H2.
-          rewrite cos_PI2 in H2. rewrite Rmult_0_r in H2.
-          unfold Rsqr in *. solve_linear. }
-        { rewrite H5 in H2.
-          change (PI * / 2)%R with (PI / 2)%R in *.
-          rewrite cos_PI2 in H2. rewrite Rmult_0_r in H2.
-          unfold Rsqr in *. solve_linear. } }
-      { match goal with
-        | [ _ : context [ atan ?e ] |- _ ]
-          => replace e with  (-tan (s "roll"))%R in *
-        end.
-        { rewrite atan_opp in *. unfold angle_max in *.
-          rewrite <- atan_tan with (x:=s "roll");
-          [ solve_linear | assumption ]. }
-        { unfold tan, Rdiv.
-          assert (0 < cos (s "roll"))%R
-            by (apply cos_gt_0; solve_linear).
-          rewrite sqrt_Rsqr.
-          { field. split; [ solve_linear | ].
-            decompose [and] H. rewrite <- sqrt_0 in H4.
-            apply sqrt_lt_0_alt in H4. unfold Rsqr in *.
-            clear -H4 H1. solve_nonlinear. }
-          { solve_nonlinear. } } } }
-    { unfold Rsqr, XZ_Params.g.
-      transitivity ((Rsqr (s "A" * cos (s "roll")))*
-                 ((Rsqr (sin (s "pitch"))) + (Rsqr (cos (s "pitch")))))%R.
-      { rewrite sin2_cos2. rewrite Rmult_1_r. unfold Rsqr. reflexivity. }
-      {  unfold Rsqr. field. } }
+    rewrite yw_constraint_refinement.
+    rewrite <- Rename_ok by eauto with rw_rename.
+    simpl. restoreAbstraction. unfold RollConstraintRect.
+    charge_assumption.
+  Qed.
+
+  Lemma polar_inv_ok :
+    forall xs,
+      List.forallb (fun x => if String.string_dec x "A"
+                             then false else true) xs =
+      true ->
+      List.forallb (fun x => if String.string_dec x "roll"
+                             then false else true) xs =
+      true ->
+      forall st x,
+        List.In x xs ->
+        eval_formula YWConstraint (Stream.forever st) ->
+        subst_state rename_polar
+                    (subst_state polar_inv st) x = st x.
+  Proof.
+    simpl. unfold Value, subst_state. simpl. intros.
+    pose proof
+         (rectangular_to_polar1 (st "a") (-(st "ay"))).
+    destruct H3 as [Hw Hy].
+    { pose proof P.amin_Z_lt_0. pose proof P.amin_Z_lt_g.
+      solve_linear. }
+    { rewrite List.forallb_forall in *.
+      specialize (H "A"). specialize (H0 "roll").
+      pose proof (Rsqr_neg (st "ay")). unfold Rsqr in H3.
+      rewrite <- H3 in Hy. rewrite <- H3 in Hw.
+      repeat destruct_ite; subst; simpl in *.
+      { repeat rewrite Rminus_0_l. solve_linear. }
+      { repeat rewrite Rminus_0_l. solve_linear. }
+      repeat destruct_ite; subst.
+      { specialize (H H1). simpl in *; discriminate. }
+      { specialize (H0 H1). simpl in *; discriminate. }
+      { reflexivity. } }
   Qed.
 
   Lemma y_witness_function :
@@ -292,97 +253,60 @@ Module CuboidShim (Import P : CuboidParams).
          specialize (H _ H0); discriminate).
   Qed.
 
-  Lemma spherical_predicated_witness_function :
-    exists f,
-    forall xs,
-      List.forallb (fun x => if String.string_dec x "A"
-                             then false else true) xs =
-      true ->
-      List.forallb (fun x => if String.string_dec x "roll"
-                             then false else true) xs =
-      true ->
-      predicated_witness_function rename_polar f xs
-                                  XZ.PolarBounds SphericalBounds.
+  Theorem SysNeverStuck_Discr :
+    IndInv //\\ "T" = 0 |-- Enabled (Sys_D Next).
   Proof.
-    exists
-      (fun st x =>
-         if Req_EM_T (st "a") R0
-         then if Rle_dec R0 (st "ay")
-              then if String.string_dec x "A"
-                   then st "ay"
-                   else if String.string_dec x "roll"
-                        then -(PI/2)
-                        else st x
-              else if String.string_dec x "A"
-                   then -(st "ay")
-                   else if String.string_dec x "roll"
-                        then PI/2
-                        else st x
-         else let witness :=
-                  proj1_sig
-                    (rectangular_to_polar (st "a")
-                                          (-(st "ay"))) in
-              if String.string_dec x "A"
-              then fst witness
-              else if String.string_dec x "roll"
-                   then snd witness
-                   else st x)%R.
-    intros.
-    split.
-    { unfold witness_function. intros. simpl.
-      rewrite List.forallb_forall in *.
-      specialize (H "A").
-      specialize (H0 "roll").
-      repeat match goal with
-             | [ |- context [if ?e then _ else _] ]
-               => destruct e; simpl
-             end; subst; simpl;
-      try solve [destruct (String.string_dec "A" "A");
-                  intuition congruence |
-                 destruct (String.string_dec "roll" "roll");
-                   intuition congruence ].
-      { rewrite sin_neg. rewrite sin_PI2.
-        rewrite Rminus_0_l. rewrite Rmult_opp_opp.
-        solve_linear. }
-      { rewrite sin_PI2.
-        rewrite Rminus_0_l. rewrite Ropp_involutive.
-        solve_linear. }
-      { destruct (rectangular_to_polar (st "a")
-                                       (-(st "ay"))).
-        simpl. rewrite Rminus_0_l.
-        rewrite Ropp_mult_distr_l_reverse.
-        intuition. rewrite <- H7. solve_linear. }
-      { rewrite cos_neg. rewrite cos_PI2. rewrite_real_zeros. assumption. }
-      { rewrite cos_PI2. rewrite_real_zeros. assumption. }
-      { destruct (rectangular_to_polar (st "a")
-                                       (-(st "ay"))).
-        simpl. unfold Value. solve_linear. } }
-    { intros. destruct tr. simpl in *.
-      repeat destruct_ite.
-      { solve_linear. }
-      { solve_linear. }
-      { destruct (rectangular_to_polar (s "a")
-                                       (-(s "ay"))).
-        simpl. split; [ tauto | ].
-        assert (-PI/2 < snd x < PI/2)%R.
-        { apply cos_pos.
-          { solve_nonlinear. }
-          { solve_linear. } }
-        { solve_linear. } } }
-  Qed.
-
-  Lemma Rename_polar_y_noop :
-    Rename XZ.rename_polar (Rename rename_y Y.Constraint) -|-
-           Rename rename_y Y.Constraint.
-  Proof.
-    rewrite <- Rename_ok. simpl.
-    rewrite <- Rename_ok. reflexivity.
-    eauto with rw_rename.
-    unfold RenameMapOk. is_st_term_list.
-    is_st_term_list.
-    repeat split. 
-    intros. is_st_term_list.
-    eauto with rw_rename.
+    unfold Sys_D, IndInv.
+    rewrite_rename_equiv ("T" = 0) rename_polar.
+    rewrite <- Rename_and.
+    rewrite Rename_ok by eauto with rw_rename.
+    eapply subst_enabled_full
+    with (R:=YWConstraint) (Q:= RollConstraint).
+    { tlaIntuition. }
+    { tlaIntuition. }
+    { apply is_action_formula_ok; simpl; tauto. }
+    { apply get_vars_next_state_vars; reflexivity. }
+    { intros. eapply polar_inv_ok. 3: apply H.
+      reflexivity. reflexivity. auto. }
+    { apply inv_input_constraint. }
+    { repeat rewrite landA. unfold YWConstraint.
+      rewrite next_And. repeat rewrite next_Rename.
+      match goal with
+        |- _ |-- Enabled (?X //\\ ?Z //\\ ?XC //\\ ?ZC) =>
+        assert (X //\\ Z //\\ XC //\\ ZC -|-
+                  (X //\\ XC) //\\ (Z //\\ ZC))
+          as H by (split; charge_tauto);
+          rewrite H; clear H
+      end.
+      rewrite <- Rename_ok
+      with (m:=rename_y) (F:=next Y.Constraint)
+        by eauto with rw_rename.
+      rewrite <- disjoint_state_enabled.
+      { charge_split.
+        { pose proof y_witness_function. destruct H.
+          charge_assert (Rename rename_y Y.IndInv //\\ "T"=0);
+            [ charge_tauto | charge_clear; charge_intros ].
+          rewrite_rename_equiv ("T" = 0) rename_y.
+          repeat rewrite Rename_ok
+          with (m:=rename_y) by eauto with rw_rename.
+          repeat rewrite <- Rename_and.
+          eapply subst_enabled with (f:=x).
+          { apply get_vars_next_state_vars; reflexivity. }
+          { apply H; reflexivity. }
+          { clear. pose proof Y.SysNeverStuck_Discr.
+            etransitivity;
+              [ apply H | apply Proper_Enabled_lentails ].
+            charge_tauto. } }
+        { assert (XZ.InputConstraint |--
+                  XZ.InputConstraint //\\ amin_Z + g <= "a").
+          { unfold XZ.InputConstraint, XZ_Params.amin_Z,
+            XZ_Params.g. charge_tauto. }
+          repeat rewrite landA. rewrite <- next_And.
+          apply next_st_formula_entails in H;
+            [ | tlaIntuition | tlaIntuition ].
+          rewrite <- H. rewrite <- XZ.SysNeverStuck_Discr.
+          charge_tauto. } }
+      { apply formulas_disjoint_state; reflexivity. } }
   Qed.
 
   Theorem SysNeverStuck_Next : |-- SysNeverStuck d IndInv Next.
@@ -393,71 +317,7 @@ Module CuboidShim (Import P : CuboidParams).
       { charge_split.
         { charge_clear. apply Enabled_TimeBound. pose proof P.d_gt_0.
           unfold Y.X_Params.d, Y_Params.d. assumption. }
-        { pose proof rect_input_refines_polar.
-          apply next_st_formula_entails in H;
-            [ | simpl; tauto | simpl; tauto ].
-          rewrite <- H. clear H.
-          rewrite Rename_ok by eauto with rw_rename.
-          rewrite next_And. rewrite next_Rename.
-          (* Annoying manipulation. *)
-          unfold ActionFormula, StateFormula.
-          rewrite <- landA. rewrite <- Rename_and.
-          pose proof spherical_predicated_witness_function.
-          destruct H. rewrite next_Rename. unfold IndInv.
-          rewrite <- Rename_ok with (m:=to_RenameMap XZ.rename_polar)
-            by eauto with rw_rename.
-          rewrite_rename_equiv ("T" = 0) rename_polar. rewrite <- Rename_and.
-          eapply subst_enabled_predicated_witness
-          with (f:=x) (P:=XZ.PolarBounds).
-          { compute; tauto. }
-          { compute; tauto. }
-          { apply get_vars_next_state_vars; reflexivity. }
-          { apply H; reflexivity. }
-          { clear. pose proof yw_constraint_refinement.
-            apply next_st_formula_entails in H;
-              [ | simpl; tauto | simpl; tauto ].
-            rewrite Rename_ok
-            with (m:=to_RenameMap XZ.rename_polar) (F:=(next RollConstraintRect))
-              by eauto with rw_rename.
-            rewrite <- H. clear.
-            unfold YWConstraint. rewrite next_And.
-            (* Very brittle match ahead. Basically
-               just want to group the X monitor
-               with the X constraint and the Y monitor
-               with the Y constraint. *)
-            rewrite Rename_and. repeat rewrite <- next_Rename.
-            repeat rewrite landA.
-            match goal with
-            |- _ |-- Enabled (?Y //\\ ?W //\\ (?YC //\\ ?WC1) //\\ ?WC2) =>
-            assert (Y //\\ W //\\ (YC //\\ WC1) //\\ WC2 -|-
-                    (Y //\\ YC) //\\ (W //\\ WC1 //\\ WC2))
-              as H by (split; charge_tauto);
-              rewrite H; clear H
-            end.
-            rewrite <- next_st_formula_entails
-            with (A:=Rename rename_y Y.Constraint)
-                   (B:=Rename XZ.rename_polar (Rename rename_y Y.Constraint));
-              [ | compute; tauto | compute; tauto | rewrite Rename_polar_y_noop; reflexivity ].
-            rewrite <- disjoint_state_enabled.
-            { charge_split.
-              { rewrite Rename_ok by eauto with rw_rename.
-                pose proof y_witness_function. destruct H.
-                charge_assert (Rename rename_y Y.IndInv //\\ "T" = 0);
-                  [ charge_tauto | charge_clear; charge_intros ].
-                rewrite_rename_equiv ("T" = 0) rename_y.
-                rewrite next_Rename. repeat rewrite <- Rename_and.
-                eapply subst_enabled with (f:=x).
-                { apply get_vars_next_state_vars; reflexivity. }
-                { apply H; reflexivity. }
-                { clear. pose proof Y.SysNeverStuck_Discr.
-                  etransitivity; [ apply H | apply Proper_Enabled_lentails ].
-                  charge_tauto. } }
-              { rewrite next_Rename. rewrite <- XZ.SysNeverStuck_Discr. charge_tauto. } }
-            { repeat rewrite next_Rename.
-              repeat rewrite <- Rename_ok by eauto with rw_rename.
-              rewrite <- Rename_ok
-                by (eauto with rw_rename || simpl; repeat split; is_st_term_list).
-              apply formulas_disjoint_state; reflexivity. } } } }
+        {  apply SysNeverStuck_Discr. } }
       { apply formulas_disjoint_state; reflexivity. } }
     { admit. (** Provable, but we won't worry about it *) }
   Admitted.
@@ -488,7 +348,8 @@ Module CuboidShim (Import P : CuboidParams).
   Qed.
 
   Lemma Cuboid_safe :
-    |-- (IndInv //\\ TimeBound P.d) //\\ []SysSystem Next -->> []Safe.
+    |-- (IndInv //\\ TimeBound P.d) //\\ []SysSystem Next
+        -->> []Safe.
   Proof.
     rewrite Inductively.Preserves_Inv_simple.
     { rewrite IndInv_impl_Safe.
