@@ -11,20 +11,20 @@ apt-get install coinor-csdp
 
 And you will need Z3, which you can get here:
 
-[[http://z3.codeplex.com/releases]]
+[[https://github.com/Z3Prover/z3/releases]]
 
 Coq Dependencies
 ----------------
 
-ExtLib
+This development uses Coq 8.5. All of the Coq dependencies, along with Coq itself, can be installed using OPAM [[http://coq.io/opam/get_started.html]]. You must install the following packages from Coq OPAM:
 
-Charge (revision a21ed562baf247c8bc5677fc55a594325799e193)
-You can get this by running ```./get-charge.sh``
+- coq-ext-lib
+- coq-charge-core
+- coq-smt-check
 
 Directory Structure
 -------------------
 This project contains three directories:
 
-1. tla - our embedding of TLA, proof rules, automation, and some arithmetic facts
-2. tlaexamples - our Sys abstraction and proof rules for our Sys (System.v) as well as various systems specified and verified using Sys.
-3. Z3-plugin - a plugin for running Z3 on real arithmetic goals from Coq.
+1. logic - our embedding of LTL, proof rules, automation, and some arithmetic facts
+2. examples - our Sys abstraction and proof rules for our Sys (System.v) as well as various systems specified and verified using Sys.
