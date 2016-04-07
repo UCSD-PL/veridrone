@@ -6,6 +6,7 @@ Require Import Logic.DifferentialInduction.
 Require Import Logic.ProofRules.
 Require Import Examples.System.
 Require Import Examples.Interval.
+Require Import Examples.Quadcopter.
 Require Import ChargeCore.Tactics.Lemmas.
 Require Import Coq.Strings.String.
 
@@ -389,16 +390,25 @@ Module RectangleShim (P : RectangleParams).
 
   (* Our main safety theorem. *)
   Lemma Box_safe :
-    |-- (IndInv //\\ TimeBound P.d) //\\ []SysSystem Next -->> []Safe.
+    |-- (IndInv //\\ TimeBound P.d) //\\
+        []SysSystem (Quadcopter P.d P.g P.pitch_min (Sys_D Next))
+        -->> []Safe.
   Proof.
     rewrite Inductively.Preserves_Inv_simple.
     { rewrite IndInv_impl_Safe.
       charge_tauto. }
     { compute; tauto. }
     { apply SafeAndReactive_TimedPreserves.
-      unfold SafeAndReactive. charge_split.
-      { apply TimedPreserves_Next. }
-      { apply SysNeverStuck_Next. } }
+      eapply Quadcopter_refine
+      with (B:=P.pitch_min <= "pitch" <= P.pitch_max)
+           (A:=P.pitch_min<="roll"<=P.pitch_max //\\ 0<="A").
+      { apply P.d_gt_0. }
+      { pose proof P.pitch_min_bound. solve_linear. }
+      { intuition. }
+      { intuition. }
+      { etransitivity. apply TimedPreserves_Next.
+        apply Proper_TimedPreserves_lentails; try reflexivity.
+        unfold Basics.flip. unfold Next. 
   Qed.
 
 End RectangleShim.
