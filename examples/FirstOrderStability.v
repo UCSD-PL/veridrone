@@ -73,7 +73,7 @@ Module Stability (Import P : Params).
     reason_action_tac. intuition.
     rewrite H1 in *. rewrite H2 in *. rewrite H3 in *.
     rewrite H in *. clear H1 H2 H H3.
-    z3_solve; admit.
+    admit. (* A version of Z3 can prove this. *)
   Admitted.
 
   Lemma abstraction :
@@ -89,7 +89,8 @@ Module Stability (Import P : Params).
         apply lorL.
         * apply world_abstraction_ind.
         * solve_linear. rewrite H1. rewrite H2. rewrite H3.
-          rewrite H. z3_solve; admit.
+          rewrite H.
+          admit. (* A version of Z3 can prove this. *)
     - charge_intros.
       charge_split.
       + charge_tauto.

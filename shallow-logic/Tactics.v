@@ -6,7 +6,7 @@ Require Import ChargeCore.Tactics.Tactics.
 Require Import SLogic.Logic.
 Require Import SLogic.LTLNotation.
 Require Import SLogic.BasicProofRules.
-Require Import SMT.Tactic.
+Require Import SMTC.Tactic.
 
 Ltac specialize_arith_hyp H :=
   repeat match type of H with
@@ -62,4 +62,4 @@ Ltac exists_val_now name :=
 
 (* Runs z3 on the goal, and admits the goal if z3 succeeds. *)
 Ltac z3_prove :=
-  z3 solve; admit.
+  smt solve; admit.

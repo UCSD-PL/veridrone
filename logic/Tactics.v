@@ -1,7 +1,7 @@
 Require Import Coq.Reals.Rdefinitions.
 Require Import Coq.Reals.RIneq.
 Require Import Coq.micromega.Psatz.
-Require Import SMT.Tactic.
+Require Import SMTC.Tactic.
 Require Import Logic.Syntax.
 Require Import Logic.Semantics.
 Require Import Logic.Lib.
@@ -242,10 +242,10 @@ Ltac z3_prepare :=
   intros.
 
 Ltac z3_solve :=
-  z3_prepare; z3 solve.
+  z3_prepare; smt solve.
 
 Ltac z3_quick :=
-  z3_prepare; z3 solve.
+  z3_prepare; smt solve.
 
 (* rewrites the values of variables in the next
    state into hypothesis and goals. *)
