@@ -348,50 +348,127 @@ Module RectangleShim (P : RectangleParams).
       { apply formulas_disjoint_state; reflexivity. } }
   Qed.
 
+  Let rename_quad : RenameList :=
+    {{ "a" ~> "A"*cos("roll") }}%rn.
+
+  Let quad_inv : RenameList :=
+    {{ "A" ~> "a" & "roll" ~> 0 }}%rn.
+
+  Let small_angle := small_angle P.pitch_min.
+
+  Lemma InputConstraint_small_angle :
+    InputConstraint |-- Rename quad_inv small_angle.
+  Proof.
+    rewrite <- Rename_ok by eauto with rw_rename.
+    breakAbstraction. intros.
+    pose proof P.pitch_min_bound. pose proof P.amin_Z_lt_g.
+    unfold angle_max, P.pitch_max in *. solve_linear.
+  Qed.
+
+  Lemma quad_inv_ok :
+    forall xs,
+      List.forallb (fun x => if String.string_dec x "A"
+                             then false else true) xs =
+      true ->
+      List.forallb (fun x => if String.string_dec x "roll"
+                             then false else true) xs =
+      true ->
+      forall st x,
+        List.In x xs ->
+        eval_formula InputConstraint (Stream.forever st) ->
+        subst_state rename_quad
+                    (subst_state quad_inv st) x = st x.
+  Proof.
+    simpl. unfold Value, subst_state. simpl. intros.
+    repeat destruct_ite; subst; simpl in *.
+    { rewrite cos_0. solve_linear. }
+    { rewrite List.forallb_forall in *. specialize (H "A").
+      specialize (H0 "roll").
+      repeat destruct_ite; subst; simpl.
+      { specialize (H H1). simpl in *; discriminate. }
+      { specialize (H0 H1). simpl in *; discriminate. }
+      { reflexivity. } }
+  Qed.
+
+  Definition Next_quad : ActionFormula :=
+    SysCompose
+      (SysRename rename_quad
+                 (deriv_term_RenameList rename_quad) Next)
+      (Sys (next small_angle) ltrue P.d).
+
+  Definition IndInv_quad := Rename rename_quad IndInv.
+
+  Lemma SysNeverStuck_Discr_quad :
+    IndInv_quad //\\ "T" = 0 |-- Enabled (Sys_D Next_quad).
+  Proof.
+    unfold Sys_D, IndInv_quad.
+    rewrite_rename_equiv ("T" = 0) rename_quad.
+    rewrite <- Rename_and.
+    rewrite Rename_ok by eauto with rw_rename.
+    eapply subst_enabled_full
+    with (R:=InputConstraint) (Q:=small_angle).
+    { tlaIntuition. }
+    { tlaIntuition. }
+    { apply is_action_formula_ok; simpl; tauto. }
+    { apply get_vars_next_state_vars; reflexivity. }
+    { intros. eapply quad_inv_ok. 3: apply H.
+      reflexivity. reflexivity. auto. }
+    { apply InputConstraint_small_angle. }
+    { repeat rewrite landA. rewrite <- land_dup.
+      pose proof SysNeverStuck_Discr. unfold Sys_D in H.
+      rewrite Rename_ok in * by eauto with rw_rename.
+      assumption. }
+  Qed.
+
   Theorem SysNeverStuck_Next :
-    |-- SysNeverStuck P.d IndInv Next.
+    |-- SysNeverStuck P.d IndInv_quad Next_quad.
   Proof.
     eapply SysNeverStuck_Sys;
     [ pose proof P.d_gt_0 ; solve_linear | | ].
     { rewrite <- disjoint_state_enabled.
       { charge_split.
-        { charge_clear. apply Enabled_TimeBound. pose proof P.d_gt_0.
+        { charge_clear. apply Enabled_TimeBound.
+          pose proof P.d_gt_0.
           unfold X.X_Params.d, X_Params.d. assumption. }
-        { apply SysNeverStuck_Discr. } }
+        { apply SysNeverStuck_Discr_quad. } }
       { apply formulas_disjoint_state; reflexivity. } }
     { admit. (** Provable, but we won't worry about it *) }
   Admitted.
 
   Definition Safe : StateFormula :=
-    Rename rename_polar
-           (Rename rename_x X.Safe //\\ Rename rename_z Z.Safe).
+    Rename rename_quad
+           (Rename rename_polar
+                   (Rename rename_x X.Safe //\\
+                    Rename rename_z Z.Safe)).
 
-  Lemma IndInv_impl_Safe : IndInv //\\ TimeBound P.d |-- Safe.
+  Lemma IndInv_impl_Safe :
+    IndInv_quad //\\ TimeBound P.d |-- Safe.
   Proof with (eauto with rw_rename).
-    unfold Safe. rewrite Rename_and.
+    unfold Safe, TimeBound, IndInv_quad.
+    rewrite_rename_equiv (0 <= "T" <= P.d) rename_quad.
+    rewrite <- Rename_and.
+    apply Proper_Rename_lentails; try reflexivity.
+    rewrite_rename_equiv (0 <= "T" <= P.d) rename_polar.
+    unfold IndInv. rewrite <- Rename_and.
+    apply Proper_Rename_lentails; try reflexivity.
     charge_split.
     { rewrite <- X.IndInv_impl_Safe.
-      unfold IndInv, TimeBound.
-      repeat rewrite Rename_and.
-      charge_split; [ charge_assumption | ].
-      charge_revert. charge_clear.
-      repeat rewrite <- (Rename_ok _ rename_x)...
-      repeat rewrite <- Rename_ok...
-      simpl. restoreAbstraction. charge_tauto. }
+      unfold TimeBound, X_Params.d. rewrite Rename_and.
+      rewrite <- Rename_ok with (F:=0 <= "T" <= P.d)
+        by eauto with rw_rename. simpl. restoreAbstraction.
+      charge_tauto. }
     { rewrite <- Z.IndInv_impl_Safe.
-      unfold IndInv, TimeBound.
-      repeat rewrite Rename_and.
-      charge_split; [ charge_assumption | ].
-      charge_revert. charge_clear.
-      repeat rewrite <- (Rename_ok _ rename_z)...
-      repeat rewrite <- Rename_ok...
-      simpl. restoreAbstraction. charge_tauto. }
+      unfold TimeBound, Z_Params.d. rewrite Rename_and.
+      rewrite <- Rename_ok with (F:=0 <= "T" <= P.d)
+        by eauto with rw_rename. simpl. restoreAbstraction.
+      charge_tauto. }
   Qed.
 
   (* Our main safety theorem. *)
   Lemma Box_safe :
-    |-- (IndInv //\\ TimeBound P.d) //\\
-        []SysSystem (Quadcopter P.d P.g P.pitch_min (Sys_D Next))
+    |-- (IndInv_quad //\\ TimeBound P.d) //\\
+        []SysSystem (Quadcopter P.d P.g P.pitch_min
+                                (Sys_D Next_quad))
         -->> []Safe.
   Proof.
     rewrite Inductively.Preserves_Inv_simple.
