@@ -511,7 +511,7 @@ Module PositionShim (Import Params : PositionShimParams).
   Admitted.
 
   (* Our main safety theorem. *)
-  Theorem Interval_safe :
+  Theorem Position_safe :
     |-- (IndInv_quad //\\ TimeBound d) //\\
         []SysSystem (Quadcopter d g angle_min
                                 (Sys_D Next_quad))
