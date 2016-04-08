@@ -171,19 +171,137 @@ Module IntervalShim (Import P : IntervalParams).
        solve_nonlinear. rewrite_real_zeros. repeat rewrite Ropp_involutive. solve_linear. }
    Qed.
 
-   Lemma SysNeverStuck_Next :
-     |-- SysNeverStuck d IndInv Next.
-   Proof.
-     intros. pose proof d_gt_0. pose proof amin_lt_0.
-     eapply SysNeverStuck_Sys; [ solve_linear | | ].
-     { rewrite SysNeverStuck_Discr. unfold X_Params.d.
-       apply Proper_Enabled_lentails. charge_tauto. }
+   Require Import Examples.Quadcopter.
+
+   Variable g : R.
+   Hypothesis amin_lt_g : (amin > -g)%R.
+   Variable angle_min : R.
+   Hypothesis angle_min_le_0 : (angle_min < 0)%R.
+
+   (* Map the interval onto the vertical dimension of
+      the quadcopter. *)
+   Let rename_quad : RenameList :=
+    {{ "a" ~> "A"*cos("pitch")*cos("roll") - g &
+       "y" ~> "z" & "v" ~> "vz" }}%rn.
+
+  Let quad_inv : RenameList :=
+    {{ "roll" ~> 0 & "pitch" ~> 0 & "A" ~> "a" + g &
+       "z" ~> "y" & "vz" ~> "v" }}%rn.
+
+  Let small_angle := small_angle angle_min.
+
+  Lemma Constraint_small_angle :
+    Constraint |-- Rename quad_inv small_angle.
+  Proof.
+    rewrite <- Rename_ok by eauto with rw_rename.
+    breakAbstraction. intros. pose proof amin_lt_g.
+    pose proof angle_min_le_0. solve_linear.
+  Qed.
+
+  Lemma quad_inv_ok :
+    forall xs,
+      List.forallb (fun x => if String.string_dec x "A"
+                             then false else true) xs =
+      true ->
+      List.forallb (fun x => if String.string_dec x "roll"
+                             then false else true) xs =
+      true ->
+      List.forallb (fun x => if String.string_dec x "pitch"
+                             then false else true) xs =
+      true ->
+      List.forallb (fun x => if String.string_dec x "z"
+                             then false else true) xs =
+      true ->
+      List.forallb (fun x => if String.string_dec x "vz"
+                             then false else true) xs =
+      true ->
+      forall st x,
+        List.In x xs ->
+        eval_formula Constraint (Stream.forever st) ->
+        subst_state rename_quad
+                    (subst_state quad_inv st) x = st x.
+  Proof.
+    simpl. unfold Value, subst_state. simpl. intros.
+    repeat destruct_ite; subst; simpl in *; try reflexivity.
+    { rewrite cos_0. solve_linear. }
+    { rewrite List.forallb_forall in *. specialize (H "A").
+      specialize (H0 "roll"). specialize (H1 "pitch").
+      specialize (H2 "z"). specialize (H3 "vz").
+      repeat destruct_ite; subst; simpl; try reflexivity;
+        try match goal with
+        | [ H : ?X -> _ |- _ ] =>
+            match type of H4 with
+            | X => specialize (H H4); simpl in *; discriminate
+            end
+        end. }
+  Qed.
+
+  Definition Next_quad : ActionFormula :=
+    SysCompose
+      (SysRename rename_quad
+                 (deriv_term_RenameList rename_quad) Next)
+      (Sys (next small_angle) ltrue P.d).
+
+  Definition IndInv_quad := Rename rename_quad IndInv.
+
+  Transparent ILInsts.ILFun_Ops.
+
+  Lemma TimedPreserves_Next_quad :
+    |-- TimedPreserves P.d IndInv_quad Next_quad.
+  Proof with eauto with rw_rename.
+    unfold IndInv_quad, Next_quad.
+    rewrite SysCompose_abstract. unfold SysRename.
+    rewrite Sys_rename_formula... rewrite SysRename_rule...
+    rewrite TimedPreserves_Rename...
+    rewrite <- TimedPreserves_Next. rewrite Rename_True.
+    charge_tauto.
+  Qed.
+
+  Opaque ILInsts.ILFun_Ops.
+
+  Lemma SysNeverStuck_Discr_quad :
+    IndInv_quad //\\ "T" = 0 |-- Enabled (Sys_D Next_quad).
+  Proof.
+    unfold Sys_D, IndInv_quad.
+    rewrite_rename_equiv ("T" = 0) rename_quad.
+    rewrite <- Rename_and.
+    rewrite Rename_ok by eauto with rw_rename.
+    eapply subst_enabled_full
+    with (R:=Constraint) (Q:=small_angle).
+    { tlaIntuition. }
+    { tlaIntuition. }
+    { apply is_action_formula_ok; simpl; tauto. }
+    { apply get_vars_next_state_vars; reflexivity. }
+    { intros. eapply quad_inv_ok. 6: apply H.
+      reflexivity. reflexivity. reflexivity. reflexivity.
+      reflexivity. auto. }
+    { apply Constraint_small_angle. }
+    { pose proof SysNeverStuck_Discr. unfold Sys_D in H.
+      rewrite Rename_ok in * by eauto with rw_rename.
+      rewrite H. apply Proper_Enabled_lentails.
+      charge_tauto. }
+  Qed.
+
+  Theorem SysNeverStuck_Next :
+    |-- SysNeverStuck P.d IndInv_quad Next_quad.
+  Proof.
+    eapply SysNeverStuck_Sys;
+    [ pose proof P.d_gt_0 ; solve_linear | | ].
+    { rewrite <- disjoint_state_enabled.
+      { charge_split.
+        { charge_clear. apply Enabled_TimeBound.
+          pose proof P.d_gt_0. assumption. }
+        { apply SysNeverStuck_Discr_quad. } }
+      { apply formulas_disjoint_state; reflexivity. } }
     { admit. (** Provable, but we won't worry about it *) }
   Admitted.
 
   Definition Safe : StateFormula :=
     (X.Safe //\\ Rename mirror X.Safe) //\\
     ("v" <= V_Params.ub //\\ Rename mirror ("v" <= V_Params.ub)).
+
+  Definition Safe_quad : StateFormula :=
+    Rename rename_quad Safe.
 
   Lemma IndInv_impl_Safe : IndInv //\\ TimeBound d |-- Safe.
   Proof with (eauto with rw_rename).
@@ -202,20 +320,42 @@ Module IntervalShim (Import P : IntervalParams).
         solve_linear. } }
   Qed.
 
-  Local Open Scope HP_scope.
+  Lemma IndInv_impl_Safe_quad :
+    IndInv_quad //\\ TimeBound P.d |-- Safe_quad.
+  Proof with (eauto with rw_rename).
+    unfold Safe, TimeBound, IndInv_quad.
+    rewrite_rename_equiv (0 <= "T" <= P.d) rename_quad.
+    rewrite <- Rename_and.
+    apply Proper_Rename_lentails; try reflexivity.
+    apply IndInv_impl_Safe.
+  Qed.
+
+  Lemma W_quad_refines :
+    W_quad g |-- Sys_w Next_quad.
+  Proof.
+    (* Mechanical reasoning about abstractions of
+       differential equations. *)
+  Admitted.
 
   (* Our main safety theorem. *)
-  Lemma Spec_safe :
-    |-- (IndInv //\\ TimeBound d) //\\ []SysSystem Next -->> []Safe.
+  Theorem Interval_safe :
+    |-- (IndInv_quad //\\ TimeBound P.d) //\\
+        []SysSystem (Quadcopter P.d g angle_min
+                                (Sys_D Next_quad))
+        -->> []Safe_quad.
   Proof.
     rewrite Inductively.Preserves_Inv_simple.
-    { rewrite IndInv_impl_Safe.
+    { rewrite IndInv_impl_Safe_quad.
       charge_tauto. }
     { compute; tauto. }
     { apply SafeAndReactive_TimedPreserves.
-      unfold SafeAndReactive. charge_split.
-      { apply TimedPreserves_Next. }
-      { apply SysNeverStuck_Next. } }
+      eapply Quadcopter_refine.
+      { apply P.d_gt_0. }
+      { pose proof angle_min_le_0. solve_linear. }
+      { apply TimedPreserves_Next_quad. }
+      { apply SysNeverStuck_Next. }
+      { unfold Sys_D. unfold small_angle. charge_assumption. }
+      { apply W_quad_refines. } }
   Qed.
 
 End IntervalShim.
