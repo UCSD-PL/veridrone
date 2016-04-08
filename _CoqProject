@@ -48,4 +48,5 @@ examples/UtilPosition.v
 examples/Interval.v
 examples/Rectangle.v
 examples/Cuboid.v
+examples/FourCuboids.v
 examples/FirstOrderStability.v

@@ -365,6 +365,27 @@ Module CuboidShim (Import P : CuboidParams).
     breakAbstraction. intros. solve_linear.
   Qed.
 
+  Definition Next_quad :=
+    Quadcopter P.d P.g P.angle_min (Sys_D Next).
+  
+  Lemma SafeAndReactive_Next_quad :
+    |-- SafeAndReactive d IndInv Next_quad.
+  Proof.
+    unfold Next_quad, Quadcopter.
+    eapply Quadcopter_refine.
+      { apply P.d_gt_0. }
+      { pose proof P.angle_min_bound. solve_linear. }
+      { apply TimedPreserves_Next. }
+      { apply SysNeverStuck_Next. }
+      { unfold Sys_D. pose proof constraints_small_angle.
+        apply next_st_formula_entails in H;
+          [ | intuition | intuition ]. rewrite <- H.
+        rewrite Rename_ok by eauto with rw_rename.
+        repeat rewrite Rename_and. rewrite next_And.
+        rewrite next_Rename. charge_tauto. }
+      { apply W_quad_refines. }
+  Qed.
+
   Theorem Cuboid_safe_quad :
     |-- (IndInv //\\ TimeBound P.d) //\\
         []SysSystem (Quadcopter P.d P.g P.angle_min
@@ -376,18 +397,7 @@ Module CuboidShim (Import P : CuboidParams).
       charge_tauto. }
     { compute; tauto. }
     { apply SafeAndReactive_TimedPreserves.
-      eapply Quadcopter_refine.
-      { apply P.d_gt_0. }
-      { pose proof P.angle_min_bound. solve_linear. }
-      { apply TimedPreserves_Next. }
-      { apply SysNeverStuck_Next. }
-      { unfold Sys_D. pose proof constraints_small_angle.
-        apply next_st_formula_entails in H;
-          [ | intuition | intuition ]. rewrite <- H.
-        rewrite Rename_ok by eauto with rw_rename.
-        repeat rewrite Rename_and. rewrite next_And.
-        rewrite next_Rename. charge_tauto. }
-      { apply W_quad_refines. } }
+      apply SafeAndReactive_Next_quad. }
   Qed.
 
 End CuboidShim.

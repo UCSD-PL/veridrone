@@ -76,4 +76,53 @@ Section quadcopter.
         apply quadcopter_evolve_enabled. } }
   Qed.
 
+  Theorem Quadcopter_refine_SafeAndReactive :
+    forall D W I,
+      |-- SafeAndReactive delta I (Sys D W delta) ->
+      D |-- next small_angle ->
+      W_quad |-- W ->
+      |-- SafeAndReactive delta I (Quadcopter D).
+  Proof.
+    unfold SafeAndReactive. intros. 
+    eapply Quadcopter_refine; eauto.
+    rewrite landL1 in H. eassumption. reflexivity.
+    rewrite landL2 in H. eassumption. reflexivity.
+  Qed.
+
+  Lemma SysDisjoin_Quadcopter' :
+    forall I1 I2 D1 D2,
+        Quadcopter
+          (Sys_D (SysDisjoin I1 (Quadcopter D1)
+                             I2 (Quadcopter D2)))
+    -|- SysDisjoin I1 (Quadcopter D1) I2 (Quadcopter D2).
+  Proof.
+    unfold SysDisjoin, Quadcopter, Sys, Sys_D, Discr. intros.
+    split; charge_cases; try charge_tauto.
+  Qed.
+
+  Lemma SysDisjoin_Quadcopter :
+    forall I1 I2 D1 D2,
+        Quadcopter (SysDisjoin I1 (Sys D1 W_quad delta)
+                               I2 (Sys D2 W_quad delta))
+    -|- SysDisjoin I1 (Quadcopter D1) I2 (Quadcopter D2).
+  Proof.
+    unfold SysDisjoin, Quadcopter, Sys, Sys_D, Discr. intros.
+    split; charge_cases; try charge_tauto.
+  Qed.
+
+  Require Import Coq.Classes.Morphisms.
+  Lemma Proper_Quadcopter_lequiv :
+    Proper (lequiv ==> lequiv) Quadcopter.
+  Proof.
+    morphism_intro. unfold Quadcopter. rewrite H.
+    reflexivity.
+  Qed.
+
+  Lemma Proper_Quadcopter_lentails :
+    Proper (lentails ==> lentails) Quadcopter.
+  Proof.
+    morphism_intro. unfold Quadcopter. rewrite H.
+    reflexivity.
+  Qed.
+
 End quadcopter.
