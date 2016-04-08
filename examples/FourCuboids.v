@@ -33,17 +33,27 @@ Module FourCuboids (A : CuboidParams)
   Proof with (refine _).
     rewrite Inductively.Preserves_Inv_simple...
     { unfold IndInv, Safe. rewrite <- C1.IndInv_impl_Safe.
-      rewrite <- C2.IndInv_impl_Safe. rewrite <- C3.IndInv_impl_Safe.
+      rewrite <- C2.IndInv_impl_Safe.
+      rewrite <- C3.IndInv_impl_Safe.
       rewrite <- C4.IndInv_impl_Safe. apply Always_imp.
-      unfold B.d, C.d, D.d. charge_intros. charge_cases; charge_tauto. }
+      unfold B.d, C.d, D.d. charge_intros.
+      charge_cases; charge_tauto. }
     { apply SafeAndReactive_TimedPreserves.
       apply SysDisjoin_SafeAndReactive...
       { apply SysDisjoin_SafeAndReactive...
-        { unfold SafeAndReactive; charge_split; [ apply C1.TimedPreserves_Next | apply C1.SysNeverStuck_Next ]. }
-        { unfold SafeAndReactive; charge_split; [ apply C2.TimedPreserves_Next | apply C2.SysNeverStuck_Next ]. } }
+        { unfold SafeAndReactive; charge_split;
+          [ apply C1.TimedPreserves_Next |
+            apply C1.SysNeverStuck_Next ]. }
+        { unfold SafeAndReactive; charge_split;
+          [ apply C2.TimedPreserves_Next |
+            apply C2.SysNeverStuck_Next ]. } }
       { apply SysDisjoin_SafeAndReactive...
-        { unfold SafeAndReactive; charge_split; [ apply C3.TimedPreserves_Next | apply C3.SysNeverStuck_Next ]. }
-        { unfold SafeAndReactive; charge_split; [ apply C4.TimedPreserves_Next | apply C4.SysNeverStuck_Next ]. } } }
+        { unfold SafeAndReactive; charge_split;
+          [ apply C3.TimedPreserves_Next |
+            apply C3.SysNeverStuck_Next ]. }
+        { unfold SafeAndReactive; charge_split;
+          [ apply C4.TimedPreserves_Next |
+            apply C4.SysNeverStuck_Next ]. } } }
   Qed.
 
 End FourCuboids.
