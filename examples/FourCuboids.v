@@ -39,11 +39,11 @@ Module FourCuboids (A : CuboidParams)
     { apply SafeAndReactive_TimedPreserves.
       apply SysDisjoin_SafeAndReactive...
       { apply SysDisjoin_SafeAndReactive...
-        { charge_split; [ apply C1.TimedPreserves_Next | apply C1.SysNeverStuck_Next ]. }
-        { charge_split; [ apply C2.TimedPreserves_Next | apply C2.SysNeverStuck_Next ]. } }
+        { unfold SafeAndReactive; charge_split; [ apply C1.TimedPreserves_Next | apply C1.SysNeverStuck_Next ]. }
+        { unfold SafeAndReactive; charge_split; [ apply C2.TimedPreserves_Next | apply C2.SysNeverStuck_Next ]. } }
       { apply SysDisjoin_SafeAndReactive...
-        { charge_split; [ apply C3.TimedPreserves_Next | apply C3.SysNeverStuck_Next ]. }
-        { charge_split; [ apply C4.TimedPreserves_Next | apply C4.SysNeverStuck_Next ]. } } }
+        { unfold SafeAndReactive; charge_split; [ apply C3.TimedPreserves_Next | apply C3.SysNeverStuck_Next ]. }
+        { unfold SafeAndReactive; charge_split; [ apply C4.TimedPreserves_Next | apply C4.SysNeverStuck_Next ]. } } }
   Qed.
 
 End FourCuboids.
