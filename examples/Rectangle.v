@@ -444,18 +444,17 @@ Module RectangleShim (P : RectangleParams).
   Admitted.
 
   Definition Safe : StateFormula :=
-    Rename rename_quad
-           (Rename rename_polar
-                   (Rename rename_x X.Safe //\\
-                    Rename rename_z Z.Safe)).
+    Rename rename_polar
+           (Rename rename_x X.Safe //\\
+            Rename rename_z Z.Safe).
+
+  Definition Safe_quad : StateFormula :=
+    Rename rename_quad Safe.
 
   Lemma IndInv_impl_Safe :
-    IndInv_quad //\\ TimeBound P.d |-- Safe.
+    IndInv //\\ TimeBound P.d |-- Safe.
   Proof with (eauto with rw_rename).
     unfold Safe, TimeBound, IndInv_quad.
-    rewrite_rename_equiv (0 <= "T" <= P.d) rename_quad.
-    rewrite <- Rename_and.
-    apply Proper_Rename_lentails; try reflexivity.
     rewrite_rename_equiv (0 <= "T" <= P.d) rename_polar.
     unfold IndInv. rewrite <- Rename_and.
     apply Proper_Rename_lentails; try reflexivity.
@@ -472,6 +471,16 @@ Module RectangleShim (P : RectangleParams).
       charge_tauto. }
   Qed.
 
+  Lemma IndInv_impl_Safe_quad :
+    IndInv_quad //\\ TimeBound P.d |-- Safe_quad.
+  Proof with (eauto with rw_rename).
+    unfold Safe, TimeBound, IndInv_quad.
+    rewrite_rename_equiv (0 <= "T" <= P.d) rename_quad.
+    rewrite <- Rename_and.
+    apply Proper_Rename_lentails; try reflexivity.
+    apply IndInv_impl_Safe.
+  Qed.
+
   Lemma W_quad_refines :
     W_quad P.g |-- Sys_w Next_quad.
   Proof.
@@ -484,10 +493,10 @@ Module RectangleShim (P : RectangleParams).
     |-- (IndInv_quad //\\ TimeBound P.d) //\\
         []SysSystem (Quadcopter P.d P.g P.pitch_min
                                 (Sys_D Next_quad))
-        -->> []Safe.
+        -->> []Safe_quad.
   Proof.
     rewrite Inductively.Preserves_Inv_simple.
-    { rewrite IndInv_impl_Safe.
+    { rewrite IndInv_impl_Safe_quad.
       charge_tauto. }
     { compute; tauto. }
     { apply SafeAndReactive_TimedPreserves.

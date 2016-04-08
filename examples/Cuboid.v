@@ -7,6 +7,7 @@ Require Import Logic.ProofRules.
 Require Import Examples.System.
 Require Import Examples.Interval.
 Require Import Examples.Rectangle.
+Require Import Examples.Quadcopter.
 Require Import ChargeCore.Tactics.Lemmas.
 Require Import Coq.Strings.String.
 
@@ -122,7 +123,7 @@ Module CuboidShim (Import P : CuboidParams).
                  XZ.Next).
 
   Definition InputConstraint : Formula :=
-      P.angle_min <= "roll" <= P.angle_max //\\ 0 <= "A".
+    P.angle_min <= "roll" <= P.angle_max //\\ 0 <= "A".
 
   (* The full system, with roll input constraints. *)
   Definition Next : ActionFormula :=
@@ -328,18 +329,19 @@ Module CuboidShim (Import P : CuboidParams).
 
   Lemma IndInv_impl_Safe : IndInv //\\ TimeBound P.d |-- Safe.
   Proof with (eauto with rw_rename).
-    unfold Safe. rewrite Rename_and.
+    unfold Safe, TimeBound, IndInv.
+    rewrite_rename_equiv (0 <= "T" <= P.d) rename_polar.
+    rewrite <- Rename_and.
+    apply Proper_Rename_lentails; try reflexivity.
     charge_split.
     { rewrite <- XZ.IndInv_impl_Safe.
-      unfold IndInv, TimeBound.
-      repeat rewrite Rename_and.
+      unfold IndInv, TimeBound. repeat rewrite Rename_and.
       charge_split; [ charge_assumption | ].
       charge_revert. charge_clear.
       repeat rewrite <- (Rename_ok _ rename_x)...
       repeat rewrite <- Rename_ok...
       simpl. restoreAbstraction. charge_tauto. }
-    { rewrite <- Y.IndInv_impl_Safe.
-      unfold IndInv, TimeBound.
+    { rewrite <- Y.IndInv_impl_Safe. unfold IndInv, TimeBound.
       repeat rewrite Rename_and.
       charge_split; [ charge_assumption | ].
       charge_revert. charge_clear.
@@ -348,8 +350,25 @@ Module CuboidShim (Import P : CuboidParams).
       simpl. restoreAbstraction. charge_tauto. }
   Qed.
 
-  Lemma Cuboid_safe :
-    |-- (IndInv //\\ TimeBound P.d) //\\ []SysSystem Next
+  Lemma W_quad_refines :
+    W_quad P.g |-- Sys_w Next.
+  Proof.
+    (* Mechanical reasoning about abstractions of
+       differential equations. *)
+  Admitted.
+
+  Lemma constraints_small_angle :
+    Rename rename_polar XZ.InputConstraint //\\
+    InputConstraint |-- small_angle angle_min.
+  Proof.
+    rewrite <- Rename_ok by eauto with rw_rename.
+    breakAbstraction. intros. solve_linear.
+  Qed.
+
+  Theorem Cuboid_safe_quad :
+    |-- (IndInv //\\ TimeBound P.d) //\\
+        []SysSystem (Quadcopter P.d P.g P.angle_min
+                                (Sys_D Next))
         -->> []Safe.
   Proof.
     rewrite Inductively.Preserves_Inv_simple.
@@ -357,9 +376,18 @@ Module CuboidShim (Import P : CuboidParams).
       charge_tauto. }
     { compute; tauto. }
     { apply SafeAndReactive_TimedPreserves.
-      unfold SafeAndReactive. charge_split.
+      eapply Quadcopter_refine.
+      { apply P.d_gt_0. }
+      { pose proof P.angle_min_bound. solve_linear. }
       { apply TimedPreserves_Next. }
-      { apply SysNeverStuck_Next. } }
+      { apply SysNeverStuck_Next. }
+      { unfold Sys_D. pose proof constraints_small_angle.
+        apply next_st_formula_entails in H;
+          [ | intuition | intuition ]. rewrite <- H.
+        rewrite Rename_ok by eauto with rw_rename.
+        repeat rewrite Rename_and. rewrite next_And.
+        rewrite next_Rename. charge_tauto. }
+      { apply W_quad_refines. } }
   Qed.
 
 End CuboidShim.
