@@ -51,64 +51,29 @@ Section quadcopter.
   Qed.
 
   Theorem Quadcopter_refine :
-    forall D W I A B,
-      is_st_formula A ->
-      is_st_formula B ->
-      |-- TimedPreserves delta I
-          (Sys (D //\\ next B) W delta) ->
-      |-- SysNeverStuck delta I
-          (Sys (D //\\ next B) W delta) ->
-      small_angle -|- A //\\ B ->
-      disjoint_states (next A)
-                      (Discr (D //\\ next B) delta) ->
+    forall D W I,
+      |-- TimedPreserves delta I (Sys D W delta) ->
+      |-- SysNeverStuck delta I (Sys D W delta) ->
+      D |-- next small_angle ->
       W_quad |-- W ->
       |-- TimedPreserves delta I (Quadcopter D) //\\
           SysNeverStuck delta I (Quadcopter D).
   Proof.
-    intros. charge_split.
+    intros.
+    assert (D //\\ next small_angle -|- D)
+      by (split; charge_tauto).
+    charge_split.
     { unfold Quadcopter, TimedPreserves, Preserves in *.
-      charge_intros. charge_apply H1. charge_split.
-      { destruct H3. apply next_st_formula_entails in H3.
-        { rewrite H3. rewrite H5. rewrite next_And.
-          etransitivity. 2:eapply Proper_Sys_lentails.
-          { charge_assumption. }
-          { charge_tauto. }
-          { reflexivity. }
-          { reflexivity. } }
-        { tlaIntuition. }
-        { tlaIntuition. } }
-      { charge_assumption. } }
-    { unfold Quadcopter, SysNeverStuck in *. charge_intros.
-      destruct H3. apply next_st_formula_entails in H6.
-      { rewrite <- H6. rewrite next_And.
-        rewrite limplValid in H2. rewrite H2.
-        repeat rewrite landA. unfold Sys.
-        repeat (rewrite <- Enabled_and_push; [| intuition]).
-        charge_split; [ charge_assumption | ].
-        repeat rewrite <- Enabled_or. charge_cases.
-        { charge_left. unfold Discr.
-          charge_assert (Enabled
-         (next A //\\ (D //\\ next B //\\
-          "T" = 0 //\\ 0 <= ("T") ! <= delta))).
-          { repeat rewrite landA.
-            rewrite <- disjoint_state_enabled.
-            { charge_split.
-              { charge_clear. etransitivity.
-                apply Enabled_small_angle.
-                apply Proper_Enabled_lentails.
-                apply next_st_formula_entails in H3.
-                { rewrite next_And in H3. rewrite H3.
-                  charge_tauto. }
-                { intuition. }
-                { intuition. } }
-              { charge_assumption. } }
-            { rewrite <- landA. auto. } }
-          { charge_clear. charge_intros.
-            apply Proper_Enabled_lentails. charge_tauto. } }
-        { charge_right. rewrite <- quadcopter_evolve_enabled.
-          charge_tauto. } }
-      { intuition. }
-      { intuition. } }
+      rewrite H3. charge_intros. charge_apply H. rewrite H2.
+      charge_tauto. }
+    { unfold Quadcopter, SysNeverStuck, Sys in *.
+      charge_intros. rewrite limplValid in H0. rewrite H0.
+      repeat (rewrite <- Enabled_and_push; [| intuition]).
+      charge_split; [ charge_assumption | ].
+      repeat rewrite <- Enabled_or. charge_cases.
+      { rewrite H3. charge_tauto. }
+      { charge_right. charge_clear.
+        apply quadcopter_evolve_enabled. } }
   Qed.
 
 End quadcopter.

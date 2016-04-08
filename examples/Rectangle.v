@@ -127,24 +127,17 @@ Module RectangleShim (P : RectangleParams).
   Lemma TimedPreserves_Next :
     |-- TimedPreserves P.d IndInv Next.
   Proof with eauto with rw_rename.
-    unfold IndInv, Next.
-    rewrite SysCompose_abstract.
+    unfold IndInv, Next. rewrite SysCompose_abstract.
     unfold NextPolar. unfold SysRename.
-    rewrite Sys_rename_formula...
-    rewrite SysRename_rule...
-    rewrite TimedPreserves_Rename...
-    rewrite SysCompose_simpl.
+    rewrite Sys_rename_formula... rewrite SysRename_rule...
+    rewrite TimedPreserves_Rename... rewrite SysCompose_simpl.
     rewrite <- TimedPreserves_And_simple
-      by (compute; tauto).
-    rewrite Rename_and.
-    charge_split.
-    { rewrite Sys_rename_formula...
-      rewrite SysRename_rule...
+      by (compute; tauto). rewrite Rename_and. charge_split.
+    { rewrite Sys_rename_formula... rewrite SysRename_rule...
       rewrite TimedPreserves_Rename...
       rewrite <- X.TimedPreserves_Next.
       Rename_rewrite. charge_tauto. }
-    { rewrite Sys_rename_formula...
-      rewrite SysRename_rule...
+    { rewrite Sys_rename_formula... rewrite SysRename_rule...
       rewrite TimedPreserves_Rename...
       rewrite <- Z.TimedPreserves_Next.
       Rename_rewrite. charge_tauto. }
@@ -398,6 +391,21 @@ Module RectangleShim (P : RectangleParams).
 
   Definition IndInv_quad := Rename rename_quad IndInv.
 
+  Transparent ILInsts.ILFun_Ops.
+
+  Lemma TimedPreserves_Next_quad :
+    |-- TimedPreserves P.d IndInv_quad Next_quad.
+  Proof with eauto with rw_rename.
+    unfold IndInv_quad, Next_quad.
+    rewrite SysCompose_abstract. unfold SysRename.
+    rewrite Sys_rename_formula... rewrite SysRename_rule...
+    rewrite TimedPreserves_Rename...
+    rewrite <- TimedPreserves_Next. rewrite Rename_True.
+    charge_tauto.
+  Qed.
+
+  Opaque ILInsts.ILFun_Ops.
+
   Lemma SysNeverStuck_Discr_quad :
     IndInv_quad //\\ "T" = 0 |-- Enabled (Sys_D Next_quad).
   Proof.
@@ -464,8 +472,15 @@ Module RectangleShim (P : RectangleParams).
       charge_tauto. }
   Qed.
 
+  Lemma W_quad_refines :
+    W_quad P.g |-- Sys_w Next_quad.
+  Proof.
+    (* Mechanical reasoning about abstractions of
+       differential equations. *)
+  Admitted.
+
   (* Our main safety theorem. *)
-  Lemma Box_safe :
+  Theorem Rectangle_safe :
     |-- (IndInv_quad //\\ TimeBound P.d) //\\
         []SysSystem (Quadcopter P.d P.g P.pitch_min
                                 (Sys_D Next_quad))
@@ -476,16 +491,13 @@ Module RectangleShim (P : RectangleParams).
       charge_tauto. }
     { compute; tauto. }
     { apply SafeAndReactive_TimedPreserves.
-      eapply Quadcopter_refine
-      with (B:=P.pitch_min <= "pitch" <= P.pitch_max)
-           (A:=P.pitch_min<="roll"<=P.pitch_max //\\ 0<="A").
+      eapply Quadcopter_refine.
       { apply P.d_gt_0. }
       { pose proof P.pitch_min_bound. solve_linear. }
-      { intuition. }
-      { intuition. }
-      { etransitivity. apply TimedPreserves_Next.
-        apply Proper_TimedPreserves_lentails; try reflexivity.
-        unfold Basics.flip. unfold Next. 
+      { apply TimedPreserves_Next_quad. }
+      { apply SysNeverStuck_Next. }
+      { unfold Sys_D. unfold small_angle. charge_assumption. }
+      { apply W_quad_refines. } }
   Qed.
 
 End RectangleShim.
