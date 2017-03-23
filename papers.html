@@ -7,6 +7,34 @@ layout: default
   <h2>Papers</h2>
 </div>
 -->
+<p class="lead"><a href="{{ site.baseurl }}/papers/ricketts-dissertation.pdf">Verification of Sampled-Data Systems using Coq</a>
+  <br>
+  &nbsp;&nbsp;&nbsp; Daniel Ricketts
+  <br></p>
+
+<p><b>Abstract:</b>
+Due to their safety-critical nature, cyber-physical systems (CPS) demand
+the most rigorous verification techniques. However, the complexity of the
+domain puts many cyber-physical systems outside the scope of automated
+verification tools. Formal deductive proofs hold the potential to verify
+virtually any property of any system, but proofs for practical
+cyber-physical systems often require an impractical amount of manual
+effort. This proof burden can be mitigated by capturing common reasoning
+patterns in powerful higher-order proof rules. Existing work has focused on
+proof rules applicable to arbitrary hybrid systems (a formal model for
+CPS), but many systems actually fall into more constrained classes. One
+such class of systems are called sampled-data systems, in which a discrete
+controller runs periodically. In this dissertation, we complement general
+hybrid system proof rules with a series of rules that leverage the
+particular structure of sampled-data systems. We demonstrate the
+applicability of these rules on the double integrator, an important model
+in robotic and vehicle systems. All work is formalized in the Coq proof
+assistant, whose expressive logic is crucial to maintaining soundness while
+applying domain-specific proof rules for sampled-data systems. Finally, we
+experimentally evaluate our results by implementing verified controllers on
+a quadcopter and conducting flight tests.
+</p>
+
 <p class="lead"><a href="{{ site.baseurl }}/papers/emsoft2016.pdf">Modular Deductive Verification of Sampled-Data Systems</a> (<a href="http://esweek.org/emsoft/about" target="_blank">EMSOFT 2016</a>)
   <br>
   &nbsp;&nbsp;&nbsp; Daniel Ricketts, Gregory Malecha, Sorin Lerner (UCSD)
